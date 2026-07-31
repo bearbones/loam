@@ -1,5 +1,25 @@
 # loam — log (newest at top)
 
+## 2026-07-31 — play session 8: analog.py, edges and the ladder
+
+polyBLEP saw/pulse (Valimaki band-limited edges), supersaw (7
+detuned saws, JP-8000 layout), Huovilainen-style Moog ladder
+(4 cascaded tanh one-poles, feedback, per-sample scalar loop at
+a fine 0.05s per rendered second).
+
+Verified: polyBLEP drops the alias floor -16.7 -> -41.4 dB;
+ladder self-oscillates at res>1 with the squeal near cutoff (454
+vs 440); slope measures ~17.5 dB/oct vs the ideal 24 and the
+resonance peak sits ~7% flat of nominal — the tanh stages soften
+and warp exactly like hardware under drive, documented as
+character not bug. Supersaw center voice at equal gain was
+re-correlating the channels (bus 0.81); quieter center + near-
+zero bleed -> 0.38.
+
+e08_acid: 15s acid line (pulse through swept ladder, accents,
+filter opening over the loop) + supersaw pad Dm->Bb + four-on-
+floor, everything sidechained to the kick. Seam p64.
+
 ## 2026-07-31 — play session 7: dyn.py, the invisible hand
 
 env_follow (attack/release poles, circular warm), compress
