@@ -1,5 +1,26 @@
 # loam — log (newest at top)
 
+## 2026-07-31 — play session 6: sympathetic strings (the taraf)
+
+strings.sympathetic(): a bank of driven Karplus-Strong loops tuned
+to a chord/scale that hum along with any input — sitar taraf,
+piano-pedal-down, the bone resonating with what strikes it.
+Fractional delays, t60-calibrated, alternating pans, seam-safe via
+full extra warm pass.
+
+Verified: one click in -> all 7 strings ring 59-72 dB above the
+spectral floor at exactly their tuned Hz; resonance selectivity
+2.5x (D pluck vs Eb pluck into a D string, tail energy).
+
+METRIC LESSON #4 tonight (a theme: the instrument is easy, the
+ruler is hard): per-call peak normalization INVERTED the
+selectivity measurement — the resonant ring's big buildup peak got
+scaled down harder than the off-resonant case, measuring 0.1x when
+physics says 2.5x. Cross-call energy comparisons need norm=False;
+the flag now exists and the docstring warns.
+
+e06_taraf: drum groove + psaltery phrase through a D-minor taraf.
+
 ## 2026-07-31 — play session 5: mod.py, the effects that swim
 
 chorus (N-voice wobbling circular delay, per-channel LFO phases),

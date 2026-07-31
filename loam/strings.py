@@ -64,6 +64,59 @@ def pluck(f0: float, dur: float, amp: float = 1.0, t60: float = 2.5,
     return out * amp / (np.max(np.abs(out)) + 1e-12) * 0.9
 
 
+def sympathetic(x: np.ndarray, notes, t60: float = 3.0,
+        damp: float = 0.5, coupling: float = 0.12,
+        mix: float = 0.5, loop: bool = True,
+        norm: bool = True) -> np.ndarray:
+    """A bank of tuned strings that hum along with the input — the
+    sitar's taraf, the piano with the pedal down. Each note is a
+    driven Karplus-Strong loop (fractional delay, damping blend,
+    t60-calibrated gain) fed by the signal; anything tonal in the
+    input wakes the strings that share its pitch classes.
+
+    Stereo in/out; strings alternate pan. loop=True warms each
+    string on a full extra pass (seam-safe when t60 < duration)."""
+    if x.ndim == 1:
+        x = np.stack([x, x], axis=1)
+    n = len(x)
+    drive = x.mean(axis=1) * coupling
+    if loop:
+        drive = np.concatenate([drive, drive])
+    wet = np.zeros((len(drive), 2))
+    for si, midi in enumerate(notes):
+        f = 440.0 * 2.0 ** ((midi - 69) / 12.0)
+        pf = SR / f
+        pi_ = int(pf)
+        frac = pf - pi_
+        rho = 10.0 ** (-3.0 * (pf / SR) / t60)
+        y = np.zeros(len(drive) + pi_ + 2)
+        blk = max(pi_ - 2, 8)
+        i = pi_ + 2
+        while i < len(y):
+            j = min(i + blk, len(y))
+            idx = np.arange(i, j)
+            s0 = (1 - frac) * y[idx - pi_] + frac * y[idx - pi_ - 1]
+            s1 = (1 - frac) * y[idx - pi_ - 1] + frac * y[idx - pi_ - 2]
+            y[i:j] = rho * ((1 - 0.5 * damp) * s0 + 0.5 * damp * s1) \
+                + drive[idx - pi_ - 2]
+            i = j
+        pan = 0.6 * (1 if si % 2 else -1) * (1 - si / max(len(notes), 2) * 0.5)
+        a = (pan + 1.0) * np.pi / 4.0
+        v = y[pi_ + 2:]
+        wet[:, 0] += v * np.cos(a)
+        wet[:, 1] += v * np.sin(a)
+    if loop:
+        wet = wet[n:]
+    if norm:
+        # match wet peak to dry peak for musical mixing — NOTE this
+        # is per-call adaptive gain: cross-call energy comparisons
+        # must pass norm=False (a normalized resonant ring measures
+        # QUIETER than an off-resonant one, purely from its peak)
+        peak_in = np.max(np.abs(x)) + 1e-12
+        wet *= peak_in / (np.max(np.abs(wet)) + 1e-12)
+    return x * (1.0 - mix) + wet * mix
+
+
 def strum(notes, dur: float, amp: float = 1.0, spread_s: float = 0.018,
         seed: int = 0, **kw) -> np.ndarray:
     """Chord with per-string onset spread. Returns mono of length
