@@ -1,5 +1,28 @@
 # loam — log (newest at top)
 
+## 2026-07-30 — play session 3: spectral.py, phase-vocoder surgery
+
+freeze / stretch / cross_synth on hand-rolled STFT (4096/1024 hann).
+- freeze: one frame's magnitudes resynthesized forever; per-frame
+  phase advance + jitter blend (0 = buzzy organ, 1 = noise; ~0.3 =
+  alive-but-still). Wrapped overlap-add = seamless loop. Verified:
+  a church bell frozen mid-ring holds RMS flat to std 0.0015 over
+  12s, seam p93 of a tiny distribution.
+- stretch: classic Flanagan/Dolson phase vocoder with phase
+  unwrapping. 6x on a pluck: duration x5.53 (edge-frame loss),
+  pitch EXACTLY preserved (880.0 -> 880.0 Hz).
+- cross_synth: A's magnitudes on B's phases, `whiten` blends B's
+  per-band envelope, `punch` gates frames by B's broadband energy
+  (the vocoder's envelope follower). Choir x drum groove = the
+  room learns to talk.
+
+Honest metric note: drum-envelope correlation of the talking choir
+plateaus ~0.5-0.6 for ANY frame size (4096 down to 512) — the
+squared-energy metric is dominated by kick-band overlap with the
+choir fundamental and under-reports the audible gating. Lesson:
+when a metric stops responding to the knob that obviously changes
+the sound, suspect the metric before the sound.
+
 ## 2026-07-30 — play session 2: drums.py, the simulated kit
 
 The classic analog drum recipes as library voices (every song so
