@@ -1,5 +1,27 @@
 # loam — log (newest at top)
 
+## 2026-07-30 — play session 2: drums.py, the simulated kit
+
+The classic analog drum recipes as library voices (every song so
+far hand-rolled its own kick): pitch-drop kick with band-limited
+beater click, two-tone + wire-band snare, 808 hat (six-square
+inharmonic cluster through a high bandpass), 808 clap (three fast
+bursts riding a fourth), tom/conga with band-limited skin/slap,
+540+800 Hz square-pair cowbell, rim, shaker. e02: per-voice
+spectral-centroid inspection + an 8-bar groove @102.
+
+Lessons measured, not guessed:
+- Raw noise transients POISON the centroid: first kick read 3913 Hz
+  (a hi-hat number) from 4 ms of unfiltered click; band-limiting
+  the click dropped it to 617 Hz. Same fix tom 5164->873,
+  conga 5979->1290. Centroid inspection catches what peak/RMS miss.
+- Equal-power pan 0.55 is only ~1.6 dB of channel difference —
+  "hard" panning must approach ±1 (0.85 here) to decorrelate.
+- A drums-only loop measures mono-ish (corr 0.82 >250Hz) BECAUSE
+  the snare/clap backbone belongs in the center; alternating
+  hat/shaker pans are the width that actually registers. Judge
+  width targets per-material, not one number for everything.
+
 ## 2026-07-30 — play session 1: the kit grows six limbs
 
 Research: PADsynth (Nasca / ZynAddSubFX docs), FDN reverb design
