@@ -1,5 +1,23 @@
 # loam — log (newest at top)
 
+## 2026-07-31 — play session 9: voice.py, the hermit hums
+
+Source-filter singing (Klatt lineage): Rosenberg glottal pulse
+(flow DERIVATIVE for brightness) with accumulated phase — pitch
+glides can't click — plus jitter, shimmer, delayed vibrato, and
+aspiration breathed through the same formant bank. Parallel
+resonators recomputed per 128 samples so vowels MORPH mid-note
+(diphthongs). sing() renders a legato vocalise from
+[(midi, beats, vowel-or-morph-pair)].
+
+Verified: F1/F2 land 698/1112 vs 730/1090 targets; pitch +8..+18c
+across a line; vibrato 95c p2p (spec 70 + jitter — operatic,
+kept); portamento max-delta clean. e09: the voice SINGS a
+sentence, rests, answers — and the RMS contour proves the grammar
+(0.186 statement / 0.032 rest / 0.202 answer / 0.031 wrap) — the
+standing melody rule, verified numerically for the first time.
+The voice also drives the taraf: the room hums back.
+
 ## 2026-07-31 — play session 8: analog.py, edges and the ladder
 
 polyBLEP saw/pulse (Valimaki band-limited edges), supersaw (7
