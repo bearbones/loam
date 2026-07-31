@@ -1,5 +1,18 @@
 # loam — log (newest at top)
 
+## 2026-07-31 — play session 16: texture.py, weather from statistics
+
+Procedural nature after Farnell's Designing Sound: rain (Poisson
+chirp-droplets over the averaged far wash), wind (noise through
+random-walk wandering resonances — walks close their loops for
+seam safety), fire (crackle + rumble surge + hiss flares). Two
+fixes with lessons: a CLOSED walk doesn't make a seamless
+resonator — the filter STATE must warm on the tail too (wind seam
+p99.2 -> p93); and droplet audibility is a CREST-FACTOR question,
+not an energy question (1.1x energy but 4.9 -> 9.6 crest — 
+transients live in peaks, not sums). e15: rain -> wind -> fire
+triptych, crossfading.
+
 ## 2026-07-31 — play session 15: the gong (modal.py grows a tam-tam)
 
 Real gongs BLOOM — nonlinear mode coupling (Chaigne/Touze plates)
