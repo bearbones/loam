@@ -1,5 +1,15 @@
 # loam — log (newest at top)
 
+## 2026-07-31 — session 17: the front door (pre-digest housekeeping)
+
+README rewritten to index all sixteen modules and — more
+importantly — to enshrine the night's metrology rules ("verify by
+numbers, and distrust the ruler": bus-not-mix, HPS pitch,
+power-weighted centroids, crest for transients, norm=False for
+comparisons, per-material width, secant tuning, quantize test
+inputs). dev_smoke.py: every module imported and exercised — 54
+checks, 0 failures, 1.3s. The library's health is now one command.
+
 ## 2026-07-31 — play session 16: texture.py, weather from statistics
 
 Procedural nature after Farnell's Designing Sound: rain (Poisson
