@@ -1,5 +1,40 @@
 # loam — log (newest at top)
 
+## 2026-07-30 — play session 4: winds.py, the flute that tunes itself
+
+Waveguide flute after Cook's slide-flute (jet delay -> cubic x-x^3
+-> bore delay -> reflection lowpass back into both). ney() preset =
+breathier, darker. Overblow is PHYSICAL: shorten the jet delay
+(faster air) and the octave speaks — verified x2.005.
+
+This one fought back; the debugging trail is the treasure:
+- Waveguide tuning: compensate the reflection filter's phase delay
+  AT f0, not its DC limit c/(1-c) (DC limit alone left the high
+  register 47c sharp... then the compensation masked the real bug).
+- The cubic's zeros at +-1 KILL the jet if pressure pins it there —
+  overblow-by-pressure died to silence; keep the operating point
+  inside |x| < 1/sqrt(3) and overblow by jet delay instead.
+- Mode competition is winner-take-all chaos: ~15-25% of (note,
+  seed) combos speak the 12th, deterministic per seed, IMMUNE to
+  priming (drive-path or bore-preload), filter slope, and pressure.
+  Accepted fix: THE INSTRUMENT LISTENS TO ITSELF — render, measure,
+  reseed on wrong mode, retune on wrong pitch (8/48 escapes -> 0-1).
+- argmax-pitch LIES: a note whose 3rd harmonic edges the
+  fundamental by 4% reads as a mode jump that never happened
+  (chased that ghost for two rounds). Harmonic product spectrum
+  (sp[k]*sp[2k]*sp[3k]) is the honest fundamental detector.
+- Unit-gain pitch correction PING-PONGS when the plant gain is ~2
+  (A4 oscillated +-140c forever): secant-method steps (estimate
+  local gain from the last two takes) converge. Fractional delay
+  on BOTH lines or the response staircases.
+- Never measure one pitch inside a mix — the in-context check
+  read the glass drone under every ney note (-1200c exactly).
+  Verify stems, then mix.
+
+State: mean |err| 22c, worst ~55c (flute), ney preset looser
+(+-80c observed) — folk intonation, honestly documented. e04: 32s
+ney sentence over bowed glass, overblown peak, seam p26.
+
 ## 2026-07-30 — play session 3: spectral.py, phase-vocoder surgery
 
 freeze / stretch / cross_synth on hand-rolled STFT (4096/1024 hann).
