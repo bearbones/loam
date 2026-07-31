@@ -1,5 +1,16 @@
 # loam — log (newest at top)
 
+## 2026-07-31 — play session 14: rhythm.py, the composer's graph paper
+
+euclid (Bjorklund, verified against Toussaint's canon: 3/8
+tresillo, 5/8 cinquillo, 5/16 bossa, 5/12 bell — counts exact,
+max-evenness proven), rotate/swing/prob/onsets, and SCALES — the
+interval tables loam has been hardcoding per-song (hijaz, hijaz
+kar, nahawand, kurd, modes, pentatonics) with scale_notes and
+quantize_to. e13: five kit voices each on their own euclid
+(5/16, 3/8, 7/16 swung, 11/16, 2/5 cross-meter) with a Hijaz Kar
+psaltery walk on euclid(5,12) — onset counts verified per bar.
+
 ## 2026-07-31 — play session 13: "The Long Stair" (capstone)
 
 96s seamless piece playing EVERYTHING from tonight at once: the
