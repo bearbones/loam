@@ -1,5 +1,21 @@
 # loam — log (newest at top)
 
+## 2026-07-31 — play session 5: mod.py, the effects that swim
+
+chorus (N-voice wobbling circular delay, per-channel LFO phases),
+flanger (short sweeping comb, unrolled feedback), phaser (cascaded
+time-varying allpasses, 128-sample piecewise-constant blocks).
+LFOs cycle-quantized, reads circular — loop-safe by construction.
+
+Verified: chorus mono->stereo corr 1.000 -> 0.693; phaser notch
+contrast +12 dB with allpass RMS ratio exactly 1.000; flanger comb
+= 6x autocorrelation peak at its delay lag. Metric lesson again:
+spectral contrast on 50ms of noise is ~30 dB of intrinsic variance
+(useless for combs) — autocorrelation at the delay lag is the
+honest comb detector; note the peak smears across the sweep range,
+that's the sweep working. e05_swim: pad dry->chorus->+phaser
+halves, drums through jet-plane flanger.
+
 ## 2026-07-30 — play session 4: winds.py, the flute that tunes itself
 
 Waveguide flute after Cook's slide-flute (jet delay -> cubic x-x^3
