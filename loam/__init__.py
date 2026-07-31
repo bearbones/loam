@@ -95,7 +95,13 @@ def write_wav(path: str, data: np.ndarray) -> None:
 
 
 def seam_report(data: np.ndarray) -> str:
-    """The loop-seam check: |first - last| vs typical adjacent delta."""
+    """The loop-seam check. The wrap step |x[0] - x[-1]| is CLICKLESS
+    when it is an unremarkable member of the adjacent-sample-delta
+    distribution — report its percentile rank (<= ~0.999 passes; a
+    genuine click sits far beyond the distribution max)."""
     step = float(np.max(np.abs(data[0] - data[-1])))
-    typ = float(np.mean(np.abs(np.diff(data[:SR], axis=0))))
-    return f"seam step={step:.4f} (typical adjacent delta={typ:.4f})"
+    dd = np.abs(np.diff(data, axis=0))
+    rank = float((dd < step).mean())
+    return (f"seam step={step:.4f} rank=p{100 * rank:.1f} "
+            f"(dist p50={np.percentile(dd, 50):.4f} "
+            f"max={dd.max():.4f})")
