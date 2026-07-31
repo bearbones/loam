@@ -1,5 +1,20 @@
 # loam — log (newest at top)
 
+## 2026-07-31 — play session 13: "The Long Stair" (capstone)
+
+96s seamless piece playing EVERYTHING from tonight at once: the
+barberpole falls forever under a padsynth bed (the descent that
+never arrives), church bells through the ir_bone convolution mark
+the depths, psaltery on tape echo, ladder-filtered pulse bass,
+sparse kick ducking every bus, the voice sings its sentence and
+rests, the ney replies with one overblown peak, and the taraf
+hums back at all of them. FDN room on the melodic bus, limiter
+on the master.
+
+First-take render: seam p27, sectional rms 0.151/0.176/0.173/
+0.162 (breathes, doesn't lurch), peak 0.900. Thirteen modules,
+one instrument.
+
 ## 2026-07-31 — play session 12: lofi.py, age as an effect
 
 gramophone() / worn_tape(): wow+flutter (cycle-quantized time
