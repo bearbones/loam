@@ -1,5 +1,27 @@
 # loam — log (newest at top)
 
+## 2026-07-31 — play session 7: dyn.py, the invisible hand
+
+env_follow (attack/release poles, circular warm), compress
+(feed-forward, log domain, soft knee), duck (proper sidechain —
+the kick-duck every song hand-rolled, retired), transient
+(fast-minus-slow differential shaper), limiter (lookahead sliding
+max via maximum_filter1d — the first draft's index-matrix version
+wanted 700 MB for 16s).
+
+Verified crisp: compressor +12 dB step in -> +5.0 out (spec +4.5,
+rest is follower ripple); duck depth 9.0 dB on a 9 spec and -10.0
+on a 10; transient +6.0/+0.1 attack/sustain; limiter ceiling
+0.950 exact with bit-exact passthrough below.
+
+Metric lesson #5 (the theme hardened into a rule): MEASURE THE
+BUS, NOT THE MIX — in the full mix the kick owns the very windows
+where the duck acts, and the comparison buried itself (0.306 vs
+0.301). Same failure as the drone-under-ney and the normalized
+taraf. RULE: verify a processor on its own bus, pre-mix, always.
+
+e07_pump: four-on-floor, pad unducked first half / ducked second.
+
 ## 2026-07-31 — play session 6: sympathetic strings (the taraf)
 
 strings.sympathetic(): a bank of driven Karplus-Strong loops tuned
