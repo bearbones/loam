@@ -99,3 +99,55 @@ def bow(f0: float, dur: float, table, amp: float = 1.0,
         breath = rng.standard_normal(n) * 0.006
         m += breath
     return m * env * amp / (np.max(np.abs(m * env)) + 1e-12) * 0.9
+
+
+def gong(f0: float = 62.0, t60: float = 8.0, amp: float = 1.0,
+        bloom_s: float = 1.1, bloom_amt: float = 0.8,
+        seed: int = 0) -> np.ndarray:
+    """Tam-tam. Real gongs BLOOM: nonlinear mode coupling cascades
+    strike energy upward, so the shimmer arrives AFTER the thud
+    (Chaigne/Touze nonlinear plates). Simulated three ways at once:
+    a dense inharmonic low mode bed that speaks immediately; a high
+    shimmer bed whose envelope RISES over bloom_s before decaying;
+    and strike-dependent pitch flattening (big plates go momentarily
+    sharp then settle). Verification: spectral centroid must RISE
+    from strike into the bloom."""
+    rng = np.random.default_rng(seed)
+    dur = t60 * 1.05
+    n = int(dur * SR)
+    tt = np.arange(n) / SR
+    # the cascade envelope: energy leaves the low modes and arrives
+    # in the shimmer (real coupling conserves it; we fake the
+    # transfer explicitly — without the low-bed dip the thud owns
+    # the power spectrum and no bloom ever registers)
+    rise = (tt / bloom_s) ** 2 * np.exp(1.0 - tt / bloom_s)
+    rise = np.clip(rise, 0.0, 1.0)
+    low = np.zeros(n)
+    for _ in range(14):
+        r = float(rng.uniform(1.0, 6.0)) ** 1.3
+        f = f0 * r
+        dec = 6.91 / (t60 * float(rng.uniform(0.5, 1.0)) / r ** 0.4)
+        bend = 1.0 + 0.012 * np.exp(-tt * 6.0)     # settles flat
+        g = float(rng.uniform(0.4, 1.0)) / r ** 0.5
+        low += g * np.sin(2 * np.pi * f * bend * tt
+                + float(rng.uniform(0, 6.28))) * np.exp(-tt * dec)
+    m = low * (1.0 - 0.55 * bloom_amt * rise)
+    for _ in range(24):
+        r = float(rng.uniform(8.0, 40.0))
+        f = f0 * r
+        if f > SR * 0.42:
+            continue
+        dec = 6.91 / (t60 * float(rng.uniform(0.15, 0.45)))
+        g = float(rng.uniform(0.3, 1.1)) / r ** 0.25
+        m += bloom_amt * g * np.sin(2 * np.pi * f * tt
+                + float(rng.uniform(0, 6.28))) \
+            * rise * np.exp(-tt * dec)
+    # the strike itself: brief dark thump
+    kn = int(0.03 * SR)
+    thump = rng.standard_normal(kn) * np.exp(-np.arange(kn) / (kn * 0.2))
+    from scipy.signal import butter as _b, sosfilt as _s
+    m[:kn] += _s(_b(2, 500, btype="low", fs=SR, output="sos"),
+            thump) * 1.2
+    a_n = max(int(0.002 * SR), 1)
+    m[:a_n] *= np.linspace(0, 1, a_n)
+    return m * amp / (np.max(np.abs(m)) + 1e-12) * 0.9

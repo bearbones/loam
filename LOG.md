@@ -1,5 +1,22 @@
 # loam — log (newest at top)
 
+## 2026-07-31 — play session 15: the gong (modal.py grows a tam-tam)
+
+Real gongs BLOOM — nonlinear mode coupling (Chaigne/Touze plates)
+cascades strike energy upward, shimmer arriving AFTER the thud.
+gong() fakes the cascade honestly: the low-mode bed DIPS as the
+shimmer envelope rises (energy visibly moves), strike-bend
+settles flat, dark thump.
+
+Double metric lesson: LINEAR-magnitude centroid lied in both
+directions (bin-count bias made the silent tail read 'bright');
+POWER-weighted centroid then exposed that the first synth had no
+bloom at all — the fix had to be physics (the transfer), not the
+ruler. Bloom now verified across seeds: centroid rises into ~1s
+then falls (182->226->64 shape).
+
+e14: three gongs (G1/D2/G2) into the FDN tail.
+
 ## 2026-07-31 — play session 14: rhythm.py, the composer's graph paper
 
 euclid (Bjorklund, verified against Toussaint's canon: 3/8
