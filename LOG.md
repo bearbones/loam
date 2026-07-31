@@ -1,5 +1,24 @@
 # loam — log (newest at top)
 
+## 2026-07-31 — play session 12: lofi.py, age as an effect
+
+gramophone() / worn_tape(): wow+flutter (cycle-quantized time
+warp), Poisson crackle (fine dust + rare big pops), surface hiss,
+soft-edged dropouts, 60 Hz hum, the bandwidth funnel with a horn
+resonance, tanh squash.
+
+Parameterization bug worth remembering: first draft specified
+wobble depth as POSITION (seconds), so pitch deviation scaled
+with wobble RATE — the fast flutter swung 3x harder than the slow
+wow (161 cents of warble!). Depths now mean PITCH fraction;
+position amplitude = depth/(2*pi*rate). Measured after: 25.6c p2p
+on a 21c design. Pop counter needed a 15ms refractory window (one
+oscillating snap = dozens of threshold crossings; 15.7/s read on
+a 1.2/s design).
+
+e12: the night's own vocalise, dry for the statement — then the
+needle drops. Band funnel measured 34 dB.
+
 ## 2026-07-31 — play session 11: shift.py, sidebands and the staircase
 
 Bode frequency shifter via circular FFT Hilbert — every partial
