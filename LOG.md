@@ -1,5 +1,23 @@
 # loam — log (newest at top)
 
+## 2026-07-31 — play session 10: convolution spaces, rooms that don't exist
+
+space.py grew synthesized impulse responses + convolution:
+ir_room (4-band noise, per-band decay — highs die faster, early
+reflection sparks), ir_tank (the decay RINGS: inharmonic decaying
+sines over a short wash), ir_bone (MARROW's own: 900-3200 Hz
+cavity chitter, dense early cluster), convolve_loop (CIRCULAR
+convolution — seamless by mathematical construction, the most
+elegant loop-safety in the library: no warming, no wrapping code,
+the DFT does it), convolve_tail (linear, for one-shots).
+
+Verified: Schroeder band-T60s land on design (2.09 vs 2.0 mid,
+1.15 vs 0.9 high); tank tail spectral contrast 10,000x (rings);
+bone band contrast 23.7 dB; circular seam within distribution.
+e10: one bell + psaltery phrase through all three rooms back to
+back — tail rms/centroid separate them numerically (cathedral
+.0052/2563, tank .0035/1827, bone .0024/3016).
+
 ## 2026-07-31 — play session 9: voice.py, the hermit hums
 
 Source-filter singing (Klatt lineage): Rosenberg glottal pulse

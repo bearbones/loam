@@ -141,3 +141,108 @@ def tape_echo_loop(x: np.ndarray, loop_s: float, delay_s: float,
         if g < 1e-3:
             break
     return x + wet * mix
+
+
+# ---------------------------------------------------------------
+# Convolution spaces: synthesized impulse responses + circular
+# convolution. A loop convolved CIRCULARLY with an IR is seamless
+# by mathematical construction — the tail wraps into bar 1 because
+# that is literally what circular convolution means. The IRs are
+# designed, not sampled: rooms that don't exist.
+
+def ir_room(t60: float = 2.0, size: float = 1.0,
+        bright: float = 0.5, er_count: int = 8,
+        seed: int = 0) -> np.ndarray:
+    """Generic room: 4-band noise with per-band decay (highs die
+    faster as `bright` falls) + sparse early reflections."""
+    from scipy.signal import butter as _butter, sosfilt as _sosfilt
+    rng = np.random.default_rng(seed)
+    n = int(t60 * 1.15 * SR)
+    tt = np.arange(n) / SR
+    ir = np.zeros((n, 2))
+    bands = [(20, 250, 1.25), (250, 1000, 1.0),
+             (1000, 4000, 0.45 + 0.55 * bright),
+             (4000, 14000, 0.2 + 0.5 * bright)]
+    for lo, hi, tmul in bands:
+        sos = _butter(2, [lo, hi], btype="band", fs=SR, output="sos")
+        for ch in range(2):
+            nz = _sosfilt(sos, rng.standard_normal(n))
+            ir[:, ch] += nz * np.exp(-6.91 * tt / (t60 * tmul))
+    ir[: int(0.003 * SR)] *= np.linspace(0, 1, int(0.003 * SR))[:, None]
+    for _ in range(er_count):
+        at = int(rng.uniform(0.004, 0.05) * size * SR)
+        g = rng.uniform(0.2, 0.7)
+        ch = rng.integers(0, 2)
+        if at < n:
+            ir[at, ch] += g
+    ir[0, 0] += 1.0
+    ir[0, 1] += 1.0
+    return ir / np.max(np.abs(ir))
+
+
+def ir_tank(t60: float = 1.6, modes: int = 9,
+        seed: int = 0) -> np.ndarray:
+    """Metal tank: the decay RINGS — inharmonic decaying sines on
+    top of a short dark wash."""
+    rng = np.random.default_rng(seed)
+    n = int(t60 * 1.15 * SR)
+    tt = np.arange(n) / SR
+    ir = ir_room(t60 * 0.4, 0.7, 0.3, 5, seed) * 0.5
+    ir = np.vstack([ir, np.zeros((n - len(ir), 2))])
+    for _ in range(modes):
+        f = rng.uniform(300, 4200)
+        ring = np.sin(2 * np.pi * f * tt + rng.uniform(0, 6.28)) \
+            * np.exp(-6.91 * tt / (t60 * rng.uniform(0.5, 1.0)))
+        pan = rng.uniform(0.2, 0.8)
+        ir[:, 0] += ring * 0.10 * pan
+        ir[:, 1] += ring * 0.10 * (1 - pan)
+    return ir / np.max(np.abs(ir))
+
+
+def ir_bone(t60: float = 1.1, seed: int = 0) -> np.ndarray:
+    """MARROW's own: a resonant cavity in old bone — bandpassed
+    900-3200 Hz chitter, fast dense early cluster, dry low end."""
+    from scipy.signal import butter as _butter, sosfilt as _sosfilt
+    rng = np.random.default_rng(seed)
+    n = int(t60 * 1.15 * SR)
+    tt = np.arange(n) / SR
+    ir = np.zeros((n, 2))
+    sos = _butter(2, [900, 3200], btype="band", fs=SR, output="sos")
+    for ch in range(2):
+        nz = _sosfilt(sos, rng.standard_normal(n))
+        ir[:, ch] = nz * np.exp(-6.91 * tt / t60)
+    for _ in range(24):                      # the chitter cluster
+        at = int(rng.uniform(0.001, 0.02) * SR)
+        ir[at, rng.integers(0, 2)] += rng.uniform(0.3, 0.9)
+    ir[0] += 0.8
+    return ir / np.max(np.abs(ir))
+
+
+def convolve_loop(x: np.ndarray, ir: np.ndarray,
+        mix: float = 0.35) -> np.ndarray:
+    """CIRCULAR convolution of a stereo loop with a stereo IR —
+    seamless by construction (requires len(ir) <= len(x))."""
+    n = len(x)
+    wet = np.zeros_like(x)
+    for ch in range(2):
+        irp = np.zeros(n)
+        irp[: min(len(ir), n)] = ir[: min(len(ir), n), ch]
+        wet[:, ch] = np.fft.irfft(np.fft.rfft(x[:, ch])
+                * np.fft.rfft(irp), n)
+    wet *= np.max(np.abs(x)) / (np.max(np.abs(wet)) + 1e-12)
+    return x * (1.0 - mix) + wet * mix
+
+
+def convolve_tail(x: np.ndarray, ir: np.ndarray,
+        mix: float = 0.35) -> np.ndarray:
+    """Linear convolution — returns x extended by the IR tail."""
+    from scipy.signal import fftconvolve
+    if x.ndim == 1:
+        x = np.stack([x, x], axis=1)
+    n_out = len(x) + len(ir) - 1
+    wet = np.zeros((n_out, 2))
+    for ch in range(2):
+        wet[:, ch] = fftconvolve(x[:, ch], ir[:, ch])
+    wet *= np.max(np.abs(x)) / (np.max(np.abs(wet)) + 1e-12)
+    dry = np.vstack([x, np.zeros((len(ir) - 1, 2))])
+    return dry * (1.0 - mix) + wet * mix
