@@ -1,0 +1,5 @@
+render/
+*.wav
+*.ogg
+*.mp3
+__pycache__/
