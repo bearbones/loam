@@ -1,5 +1,24 @@
 # loam — log (newest at top)
 
+## 2026-07-31 — play session 11: shift.py, sidebands and the staircase
+
+Bode frequency shifter via circular FFT Hilbert — every partial
+moves by the same Hz (not ratio): harps become bells, voices
+ghosts. Ring mod alongside. Seam-craft-native: the analytic
+signal is circular by definition, shift quantized to whole
+cycles/loop. barber() = feedback delay with a shift inside the
+loop: every echo returns a few Hz higher — the endless staircase.
+
+Verified EXACT: 220/440/660 +37 -> 257/477/697 with the original
+at -240 dB; ring 440x100 -> 340/540; psaltery stem 587/880 ->
+631/924 (+44.0 on the nose, checked on the BUS per the rule —
+the first check read the mix and saw only the pad). One test bug
+worth keeping: an unquantized INPUT chord failed the barber seam
+check at p100 — the module was innocent; quantize test inputs too.
+
+e11: psaltery dry then ghost-shifted over a forever-rising
+barber wash. Seam p41.
+
 ## 2026-07-31 — play session 10: convolution spaces, rooms that don't exist
 
 space.py grew synthesized impulse responses + convolution:
