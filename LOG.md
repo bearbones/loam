@@ -1,5 +1,25 @@
 # loam — log (newest at top)
 
+## 2026-08-04 — session 18c: the transmission
+
+e18 "The Transmission" (32s @60): the alien palette measured.
+- Ring mod on a sung vocalise (Radiophonic trick): dry C4
+  fundamental suppressed to 0.05x, sidebands land at exactly
+  f +- 111 Hz at ~0.5x each. The formant MOTION survives the
+  destroyed harmonic series — it still speaks, but it's metal.
+- Bode shifter on an airy 'oo' pad: partial 2 measured moving
+  +4.0 Hz for a +3.69 Hz shift (within the 0.5 Hz bin) — every
+  partial moves the same ABSOLUTE amount, the sheen no detune
+  can make.
+- Theremin answer: pure sine whose f0 steps land BETWEEN the
+  keys (float midi), 0.38 s portamento kernel — the swoop is the
+  melody, vibrato arrives late.
+- Grain debris: the sung phrase scattered +12/+19, shifted with
+  the pad so the sparkle disagrees with itself the same way.
+Sub trimmed from loudest-thing-in-the-piece (0.071) to floor
+(0.046); soloists centered by intent, width +0.45 from pad and
+debris. seam p68.6.
+
 ## 2026-08-04 — session 18b: the forge
 
 e17 "The Forge" (25.7s, F @112): Rheingold by way of the boiler
