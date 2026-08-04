@@ -57,7 +57,7 @@ Transformations & effects:
   the scale/maqam tables.
 
 `songs/` — finished pieces (The Bore, Reel Home, the hermit suite,
-Reliquary, The Long Stair). `experiments/` — one idea per script,
+Reliquary, The Long Stair, The Alembic). `experiments/` — one idea per script,
 rendered and measured. `render/` — output audio (gitignored).
 `LOG.md` — what was tried, what it sounded like, what was learned.
 

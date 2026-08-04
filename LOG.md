@@ -1,5 +1,25 @@
 # loam — log (newest at top)
 
+## 2026-08-04 — session 18d: The Alembic (capstone)
+
+songs/the_alembic.py — 76.2s, E minor @63, 20 bars, the three
+worlds in one seamless loop: simmer (cauldron + creamy pad,
+freq-shifted +2.6 Hz so the whole room is slightly wrong) ->
+work (E3 anvils 3:2 vs escapement, bar stock humming, boiler
+chuff) -> pour (plink polyrhythm + glass stirs, anvils lighter)
+-> transmission (ring-mod vocalise @113 Hz carrier, theremin
+swoop, grain debris) -> settle (plink echoes, steam sigh, back
+to simmer). Ratchet winding-bursts mark every section seam; the
+transmission's ping-pong tail wraps the loop and haunts bar 1.
+
+The arc, measured per section: 0.085 / 0.124 / 0.133 / 0.145 /
+0.088 rms — rises to the transmission, settles for the wrap.
+Plinks -3c, taraf 3.57x tuned/detuned, seam p82.4, width +0.49
+with centered soloists by intent. First draft buried the voice
+under the pad (0.028 vs 0.049 in its own section — full-loop rms
+understates sparse buses by sqrt(duty), scale before comparing);
+climax now wins its bars.
+
 ## 2026-08-04 — session 18c: the transmission
 
 e18 "The Transmission" (32s @60): the alien palette measured.
