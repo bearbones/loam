@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 t0 = time.time()
 from loam import SR, hz, Loop, stereo, ad_env, seam_report
 from loam.pads import padsynth_stereo, saw_amps, formant_amps, VOWELS
-from loam.modal import strike, bow, gong, CHURCH_BELL, GLASS
+from loam.modal import strike, bow, gong, CHURCH_BELL, GLASS, ANVIL
 from loam.strings import pluck, strum, sympathetic
 from loam.winds import flute, ney
 from loam.voice import sing
@@ -48,6 +48,8 @@ def ok(name, arr, allow_nan=False):
 ok("padsynth", padsynth_stereo(2.0, hz(50), saw_amps(8), seed=1))
 ok("formants", np.array(formant_amps(hz(50), 12, VOWELS["ah"])))
 ok("strike", strike(hz(57), 0.5, CHURCH_BELL))
+ok("anvil", strike(195.0, 1.0, ANVIL, knock=0.3,
+        rng=np.random.default_rng(1)))
 ok("bow", bow(hz(69), 0.8, GLASS))
 ok("gong", gong(62.0, 1.5, seed=1))
 ok("pluck", pluck(hz(62), 0.5))

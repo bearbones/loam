@@ -19,7 +19,7 @@ Instruments:
 
 - `pads` — PADsynth (Nasca): Gaussian-band spectra on the loop's own
   DFT grid; seam cannot exist. Formant-shaped amps = seamless choir.
-- `modal` — struck/bowed mode tables: bells, church bell, marimba,
+- `modal` — struck/bowed mode tables: bells, church bell, anvil, marimba,
   xylophone, glass, wood; `gong()` blooms (energy visibly cascades
   upward after the strike).
 - `strings` — Karplus-Strong pluck/strum (Jaffe-Smith refinements)

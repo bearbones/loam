@@ -15,6 +15,12 @@ time. Tables below come from the literature / measured analyses:
   sounds hollow/quinty and marimba sounds round).
 - GLASS: wine-glass shell modes, near 1 : 2.32 : 4.25 : 6.63.
 - WOOD: a few dense fast-dying modes — knock, not tone.
+- ANVIL: designed, not measured (documented honestly): the clank
+  is the fundamental body mode dying fast; the RING that carries
+  across the smithy is a tight inharmonic pair of face modes
+  (2.72 : 2.736 — beat rate 0.016*f0, ~3 Hz on a 200 Hz strike)
+  with the longest ring in the table, plus sparse inharmonic
+  uppers. Strike with bright>1 and knock for hammer contact.
 
 Mode table format: (ratio, amp, ring) where ring scales t60.
 """
@@ -38,6 +44,10 @@ GLASS = [(1.0, 1.0, 1.0), (2.32, 0.45, 0.75), (4.25, 0.18, 0.5),
         (6.63, 0.08, 0.3), (9.38, 0.03, 0.2)]
 WOOD = [(1.0, 1.0, 1.0), (1.47, 0.7, 0.8), (2.09, 0.55, 0.6),
         (2.56, 0.4, 0.5), (3.35, 0.3, 0.4), (4.83, 0.2, 0.3)]
+ANVIL = [(1.0, 0.65, 0.30), (1.51, 0.25, 0.22),
+        (2.72, 1.0, 1.0), (2.736, 0.92, 1.0),
+        (3.97, 0.35, 0.45), (5.42, 0.30, 0.38),
+        (6.79, 0.18, 0.22), (8.21, 0.12, 0.14), (9.73, 0.07, 0.09)]
 
 
 def strike(f0: float, t60: float, table, amp: float = 1.0,
