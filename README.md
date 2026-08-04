@@ -33,7 +33,10 @@ Instruments:
   clap, square-pair cowbell, pitch-drop kick, toms, congas, shaker.
 - `analog` — polyBLEP saw/pulse, JP-8000 supersaw, Moog ladder
   (tanh Huovilainen; self-oscillates above res 1).
-- `texture` — Farnell-style procedural rain / wind / fire.
+- `texture` — Farnell-style procedural rain / wind / fire, plus
+  van den Doel bubbles: Minnaert-resonance damped sines with the
+  signature rising chirp; `bubbles()` populations (fizz, glugs,
+  simmer), `bubble()` doubles as a pitched plink voice.
 
 Transformations & effects:
 
