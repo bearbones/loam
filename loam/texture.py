@@ -184,13 +184,35 @@ def bubbles(loop_s: float, rate: float = 16.0, size: float = 0.5,
             sosfilt(sos_s, rng.standard_normal(n))], axis=1)
     wob = 1.0 + 0.45 * _closed_walk(n, rng, 1.5)
     out += bed * 0.11 * simmer * wob[:, None]
+
+    def place(b, pan, wall=0.0):
+        # level pan + interaural delay + one opposite-wall
+        # reflection: a level-panned mono blip stays lag-0
+        # correlated at ANY pan; the far-ear delay and the pot's
+        # own wall bounce are what decorrelate a population
+        ch = stereo(b, pan)
+        itd = int(abs(pan) * 0.0009 * SR)
+        if itd:
+            far = 0 if pan > 0 else 1
+            ch = np.vstack([ch, np.zeros((itd, 2))])
+            ch[itd:, far] = ch[:len(b), far].copy()
+            ch[:itd, far] = 0.0
+        if wall > 0.0:
+            dly = int(rng.uniform(0.003, 0.008) * SR)
+            refl = stereo(b * wall, -pan * 0.8)
+            ch = np.vstack([ch, np.zeros(
+                    (max(dly + len(b) - len(ch), 0), 2))])
+            ch[dly:dly + len(b)] += refl
+        return ch
+
     f_lo, f_hi = 700.0 * 2.0 ** (-size), 4000.0 * 2.0 ** (-size)
     for _ in range(int(rate * loop_s)):
         at = rng.uniform(0, loop_s)
         f0 = float(np.exp(rng.uniform(np.log(f_lo), np.log(f_hi))))
         b = bubble(f0, chirp=chirp * rng.uniform(0.7, 1.4),
                 amp=(f_lo / f0) ** 0.8 * rng.uniform(0.3, 1.0) * 0.22)
-        ch = stereo(b, float(rng.uniform(-0.85, 0.85)))
+        pan = float(rng.uniform(0.35, 0.95) * rng.choice([-1, 1]))
+        ch = place(b, pan, wall=0.4)
         idx = (int(at * SR) + np.arange(len(ch))) % n
         np.add.at(out, idx, ch)
     for _ in range(max(int(glug_rate * loop_s), 0)):
@@ -198,7 +220,7 @@ def bubbles(loop_s: float, rate: float = 16.0, size: float = 0.5,
         f0 = rng.uniform(70.0, 220.0)
         b = bubble(f0, chirp=chirp * rng.uniform(1.2, 2.0),
                 amp=rng.uniform(0.35, 0.7))
-        ch = stereo(b, float(rng.uniform(-0.5, 0.5)))
+        ch = place(b, float(rng.uniform(-0.5, 0.5)))
         idx = (int(at * SR) + np.arange(len(ch))) % n
         np.add.at(out, idx, ch)
     return out

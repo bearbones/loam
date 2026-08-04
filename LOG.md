@@ -1,5 +1,44 @@
 # loam — log (newest at top)
 
+## 2026-08-04 — session 18: the potion (bubbles, and an anvil)
+
+Director's brief for the new season: space alien sci-fi, bubbling
+potions, industrial workshop (Rheingold hammers by way of the
+Spirited Away boiler room); polyrhythms, timbre words (airy,
+swoopy, creamy, crisp), stereo space without gimmicks.
+
+New instruments:
+- texture.bubble()/bubbles() — van den Doel liquid sounds: damped
+  sine at the Minnaert resonance with the signature RISING chirp
+  f(t) = f0(1 + 0.1 d t), d = 0.13 f0 + 0.0072 f0^1.5. Measured
+  within 1% of prediction at three sizes, and the rise ratio is
+  SCALE-INVARIANT (~1.41, +590 cents: ring time ~ 1/d cancels
+  chirp rate ~ d) — why mixed sizes read as one material.
+- modal.ANVIL — designed, documented as such: fast clank
+  fundamental under a tight inharmonic face-mode pair
+  (2.72:2.736) with the longest ring. Measured: ring t60 3.4x
+  clank, beat 3.0 Hz vs 3.12 designed.
+
+e16 "The Potion" (30.5s, E minor penta @63): bubbles() cauldron;
+creamy pad (steep-tilt PADsynth through slow chorus); two plink
+voices — bubble() as pitched music box, damp < 1 — in euclid(7,16)
+vs euclid(5,12) polyrhythm through ping-pong tape echo; two
+bowed-glass stirs. Plinks tune themselves the winds' way: render
+one, measure the onset (chirp reads +55c sharp of f0), pre-
+compensate. Final -3c. seam p96.7.
+
+Stereo lessons, both new metrology:
+- Level pan keeps a mono blip lag-0 correlated at ANY pan; what
+  decorrelates a POPULATION is time-of-arrival — ~0.9 ms far-ear
+  ITD + one opposite-wall bounce (the pot's acoustics) took the
+  fizz field from +0.78 to +0.03. ITD on the plinks took the mix
+  from +0.54 to +0.34.
+- The correlation meter has the same leak the duck meter had: a
+  2nd-order 250 Hz HP lets the LOUD centered glugs (70-220 Hz,
+  physically the pot's one throat) dominate and report the wide
+  fizz as mono. Judge width per material AND per band: the fizz
+  field measures above the glug band (4th-order, 500 Hz).
+
 ## 2026-07-31 — session 17: the front door (pre-digest housekeeping)
 
 README rewritten to index all sixteen modules and — more
