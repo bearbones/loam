@@ -1,5 +1,35 @@
 # loam — log (newest at top)
 
+## 2026-08-04 — session 18b: the forge
+
+e17 "The Forge" (25.7s, F @112): Rheingold by way of the boiler
+room. Master anvil (F3) on the dotted-quarter cycle = 3:2 against
+the clockwork escapement's straight eighths (tick-tock alternates
+pitch AND pallet/pan); apprentice answers off-cycle on C4/F4;
+ratchet winding-bursts (accelerating rim trains) at phrase seams;
+boiler chuff + steam vents; all metal in ir_tank. seam p84.7.
+
+The taraf saga — three wrong rulers before a right one:
+1. First "sympathetic bank" measured identical tuned vs detuned
+   (1.00x): I had passed mix=0.0, which returns the DRY signal —
+   I was measuring the input twice. (The 477.6 Hz "hum" was the
+   anvil bus itself. mix is wet/dry, 1.0 = wet only.)
+2. Fixed, driven from the TANK bus: ratio only 1.4x — the tank's
+   11-mode wash is spectrally dense, so a string at ANY tuning
+   finds something to resonate with. A detuned-control comparison
+   needs a SPARSE drive spectrum to mean anything.
+3. Driven from the DRY anvils: 3.81x tuned/detuned, loudest
+   partial 474.6 Hz vs the anvil ring's 474.9 — the bar stock
+   sings the ring itself. Physically nicer too (the stock hangs
+   by the anvils; the room comes after).
+Also: ITD placement comb-filters the MONO SUM that sympathetic()
+drives from — arrival-time stereo can silently rob a downstream
+mono-keyed processor. Same family as the duck-bus lesson.
+
+Bar stock tuned to what the anvils RADIATE (fundamentals + 2.72x
+rings, float midi), not to F pitch classes — first draft's meter
+caught 475 Hz dominating a bank tuned to F's.
+
 ## 2026-08-04 — session 18: the potion (bubbles, and an anvil)
 
 Director's brief for the new season: space alien sci-fi, bubbling
