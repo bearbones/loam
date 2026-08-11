@@ -1,5 +1,74 @@
 # loam — log (newest at top)
 
+## 2026-08-11 — session 20: the draw (NOCK SFX)
+
+e20_thedraw.py — first NOCK cue prototype: the signature verb. The
+idea under test: the draw cue is not a creak, it is the WORLD
+dilating audibly. Archer-time sounds (stick-slip fiber ticks whose
+density AND pitch ride the draw fraction, a bowed-wood limb groan,
+a hemp tension gliss) stay at speed while the night bed (fire +
+wind + a 96 Hz night tone) tape-slows underneath on the eased
+dilation curve (1 - 0.8*frac^1.6, floor 0.2x — the NOCK ruling)
+and whip-snaps back in 0.35s at release. Slow-motion fire reads
+as the flame-lit-margins register doing the slomo's work for it.
+Release = Karplus twang + WOOD limb thunk + resonator-swept whoosh
+(3k -> 350 Hz); overheld hold gets accelerating tremor AM plus a
+thin 2.2k whine.
+
+Two renders: e20_draw_full.wav (10.5s: bed / build / overheld
+strain / loud flat release / afterglow) and e20_draw_soft.wav
+(6s: the frac-0.2 lure lob — a handful of ticks, barely-dipped
+bed, low quiet whoosh).
+
+Measured (each claim on its own bus — the first tick count ran on
+the mixed creak bus and counted groan wobbles, 15 vs 19; routed
+the ticks to their own bus and the truth appeared):
+- bed night tone 96.0 Hz before the draw, 19.4 Hz mid-hold
+  (designed 19.2 — varispeed pitch honesty).
+- ticks/0.5s: 2 early build -> 6 late (hazard design ~5.5x; sparse
+  counts, direction and magnitude read).
+- whoosh POWER-weighted centroid: full 2217 Hz vs soft 813 Hz =
+  2.73x — draw power audibly IS air speed.
+- strain tremor, late hold: 8.0 Hz envelope peak (design ramp
+  4 -> 9; the 1s window averages the tail, ~7.9 expected).
+Mix lesson (segment profile as the ruler): first master let a
+random fire crackle (0.55 peak) out-shout the release (0.29) —
+the climax must own the piece; fire trimmed 0.55 -> 0.42, release
+raised, now release holds both global peak (0.43) and top segment
+rms, and the arc rises bed 0.035 -> strain 0.055 -> release 0.057.
+
+Verdict: the dilation-bed trick is worth shipping — it makes the
+draw legible with eyes closed, which is the pairing rule's audio
+half for the whole slomo system, not just one cue. The tick
+family and twang+whoosh scale naturally by frac (game passes one
+number). Integration pointer left in nock dev/LOG.md.
+
+
+## 2026-08-09 — session 19: ear candy
+
+e19_earcandy.py — three jars, no concept, just pleasure:
+- stinger (7.8s one-shot): the podcast-ident recipe. Marimba rise
+  through F major penta (glass doubling +12), landing on glass F5
+  detuned 2.5c so it beats against itself; two bowed-glass swells
+  peak just AFTER the landing (bell hands off to pad); pentatonic
+  sympathetic bank shimmers under everything; 2.8s FDN tail.
+- clicks (13s one-shot): the click cabinet. thock = body mode +
+  contact + sub thump (the desk is a layer); pen press/release
+  pair (release lower + softer); bubble pops incl. a rising
+  triplet; camera shutter (mirror slap + two wood ticks); marble
+  bounce train, intervals *0.78/hop, pitch stiffening 1%/contact.
+  Bounce ratio measured from the RENDER: 0.777 vs 0.780 designed.
+- soothe (32s seamless loop): creamy PADsynth F2+C3+F3 breathing
+  at 7.5 breaths/min — 4 whole cycles/loop so the seam is phase-
+  exact, and the envelope FFT confirms bin 4 dominates. Glass
+  armonica bowls on the penta, sub F1 under the same breath, four
+  music-box sparkles into the ping-pong. seam p64.6.
+
+Width lesson re-confirmed on the soothe: level-panned bowls left
+the loop at corr +0.778 (>250 Hz); moving them to ITD placement
+(arrival time, e16 recipe) + wider pans opened it to +0.379 with
+nothing else touched.
+
 ## 2026-08-04 — session 18d: The Alembic (capstone)
 
 songs/the_alembic.py — 76.2s, E minor @63, 20 bars, the three
