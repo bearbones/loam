@@ -1,5 +1,55 @@
 # loam — log (newest at top)
 
+## 2026-08-11 — session 21: arrival by material (NOCK SFX)
+
+e21_arrivals.py — the arrow's other end. The idea under test: the
+four material arrivals (stone / wood / metal / body) read as ONE
+vocabulary when they share a single excitation — a 3 ms broadhead
+contact snap — and differ only in the resonator body it drives.
+That is NOCK's uniform-grammar law done in audio: same word,
+material timbre. Each material carries one measurable signature:
+stone a 4-hit bounce train (no bite — the shaft skitters), wood a
+deep thunk with the stuck shaft's 64 Hz cantilever quiver, metal a
+long detune-beating lamp-tube ring (custom LAMP_T table — ANVIL's
+ratios but long ring multipliers; smithy anvils are damped, thin
+fixture steel is not) plus the shaft's drop-off tick, body a dark
+thump + cloth breath with no modes worth the name. Impact speed
+scales the family like loose_voice scales the launch: velocity
+buys level AND hardness (knock + bright), so a soft lob arrives
+darker, not just quieter.
+
+Render: e21_arrivals.wav (14.1s one-shot: full-power row then
+soft-lob row, 1.4s spacing, light exterior tail).
+
+Measured, each claim on its own bus, explicit gains (strike()
+peak-normalizes per call — the standing per-call-norm rule):
+- centroid bright pair {stone 3792, metal 1297} > dark pair
+  {wood 1137, body 109 Hz}. The first draft claimed a full
+  ordering metal > stone and the ruler refused: broadband contact
+  noise out-brightens any ring. BRIGHTNESS SEPARATES THE PAIRS;
+  RING TIME SEPARATES STONE FROM METAL — the ear tells metal by
+  sustain, not tint. Worth keeping as a design rule.
+- T30 ring time (40 ms past the contact peak — measured at the
+  peak, a knock's crest hands every material the same verdict):
+  metal 0.428s = 1.7x wood 0.246 > body 0.134 > stone 0.049
+  (dry stone doesn't ring; its energy lives in the bounce train).
+- crest: stone 28.9 highest, body 6.2 lowest.
+- metal beat 4.7 Hz vs design 5.2 (f0 900, 10 cents) — after two
+  ruler fixes: bandpass the FUNDAMENTAL PAIR (every detuned mode
+  beats at its own delta-f; the mixed bus is a committee) and
+  detrend against the decay ramp, not the mean (the exponential
+  slope is the loudest "low frequency" in any ring envelope).
+- stone bounces: 4 envelope peaks (impact + 3 rebounds, designed).
+- soft vs full: rms -3.5..-5.5 dB, centroid x0.41 stone / x0.72
+  wood / x0.78 metal / x0.99 body — flesh has no hardness range,
+  so the kill word only quiets, never re-tints.
+
+Verdict: the shared-snap + body-swap structure is the shippable
+shape — NOCK's in-game arrive_* family already exists but was
+tuned by ear; e21's fingerprints (pair split, ring-time margin,
+beat, bounce count, velocity-buys-hardness) are an auditable spec
+for upgrading it. Integration pointer left in nock dev/LOG.md.
+
 ## 2026-08-11 — session 20: the draw (NOCK SFX)
 
 e20_thedraw.py — first NOCK cue prototype: the signature verb. The
