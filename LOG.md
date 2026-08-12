@@ -1,5 +1,43 @@
 # loam — log (newest at top)
 
+## 2026-08-11 — session 23: detection stings in two accents (NOCK)
+
+e23_stings.py — the cue list's "sting per awareness state" meets
+the e22 registers, and the law-2 tension (stings are GRAMMAR:
+contract words, identical everywhere) resolves cleanly: THE
+GESTURE IS THE WORD, THE REGISTER IS THE ACCENT. Three escalating
+words in D minor pentatonic — notice (two notes, a rising
+question), hunt (three circling), caught (four falling to a low
+slam) — each dressed twice: flame (gut pluck + wood knock) and
+lightning (struck glass + a 192 Hz hum swell leaning in as the
+word lands). Unlike the e22 melody, stings take NO cents drift
+and NO swing even in flame dress — the alarm is the one thing
+the margins say precisely.
+
+Measured: gesture identity holds across dresses — onsets within
+6 ms of design, pitches within 10 cents (grammar HOLDS); rms and
+duration rise strictly notice < hunt < caught in both dresses;
+the accent is real (lightning tail/peak >2x flame's — glass and
+hum sustain, gut dies).
+
+THREE pitch rulers died getting there, each on a standing rule:
+open-band HPS octave-erred (+1196/+2398 — bright even harmonics
+outvote the fundamental through the product); band-limited HPS
+then lied +237 cents about GLASS — HPS assumes HARMONIC spectra,
+and glass's inharmonic 2.32x mode masquerades as the 2nd
+harmonic of a false fundamental at 1.16x (band-edge clamp made
+it look consistent). Match-to-design needs no harmonic model:
+plain spectral peak within +/-15% of the designed fundamental,
+correct for string and bell alike. New standing rule: HPS IS FOR
+HARMONIC SOUNDS — never point it at a bell.
+
+Verdict: shippable as NOCK's awareness cues whenever the game
+promotes its detection blips to musical stings — the in-game
+recipe would dress by NC.register_mix at the guard's x (the
+alarm speaks the accent of the ground it stands on) while the
+gesture stays fixed by law. Pointer updated in nock dev/LOG.md
+(music TODO item 3 recipe; still self-gated).
+
 ## 2026-08-11 — session 22: the two registers (NOCK music)
 
 e22_registers.py — first NOCK music sketch: the magitech gradient
