@@ -1,5 +1,51 @@
 # loam — log (newest at top)
 
+## 2026-08-12 — session 29: the ledger cadence (NOCK night close)
+
+e29_ledgercadence.py — NOCK closes a night with tally ticks and no
+music; the game's law is audio-as-information, so the candidate is
+a closing cadence where THE VERDICT IS THE HARMONY. A MINIMAL
+PAIR: clean and stained share every onset and every pitch except
+the last — clean walks down and lands ON the tonic (D, the
+motif's home), stained walks the same steps and lands on E, a
+major 2nd over home, OUTSIDE the world's D-minor pentatonic. One
+note carries the whole verdict. Dressing reuses e23's sting
+dresses VERBATIM (gut+wood / glass+hum): the night's last word is
+spoken in the same accents as its alarms. Level 0.5 — a close,
+not an alarm (caught is 0.92).
+
+Measured: the pair is real — onset spread clean-vs-stained 0.5 ms
+in BOTH dresses (rhythm carries zero verdict information); every
+note within 5.0 cents of design (e23's match-to-design ruler);
+RESOLUTION IS AN AM MEASUREMENT, not a pitch label — mix each
+final note with the tonic drone at matched RMS, bandpass to the
+fundamentals' neighborhood (120-190 Hz), read the envelope's
+12-24 Hz beating band (D3 vs E3 beat at 18.0 Hz): stained carries
+x6.2 (flame) / x8.9 (lightning) the clean close's beating energy.
+Cadence RMS < caught RMS in both dresses.
+
+TWO ruler deaths, both reruns of known killers: (a) the global
+onset picker (find_peaks on the envelope derivative) read a gut
+pluck's partial-beating swell as an onset — 261 ms of phantom
+"rhythm difference" in a pair constructed identical; e27's law
+applies at any scale: measure each attack at its own designed
+time, in a local window, by hysteresis crossing (derivative
+argmax STILL smeared 10 ms on glass when only the landing pitch
+changed). (b) unfiltered envelope beating gave clean flame a
+false roughness floor (x1.5) — the pluck's own upper partials
+beat among themselves (e27 again); bandpassing the mix to the
+fundamentals' neighborhood before the envelope read restored the
+contrast (0.11 vs 0.68).
+
+Verdict: shippable recipe. In-game: two short words in music.gd
+or sfx.gd built from the shipped pluck/strike voices, picked by
+the ledger's clean/stained verdict at tally open, dressed by
+register_mix at the arch. The stained landing (E over D) is the
+information; the tick train stays. Render:
+e29_ledgercadence.wav (flame clean/stained, lightning
+clean/stained). Pointer in nock dev/LOG.md.
+
+
 ## 2026-08-12 — session 28: the held breath (NOCK full-draw music)
 
 e28_heldbreath.py — the question the tape law never answered: NOCK's
