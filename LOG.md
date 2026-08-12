@@ -1,5 +1,54 @@
 # loam — log (newest at top)
 
+## 2026-08-11 — session 24: the water cycle (NOCK douse / relight)
+
+e24_watercycle.py — the douse and the relight prototyped as one
+lifecycle, because in NOCK they bracket the same thing: the
+stealth window. The flame is a character; the water arrow only
+kills it for a while. Design thesis under test: THE PAIR MUST
+MEASURE THE WINDOW FOR THE EAR. The douse ends in genuine
+silence (the prize is audible as absence); the relight
+TELEGRAPHS — flint scrapes are a fixed-length countdown before
+the whump brings the light back, so a player who hears tick one
+knows exactly how long their darkness has left. Telegraph length
+is grammar: 0.90 s, never varies.
+
+One continuous ~10 s take over a faint night bed (96 Hz + air —
+e20's world again): steady crackle -> splash + steam bloom
+(crackle dies mid-hiss) -> the dark window -> three flint
+scrapes -> catch whump (85 Hz down-chirp bloom, no click) ->
+crackle reborn. The rebirth crackle is hand-rolled with RATE as
+the instrument: seeded exponential gaps against an interpolated
+rate (0.8 -> 6 events/s), because the whole story is an event-
+rate arc (6 -> 0 -> ramp -> 6) and the ruler must count what the
+code varies.
+
+Measured, each claim on its own bus: steam POWER centroid cools
+x2.2 (5742 -> 2582 Hz, want > 2); the window is real (lit rms
+12x the dark gap, want > 8); telegraph 3 scrapes, first-scrape
+-> whump 922 ms vs 900 design (within the 30 ms gate); rebirth
+tick count per 1.4 s window strictly rises 1 -> 4 -> 7.
+
+Three rulers died first, all on standing rules: (a) a
+differencing highpass after the gliding lowpass was a +6 dB/oct
+shelf that ERASED the glide — centroid pinned at 13 kHz
+regardless of corner; glide + fixed 300 Hz butter instead. (b)
+the dark gap measured as digital zero, ratio 1/8,579,315 — a
+lying ruler; silence must be measured against a floor that
+exists, hence the night bed. (c) rebirth counted [5,5,2]: the
+40-200 Hz rumble shared the tick bus AND the threshold was per-
+window (the per-call normalization sin) — rumble wobble out-
+peaked sparse early ticks. Split ticks/rumble onto separate
+buses, one detection pass, one threshold, bin afterward.
+
+Verdict: shippable recipe for NOCK. In-game, the douse hiss
+already exists (M4.2) but has no cooling glide and no telegraph
+exists at all — the guard relight is currently instant-ish with
+a generic cue. Integration would be: NC.RELIGHT_TELEGRAPH_S as
+grammar, scrape tick train on the guard's relight duty, whump on
+light restore, and the crackle rate ramp on the pool's rebirth.
+Pointer in nock dev/LOG.md.
+
 ## 2026-08-11 — session 23: detection stings in two accents (NOCK)
 
 e23_stings.py — the cue list's "sting per awareness state" meets
