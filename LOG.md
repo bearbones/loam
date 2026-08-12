@@ -1,5 +1,52 @@
 # loam — log (newest at top)
 
+## 2026-08-11 — session 22: the two registers (NOCK music)
+
+e22_registers.py — first NOCK music sketch: the magitech gradient
+as ONE identity re-clothed, not two tracks. The same 22-note
+D-minor-pentatonic motif, same 75 BPM, same 8-bar seamless loop
+length, walked from one end of the world to the other:
+- FLAME (the margins): the motif on gut-damped Karplus pluck
+  (damp 0.5, fingertip-soft excitation) with seeded ±8-cent
+  per-note drift, swung 0.16 with a thinned euclid(7,16) shaker,
+  marimba-wood answers, fire-crackle bed. Warm master (4.8k).
+- LIGHTNING (the institution): the SAME motif note for note on
+  struck glass two octaves up — dead on the grid, dead in tune —
+  over a narrow-band PADsynth D drone and a cycle-quantized 96 Hz
+  mains hum (e20's night tone: the institution's tone was under
+  the margins all along). Bright master (9k), nothing loose.
+Because key/tempo/length/phase agree, the in-game system is a
+POSITION CROSSFADE: two synced loops, the mix knob tied to where
+the level sits on the tech gradient. The demo render does exactly
+that (8s flame / 8s crossfade / 8s lightning).
+
+Measured (two rulers died honestly on the way):
+- seam p97.1 / p89.8 — both clickless.
+- grid deviation vs each note's DESIGNED time: flame's swung
+  notes +63 ms (design +64), everything else 3-4 ms. The first
+  swing ruler measured onset pair-ratios and assumed even eighths
+  the motif never had — compare to the design, not to a meter.
+- floor breathing (envelope CV): fire 0.59 vs hum 0.05 — the
+  fire never stops breathing, the hum never breathes. Voice-bus
+  rulers failed first: POWER centroid lost to the standing
+  transient rule (a pluck's attack noise out-powers any steady
+  line — glass NEVER wins on centroid), and note-sustain lost
+  because struck glass is percussion too. The steadiness axis
+  lives in the FLOOR, not the voice.
+- the floor's identity: bed centroid 10.5 kHz broadband noise vs
+  137 Hz line; hum-lock FFT peak 96.0 Hz exact with prominence
+  >1e6 vs the fire's incidental x8 in the same band.
+- loudness: institution presses x2.4 rms harder BY DESIGN — the
+  stakes gradient as pressure, not just color.
+
+Verdict: the one-motif crossfade is the shippable shape — the
+gradient reads as the same tune losing its human hands, which is
+exactly the game's fiction (harnessed lightning = harnessed
+music). Worth a second sketch someday: a middle register (the
+crossfade point as its own mood) and a detection-sting overlay
+per awareness state in each register's vocabulary. Integration
+pointer left in nock dev/LOG.md.
+
 ## 2026-08-11 — session 21: arrival by material (NOCK SFX)
 
 e21_arrivals.py — the arrow's other end. The idea under test: the
