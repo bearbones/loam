@@ -1,5 +1,49 @@
 # loam — log (newest at top)
 
+## 2026-08-12 — session 27: the borderland (NOCK mid-gradient music)
+
+e27_borderland.py — the question behind nock's self-gated music
+item (2): what should the tune do HALFWAY between the registers?
+The in-game crossfade plays both loops at 50/50 — but flame is
+swung +64 ms and lightning is dead on grid, so every swung note
+arrives TWICE. Measured (each voice on its own bus at its own
+designed time): 10/10 swung positions get both attacks at ear
+parity (within 12 dB), 64 ms apart by e22's own banked tape. THE
+FLAM IS REAL — the naive middle is not a blend, it is a rhythm
+defect. Verdict on the self-gate: the middle register EARNS ITS
+KEEP.
+
+The candidate: THE BORDERLAND PLAYS LIGHTNING'S TIME WITH
+FLAME'S HANDS — the same gut plucks, dead on grid (median |dev|
+2.4 ms), dead in tune (worst +2.6 cents by parabolic-interpolated
+narrow-band peak), no pan wander, over a floor keeping both
+fires: thinned stove + faint hum, envelope CV 0.06 — strictly
+between lightning 0.05 and flame 0.59, though the margin to
+lightning is thin (the borderland floor is nearly institutional;
+by design, but barely measurable). Seamless (seam p88.8). Walk
+law for the game: squared-cosine borderland bump (half-width
+0.35) over the cos/sin ends, power-normalized — flame ->
+borderland -> lightning as one continuous walk.
+
+THREE ruler deaths, one worth framing: the single-bus two-attack
+flam detector died TWICE (8 ms envelope resolved pluck AM ripple
+as attacks; 20-30 ms smoothing still read a "flam" in a SOLO
+gut pluck — its slightly inharmonic partials BEAT, putting a
+real secondary swell 40-80 ms after its own attack). No amount
+of smoothing separates "two instruments in a pocket" from "one
+string breathing" on a mixed bus. The flam lives across TWO
+buses by construction — measure each voice's attack at its own
+designed time, per bus, at ear parity. Also: raw FFT argmax at
+110 Hz is a 5.3-cent bin — parabolic interpolation or the ruler
+flunks an honestly tuned string on resolution (pluck() has true
+fractional delay; the string was never out of tune).
+
+Verdict: shippable recipe for music.gd whenever nock promotes
+it: bake a third loop (same MOTIF, plucks on grid, no drift,
+stove x0.22 + hum x0.025 bed), three-way power-normalized mix
+with the bump width as an NC constant. Pointer in nock
+dev/LOG.md.
+
 ## 2026-08-12 — session 26: chalk (NOCK sigil marks)
 
 e26_chalk.py — the last cue family on the DESIGN list: the
