@@ -1,5 +1,49 @@
 # loam — log (newest at top)
 
+## 2026-08-11 — session 25: the death of a hum (NOCK shatter)
+
+e25_shatterhum.py — the lightning fixture's shatter, prototyped
+as what connects the living 96 Hz hum to the silence after. The
+idea: THE INSTITUTION'S TONE ONLY GOES FLAT WHEN YOU BREAK IT.
+All of lightning's language is precise (e22/e23: grid-locked,
+cycle-quantized, dead in tune) — so a thrown switch ends the hum
+CLEANLY, inside a cycle, while a SMASHED tube loses its mains
+lock and dies badly: the hum survives the crash for a moment and
+glides flat, phase-continuous (frequency integrated into phase,
+so there is no seam at the crash — the same hum, losing its
+grip), tau 0.18 s, under a decaying rain of glass whose event
+RATE is the instrument again (e24). The glide is the one detuned
+thing lightning ever says, and only when the player has done
+something loud and permanent.
+
+Measured, each claim on its own bus: the lock holds (every
+pre-crash window within 0.1 cents of 96.0 — parabolic-
+interpolated peak); the death is monotone (81.6 -> 58.4 -> 42.4
+-> 31.3 Hz, 16.6 semitones, every voiced window falling); the
+crash is glass (power centroid 5290 Hz); the rain thins (7 -> 6
+-> 1 ticks per 0.3 s window, one detection pass binned after);
+and two deaths on ONE ruler — hum holds 0.709 s of energy after
+the smash vs 0.021 s after the switch cut (34x contrast).
+
+Two rulers died: (a) the pitch track invented NEGATIVE
+frequencies (-94, -158 Hz) — parabolic interpolation at the band
+edge fabricates peaks once the glide falls below what the band
+can hold; the track needs the ruler's own floor (break below
+25 Hz), not just an amplitude gate. (b) "the clean off is clean"
+asserted the coda's post-cut tail was zero — a tautology, it
+measured zeros written by construction (e24's silence lesson in
+a new hat). Reframed as CONTRAST on the same ruler both sides:
+hold-time after the event, smashed vs switched. And the clean
+window must STRADDLE the ramp — starting at the cut sees only
+the zeros again.
+
+Verdict: shippable. In-game the smash already has its crash
+(cycle 35's loud key ceremony); the candidate is the dying glide
+as a new voice under it — and the CONTRAST is free lore: the
+switch verb already kills the hum ambience instantly (gated on
+lit), which e25 now rules is correct and load-bearing, not an
+omission. Pointer in nock dev/LOG.md.
+
 ## 2026-08-11 — session 24: the water cycle (NOCK douse / relight)
 
 e24_watercycle.py — the douse and the relight prototyped as one
