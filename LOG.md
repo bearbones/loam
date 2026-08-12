@@ -1,5 +1,45 @@
 # loam — log (newest at top)
 
+## 2026-08-12 — session 26: chalk (NOCK sigil marks)
+
+e26_chalk.py — the last cue family on the DESIGN list: the
+chalk-sigil mark. The idea: THE MARK IS WRITTEN, NOT STAMPED. A
+stamp is one event — any glyph, same thud; a written mark
+carries its glyph in the sound. Each sigil is a fixed stroke
+sequence and the stroke RHYTHM is the glyph's identity: loop
+(checkpoint spiral — one long sweep, two short closes), coin
+(peddler's cross — two quick equal cuts), ward (four even
+pickets ending on a slow drag). Inside each stroke the hand is
+audible: a velocity bell the chalk voices as brightness (the
+lowpass corner rides the bell, 900 + 4200v Hz), and squeak
+appears only at the deterministic upward crossing of 0.6 vmax —
+the failure mode of a real hand, sparse, texture not signal.
+
+Measured: counts exact (3/3, 2/2, 4/4); rhythm intervals within
+16 ms of design; the three designs pairwise APART (> 60 ms
+someplace); every stroke's mid-third centroid beats both end
+thirds (the bell survives the render); loud-squeak fraction
+0.06-0.08 of written time (< 0.25).
+
+Two onset rulers died: (a) derivative peaks (the sting ruler)
+landed 0.1-0.17 s late and doubled — a stroke is a SLOW SWELL,
+its max rise rate sits mid-crescendo and chalk grain gives the
+derivative several humps; a written mark's onset is where energy
+BEGINS: hysteresis threshold crossing (the stone-skitter ruler),
+8%/3%. (b) then intra-stroke grain dips (5 ms holes) re-armed
+the hysteresis — 25 ms smoothing bridges them. And the absolute
+crossing lag is detector bias, identical every stroke: rhythm
+claims must compare INTERVALS, where the lag cancels — which is
+what rhythm is.
+
+Verdict: shippable recipe. In-game sigils (checkpoint chalk,
+coin panel) currently share stamp-like blips; the candidate is
+stroke-written cues where stroke count/rhythm = which sigil,
+built as short stroke buffers played on a clock like the relight
+telegraph (the tick-train pattern is already house grammar).
+Pointer in nock dev/LOG.md. Cue list: COMPLETE — every family on
+the DESIGN list now has a measured loam prototype.
+
 ## 2026-08-11 — session 25: the death of a hum (NOCK shatter)
 
 e25_shatterhum.py — the lightning fixture's shatter, prototyped
