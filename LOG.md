@@ -1,5 +1,51 @@
 # loam — log (newest at top)
 
+## 2026-08-12 — session 28: the held breath (NOCK full-draw music)
+
+e28_heldbreath.py — the question the tape law never answered: NOCK's
+music rides world_pitch down to 0.2x at full draw (cycle 46 ruling,
+elegant on paper), but NOCK is MOBILE-FIRST and a phone driver keeps
+almost nothing below ~300 Hz. Is the tune still THERE, on target
+hardware, at the game's most dramatic instant?
+
+Finding one is a ruler death worth keeping: the obvious ruler (RMS
+survival through a 4th-order 300 Hz highpass) says the defect is
+imaginary — survival only falls 0.97 -> 0.73, because a Karplus
+pluck is mostly harmonics and the phone keeps them. THE DEFECT IS
+REGISTER, NOT SILENCE: fundamental-band phone survival collapses
+0.0565 -> 0.0028 (x20) along the game's own dilation curve, and the
+phone-heard centroid falls 2727 -> 772 Hz (x0.28). The tune doesn't
+vanish; it loses its pitch floor and its light — five-times-slow
+rumble at the exact moment of the aim.
+
+The candidate: THE HELD BREATH. As the draw deepens, the world's
+music recedes on a dB-linear duck (HELD_DUCK_DB -24; -18 measured
+x1.8 on the thesis ruler — stage not cleared) and the archer's own
+body takes over ON ARCHER TIME, never dilated (the creak
+precedent): a heartbeat whose rate rides frac (55 -> 108 bpm), each
+thump a 62/52 Hz damped body the phone drops plus a 900-1800 Hz
+valve CLICK the phone keeps — the click is deliberately the phone's
+share. Thesis measured: at full draw the phone FOREGROUNDS the body,
+p99.9 |phone(heart)| = 3.6x p99.9 |phone(ducked slow melody)|
+(peaks, not sums — heartbeats are transients, the crest rule; an
+RMS comparison flunked an audibly foreground heart at x0.7 by
+diluting sparse thumps over silence). Heartbeat honesty: hysteresis-
+onset rate within 0.0% of design at frac 0.5/1.0, lub-dub interval
+fraction 0.32 exact. Release: ts and gains snap back over 40 ms;
+snap-window max |delta| 0.018 vs hard-cut control 0.230 (x12.5
+margin) — the world returns without a click.
+
+Verdict: shippable recipe. In-game: keep the tape law untouched
+(music.gd pitch_scale as is); add a draw duck on the music bus
+(dB-linear in frac to HELD_DUCK_DB) and a heartbeat tick clock in
+sfx on real_dt (like the creak), rate lerp 55->108 by frac, fading
+in sin(frac*pi/2). VFX pairing candidate: the existing strain
+wobble is the sight cue; the heart is its sound. Renders:
+e28_ab_fulldraw.wav (shipped mush vs held breath, same scale, no
+per-file normalize), e28_drawarc.wav (rest -> full draw -> release).
+Pointer left in nock dev/LOG.md.
+
+
 ## 2026-08-12 — session 27: the borderland (NOCK mid-gradient music)
 
 e27_borderland.py — the question behind nock's self-gated music
