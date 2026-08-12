@@ -1,5 +1,49 @@
 # loam — log (newest at top)
 
+## 2026-08-12 — session 30: the patrol's tread (NOCK guard identity)
+
+e30_patroltread.py — the premise had to be corrected by the code
+first: NOCK's guards are NOT silent (g.stepped plays the archer's
+step voices at -16 dB, pitch 0.85, faded 0.025 dB/px to a 900 px
+cutoff). The real gap is IDENTITY: guards borrow the player's
+feet — same voice, overlapping levels — so heard-not-seen, "whose
+step was that?" is ambiguous, against the legibility law.
+
+The candidate: the patrol's gait is a LAYER, not a new family.
+tread(mat) = a boot-heel of pitch-drop mass (kick 120->48 Hz,
+0.16 s) UNDER the floor's own shipped step voice, verbatim. WHO
+is spectral weight (survives any distance gain — a level cue
+never could); WHERE is inherited by construction (the floor
+speaks its own word, already under nock contract).
+
+Measured against the SHIPPED buffers (render_all dump): WHO — at
+equal RMS, tread low-band (<250 Hz) fraction x7.6-x2200 the
+archer step's per material, centroid x0.03-0.31 (want <= 0.6);
+WHERE — ranking materials by centroid gives the same order in
+both gaits (wood < carpet < metal < stone; tread ranked above
+300 Hz where only the floor speaks); the edge — dressed with the
+game's own law at the 900 px cutoff (-38.5 dB), tread peak 0.0102
+clears nock's existence floor 0.005.
+
+THREE ruler/design deaths, one lesson: (a) first invented answer
+family buried the floor under the heel (all centroids ~100-200 —
+power-weighted centroid reads the loudest BAND, and the heel owns
+it); (b) a post-heel WINDOW ruler read stone's absence (grit is
+spent by 50 ms — the floor answers THROUGH the boot, not after
+it; separate by band, not time); (c) the second invented family
+still contradicted the shipped ranking from the other side
+(metal's 611 Hz ring read dark, wood's knock read bright). The
+lesson closing all three: STOP INVENTING WHAT ALREADY SHIPS —
+layer over the contract-covered voices and identity is free.
+
+Verdict: shippable recipe, minimal integration: ONE new synth
+(the heel) played under the existing step_%d voice in
+_guard_noise's stepped hookup; material system untouched.
+Render: e30_patroltread.wav (whose-step contrast on stone at
+equal level x3, then a 12 s patrol pass under the shipped gain
+law). Pointer in nock dev/LOG.md.
+
+
 ## 2026-08-12 — session 29: the ledger cadence (NOCK night close)
 
 e29_ledgercadence.py — NOCK closes a night with tally ticks and no
