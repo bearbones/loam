@@ -1,6 +1,47 @@
 # loam — log (newest at top)
 
-## 2026-08-15 — session 33: the ledger's drum (e29 rework per ruling)
+## 2026-08-15 — session 34: the draw creak as a stretch (e34)
+
+e34_drawcreak.py — the operator's bar for the draw: "unobtrusive
+wood creak... sort of feel like a nice stretch." The shipped
+tick-train (e20 -> NC.creak_voice) is discrete WOOD strikes whose
+PITCH climbs with frac — physically a pluck gesture, and "plucking
+strings one at a time" is the exact complaint on record. The idea:
+a real creak is stick-slip friction, and the two voices invert on
+both axes — the tick-train raises pitch and keeps rate sparse
+(2 -> 13/s, never crossing the ~18/s fusion floor); the candidate
+keeps the BODY fixed (170/430/860/1500 Hz limb modes + a papery
+2400 Hz shear) and raises the slip RATE (18 -> 70/s, frac^1.4
+hazard), so ticks fuse into a groan whose "pitch" is the rate
+itself. The gesture ends in a settle (rate holds, amp relaxes over
+0.35 s) — a stretch finishes, it doesn't cut off.
+
+Ruler lessons, both earned by a wrong first cut:
+  - crest over a RAMPING gesture measures the ramp, not the
+    texture — both buses looked equally spiky until the window
+    moved to the late, full-intensity half-second.
+  - envelope periodicity under a LONG-RINGING mode is a
+    subharmonic lie: the 170 Hz mode rings ~200 ms (4 slip
+    periods of overlap early), and autocorr read 23/s as 11/s.
+    Read the rate where pulses stay distinct — the high band
+    (1100..3500 Hz; those modes decay in ~16 ms) — and bandpass
+    the envelope to the pulse register so the 0.9 Hz breath
+    undulation can't bias long lags.
+  - one synthesis lesson too: a 0.9 ms jerk transient is a CLICK
+    (crest within 2 dB of the plucks it was built to beat); a
+    fiber lets go over ~2.5 ms. Softer slip = the whole
+    unobtrusive claim, in one envelope constant.
+
+All 9 rulers pass on RMS-matched buses: groan 6.6 dB smoother
+(crest 14.7 vs 21.3 dB), never dark > 23 ms vs 440 ms tick gaps,
+rate tracks the designed hazard (measured 24/63 vs designed
+23/63, x2.6 rise), tick centroid climbs x1.11 while the groan
+body holds x0.99. Render sent: e34_ab.ogg (tick-train, then
+groan). Integration shape if ruled in: replace NC.creak_voice's
+interval/pitch dict with a rate hazard (CREAK_RATE_LO/HI on
+frac^1.4) and synth the groan into a one-shot the way
+_synth_tread_heel bakes its glide — the body table is 5 (fc,Q,g)
+rows in NC. TODO pointer left in nock dev/LOG.md.
 
 e33_ledgerdrum.py — the operator accepted e29's cadence "but I'd
 like a deeper drum for it." Design claim: the drum belongs to the
