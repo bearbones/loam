@@ -1,6 +1,43 @@
 # loam — log (newest at top)
 
-## 2026-08-15 — session 34: the draw creak as a stretch (e34)
+## 2026-08-15 — session 35: the mood seam (e35 — the blend, audible)
+
+e35_moodseam.py — the mood ruling was going to be between two
+renders and a SENTENCE ("wanderer as roam bed, spyglass entering
+with tension"). This session turns the sentence into the third
+render. One 48 s scene (a scene, not a loop — in-game music is
+state-driven): wanderer tiles throughout; tension tau smoothsteps
+up 10->16 s, holds, falls 30->38 s; spyglass enters at tau's foot
+from its own bar 1 on its own clock, gain sqrt(tau); the wander
+yields to sqrt(1 - 0.65 tau) — thinner, never gone. The one-system
+thesis (both poles from the world's gut + glass, D ground, E
+reserved) is what makes the seam this cheap: no key change, no
+tempo negotiation, no ducking.
+
+Ruler lessons (two dishonest first cuts, both mine):
+  - summed rfft power scales with segment LENGTH — a 10 s window
+    against a 7 s one inflated the hum ratio 0.35 -> 0.71. Power
+    DENSITY (divide by N) or equal windows; and the yield law is
+    read on the wander's OWN bus (house rule), the survival half
+    on the mix where contamination can only help (one-sided).
+  - an ABSOLUTE chroma floor blames the seam for harmonic leakage
+    the poles already carry: the A2 drone's 3rd harmonic IS E4.
+    The seam's honest claim is relative — it manufactures no NEW
+    E (mix 0.221 vs pole max 0.701; the spy pole's own high
+    fraction is A-harmonic leakage against a small D/F floor, not
+    touched notes — its note-level claim passed in e31).
+
+All 7 rulers pass: handover has no hole (min -30.9 vs roam -29.2
+dB) and no spike, entry steps 0.2 dB, no new E, overlap roughness
+0.140 vs solo max 0.165 (the D grounds do not beat), floor yields
+exactly to law (own-bus 0.35 vs designed 0.35) and survives in
+the mix (0.35). Render sent: e35_moodseam.ogg. The mood decision
+packet is now complete: e31 (noir pole), e32 (dread pole), e35
+(the seam between them). Integration shape if the blend is ruled
+in: tau is the existing awareness ladder (music.gd already takes
+NC.register_mix-style scalars), wander bed = roam register,
+spyglass stems keyed in above tau ~0.25 with the sqrt law as
+here; the 96 Hz line is already shared plumbing (e20/e22).
 
 e34_drawcreak.py — the operator's bar for the draw: "unobtrusive
 wood creak... sort of feel like a nice stretch." The shipped
