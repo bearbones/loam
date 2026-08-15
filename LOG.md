@@ -1,5 +1,41 @@
 # loam — log (newest at top)
 
+## 2026-08-15 — session 31: the spy's register (NOCK music, noir pole)
+
+e31_spyglass.py — the operator ruled on e28's render: the shipped
+registers read as "plucking guitar strings one at a time... too
+lifeless," and gave two mood poles (TF2 Spy 60s-noir + high-fantasy
+twist / Diablo II + Dishonored). This session takes the noir pole,
+with a thesis that keeps the register system ONE system: the mood
+is built from the world's own two timbres — gut string (flame)
+walking a swung noir bass, struck glass (lightning) answering high
+— so the spy sits anywhere on the tech gradient without a third
+instrument family. Noir lives in the WALK: chromatic passing tones
+on weak beats only (strong landings stay D-minor pentatonic; E,
+the stained verdict pitch class, is never touched), backbeat brush
+sweeps, an anticipation stab on the and-of-4, a bar-8 fill leaning
+V->i into the wrap. 84 BPM, 8 bars, swing +0.12 beat (85.7 ms).
+
+"Lifeless" was made a RULER, not a vibe: per-designed-note level
+CV on the walk 0.248 vs the shipped e22 flame melody's 0.098
+(x2.5, want >= 2) — the baseline's flatness is now a measured
+fact, and any future mood must beat it. Other rulers: brush pocket
+real (on-eighths 12 ms off design, off-eighths +97.6 ms vs
+straight grid, design +85.7, both within 15 ms — e29's local
+hysteresis onsets); phrase moves without breaking the loop
+(half-vs-half envelope corr 0.79 < 0.9, seam rank p62.4); home
+stays home (D pitch-class energy x14.6 over the loudest chromatic
+passing class, want >= 4).
+
+Verdict: CANDIDATE (operator taste gate). Renders sent:
+e31_spyglass.ogg (loop + first half again, seam audible),
+e31_spyglass_walk.ogg (bass+brushes bare). If ruled in, the
+integration shape mirrors music.gd's loop builder: the walk is a
+pluck table like MOTIF (beat, midi, amp), brushes a shaker clock,
+answers reuse the glass voice — all constants NC-side. The
+Diablo/Dishonored pole is the next session's sketch; the A/B is
+the real ruling.
+
 ## 2026-08-12 — session 30: the patrol's tread (NOCK guard identity)
 
 e30_patroltread.py — the premise had to be corrected by the code
