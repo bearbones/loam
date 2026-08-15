@@ -1,5 +1,35 @@
 # loam — log (newest at top)
 
+## 2026-08-15 — session 32: the wanderer's register (NOCK music, dread pole)
+
+e32_wanderer.py — the second ruled mood pole (Diablo II /
+Dishonored), to stand in the operator's A/B against e31's noir
+spy. Tristram's lesson taken as RUBATO (a wandering 12-string owns
+its own time — no BPM anywhere in the file), Dishonored's as the
+FLOOR (a breathing dark that never lifts). One-system thesis
+holds: gut string wander with the 12-string octave course
+(+12 doubled, 0.55 amp, 14 ms behind, seeded cents — the shimmer),
+over a dark D pad + the institution's own loop-quantized 96 Hz
+line + wind through a loop-quantized slow lung. Landings
+pentatonic, Bb passes for the gothic lean, E untouched.
+
+New ruler earned: RUBATO IS MEASURABLE WITH A POSITIVE CONTROL —
+search every uniform grid (period 0.25-1.3 s, circular-mean phase)
+against measured onsets; the wander's best residual 26.1 ms
+(want >= 25) while the SAME search on e22's lightning melody (the
+on-grid control) finds 0.1 ms. A no-grid claim without a control
+would be unfalsifiable. Floor: min/median 0.76, env CV 0.09
+(between the hum's dead 0.06 and fire's 0.59 — a lung, not a
+flicker). line_lock 96.0 Hz prominence 2.7e5. Home x20.1. Seam
+p91.6.
+
+Verdict: CANDIDATE (operator taste gate — the A/B against e31 is
+the real ruling). Renders sent: e32_wanderer.ogg (loop + first 8 s
+again), e32_wanderer_bare.ogg. Integration shape if ruled in:
+WANDER table (t, midi, dur, amp) + grace dict NC-side, the pad and
+lung from music.gd's existing padsynth/drone plumbing; rubato
+means the loop needs no beat clock at all.
+
 ## 2026-08-15 — session 31: the spy's register (NOCK music, noir pole)
 
 e31_spyglass.py — the operator ruled on e28's render: the shipped
