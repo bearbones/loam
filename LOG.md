@@ -1,5 +1,42 @@
 # loam — log (newest at top)
 
+## 2026-08-15 — session 33: the ledger's drum (e29 rework per ruling)
+
+e33_ledgerdrum.py — the operator accepted e29's cadence "but I'd
+like a deeper drum for it." Design claim: the drum belongs to the
+TALLY, not to a register — the same hall drum under both dresses
+(the night closing is the world's own ceremony wherever you stand).
+hall_drum = soft-beater kick 84->38 Hz, drive 1.25, no click, a
+50-115 Hz room under it; hits on the word's first step and the
+WALK'S LAST STEP (0.40), so the verdict note lands on the bloom.
+
+Three deaths on the way, all instructive:
+  - a RATIO ruler saturates against a dark baseline: "low-frac
+    >= 3x the wood knock" demanded > 1.0 (the knock is already
+    0.60). Depth ratios belong to the centroid (x0.05 measured);
+    fractions get ABSOLUTE floors (0.99 >= 0.9).
+  - the drum's first cut (drive 1.6, f1 40, room to 420 Hz) put
+    its 3rd harmonic at 120 Hz — INSIDE e29's beating band — and
+    buried flame's landing (x6.2 -> x1.4). Purify the fundamental
+    (drive 1.25, f1 38: 3rd harmonic 114 < band floor) and darken
+    the room (50-115 Hz).
+  - even purified, a landing-time hit's 38-53 Hz tail leaks
+    through the ruler's 2nd-order band edge (~20 dB at 1.7 oct)
+    into the measurement window: common-floor dilution again
+    (still x1.4). The DESIGN fix beat the ruler fix: move the hit
+    to 0.40 — flame x3.9, lightning x8.7. Also: a common
+    (verdict-blind) drum bus still breaks onset rulers through
+    detector NONLINEARITY — subtract the known common track
+    before measuring the pair (37.8 ms false spread -> 0.5 ms).
+
+All rulers pass: deeper (centroid 62 vs 1224 Hz, low-frac 0.99),
+minimal pair 0.5 ms both dresses, beating x3.9/x8.7, close < alarm
+per dress. Render sent: e33_ledgerdrum.ogg. The cadence is now
+OPERATOR-SHAPED end to end; integration recipe: e29's word tables
++ CADENCE_LEVEL + hall-drum synth (one voice, tally-owned) into
+sfx/tally per the cycle-65 entry, drum constants NC-side
+(DRUM_HITS as beat offsets, DRUM_LEVEL).
+
 ## 2026-08-15 — session 32: the wanderer's register (NOCK music, dread pole)
 
 e32_wanderer.py — the second ruled mood pole (Diablo II /
