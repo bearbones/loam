@@ -1,5 +1,90 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 51: the exiles return — a structural witness for the octave rescue (e51, ruler._sub_structure)
+
+Session 50's open thread, answered the same day: could a rescue
+gate use STRUCTURE instead of size? Yes — and it beat size on
+every labeled case in both directions. The octave rescue now
+asks not "how big is the sub-candidate" but "does the raw
+spectrum hold a comb the winner can't explain": on-grid energy
+(+/-2 RAW bins of the refined candidate) at the multiples o the
+winner's comb misses. Rules, each paid for by a measured
+failure:
+
+  - >=2 of 4 witnesses live at 50x their local raw donut, at
+    least one ODD (an odd multiple is the one thing a
+    half-of-something-real phantom can never inherit — a d=4
+    candidate at hz(57)/2 harvested o=2 and o=6 from voice 57
+    itself). All-odd witness sets were tried and refuse true
+    d>=3 rescues: the honest evidence at o=2,4 was carrying
+    them, and 5,7,11,13 are damped high partials.
+  - the IMMUNE witness (first of {7,11,13} with o%d!=0) must be
+    live. Chords SUPPLY a root/2 phantom's odd witnesses: with
+    a perfect fifth, 3*(root/2) IS the fifth, 9*(root/2) its
+    h3, exactly; a major third puts 5*(root/2) 14 c from the
+    third's octave — inside the window. The vamp's beat 8 (F
+    major after G major) fired that phantom as d=2, then, with
+    o7 demanded only there, REBORN as d=3 under a winner at the
+    chord's fifth. No chord interval is 7:2 / 11:2 / 13:2.
+    Every measured true rescue: immune witness >=58x. Every
+    phantom: <=6x.
+  - fired rescues rank by STRUCTURE first, depth second.
+    min(subs) alone let a junk d=3 that scraped struct=2
+    shadow a true d=2 with 4/4 live; it had also been letting a
+    d=5 fire 43 cents off the truth read "correct" by rounding
+    luck. When structure is the gate, most-evidenced wins.
+  - witnesses read the RAW spectrum, which no null touches: the
+    e50 single-witness failure (chords eating nulled bins)
+    cannot recur — a shared bin is still live in raw, and for
+    a structural witness, sharing IS evidence.
+  - polyphonic first passes (dyad/triad p1) use the structural
+    rescue too (struct_sub), with size demoted to a -80 dB
+    confirmation: a true voice under an octave-up winner
+    measured frac 0.028 — below any honest size floor. The
+    single-voice path (hps_pitch, contour) keeps its own
+    calibrated legacy rescue: FM smears witnesses off-grid,
+    and its lessons were earned separately.
+
+Everything re-swept under the final rule. Certified triad
+shapes 9 -> 23 (all 14 ever certified return, plus (3,3),
+(3,8), (3,15), (4,7), (7,4), (7,16), (8,3), (8,9), (9,4) —
+root-position major triads, inversions, diminished). Full
+sweep 542 -> 586/636. Dyad suites PERFECT (209/209 systematic,
+87/87 random — the (46,61)-family octave-up thread closes).
+The session-50 phantom score reads 12/12 blind. e44 re-auditions
+to seed 4: the ORIGINAL session-44 crab melody ships again. e50
+re-auditions first try on the 23-shape pool. dev_smoke 79 green.
+
+Proof piece: the DORIAN VAMP — 16 beats of root-position i and
+IV (D minor, G major: the raised-sixth IV is the mode's
+signature) with C, F, Em, Am, the texture no earlier certified
+set could spell, recovered 16/16 blind with all seven major
+triads named. Controls: six exiled cases read (6/6), nine new
+shapes hold (45/45), sine dyad stays unrescued (witnesses
+silent for partial-free content), phantom score clean.
+
+Ruler lesson, the week's biggest: when true and false evidence
+overlap in SIZE, stop measuring size. The overlap that exiled
+five shapes was real — but it was a shadow of a deeper variable
+that separates cleanly (structure: 4/4 vs 0-1 witnesses). And
+the adversary is musical, not random: every witness a phantom
+ever presented was supplied by a CHORD INTERVAL (fifth -> o3,
+o9; third -> o5). The immune witnesses 7, 11, 13 are immune
+precisely because Western harmony has no 7:2 — the ruler's
+last line of defense is the seventh harmonic's dissonance.
+
+Render sent: e51_exiles.ogg (two loop passes).
+
+Open threads: the remaining 50 sweep misses (shapes like
+(8,15), (16,9) still fail structurally — 5:2-family pair
+collisions; is there a fourth-pass residue trick?); triad
+progressions with passing tones; jhala; accent ruler; pluck
+angle; meend on the two-pol string; canon at the 4th; verify FD
+tanpura with dyad_pitches; sub-midi-40 adaptive window;
+sympathetic strings; STRUCT_BAR=50/STRUCT_COUNT=2 were
+calibrated on pluck mixes — re-calibrate before trusting them
+on fdpluck/jawari content.
+
 ## 2026-08-30 — session 50: three voices, heard blind (e50, ruler.triad_pitches)
 
 The oldest open thread, banked the day dyads worked: name ALL

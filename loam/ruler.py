@@ -76,12 +76,78 @@ def hps_pitch(x: np.ndarray, fmin: float = 40.0, fmax: float = 2500.0,
     return float(f[a + int(np.argmax(raw[a:i0 + tol_bins + 1]))])
 
 
-# strict-mode octave-rescue bar (see the calibration note at its
-# use site); module-level so calibration sweeps can vary it
-STRICT_RESCUE_FRAC = 0.12
+# structural-witness bars for the strict octave rescue (see the
+# calibration note at the use site); module-level so calibration
+# sweeps can vary them
+STRUCT_BAR = 50.0      # on-grid peak must clear 50x its donut
+STRUCT_COUNT = 2       # and >=2 of 4 witnesses must be live
 
 
-def _hps_core(mag, f, fmin, fmax, nharm, strict_sub=False):
+def _sub_structure(raw, fj, df, d):
+    """How many unexplained multiples of a sub-candidate hold
+    ON-GRID energy in the RAW spectrum. For a /d rescue, the
+    winner's comb explains every multiple of d — and the most
+    common phantom is 'half of something real', whose EVEN
+    multiples are that voice's own harmonics (e51: a d=4
+    candidate at hz(57)/2 harvested witnesses at o=2 and o=6
+    from voice 57 itself). Purely-odd witness sets were tried
+    and refuse TRUE d>=3 rescues (5,7,11,13 x fj are damped
+    high partials; the honest evidence at o=2,4 was carrying
+    them) — so the set stays the first four o with o % d != 0,
+    but at least one LIVE witness must be ODD: an odd multiple
+    is the one thing a 2*fj comb can never supply. One more
+    demand, for every d: the IMMUNE witness — the first o in
+    {7, 11, 13} with o % d != 0 — must be live. A chord
+    SUPPLIES a half-of-something-real phantom's other odd
+    witnesses: with a perfect fifth in the chord, 3*(root/2)
+    IS the fifth and 9*(root/2) is the fifth's h3, exactly;
+    with a major third, 5*(root/2) sits 14 c from the third's
+    octave, inside the window (e51's vamp beat 8: F major's
+    own C and A testified for F/2 and dragged the root to
+    midi 41, first as a d=2 rescue, then — once o=7 was
+    demanded there — reborn as d=3 under a winner at the
+    chord's FIFTH, its witnesses the same chord tones). No
+    chord interval is 7:2, 11:2 or 13:2 — and every measured
+    true rescue had its immune witness live (>=58x donut)
+    while every phantom read it dead (<=6x). The immune
+    demand also retires a measured lucky rescue: a d=5 fire
+    43 cents off the truth (o7 dead) that min(subs) preferred
+    to the honest d=2 an octave up. Witnesses are read in
+    RAW, which no null ever touches: the e50 single-witness
+    failure (a just fifth nulling 3*f_lo == 2*f_hi out of the
+    residue) cannot recur — a shared bin is still live in
+    raw, and sharing IS evidence here. Each
+    witness is read within +/-2 RAW bins of o*fj (fj already
+    _partial_refine'd): a real sub-fundamental puts partials
+    exactly there, while another voice's partial that merely
+    wanders near lands OFF-grid and the tight window excludes it
+    (the dilated spectrum, +/-tol bins wide, cannot — e51's first
+    probe read 8000x 'support' for a phantom from a neighbor's
+    partial inside the dilation). Live = peak >= STRUCT_BAR x
+    the local raw donut median."""
+    def _live(o):
+        b = int(round(o * fj / df))
+        if b + 3 >= len(raw):
+            return False
+        pk = raw[b - 2:b + 3].max()
+        dn = np.median(np.concatenate([
+                raw[max(b - 30, 0):max(b - 8, 0)],
+                raw[b + 8:b + 31]]) + 1e-12)
+        return bool(pk >= STRUCT_BAR * dn)
+
+    immune = next(o for o in (7, 11, 13) if o % d)
+    if not _live(immune):
+        return 0
+    live = odd_live = 0
+    for o in [o for o in range(2, 13) if o % d][:4]:
+        if _live(o):
+            live += 1
+            odd_live += o % 2
+    return live if odd_live else 0
+
+
+def _hps_core(mag, f, fmin, fmax, nharm, strict_sub=False,
+        raw=None, tol_bins=3, struct_sub=False):
     """The HPS contest + octave rescue on a prepared (dilated)
     magnitude spectrum. Shared by hps_pitch and dyad_pitches.
     strict_sub=True drops the local-contrast rescue clause — for
@@ -132,26 +198,52 @@ def _hps_core(mag, f, fmin, fmax, nharm, strict_sub=False):
     i0 = int(np.argmax(acc))
     floor = np.median(mag) + 1e-12
     subs = []
-    for j in (int(round(i0 / d)) for d in range(2, 9)):
+    for d in range(2, 9):
+        j = int(round(i0 / d))
         if f[j] < fmin or mag[j] < 8.0 * floor:
             continue
-        # strict mode (nulled residues) demands a HIGHER fraction
-        # of the winner: 0.12 (STRICT_RESCUE_FRAC), calibrated in
-        # e50 above measured phantoms (loop-context junk at f/2
-        # fires at 0.06-0.10 and demotes a clean winner an
-        # octave). Some TRUE rescues also live in that band
-        # (threshold sweep: six triad shapes need fracs 0.08-0.11
-        # to read) — the fraction cannot separate them from junk,
-        # so those shapes fall out of the certified set instead
-        # of the bar coming down. An odd-harmonic witness was
-        # tried first and is structurally blind: chords eat the
-        # witnesses (a just fifth nulls 3*f_lo == 2*f_hi, a major
-        # third nulls 5*f_lo == 4*f_hi — a major triad's root
-        # loses both at once).
-        if mag[j] >= (STRICT_RESCUE_FRAC if strict_sub
-                else 0.06) * mag[i0]:
+        # strict mode (nulled residues): size cannot decide the
+        # rescue — e50 measured true-rescue and phantom fractions
+        # OVERLAPPING at 0.06-0.12 (a bar of 0.12 exiled five
+        # certified triad shapes; phantoms fired at up to 0.54).
+        # STRUCTURE can (e51, measured on those labeled cases):
+        # a real sub-fundamental holds on-grid energy at the
+        # multiples the winner's comb can't explain — every true
+        # rescue showed 4/4 witnesses live, phantoms 0-1 (junk
+        # once scraped 2, which the max-struct ranking below
+        # outvotes; the immune-witness demand in _sub_structure
+        # blocks the chord-supplied families). A SINGLE
+        # odd-harmonic witness was tried in e50 and is
+        # structurally blind — chords eat it (a just fifth nulls
+        # 3*f_lo == 2*f_hi, a major third 5*f_lo == 4*f_hi, a
+        # major triad's root loses both) — but 2-of-4 survives
+        # what chords eat. The 0.06 size floor still applies.
+        if strict_sub or struct_sub:
+            st = _sub_structure(raw, _partial_refine(raw,
+                    f[j], f[1], tol_bins), f[1], d)
+            st_ok = st >= STRUCT_COUNT
+            if strict_sub:
+                # nulled residues: no contrast clause (null edges
+                # mimic contrast, the e44 lesson) — size floor
+                # AND structure
+                if st_ok and mag[j] >= 0.06 * mag[i0]:
+                    subs.append((-st, j))
+            else:
+                # polyphonic first pass (struct_sub): structure
+                # is the primary witness — size only confirms
+                # the bin holds energy at all (>= -80 dB of the
+                # winner, plus the 8x-floor guard above). A true
+                # voice under a mix's octave-up winner measured
+                # frac 0.028 (e51 NEWb1) — below any honest size
+                # floor, and dilation lifts the donut too far
+                # for the 200x contrast clause — with 4/4
+                # witnesses live; the phantom that size fired at
+                # frac 0.22 (NEWb10) had 0 live.
+                if st_ok and mag[j] >= 1e-4 * mag[i0]:
+                    subs.append((-st, j))
+        elif mag[j] >= 0.06 * mag[i0]:
             subs.append(j)
-        elif not strict_sub:
+        else:
             donut = np.median(np.concatenate([
                     mag[max(j - 25, 0):max(j - 7, 0)],
                     mag[j + 8:j + 26]]) + 1e-12)
@@ -163,7 +255,16 @@ def _hps_core(mag, f, fmin, fmax, nharm, strict_sub=False):
             if mag[j] >= 200.0 * donut and mag[j] >= 1e-4 * mag[i0]:
                 subs.append(j)
     if subs:
-        i0 = min(subs)
+        # structural modes rank fired rescues by STRUCTURE first,
+        # depth second: min(subs) alone let a junk d=3 with a
+        # scraped-by struct of 2 shadow a true d=2 with 4/4 live
+        # (e51 phantom-score beat 11 — the deepest fired rescue
+        # is not the best-evidenced one). Legacy mode keeps pure
+        # min: deepest divisor (e44's h6/h8 winners).
+        if strict_sub or struct_sub:
+            i0 = min(subs)[1]
+        else:
+            i0 = min(subs)
     return i0
 
 
@@ -244,10 +345,13 @@ def dyad_pitches(x: np.ndarray, fmin: float = 60.0,
     f = np.fft.rfftfreq(len(m), 1.0 / SR)
     df = f[1]
     f1 = _partial_refine(raw,
-            f[_hps_core(mag, f, fmin, fmax, nharm)], df, tol_bins)
+            f[_hps_core(mag, f, fmin, fmax, nharm,
+                    struct_sub=True, raw=raw, tol_bins=tol_bins)],
+            df, tol_bins)
     mag2 = _null_comb(mag, f1, df, tol_bins)
     f2 = _partial_refine(raw,
-            f[_hps_core(mag2, f, fmin, fmax, nharm, strict_sub=True)],
+            f[_hps_core(mag2, f, fmin, fmax, nharm,
+                    strict_sub=True, raw=raw, tol_bins=tol_bins)],
             df, tol_bins)
     lo, hi = sorted((float(f1), float(f2)))
     return (lo, hi)
@@ -268,18 +372,19 @@ def triad_pitches(x: np.ndarray, fmin: float = 60.0,
     i.e. intervals {12, 19 (and its 20 penumbra), 24, 28, 31,
     34, 36} — and at most ONE pair may be 16 (5:2 survives a
     single null cut, not two). Shapes passing those rules still
-    only measure 85% overall; the VERIFIED subset — shapes
+    only measure 92% overall; the VERIFIED subset — shapes
     (i1, i2) that read perfectly across roots 45..62 under the
-    shipped 0.12 rescue bar — is {(3,4),(3,7),(4,4),(8,8),
-    (8,21),(9,7),(9,8),(15,15),(21,8)}. Five more shapes
-    (incl. the root-position major triad (4,3)) read perfectly
-    only when the strict octave rescue admits fracs of
-    0.08-0.11 — the SAME range where loop-context phantoms
-    fire (0.06-0.10, measured in e50): the rescue fraction
-    cannot tell those true rescues from junk, so they are out.
-    The third read is the least defended: it faces a spectrum
-    where every collision fell to a null. Compose from the
-    verified subset."""
+    structural-witness rescue (e51, _sub_structure) — is
+    {(3,3),(3,4),(3,7),(3,8),(3,15),(4,3),(4,4),(4,7),(7,4),
+    (7,7),(7,8),(7,9),(7,16),(8,3),(8,8),(8,9),(8,21),(9,4),
+    (9,7),(9,8),(9,21),(15,15),(21,8)} — 23 shapes, minor and
+    major triads in root position and inversions, diminished
+    included. (Under the size-only 0.12 rescue bar this set
+    was NINE: true-rescue and phantom size fractions overlap
+    at 0.06-0.12, a blind spot structure resolved.) The third
+    read is the least defended: it faces a spectrum where
+    every collision fell to a null. Compose from the verified
+    subset."""
     from scipy.ndimage import maximum_filter1d
     m = _mono(x)
     w = m * np.hanning(len(m))
@@ -288,15 +393,19 @@ def triad_pitches(x: np.ndarray, fmin: float = 60.0,
     f = np.fft.rfftfreq(len(m), 1.0 / SR)
     df = f[1]
     f1 = _partial_refine(raw,
-            f[_hps_core(mag, f, fmin, fmax, nharm)], df, tol_bins)
+            f[_hps_core(mag, f, fmin, fmax, nharm,
+                    struct_sub=True, raw=raw,
+                    tol_bins=tol_bins)], df, tol_bins)
     mag2 = _null_comb(mag, f1, df, tol_bins)
     f2 = _partial_refine(raw,
             f[_hps_core(mag2, f, fmin, fmax, nharm,
-                    strict_sub=True)], df, tol_bins)
+                    strict_sub=True, raw=raw,
+                    tol_bins=tol_bins)], df, tol_bins)
     mag3 = _null_comb(mag2, f2, df, tol_bins)
     f3 = _partial_refine(raw,
             f[_hps_core(mag3, f, fmin, fmax, nharm,
-                    strict_sub=True)], df, tol_bins)
+                    strict_sub=True, raw=raw,
+                    tol_bins=tol_bins)], df, tol_bins)
     return tuple(sorted((float(f1), float(f2), float(f3))))
 
 

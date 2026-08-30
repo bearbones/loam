@@ -136,13 +136,13 @@ def recover(mix):
 
 
 # certification is per ISOLATED dyad; in the loop each beat is
-# read through its predecessor's ring-over, where the strict
-# octave rescue's blind spot bites (e50: true-rescue and phantom
-# fractions OVERLAP at 0.06-0.12, so the shipped 0.12 bar refuses
-# some true rescues — seed 4's crab loses beat 5 that way). Blind
-# recoverability is therefore part of the solver's acceptance:
-# audition seeds, ship the first crab that survives its own
-# measurement.
+# read through its predecessor's ring-over, so blind
+# recoverability is part of the solver's acceptance: audition
+# seeds, ship the first crab that survives its own measurement.
+# (Under e50's size-only 0.12 rescue bar, seed 4 lost beat 5 to
+# a refused true rescue and seed 5 shipped; the e51 structural
+# witness reads seed 4 — the original session-44 melody — clean
+# again.)
 melody = mix = None
 for seed in range(4, 20):
     n = [None] * L

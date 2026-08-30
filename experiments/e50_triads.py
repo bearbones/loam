@@ -54,8 +54,13 @@ def midi_of(f):
     return int(round(69 + 12 * np.log2(f / 440.0)))
 
 
-VERIFIED = [(3, 4), (3, 7), (4, 4), (8, 8), (8, 21), (9, 7),
-        (9, 8), (15, 15), (21, 8)]
+# certified under the e51 structural-witness rescue (the e50
+# size-only 0.12 bar certified nine; structure reclaimed the
+# exiles and nine more — see LOG session 51)
+VERIFIED = [(3, 3), (3, 4), (3, 7), (3, 8), (3, 15), (4, 3),
+        (4, 4), (4, 7), (7, 4), (7, 7), (7, 8), (7, 9),
+        (7, 16), (8, 3), (8, 8), (8, 9), (8, 21), (9, 4),
+        (9, 7), (9, 8), (9, 21), (15, 15), (21, 8)]
 
 # ---- 1. the certified shapes hold (spot sweep) -----------------
 h = t = 0
@@ -71,7 +76,7 @@ for i1, i2 in VERIFIED:
         t += 1
         h += (got == (a, a + i1, c))
 check("certified shapes read perfectly", h == t,
-        f"{h}/{t} across 9 shapes x 5 roots")
+        f"{h}/{t} across {len(VERIFIED)} shapes x 5 roots")
 
 # ---- 2. the contract's edge is real (shadow control) -----------
 a = 50
