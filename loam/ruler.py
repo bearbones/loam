@@ -65,9 +65,15 @@ def hps_pitch(x: np.ndarray, fmin: float = 40.0, fmax: float = 2500.0,
     from scipy.ndimage import maximum_filter1d
     m = _mono(x)
     w = m * np.hanning(len(m))
-    mag = maximum_filter1d(np.abs(np.fft.rfft(w)), 2 * tol_bins + 1)
+    raw = np.abs(np.fft.rfft(w))
+    mag = maximum_filter1d(raw, 2 * tol_bins + 1)
     f = np.fft.rfftfreq(len(m), 1.0 / SR)
-    return float(f[_hps_core(mag, f, fmin, fmax, nharm)])
+    i0 = _hps_core(mag, f, fmin, fmax, nharm)
+    # the dilated contest names the RIDGE; the raw spectrum names
+    # the bin within it. A pure tone's 7-bin plateau ties exactly
+    # and argmax takes the low edge — 3 bins = 48 cents at 220 Hz
+    a = max(i0 - tol_bins, 0)
+    return float(f[a + int(np.argmax(raw[a:i0 + tol_bins + 1]))])
 
 
 def _hps_core(mag, f, fmin, fmax, nharm, strict_sub=False):
@@ -76,10 +82,45 @@ def _hps_core(mag, f, fmin, fmax, nharm, strict_sub=False):
     strict_sub=True drops the local-contrast rescue clause — for
     a NULLED residue spectrum, whose half-cut null edges mimic
     locally-contrasting peaks and invite phantom /2../4 rescues
-    (e44: a clean 831 Hz voice dragged two octaves down)."""
-    acc = np.log(mag + 1e-12).copy()
+    (e44: a clean 831 Hz voice dragged two octaves down).
+
+    Contest rules earned across e44/e45 (each clause paid for by
+    a measured failure): every member's log contribution is
+    floored at -60 dB of peak, so junk is UNIFORMLY silent
+    evidence (unfloored, log(junk) swings tens of units on
+    leakage luck and a subharmonic wins on whose junk was less
+    tiny); a bin below -120 dB of peak holds no energy of its own
+    and is not eligible to win at all (a pure sine ties every
+    subharmonic candidate — argmax must not fall to the band
+    edge); the strong-own-bin bonus breaks the remaining exact
+    ties in the true bin's favor. Evidence above the floor weighs
+    by log SIZE, never by one-member-one-vote: a counting contest
+    let a -44 dB ring-over shard outvote a 0 dB fundamental
+    (e44's beat residues, where a low candidate harvests one
+    shard from each ringing neighbor)."""
+    clampv = 1e-6 * mag.max()
+    silent = mag < clampv
+    mag = np.maximum(mag, clampv)   # the rescue's donut floor
+    # the contest (e45, twice revised): log product with every
+    # member's contribution FLOORED at the strong bar (-60 dB of
+    # peak), plus a strong-own-bin bonus that dominates the sum.
+    # The floor makes everything below the bar UNIFORMLY silent
+    # evidence — a pure tone then ties all subharmonic candidates
+    # exactly (junk can't outrank evidence bin by bin) and the
+    # own-bin bonus breaks the tie. Above the bar, evidence weighs
+    # in proportion to its log size: a counting contest (+1000 per
+    # strong member, the first e45 attempt) let a -44 dB ring-over
+    # shard outvote a 0 dB fundamental — in a beat-segment residue
+    # a LOW candidate harvests one shard from each ringing
+    # neighbor and wins 4 votes to 3 (e44 beats 2/26, the 5:2
+    # near-miss of interval 16 nulling voice 2's even partials).
+    strongv = 1e-3 * mag.max()
+    mm = np.maximum(mag, strongv)
+    acc = np.log(mm + 1e-12).copy()
+    acc[silent] = -np.inf
+    acc += 500.0 * (mag >= strongv)
     for h in range(2, nharm + 1):
-        dec = np.log(mag[::h] + 1e-12)
+        dec = np.log(mm[::h] + 1e-12)
         acc[:len(dec)] += dec
     band = (f >= fmin) & (f <= fmax)
     acc[~band] = -np.inf
@@ -95,7 +136,12 @@ def _hps_core(mag, f, fmin, fmax, nharm, strict_sub=False):
             donut = np.median(np.concatenate([
                     mag[max(j - 25, 0):max(j - 7, 0)],
                     mag[j + 8:j + 26]]) + 1e-12)
-            if mag[j] >= 200.0 * donut:
+            # the -80 dB gate (e45): a numerically CLEAN spectrum
+            # (synthetic partials) has floor and donut near the
+            # 1e-12 guard, so leakage sidelobes show huge local
+            # contrast — demand the sub also be at least 1e-4 of
+            # the winner before contrast can vouch for it
+            if mag[j] >= 200.0 * donut and mag[j] >= 1e-4 * mag[i0]:
                 subs.append(j)
     if subs:
         i0 = min(subs)
@@ -118,11 +164,23 @@ def _partial_refine(raw, f0, df, tol_bins):
         if b >= len(raw) or a < 0:
             break
         j = a + int(np.argmax(raw[a:b]))
-        est.append((raw[j], j / h))
+        pos = float(j)
+        if 0 < j < len(raw) - 1 and raw[j] > 0:
+            # log-parabola sub-bin peak (a single-partial tone
+            # must not be quantized to the bin grid)
+            la, lb, lc = np.log(raw[j - 1:j + 2] + 1e-30)
+            den = la - 2 * lb + lc
+            if den < 0:
+                pos = j + min(max(0.5 * (la - lc) / den, -0.5), 0.5)
+        est.append((raw[j], pos / h))
     if not est:
         return f0
-    top = sorted(est, reverse=True)[:5]
-    return float(np.median([p for _, p in top])) * df
+    wmax = max(w for w, _ in est)
+    # only STRONG partials vote (>= -60 dB of the strongest): a
+    # pure tone has one real partial, and letting junk windows
+    # vote hands the median to sidelobe noise
+    strong = [p for w, p in est if w >= 1e-3 * wmax]
+    return float(np.median(strong)) * df
 
 
 def dyad_pitches(x: np.ndarray, fmin: float = 60.0,
@@ -148,7 +206,10 @@ def dyad_pitches(x: np.ndarray, fmin: float = 60.0,
     f1 = _partial_refine(raw,
             f[_hps_core(mag, f, fmin, fmax, nharm)], df, tol_bins)
     mag2 = mag.copy()
-    med = np.median(mag)
+    # null fill sits BELOW the contest's -60 dB evidence floor
+    # (e45): a filled bin must read as uniform silence, or every
+    # low candidate harvests evidence from the null plateaus
+    med = min(float(np.median(mag)), 4e-4 * float(mag.max()))
     h = 1
     while True:
         c = h * f1 / df
@@ -163,6 +224,39 @@ def dyad_pitches(x: np.ndarray, fmin: float = 60.0,
             df, tol_bins)
     lo, hi = sorted((float(f1), float(f2)))
     return (lo, hi)
+
+
+def pitch_contour(x: np.ndarray, win_s: float = 0.22,
+        hop_s: float = 0.05, fmin: float = 60.0,
+        fmax: float = 2000.0) -> tuple:
+    """Pitch vs time: hps in hopping windows, refined to sub-bin
+    by actual partial positions (_partial_refine — a 0.22 s
+    window's raw bin is ~70 cents at 110 Hz; the refinement
+    divides that by the harmonic count). Returns (times, hz) as
+    arrays; times are window CENTERS, so a linear glide reads
+    exactly and a plateau's ends smear by win_s/2. Built for e45's
+    meend: the ruler that turns 'it bends' into cents.
+
+    Dilation here is +/-1 bin, not hps_pitch's +/-3: dilation is
+    a FREQUENCY tolerance, and this window's bins are 2.3x wider
+    — at +/-3 bins (13.6 Hz) a low candidate borrows the true
+    peak's main lobe at several harmonics at once and a pure
+    tone reads at the band edge."""
+    from scipy.ndimage import maximum_filter1d
+    m = _mono(x)
+    n = int(win_s * SR)
+    hop = int(hop_s * SR)
+    ts, fs = [], []
+    for a in range(0, len(m) - n, hop):
+        seg = m[a:a + n]
+        w = seg * np.hanning(n)
+        raw = np.abs(np.fft.rfft(w))
+        mag = maximum_filter1d(raw, 3)
+        f = np.fft.rfftfreq(n, 1.0 / SR)
+        i0 = _hps_core(mag, f, fmin, fmax, 5)
+        fs.append(_partial_refine(raw, f[i0], f[1], 2))
+        ts.append((a + n / 2) / SR)
+    return (np.array(ts), np.array(fs))
 
 
 def centroid_hz(x: np.ndarray) -> float:

@@ -110,11 +110,13 @@ assert quantize_to(63.4, 62, "hijaz_kar") in scale_notes(50, "hijaz_kar", 3)
 checks.append(("rhythm", True))
 
 ok("fdpluck", fdpluck(110.0, 0.6, N=140))
+ok("fdpluck_meend", fdpluck(np.linspace(110.0, 123.47, 100), 0.6,
+        N=140))
 
 # ruler: self-check against signals with known answers
 from loam.ruler import (hps_pitch, centroid_hz, band_density,
         pulse_rate, seam_rank, flatness, chroma, onset_times,
-        transcribe, env_peak_s, dyad_pitches)
+        transcribe, env_peak_s, dyad_pitches, pitch_contour)
 _tt = np.arange(2 * SR) / SR
 _sine = np.sin(2 * np.pi * 500.0 * _tt)
 checks.append(("ruler_hps",
@@ -152,6 +154,10 @@ for _a, _b in _dy:                         # shadow intervals
     _dyok &= (int(round(69 + 12 * np.log2(_lo / 440.0))) == _a
             and int(round(69 + 12 * np.log2(_hi / 440.0))) == _b)
 checks.append(("ruler_dyad", _dyok))
+_ct, _cf = pitch_contour(np.sin(2 * np.pi * 220.0
+        * np.arange(SR) / SR), fmin=100, fmax=800)
+checks.append(("ruler_contour",
+        bool(np.abs(1200 * np.log2(_cf / 220.0)).max() < 10.0)))
 _tune = [62, 65, 69, 74]
 _ph = np.zeros(int(2.2 * SR))
 for _i, _md in enumerate(_tune):

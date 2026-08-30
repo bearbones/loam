@@ -1,5 +1,76 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 45: meend — the FD string learns to bend (e45 + ruler.pitch_contour)
+
+Session 43's open thread. Pitch lives in ONE coefficient of the
+scheme (lambda^2 = (c dt/dx)^2), so time-varying tension is one
+multiply per step: fdpluck now accepts an array of per-sample Hz
+(grid sized for the trajectory's highest note, where stability
+is tightest). Measured: a 2-semitone meend tracks its designed
+trajectory to 0.4 cents through the bend (holds 2.8/0.1), the
+bend is monotone, and the jawari still blooms x12.8 on a BENT
+string vs the same trajectory unbridged. The piece: the e42
+tanpura drone (two cycles) under a solo voice singing two meend
+gestures, D3-F3-E3 and E3-D3 home to sa; solo dwells read back
+at 1.6-1.7 cents on the solo's own bus.
+
+The new ruler is pitch_contour (hopping-window HPS + sub-bin
+partial refinement) and it cost a full contest redesign, paid
+for in measured failures:
+  - a numerically CLEAN spectrum let log(junk) decide contests
+    (a synthetic glide read 1232 cents off on leakage luck).
+    Silence must be uniformly silent evidence: bins below -120
+    dB of peak are ineligible to win, and every member's product
+    contribution is FLOORED at -60 dB of peak.
+  - first redesign (a lexicographic strong-member COUNT) fixed
+    the pure sine but planted this session's regression: in
+    e44's beat residues a -44 dB ring-over shard counts the same
+    as a 0 dB fundamental, and a LOW candidate harvests one
+    shard from each ringing neighbor — 4 votes to 3 over the
+    true voice at beats 2/26 (interval 16 is a 5:2 near-miss, so
+    nulling voice 1's comb eats voice 2's EVEN partials and
+    halves its evidence). Fix: the count is gone; evidence above
+    the floor weighs by log SIZE (soft-clamped product), and the
+    strong-own-bin bonus breaks the pure-tone ties the count was
+    invented for. A/B on the full battery: product ties count
+    everywhere else and wins the polyphonic residue — e44 back
+    to 28/28 blind with interval 16 still in the palette.
+  - dilation is a FREQUENCY tolerance, not a bin count:
+    pitch_contour's 0.22 s windows have 2.3x wider bins, and +/-3
+    bins let low candidates borrow the true peak's main lobe (a
+    pure tone read at the band edge). Its dilation is +/-1 bin.
+  - the dilated contest names the RIDGE; the raw spectrum names
+    the bin within it. A pure tone's 7-bin plateau ties exactly
+    and argmax took the low edge — hps_pitch read every sine 3
+    bins (48 cents at 220 Hz) flat. Re-center on raw: sines now
+    5/5 exact.
+  - refinement must be strong-only + sub-bin: median over
+    per-partial argmaxes still got dragged by junk positions
+    (a pure sine refined to 209.09 Hz); now only partials >=
+    -60 dB of the strongest vote, each log-parabola interpolated.
+  - dyad null fill is capped below the evidence floor
+    (min(median, 4e-4 max)) so null plateaus can never vote.
+
+Re-sweep after the ruler change (house rule): smoke 74 green,
+solo sweep 270/270, pure sines 5/5, dyad systematic 195/196 and
+random 88/90 (a NEW harder suite than session 44's; the 3
+misses are octave-up reads on the residue voice, identical
+under the old count contest — pre-existing, now on the books:
+(46,61)->(58,61) the worst), synthetic glide 4.3 cents, e40-e45
+all green.
+
+Render sent: e45_meend.ogg (drone + two meend phrases, two loop
+passes).
+
+Open threads: the 3 dyad-suite octave-up misses (residue pass
+picks 2*f2; the rescue's strict mode may be too strict). Three+
+voices by iterated subtraction. Canon at the 4th. Verify the FD
+tanpura with dyad_pitches. Sub-midi-40 pitch needs adaptive
+window length. Sympathetic strings driven by the FD tanpura.
+A raga sketch over the drone — meend is the vocabulary, now
+spellable. Two-polarization string (vertical + horizontal with
+weak coupling).
+
 ## 2026-08-30 — session 44: crab canon, heard blind (e44 + ruler.dyad_pitches)
 
 The oldest open thread (polyphonic transcription, parked since

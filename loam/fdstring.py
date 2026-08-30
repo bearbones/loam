@@ -48,25 +48,39 @@ def fdpluck(f0: float, dur: float, amp: float = 1.0,
     stable at ANY K, so contact stiffness is a safe voicing knob
     (measured e43: K=1e12 rings where the explicit penalty NaNs at
     1e11). contact="penalty" keeps the plain explicit force for
-    comparison."""
+    comparison.
+
+    f0 may be an ARRAY of per-sample Hz (any length; resampled to
+    the step count): time-varying tension, i.e. MEEND. Pitch lives
+    in one coefficient (lambda^2 = (c dt/dx)^2), so bending is one
+    multiply per step; the grid is sized for the trajectory's
+    HIGHEST note, where stability is tightest."""
     dt = 1.0 / SR
-    c = 2.0 * f0                       # L = 1, so c = 2 L f0
+    steps = int(dur * SR)
+    f0 = np.asarray(f0, dtype=float)
+    scalar_f0 = (f0.ndim == 0)
+    f0max = float(f0) if scalar_f0 else float(f0.max())
     if N <= 0:
         # largest stable grid with margin: a N^2 + b N^4 <= 0.6
-        a = (2.0 * f0 / SR) ** 2
+        a = (2.0 * f0max / SR) ** 2
         b = (2.0 * kappa / SR) ** 2
         N = int(np.sqrt((-a + np.sqrt(a * a + 2.4 * b)) / (2 * b)))
         N = max(min(N, 180), 24)
     dx = 1.0 / N
-    lam2 = (c * dt / dx) ** 2
     mu2 = (kappa * dt / dx ** 2) ** 2
-    assert lam2 + 4 * mu2 <= 1.0, "unstable grid: shrink N or kappa"
+    assert (2.0 * f0max * dt / dx) ** 2 + 4 * mu2 <= 1.0, \
+        "unstable grid: shrink N or kappa"
+    if scalar_f0:
+        lam2s = np.full(steps, (2.0 * float(f0) * dt / dx) ** 2)
+    else:
+        traj = np.interp(np.linspace(0, 1, steps),
+                np.linspace(0, 1, len(f0)), f0)
+        lam2s = (2.0 * traj * dt / dx) ** 2
 
     x = np.linspace(0.0, 1.0, N + 1)
     u = np.where(x < pick, x / pick, (1 - x) / (1 - pick)) * pluck_m
     u[0] = u[-1] = 0.0
     up = u.copy()
-    steps = int(dur * SR)
     out = np.empty(steps)
     ro = max(int(0.12 * N), 2)
     bz = x > 1.0 - zone
@@ -89,7 +103,7 @@ def fdpluck(f0: float, dur: float, amp: float = 1.0,
             + u[:-4]
         bi[1] = u[3] - 4 * u[2] + 6 * u[1] - 4 * u[0] - u[1]
         bi[-2] = -u[-2] - 4 * u[-1] + 6 * u[-2] - 4 * u[-3] + u[-4]
-        un = (2 * u - B * up + lam2 * lap - mu2 * bi
+        un = (2 * u - B * up + lam2s[t] * lap - mu2 * bi
                 + s1c * (lap - lapo)) / A
         if bridge:
             if contact == "sav":
