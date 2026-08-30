@@ -110,7 +110,7 @@ checks.append(("rhythm", True))
 
 # ruler: self-check against signals with known answers
 from loam.ruler import (hps_pitch, centroid_hz, band_density,
-        pulse_rate, seam_rank)
+        pulse_rate, seam_rank, flatness, chroma)
 _tt = np.arange(2 * SR) / SR
 _sine = np.sin(2 * np.pi * 500.0 * _tt)
 checks.append(("ruler_hps",
@@ -128,6 +128,11 @@ checks.append(("ruler_pulse",
         abs(pulse_rate(_clicks, 2.0, 4.5) - 3.0) < 0.15))
 _qsine = np.sin(2 * np.pi * 500.0 * np.arange(SR) / SR)[:, None]
 checks.append(("ruler_seam", seam_rank(_qsine) <= 0.999))
+_nz = np.random.default_rng(4).standard_normal(2 * SR)
+checks.append(("ruler_flat_noise", flatness(_nz) > 0.3))
+checks.append(("ruler_flat_sine", flatness(_sine) < 0.02))
+_a440 = np.sin(2 * np.pi * 440.0 * _tt)
+checks.append(("ruler_chroma", int(np.argmax(chroma(_a440))) == 9))
 
 n_fail = sum(1 for _, g in checks if not g)
 print(f"smoke: {len(checks)} checks, {n_fail} failures, "

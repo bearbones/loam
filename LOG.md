@@ -1,5 +1,53 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 38: the storm harp (e38; ruler.flatness, ruler.chroma)
+
+e37's open thread, the storm SONG: thunder as a chord source.
+Four strikes (1.2/4.5/2.2/6.5 km) drive sympathetic() — the taraf
+bank — tuned to nine strings on D/A/D/F/A/C/D/F/A. Pitch classes
+{D,F,A,C} only, no E: "no foreign notes" stays falsifiable.
+Broadband rumble in, D minor out — the sky plays the harp, the
+strings ring 10 s, every tail wraps. Rain (soft, dark) and low
+wind underneath. 40 s loop.
+
+New rulers, both born of need and both wrong on the first cut —
+the flatness tuition came in TWO installments:
+  - ruler.flatness (Wiener entropy) for the TONALIZATION claim
+    (noise in, chord out — deliberately blind to WHICH pitches;
+    that's chroma's job). Installment one: a single wide-band
+    flatness confounds TILT with tonality — post-e37 thunder
+    crams its power into a few low bins, so the NOISE measured
+    "tonal" (0.015) because most of the window was merely empty.
+    Fix: Wiener entropy per octave band (tilted noise is still
+    locally flat; only a comb is spiky inside its own octave).
+    Installment two: the unweighted octave average let the quiet
+    noise-floor octaves above the music outvote the loud combed
+    ones (5x, needed 10x) — the POWER-WEIGHTED centroid lesson,
+    now in its second home. Power-weighted: sky 0.50, harp 0.056.
+  - ruler.chroma: 12-bin pitch-class power fold, normalized;
+    docstring carries e35's warning that chroma claims are
+    RELATIVE (top-k membership), never absolute floors.
+
+Then the instrument met the ruler instead of the other way
+around: 9x tonal at t60=6 s against a stated 10x design claim —
+the threshold WAS the design, so the fix was more instrument
+(t60 10 s, damp 0.3: sharper comb over the same drive floor),
+not a quieter ruler. 14x, and a lovelier sustain for it.
+
+All 5 rulers pass: tonalization 14x (0.50 -> 0.036), comb
+selectivity 94x (tuned bands vs quarter-tone probes), strings
+answer the sky (envelope corr 0.74 at +145 ms — response follows
+excitation), no foreign notes (top-4 chroma exactly {C,D,F,A}),
+scene seam p56.7. dev_smoke 67 checks (flatness noise/sine and
+chroma A440 self-checks added). Render sent: e38_stormharp.ogg.
+
+Open threads: Risset decelerando / ITD treadmill (e36); thunder
+ground-reflection doublet (e37); the harp wants DYNAMICS — a
+tension scalar a la e35 that walks the bank between tunings
+(storm passes, mode brightens?); sympathetic() coupling is linear
+— a nonlinear bridge (tanh on the drive tap) would give the taraf
+its buzz.
+
 ## 2026-08-30 — session 37: thunder is geometry (e37, texture.thunder)
 
 The open thread from e36: the storm had rain, wind, fire, water —

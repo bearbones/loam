@@ -134,6 +134,54 @@ def pulse_rate(x: np.ndarray, rate_lo: float, rate_hi: float,
     return SR / float(k)
 
 
+def flatness(x: np.ndarray, lo: float = 60.0, hi: float = 2000.0) -> float:
+    """Spectral flatness (Wiener entropy: geometric over arithmetic
+    mean of power), computed PER OCTAVE BAND over [lo, hi] and
+    averaged. ~1 = noise, orders of magnitude lower = tonal comb.
+    Born in e38 to measure TONALIZATION (noise in, chord out)
+    without smuggling in which pitches — that is a separate
+    (chroma) claim. Earned rule, same cycle: a single wide-band
+    flatness confounds TILT with tonality — steeply low-tilted
+    noise (thunder) measured 'tonal' because most of the window's
+    bins were merely empty. Per-octave, tilted noise is still
+    locally flat; only a comb is spiky inside its own octave.
+    And the octave average is POWER-weighted (the centroid lesson
+    again): unweighted, the quiet noise-floor octaves above the
+    music outvote the loud combed ones."""
+    m = _mono(x)
+    p = np.abs(np.fft.rfft(m * np.hanning(len(m)))) ** 2
+    f = np.fft.rfftfreq(len(m), 1.0 / SR)
+    vals, wts = [], []
+    edge = lo
+    while edge < hi:
+        sel = (f >= edge) & (f < min(edge * 2.0, hi))
+        if sel.sum() >= 32:
+            pb = p[sel]
+            gm = np.exp(np.mean(np.log(pb + 1e-30)))
+            vals.append(gm / (np.mean(pb) + 1e-30))
+            wts.append(float(pb.sum()))
+        edge *= 2.0
+    if not vals:
+        return 1.0
+    return float(np.average(vals, weights=wts))
+
+
+def chroma(x: np.ndarray, lo: float = 60.0, hi: float = 2000.0) -> np.ndarray:
+    """Fold spectral POWER into 12 pitch classes (C=0..B=11) over
+    [lo, hi], normalized to sum 1. Remember e35: harmonic leakage
+    means honest chroma claims are RELATIVE (top-k membership,
+    pole comparisons), never absolute floors."""
+    m = _mono(x)
+    p = np.abs(np.fft.rfft(m * np.hanning(len(m)))) ** 2
+    f = np.fft.rfftfreq(len(m), 1.0 / SR)
+    sel = (f >= lo) & (f <= hi)
+    cls = np.mod(np.round(69.0 + 12.0 * np.log2(
+            np.maximum(f[sel], 1e-6) / 440.0)), 12).astype(int)
+    out = np.zeros(12)
+    np.add.at(out, cls, p[sel])
+    return out / (out.sum() + 1e-30)
+
+
 def seam_rank(x: np.ndarray) -> float:
     """Numeric twin of loam.seam_report: percentile rank of the
     wrap step in the adjacent-delta distribution. <= ~0.999 is
