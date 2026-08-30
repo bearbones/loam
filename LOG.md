@@ -1,5 +1,44 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 49: jor — the line acquires a pulse (e49)
+
+The raga arc's next stage after alap (e46) and ornament (e47):
+jor, melody on a steady right-hand pulse, no tala cycle yet.
+24 pulses at 2.5 Hz over the two-polarization drone (e48); the
+line is 20 designed (midi, pulses, glide) triples in Kafi —
+plain notes dwell, held notes MEEND into their successor so the
+glide lands as the next pulse strikes, cadence resting on Sa.
+No new library code: this cycle is the accumulated kit proving
+a composition — grid by onset_times + pace prior, rate by
+pulse_rate (2.44 measured / 2.5 designed), every note's hold by
+pitch_contour median (worst 1.9 cents across 20 notes), every
+meend landing +/-25 c (worst 21.1), hierarchy by dwell_seconds
+(Sa argmax), seam p33.3, poles {D, A}.
+
+Ruler lesson (an old one, re-earned in a new place): spectral
+flux is blind to a strike at t=0 — no prior frame to rise from.
+The doubled signal exists precisely so the SECOND pass can
+recover slot 0, but the slot filter rejected k=24 instead of
+folding it modulo the loop; 19/20 until the fold. When a
+measurement wraps, its INDEXING must wrap too.
+
+Musical note for the record: a meend that lands exactly on its
+successor's pitch nearly erases the successor's onset (the
+attack adds no new spectral content) — flux still caught these
+at 0.4 amp headroom, but landings a semitone short of the next
+note would be safer articulation if onsets ever go missing.
+
+Render sent: e49_jor.ogg (two loop passes).
+
+Open threads: jhala (fast chikari punctuation between melody
+notes — the pulse subdivides); accent patterns (jor's 4-pulse
+grouping, needs an accent ruler comparing onset-local energy).
+Carried: pluck angle as a playing parameter; meend on the
+two-pol string; three+ voices by iterated subtraction; canon at
+the 4th; verify FD tanpura with dyad_pitches; sub-midi-40
+adaptive window; the 3 dyad-suite octave-up misses; sympathetic
+strings.
+
 ## 2026-08-30 — session 48: the two-polarization string — shimmer by physics (e48, fdstring.fdpluck2 + ruler.beat_profile)
 
 The longest-carried thread, built. A real string vibrates in two
