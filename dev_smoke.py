@@ -117,8 +117,9 @@ ok("fdpluck2", fdpluck2(110.0, 0.6, N=140))
 # ruler: self-check against signals with known answers
 from loam.ruler import (hps_pitch, centroid_hz, band_density,
         pulse_rate, seam_rank, flatness, chroma, onset_times,
-        transcribe, env_peak_s, dyad_pitches, pitch_contour,
-        dwell_seconds, ornament_profile, beat_profile)
+        transcribe, env_peak_s, dyad_pitches, triad_pitches,
+        pitch_contour, dwell_seconds, ornament_profile,
+        beat_profile)
 _tt = np.arange(2 * SR) / SR
 _sine = np.sin(2 * np.pi * 500.0 * _tt)
 checks.append(("ruler_hps",
@@ -156,6 +157,16 @@ for _a, _b in _dy:                         # shadow intervals
     _dyok &= (int(round(69 + 12 * np.log2(_lo / 440.0))) == _a
             and int(round(69 + 12 * np.log2(_hi / 440.0))) == _b)
 checks.append(("ruler_dyad", _dyok))
+_tri = [(50, 3, 4), (48, 9, 7), (55, 3, 7)]  # certified shapes
+_trok = True
+for _a, _i1, _i2 in _tri:
+    _mix = pluck(hz(_a), 0.5, seed=1) \
+        + pluck(hz(_a + _i1), 0.5, seed=2) \
+        + pluck(hz(_a + _i1 + _i2), 0.5, seed=3)
+    _got = tuple(int(round(69 + 12 * np.log2(_f / 440.0)))
+            for _f in triad_pitches(_mix))
+    _trok &= _got == (_a, _a + _i1, _a + _i1 + _i2)
+checks.append(("ruler_triad", _trok))
 _ct, _cf = pitch_contour(np.sin(2 * np.pi * 220.0
         * np.arange(SR) / SR), fmin=100, fmax=800)
 checks.append(("ruler_contour",

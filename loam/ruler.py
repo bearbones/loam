@@ -76,6 +76,11 @@ def hps_pitch(x: np.ndarray, fmin: float = 40.0, fmax: float = 2500.0,
     return float(f[a + int(np.argmax(raw[a:i0 + tol_bins + 1]))])
 
 
+# strict-mode octave-rescue bar (see the calibration note at its
+# use site); module-level so calibration sweeps can vary it
+STRICT_RESCUE_FRAC = 0.12
+
+
 def _hps_core(mag, f, fmin, fmax, nharm, strict_sub=False):
     """The HPS contest + octave rescue on a prepared (dilated)
     magnitude spectrum. Shared by hps_pitch and dyad_pitches.
@@ -130,7 +135,21 @@ def _hps_core(mag, f, fmin, fmax, nharm, strict_sub=False):
     for j in (int(round(i0 / d)) for d in range(2, 9)):
         if f[j] < fmin or mag[j] < 8.0 * floor:
             continue
-        if mag[j] >= 0.06 * mag[i0]:
+        # strict mode (nulled residues) demands a HIGHER fraction
+        # of the winner: 0.12 (STRICT_RESCUE_FRAC), calibrated in
+        # e50 above measured phantoms (loop-context junk at f/2
+        # fires at 0.06-0.10 and demotes a clean winner an
+        # octave). Some TRUE rescues also live in that band
+        # (threshold sweep: six triad shapes need fracs 0.08-0.11
+        # to read) — the fraction cannot separate them from junk,
+        # so those shapes fall out of the certified set instead
+        # of the bar coming down. An odd-harmonic witness was
+        # tried first and is structurally blind: chords eat the
+        # witnesses (a just fifth nulls 3*f_lo == 2*f_hi, a major
+        # third nulls 5*f_lo == 4*f_hi — a major triad's root
+        # loses both at once).
+        if mag[j] >= (STRICT_RESCUE_FRAC if strict_sub
+                else 0.06) * mag[i0]:
             subs.append(j)
         elif not strict_sub:
             donut = np.median(np.concatenate([
@@ -183,6 +202,27 @@ def _partial_refine(raw, f0, df, tol_bins):
     return float(np.median(strong)) * df
 
 
+def _null_comb(mag, f0, df, tol_bins):
+    """Null one voice's refined harmonic comb. The fill sits
+    BELOW the contest's -60 dB evidence floor (e45): a filled bin
+    must read as uniform silence, or every low candidate harvests
+    evidence from the null plateaus. Null WIDE — the dilated
+    ridge extends tol_bins past the true peak, and partial drift
+    grows with h."""
+    out = mag.copy()
+    med = min(float(np.median(mag)), 4e-4 * float(mag.max()))
+    h = 1
+    while True:
+        c = h * f0 / df
+        if c >= len(out):
+            break
+        wid = tol_bins + max(3, int(round(0.025 * h * f0 / df)))
+        a = int(round(c)) - wid
+        out[max(a, 0):a + 2 * wid + 1] = med
+        h += 1
+    return out
+
+
 def dyad_pitches(x: np.ndarray, fmin: float = 60.0,
         fmax: float = 2000.0, nharm: int = 5,
         tol_bins: int = 3) -> tuple:
@@ -205,25 +245,59 @@ def dyad_pitches(x: np.ndarray, fmin: float = 60.0,
     df = f[1]
     f1 = _partial_refine(raw,
             f[_hps_core(mag, f, fmin, fmax, nharm)], df, tol_bins)
-    mag2 = mag.copy()
-    # null fill sits BELOW the contest's -60 dB evidence floor
-    # (e45): a filled bin must read as uniform silence, or every
-    # low candidate harvests evidence from the null plateaus
-    med = min(float(np.median(mag)), 4e-4 * float(mag.max()))
-    h = 1
-    while True:
-        c = h * f1 / df
-        if c >= len(mag2):
-            break
-        wid = tol_bins + max(3, int(round(0.025 * h * f1 / df)))
-        a = int(round(c)) - wid
-        mag2[max(a, 0):a + 2 * wid + 1] = med
-        h += 1
+    mag2 = _null_comb(mag, f1, df, tol_bins)
     f2 = _partial_refine(raw,
             f[_hps_core(mag2, f, fmin, fmax, nharm, strict_sub=True)],
             df, tol_bins)
     lo, hi = sorted((float(f1), float(f2)))
     return (lo, hi)
+
+
+def triad_pitches(x: np.ndarray, fmin: float = 60.0,
+        fmax: float = 2000.0, nharm: int = 5,
+        tol_bins: int = 3) -> tuple:
+    """All three fundamentals of a three-voice mix, blind, by
+    ITERATED SUBTRACTION (e50): HPS names the strongest voice,
+    its refined comb is nulled, the residue names the second,
+    both combs are nulled, the twice-cut residue names the last.
+    Returns (lo, mid, hi) Hz. Residue passes run strict (no
+    donut rescue — null edges mimic contrast, the e44 lesson).
+    Contract measured on a systematic pluck-triad suite (e50,
+    636 triads): no PAIR among the three voices may be a
+    harmonic COINCIDENCE — within ~40 cents of n:1 for n=2..8,
+    i.e. intervals {12, 19 (and its 20 penumbra), 24, 28, 31,
+    34, 36} — and at most ONE pair may be 16 (5:2 survives a
+    single null cut, not two). Shapes passing those rules still
+    only measure 85% overall; the VERIFIED subset — shapes
+    (i1, i2) that read perfectly across roots 45..62 under the
+    shipped 0.12 rescue bar — is {(3,4),(3,7),(4,4),(8,8),
+    (8,21),(9,7),(9,8),(15,15),(21,8)}. Five more shapes
+    (incl. the root-position major triad (4,3)) read perfectly
+    only when the strict octave rescue admits fracs of
+    0.08-0.11 — the SAME range where loop-context phantoms
+    fire (0.06-0.10, measured in e50): the rescue fraction
+    cannot tell those true rescues from junk, so they are out.
+    The third read is the least defended: it faces a spectrum
+    where every collision fell to a null. Compose from the
+    verified subset."""
+    from scipy.ndimage import maximum_filter1d
+    m = _mono(x)
+    w = m * np.hanning(len(m))
+    raw = np.abs(np.fft.rfft(w))
+    mag = maximum_filter1d(raw, 2 * tol_bins + 1)
+    f = np.fft.rfftfreq(len(m), 1.0 / SR)
+    df = f[1]
+    f1 = _partial_refine(raw,
+            f[_hps_core(mag, f, fmin, fmax, nharm)], df, tol_bins)
+    mag2 = _null_comb(mag, f1, df, tol_bins)
+    f2 = _partial_refine(raw,
+            f[_hps_core(mag2, f, fmin, fmax, nharm,
+                    strict_sub=True)], df, tol_bins)
+    mag3 = _null_comb(mag2, f2, df, tol_bins)
+    f3 = _partial_refine(raw,
+            f[_hps_core(mag3, f, fmin, fmax, nharm,
+                    strict_sub=True)], df, tol_bins)
+    return tuple(sorted((float(f1), float(f2), float(f3))))
 
 
 def pitch_contour(x: np.ndarray, win_s: float = 0.22,

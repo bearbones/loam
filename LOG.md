@@ -1,5 +1,70 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 50: three voices, heard blind (e50, ruler.triad_pitches)
+
+The oldest open thread, banked the day dyads worked: name ALL
+THREE voices of a mix by iterated subtraction. triad_pitches =
+HPS -> null the winner's comb -> strict HPS on the residue ->
+null again -> strict HPS on the twice-cut residue. _null_comb
+extracted from dyad_pitches (fill = min(median, 4e-4*max)).
+
+Contract measured on 636 systematic pluck triads. The sweep
+itself extended the shadow family: pair intervals within ~40 c
+of n:1 for n=2..8 hide a voice — {12, 19/20, 24, 31, 34} were
+known; "unexplained" failures decoded as 28 (~5:1) and 36
+(=8:1). At most one pair may be 16 (5:2 survives one null cut,
+not two). Even inside those rules only shapes that read
+PERFECTLY across roots 45..62 are certified: NINE shapes,
+{(3,4),(3,7),(4,4),(8,8),(8,21),(9,7),(9,8),(15,15),(21,8)}.
+
+The week's hardest ruler lesson lives in why it's nine and not
+fourteen. The strict octave rescue needed a bar against loop-
+context junk (phantoms fire at frac 0.06-0.10 of the winner and
+demote a clean read an octave). First fix: an odd-harmonic
+witness (a real sub-octave fundamental has a live 3rd
+harmonic). Structurally blind — chords EAT the witnesses: a
+just fifth nulls 3*f_lo == 2*f_hi, a major third nulls 5*f_lo
+== 4*f_hi, so a major triad's root loses both at once. Second
+fix: raise the bar to 0.12. The threshold sweep then showed the
+real shape of the problem — six shapes' TRUE rescues need fracs
+of 0.08-0.11, inside the phantom band. The fraction cannot tell
+those rescues from junk, so the shapes (root-position major
+triad (4,3) among them) fall out of the certified set rather
+than the bar coming down. A ruler's blind spot you can MEASURE
+is a contract line, not a bug to tune away.
+
+Second lesson, same blind spot from the other side: certified
+means certified IN ISOLATION. In a loop each vertical is read
+through its predecessor's ring-over, where the rescue's
+ambiguity cuts both ways (seed 50's passacaglia lost one beat
+to a refused true rescue and one to an admitted phantom). So
+blind recoverability became part of the SOLVER's acceptance:
+audition candidate scores, ship the first that survives its own
+measurement. The proof piece — a 12-beat chord passacaglia in D
+dorian, every vertical a certified shape, voices moving <=5
+semitones, home chord D minor — passed on audition 2: 12/12
+triads named blind, all classes dorian, seam p96.2.
+
+Applied retroactively per the session-43 house rule (a ruler
+change unverifies every old verdict): e44's crab canon measured
+27/28 under the shipped bar (beat 5's true rescue at frac
+0.10-0.12, refused). Its melody was always seeded-search
+output, so it got the same audition treatment — seed 5's crab
+reads 28/28 blind with the same algebra, palette, and range.
+dev_smoke 79 checks green (triad check added), e44 + e50 ALL
+RULERS PASS under the shipped ruler.
+
+Render sent: e50_triads.ogg (two loop passes).
+
+Open threads: the five exiled shapes — could a rescue gate use
+STRUCTURE instead of size (e.g. comb residual energy at f/2 vs
+f) to split true rescues from phantoms inside the overlap band?
+Triad progressions with passing tones (needs onset-segmented
+triads vs dyads); jhala; accent ruler; pluck angle; meend on
+the two-pol string; canon at the 4th; verify FD tanpura with
+dyad_pitches; sub-midi-40 adaptive window; the 3 dyad-suite
+octave-up misses; sympathetic strings.
+
 ## 2026-08-30 — session 49: jor — the line acquires a pulse (e49)
 
 The raga arc's next stage after alap (e46) and ornament (e47):
