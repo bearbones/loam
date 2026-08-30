@@ -232,3 +232,80 @@ def fdpluck2(f0: float, dur: float, amp: float = 1.0,
         out[-r:] *= np.linspace(1, 0, r)
     out = out * amp / (np.max(np.abs(out)) + 1e-12) * 0.9
     return (out, ou, ov) if buses else out
+
+
+def fdsym(f0s, drive: np.ndarray, amp: float = 1.0,
+        kappa: float = 0.3, sig0: float = 0.12, sig1: float = 1e-4,
+        node: float = 0.93, N: int = 0, buses: bool = False):
+    """A bank of SYMPATHETIC strings (taraf, e53): S undisturbed
+    lattices, one per Hz in f0s, forced at a shared bridge node
+    by an external signal. No pluck, no barrier — every string
+    starts at rest and rings only with what the drive feeds it,
+    which is the whole point: a string tuned to the driving pitch
+    accumulates energy coherently (resonance), a detuned
+    neighbour integrates to nothing, and strings sharing a
+    PARTIAL with the drive (e.g. a fifth below: its h3 ~ the
+    drive's h2) bloom on that shared mode — cross-tuning
+    sympathy, physics, not programming.
+
+    sig0 defaults far below the played string's 0.9: a taraf's
+    voice IS its long ring after the exciter dies (t60 ~ 6.9 /
+    sig0 ~ 58 s of coherent memory; the audible halo hangs on
+    for seconds).
+
+    The bank is vectorized across strings — (S, N+1) arrays, one
+    shared grid sized for the highest f0 — so S strings cost
+    about one string's loop. Returns the normalized bank sum
+    (len(drive) samples); buses=True also returns the RAW
+    (S, steps) per-string velocity buses for own-bus
+    measurement — selectivity and sustain live in their ratios,
+    which normalization would erase."""
+    dt = 1.0 / SR
+    steps = len(drive)
+    f0s = np.asarray(f0s, dtype=float)
+    S = len(f0s)
+    f0max = float(f0s.max())
+    if N <= 0:
+        a = (2.0 * f0max / SR) ** 2
+        b = (2.0 * kappa / SR) ** 2
+        N = int(np.sqrt((-a + np.sqrt(a * a + 2.4 * b)) / (2 * b)))
+        N = max(min(N, 180), 24)
+    dx = 1.0 / N
+    mu2 = (kappa * dt / dx ** 2) ** 2
+    assert (2.0 * f0max * dt / dx) ** 2 + 4 * mu2 <= 1.0, \
+        "unstable grid: shrink N or kappa"
+    lam2 = ((2.0 * f0s * dt / dx) ** 2)[:, None]
+    u = np.zeros((S, N + 1))
+    up = np.zeros((S, N + 1))
+    outs = np.empty((S, steps))
+    ro = max(int(0.12 * N), 2)
+    ni = min(int(node * N), N - 1)
+    A = 1.0 + sig0 * dt
+    B = 1.0 - sig0 * dt
+    s1c = 2.0 * sig1 * dt / dx ** 2
+    fdt2 = dt * dt / A
+    lap = np.zeros((S, N + 1))
+    lapo = np.zeros((S, N + 1))
+    bi = np.zeros((S, N + 1))
+    for t in range(steps):
+        lap[:, 1:-1] = u[:, 2:] - 2 * u[:, 1:-1] + u[:, :-2]
+        lapo[:, 1:-1] = up[:, 2:] - 2 * up[:, 1:-1] + up[:, :-2]
+        bi[:, 2:-2] = u[:, 4:] - 4 * u[:, 3:-1] + 6 * u[:, 2:-2] \
+            - 4 * u[:, 1:-3] + u[:, :-4]
+        bi[:, 1] = u[:, 3] - 4 * u[:, 2] + 6 * u[:, 1] \
+            - 4 * u[:, 0] - u[:, 1]
+        bi[:, -2] = -u[:, -2] - 4 * u[:, -1] + 6 * u[:, -2] \
+            - 4 * u[:, -3] + u[:, -4]
+        un = (2 * u - B * up + lam2 * lap - mu2 * bi
+                + s1c * (lap - lapo)) / A
+        un[:, ni] += fdt2 * drive[t]
+        un[:, 0] = un[:, -1] = 0.0
+        outs[:, t] = (un[:, ro] - u[:, ro]) * SR
+        up, u = u, un
+    out = outs.sum(axis=0)
+    r = int(min(0.05, steps / SR * 0.1) * SR)
+    if r > 0:
+        out = out.copy()
+        out[-r:] *= np.linspace(1, 0, r)
+    out = out * amp / (np.max(np.abs(out)) + 1e-12) * 0.9
+    return (out, outs) if buses else out

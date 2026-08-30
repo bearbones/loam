@@ -33,7 +33,7 @@ from loam.shift import freq_shift, ring_mod, barber
 from loam.dyn import compress, duck, transient, limiter
 from loam.lofi import gramophone, worn_tape
 from loam.rhythm import euclid, rotate, swing, scale_notes, quantize_to
-from loam.fdstring import fdpluck, fdpluck2
+from loam.fdstring import fdpluck, fdpluck2, fdsym
 
 L = Loop(2.0, 1)
 checks = []
@@ -113,6 +113,11 @@ ok("fdpluck", fdpluck(110.0, 0.6, N=140))
 ok("fdpluck_meend", fdpluck(np.linspace(110.0, 123.47, 100), 0.6,
         N=140))
 ok("fdpluck2", fdpluck2(110.0, 0.6, N=140))
+_sdrv = 0.3 * np.sin(2 * np.pi * 220.0 * np.arange(int(0.6 * SR))
+        / SR)
+_, _sb = fdsym([220.0, 233.1], _sdrv, N=60, buses=True)
+_sr = [float(np.sqrt(np.mean(b ** 2))) for b in _sb]
+checks.append(("fdsym", _sr[0] > 5.0 * _sr[1]))
 
 # ruler: self-check against signals with known answers
 from loam.ruler import (hps_pitch, centroid_hz, band_density,

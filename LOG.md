@@ -1,5 +1,65 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 53: taraf — strings nobody plucks (e53, fdstring.fdsym)
+
+The oldest banked thread, from the tanpura sessions:
+SYMPATHETIC strings. New library piece fdstring.fdsym — a bank
+of S undisturbed FD string lattices (vectorized (S, N+1) on a
+shared grid), zero initial state, forced at a shared bridge
+node (0.93) by an external drive signal, sig0=0.12 for a ~58 s
+taraf ring. buses=True returns the RAW per-string outputs —
+deliberately unnormalized, because normalization would erase
+exactly the ratios the rulers measure.
+
+Physics, measured on own buses before any music:
+  - selectivity: driven by a sustained fdpluck at its own
+    pitch, the unison taraf outsings the semitone string x12.7;
+    retune the DRIVE a semitone and the pair inverts (x48.2 the
+    other way) — the same measurement can say no.
+  - DRIVER COHERENCE DETERMINES SELECTIVITY: the first probe
+    used a KS pluck (t60 0.35) as drive and got only x2.9 — a
+    broadband attack kicks EVERY string; kicks under sig0=0.12
+    barely fade, so the transient's democracy persists. The
+    sustained driver's line spectrum is what selects. (This is
+    why real sitar taraf shimmer follows the melody, not the
+    strum noise.)
+  - cross-tuning sympathy: the taraf a fifth BELOW the drive
+    answers x14.0 over the semitone string — through the shared
+    partial (its h3 == drive's h2 at 440 Hz), and with the
+    jawari-bright driver it rings x1.10 LOUDER than the unison
+    string. Sympathy follows the exciter's spectrum, not the
+    score. Thresholds >=6.0 calibrated between the measured
+    false case (x2.9, KS driver) and true cases (12.7/14.0).
+  - memory: kicked by a pluck that decays to 1.2e-15 RMS, the
+    bank still holds 0.77 of its early RMS seconds later.
+  - silence: zero drive in, bank peak exactly 0.0.
+
+The piece: a slow 9.6 s Kafi phrase (fdpluck, 7 notes, Sa-Ga-
+Re-Sa Pa-Dha Ga) whose own bus drives an 8-string Kafi-tuned
+taraf bank (50..62); the halo fanned across the stereo field
+under one shared norm (bus ratios preserved), over the two-pol
+drone. First render FAILED two rulers: peak-normalized halo
+sat +8.5 dB ABOVE the melody, loud enough that taraf E
+displaced A in the mix poles. One calibrated gain (0.041,
+-14.0 dB) fixed both — a halo is a level claim, and the ruler
+caught it. Final: halo chroma top-3 all Kafi, melody reads
+back worst 0.7 cents, dwell on Sa 2.9 s, seam p20.2, poles
+{D, A}. dev_smoke 81 checks green (new fdsym resonance check:
+sine-driven unison vs semitone >5x).
+
+Render sent: e53_taraf.ogg (two loop passes).
+
+Open threads: taraf + jawari — give the bank its own SAV
+bridge contact so the halo shimmers (and re-calibrate
+STRUCT_BAR on that content, two threads meet); drive the bank
+from the JHALA bus (fast strikes = broadband — does the halo
+smear into wash, and is there a chikari-rate sweet spot?);
+per-string readout pan captured at distinct nodes instead of
+shared-norm fanning. Carried: jhala acceleration; bol
+patterns; (8,15)-family triad misses; passing tones; pluck
+angle; meend on two-pol; canon at the 4th; FD tanpura dyad
+verify; sub-midi-40 window.
+
 ## 2026-08-30 — session 52: jhala — the raga arc reaches its fast texture (e52, ruler.accent_profile)
 
 Two open threads answered as one: jhala (the arc's climactic
