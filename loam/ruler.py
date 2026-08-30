@@ -546,6 +546,96 @@ def centroid_hz(x: np.ndarray) -> float:
     return float((f * p).sum() / (p.sum() + 1e-12))
 
 
+def mode_freqs(x: np.ndarray, k: int = 6, fmin: float = 40.0,
+        fmax: float = 2000.0, rel: float = 0.02,
+        merge: float = 0.0) -> np.ndarray:
+    """First k modal peaks of a struck resonator (e55): local
+    maxima of the full-signal power spectrum within [fmin, fmax]
+    that clear rel * the band's strongest peak, parabolically
+    refined, strongest k kept, returned sorted by FREQUENCY.
+    The whole-signal FFT is the right window for modes — a ring
+    that lasts the file puts each mode in its own bin cluster;
+    short windows smear neighbours (the (2,1)/(0,2) membrane
+    pair sits 7% apart).
+
+    merge > 0 fuses peaks closer than that relative gap into
+    their power-weighted center BEFORE the k-strongest cut.
+    Earned on the staircase disc: the cartesian boundary splits
+    each degenerate membrane pair a few % apart, and a stack
+    fit fed both halves reads one continuum mode as two. A link
+    only forms between peaks within 20 dB of each other — a
+    carpet of tiny peaks must not chain two real modes into one
+    blob (it silently ate a drum's 3rd harmonic in one pickup
+    and not the other, e55)."""
+    m = _mono(x)
+    p = np.abs(np.fft.rfft(m * np.hanning(len(m)))) ** 2
+    f = np.fft.rfftfreq(len(m), 1.0 / SR)
+    lo, hi = np.searchsorted(f, (fmin, fmax))
+    band = p[lo:hi]
+    bar = rel * band.max()
+    peaks = []
+    for i in range(2, len(band) - 2):
+        if band[i] >= bar and band[i] == band[i - 2:i + 3].max():
+            a, b, c = np.log(band[i - 1:i + 2] + 1e-24)
+            off = 0.5 * (a - c) / (a - 2 * b + c + 1e-24)
+            peaks.append((band[i], f[lo + i] + off * (f[1] - f[0])))
+    if merge > 0.0 and peaks:
+        byf = sorted((fq, pw) for pw, fq in peaks)
+        fused = [[byf[0][0], byf[0][1], byf[0][1]]]
+        for fq, pw in byf[1:]:
+            f0, p0, pm = fused[-1]
+            if fq <= f0 * (1.0 + merge) \
+                    and max(pw, pm) <= 100.0 * min(pw, pm):
+                fused[-1] = [(f0 * p0 + fq * pw) / (p0 + pw),
+                        p0 + pw, max(pm, pw)]
+            else:
+                fused.append([fq, pw, pw])
+        peaks = [(pw, fq) for fq, pw, _ in fused]
+    peaks.sort(reverse=True)
+    return np.array(sorted(fq for _, fq in peaks[:k]))
+
+
+def mode_misfit(freqs, f0lo: float, f0hi: float,
+        max_int: int = 16):
+    """(misfit_cents, f0, ints): how far a set of measured mode
+    frequencies sits from the best integer stack f_k = n_k * f0,
+    searched over f0 in [f0lo, f0hi] — commensurability, the
+    honest form of 'did the loading harmonize the drum' (e55).
+    Integers must be DISTINCT (two modes on one tooth is not a
+    stack). Operates on FREQUENCIES, not spectral power, because
+    a power-weighted comb metric failed the same session it was
+    born: over a loaded membrane's dense mode forest a +/-3%
+    8-harmonic comb catches ~28% of any spectrum by coverage
+    alone, and its verdict FLIPPED with readout convention
+    (velocity weighs mode k by k^2 in power) — a ruler that
+    answers to the pickup instead of the drum. Mode frequencies
+    do not move when the readout changes; only their weights do.
+    Keep the caller's f0lo honest: f0 far below the lowest mode
+    fits anything (every real gets an integer within half a
+    tooth), so anchor f0lo to lowest/4 or better."""
+    freqs = np.asarray(freqs, dtype=float)
+    best = (1e9, f0lo, ())
+    for f0 in np.exp(np.linspace(np.log(f0lo), np.log(f0hi),
+            1200)):
+        r = freqs / f0
+        n = np.clip(np.round(r), 1, max_int)
+        if len(set(n.tolist())) < len(n):
+            continue
+        dev = float(np.mean(np.abs(1200 * np.log2(r / n))))
+        if dev < best[0]:
+            best = (dev, float(f0), tuple(int(v) for v in n))
+    # canonicalize the f0 degeneracy: (4,6,8,10) at f0 is the
+    # same fit as (2,3,4,5) at 2*f0 — report the smallest stack
+    from math import gcd
+    from functools import reduce
+    if best[2]:
+        g = reduce(gcd, best[2])
+        if g > 1:
+            best = (best[0], best[1] * g,
+                    tuple(v // g for v in best[2]))
+    return best
+
+
 def crest_db(x: np.ndarray) -> float:
     """Crest factor (peak over RMS) in dB — transients are PEAKS,
     not energy sums (e19). Over a ramping gesture, window the

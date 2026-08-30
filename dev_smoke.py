@@ -131,6 +131,17 @@ def _hb(x):
 checks.append(("fdsym_jawari", np.isfinite(_jb).all()
         and _hb(_jb[0]) > 3.0 * _hb(_sb[0])))
 
+from loam.membrane import fddrum
+from loam.ruler import mode_freqs, mode_misfit
+_dr = fddrum(180.0, 0.5, N=29)
+_dm = mode_freqs(_dr, k=8, fmin=100.0, fmax=600.0, rel=1e-3)
+checks.append(("membrane",
+        abs(_dm[1] / _dm[0] - 1.593) < 0.04))
+_mm, _mf0, _mi = mode_misfit(
+        np.array([100.0, 150.0, 200.0, 250.0]), 20.0, 105.0)
+checks.append(("ruler_misfit",
+        _mi == (2, 3, 4, 5) and _mm < 1.0))
+
 # ruler: self-check against signals with known answers
 from loam.ruler import (hps_pitch, centroid_hz, band_density,
         pulse_rate, seam_rank, flatness, chroma, onset_times,

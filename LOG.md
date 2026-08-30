@@ -1,5 +1,81 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 55: syahi — the drum that learned to sing Sa (e55, loam/membrane.py, ruler.mode_freqs/mode_misfit)
+
+New instrument CLASS: the FD family's 2D member. membrane.py
+runs an explicit circular-membrane lattice (cartesian grid,
+disc mask) with a syahi — a mass-loaded center patch — plus
+sig_s (lossy loading) and a displacement readout. The physics
+target was Raman 1920: a uniform membrane's modes sit at
+Bessel ratios (no harmonic comb — WHY a bare drum has no
+pitch), and the tabla's syahi pulls the first five modes onto
+integers. Both halves measured: the uniform lattice matches
+four Bessel ratios to 0.41% (and has NO mode near 2*f1 — the
+inharmonicity is the control), the loaded drum lands stack
+(2,3,4,5,6) at 7.3 cents vs the uniform's best 35.7. The sweep
+under the honest ruler rediscovered the real instrument's
+proportions unprompted: syahi radius 0.45 of the head, strike
+just past its edge — and moved the optimum from load 32 to 40
+(session-43 rule: new ruler, re-sweep; the old optimum was the
+old ruler's opinion).
+
+A session of rulers eating their own cooking:
+  - comb_fraction born AND retired here: power-on-best-comb
+    scored the drum 0.80, then 0.37 when the readout changed.
+    A power-weighted verdict answers to the PICKUP (velocity
+    buys mode k a factor k^2), not the drum. Its replacement
+    mode_misfit fits integer stacks to mode FREQUENCIES —
+    positions don't move with readout, only weights do — with
+    GCD canonicalization ((4,6,8,10) IS (2,3,4,5)).
+  - invariance means positions, not selections: a strongest-k
+    cut seats different modes under different pickups; demand
+    every claimed mode has a matching PEAK in the other
+    pickup, not that two top-k lists agree.
+  - mode_freqs merge needed a 20 dB link guard: a carpet of
+    tiny peaks chain-merged two real modes into one blob — in
+    one pickup and not the other.
+  - the khali hole measurement burned TWO filters before the
+    truth: an order-2 skirt at 120 Hz read the treble na (its
+    147.8 Hz fundamental only ~5 dB down) as 'bass'; the
+    order-6 replacement RANG — its own impulse response,
+    kicked by every attack, floored every slot. FFT band power
+    per window has no memory. Constant verdict under changing
+    input = broken ruler, not stubborn piece.
+  - and then the verdict was REAL: the drum genuinely rang at
+    71.4 Hz, -1 dB re: the fundamental — a mode BELOW the
+    'lowest', hidden under every fmin. The syahi as modeled is
+    a heavy nearly-decoupled plug with its own slow internal
+    mode. Real syahi is LOSSY (gum + iron filings), not just
+    heavy: sig_s damps inside the patch (t60 scan 0/20/60 —
+    20 kills the plug x205 with the stack intact; the piece
+    voice uses 60 because the khali window starts at 80 ms).
+    Three rulers were blamed for what the instrument was
+    honestly saying. The piece debugged the instrument.
+
+The piece: teental theka, two avartans per 9.6 s loop — na
+(twelfth-root D3 +10c, overtones D-A-D-F#) and ge (modes on
+D1/A1), the stroke entering khali palm-damped (the real
+gesture). Own-bus: 32/32 slots, pulse 3.33 Hz designed and
+measured, khali/bhari sustained bass 0.010, seam p34.6, poles
+{D, A} — a TUNED drum feeds the tonic. dev_smoke 84 green
+(membrane Bessel + misfit checks; wall time inflated ~8x this
+run by external CPU load — the operator's game, not the code).
+
+Render sent: e55_syahi.ogg (two loop passes).
+
+Open threads: bayan pitch glide (palm pressure = time-varying
+rho or tension — meend for drums); distinct bols (tin = rim
+strike, ke = muted slap: strike position/damp families the
+mode ledger can classify); the full GAT — melody + theka + 
+taraf together, the arc's destination; grid-resolution study
+of staircase mode splitting (N=45 splits pairs ~4%); the
+canonical drum's plug mode sits near 36 Hz — worth a listen
+check on big systems before it carries a piece. Carried:
+per-string taraf gain; jhala-bus taraf drive; per-string
+readout pan; jhala acceleration; bol patterns; (8,15)-family
+triad misses; passing tones; pluck angle; meend on two-pol;
+canon at the 4th; FD tanpura dyad verify; sub-midi-40 window.
+
 ## 2026-08-30 — session 54: jawari taraf — the halo learns to shimmer (e54, fdsym jawari + gain)
 
 Refinement cycle on session 53's bank: the taraf get their own
