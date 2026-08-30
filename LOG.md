@@ -1,5 +1,63 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 36: the ruler drawer, and the treadmill (e36)
+
+Free-play session (director: "follow the winds of your own
+creativity... and add tooling"; 30-min cron started to keep the
+practice going).
+
+Tooling first — loam/ruler.py, the consolidated measurement kit.
+The log's recurring lesson is that the instrument is easy and the
+ruler is hard, yet every experiment has re-hand-rolled (and once
+per session, mis-rolled) the same measurements. Now the earned
+version is the callable default, each with its tuition cited in
+the docstring: hps_pitch (argmax lies), centroid_hz (POWER
+weighted), band_density (power per sample — summed power scales
+with window length), crest_db (peaks, not sums), width_corr
+(>250 Hz), pulse_rate (envelope from the fast-decaying 1100-3500
+band, high-passed at rate/2 so slow undulation can't bias long
+lags), seam_rank (numeric twin of seam_report), rms_contour,
+report(). dev_smoke now self-checks the rulers against signals
+with KNOWN answers (a 440 pluck, a 500 Hz sine, a 3/s click
+train) — the ruler drawer gets a ruler of its own. 63 checks.
+
+e36_treadmill.py — the Risset rhythm: barber()'s rhythmic
+sibling, an accelerando that gains one tempo-octave per loop and
+never arrives. Six tempo layers at octave spacing, rate
+R0*2^(k+t/T); loudness is a Gaussian window in log-rate. The
+design theorem that buys the seam: every per-hit property (pitch,
+pan, duration, gain) is a pure function of the octave position
+o = k + t/T, so layer k at the seam IS layer k+1 at bar one — any
+property keyed to k alone would jump at the wrap. Beat times from
+integrating the exponential rate, t_n = T*log2(1 + n/(N*2^k));
+N=72 divisible by 8 makes every layer's beat count an integer,
+and the construction phase-locks the layers (layer k's hit n
+coincides with layer k+1's hit 2n): one metric tree, forever
+climbing. Pitch rides the rate (110 Hz tom at window center),
+amp carries 2^(-o/2) so stream ENERGY density is window-shaped,
+not rate-tilted. Under it, a barber'd oh-choir rises with the
+rhythm — both staircases in one room.
+
+Ruler lesson (one wrong first cut, mine, and this time the new
+kit caught it in minutes): the handoff check compared layer k's
+LATE rate to layer k+1's EARLY rate with the design ratio
+inverted — the windows straddle o=k+1 (late center below it,
+early center above), so design is 2^(-W/T)=0.846, not 1.18.
+Measured 0.855 / 0.844 — the sound was right, the ruler's sign
+was wrong. The genre continues.
+
+All 11 rulers pass: seam p97.6; all six own-bus rate reads within
+3% of design (1.12 vs 1.09 ... 7.32 vs 7.36); both handoffs at
+0.85 vs design 0.846; mix stationary (RMS spread 1.61 dB over 8
+windows — perpetual acceleration, flat loudness); onset-band
+density half-ratio 0.981 (the scale-invariance claim, measured).
+Render sent: e36_treadmill.ogg.
+
+Open threads for next sessions: a Risset DECELERANDO variant
+(negative exponent) and a stereo field where o also steers ITD;
+texture.py still has no thunder; ruler.py wants an onset_times()
+(spectral flux) once an experiment needs one honestly.
+
 ## 2026-08-15 — session 35: the mood seam (e35 — the blend, audible)
 
 e35_moodseam.py — the mood ruling was going to be between two
