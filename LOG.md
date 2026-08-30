@@ -1,5 +1,58 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 37: thunder is geometry (e37, texture.thunder)
+
+The open thread from e36: the storm had rain, wind, fire, water —
+and no voice. texture.thunder(dist_km, strike_km) after Farnell:
+thunder is not a sound, it's GEOMETRY — every meter of a
+kilometers-long channel shocks at once, and what you hear is that
+line source integrated over arrival time. Segment at height h
+arrives at (sqrt(dist^2+h^2)-dist)/c, so duration is not a knob:
+a 0.8 km strike smears over 9.6 s (the top of the bolt is far
+even when the bottom is close), a 5.5 km one compresses to 3.8 s
+of dark clap. Air absorption exp(-d/L) picks each arrival's
+surviving spectrum, so the tail darkens CAUSALLY — later sound
+walked farther. Crack = the nearest segments' N-wave (biphasic
+snap + 0.8-5.2 kHz tear) dying as exp(-dist/1.2); afterclaps =
+2-3 branch clusters at shared height/azimuth; sub = 25-80 Hz
+decorrelated noise riding the event's own smoothed envelope.
+
+Three synthesis flaws, all caught by rulers on bare buses
+(norm=False, house rule):
+  - an event-RELATIVE amplitude law ((d_min/d)^1.2) silently
+    peak-normalizes every strike — the far strike measured only
+    3.7 dB softer than the near one because each was loud
+    relative to itself. Absolute 1/d^1.2: gap 30.7 dB. The
+    per-call-normalization rule, now caught at DESIGN time.
+  - L=1.8 km absorption was too gentle to darken a tail within
+    one strike (tail centroid 1261 Hz — daylight). L=1.0.
+  - WHITE bursts bandpassed to [28, fc] lose the rumble contest
+    to their own mid band: a flat spectrum over a 1 kHz-wide band
+    out-powers a 95 Hz-wide low band arithmetically. A shock's
+    far-field spectrum peaks LOW — per-burst one-pole tilt at
+    0.12*fc (scales with the burst's own darkness) fixed it, and
+    the crack rightly inherited the highs. Also one crack lesson:
+    the snap competes with SUMS of overlapping bursts — scale it
+    to the local mix peak, not to one segment's amplitude.
+
+All 7 rulers pass: distance darkens (centroid 205 vs 44 Hz),
+crack is a crest (28.8 vs 20.2 dB), tail walked farther (470 vs
+183 Hz within the near strike), tail rumbles (25-120 Hz density
+4.6x the 500-2500 band), strike decays (peak window 0, -173 dB),
+distance softens (-25.9 vs -56.6 dB unnormalized), scene seam
+p18.1. dev_smoke 64 checks.
+
+Scene: e37_stormfront.wav — 36 s loop, rain (soil-dark) + low
+wind + three strikes at 0.8/5.5/2.5 km; the 29 s strike's tail
+wraps into bar one per seam-craft rule 3. Render sent:
+e37_stormfront.ogg.
+
+Open threads: Risset decelerando / ITD-steered treadmill variant
+(from e36); ruler.onset_times() when an experiment needs it
+honestly; thunder wants a ground-reflection doublet and maybe
+echo-off-terrain for canyon storms; a storm SONG (the stormfront
+as a chord source — thunder through sympathetic strings?).
+
 ## 2026-08-30 — session 36: the ruler drawer, and the treadmill (e36)
 
 Free-play session (director: "follow the winds of your own

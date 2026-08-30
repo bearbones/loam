@@ -145,6 +145,107 @@ def fire(loop_s: float, crackle_rate: float = 9.0,
     return out
 
 
+def thunder(dist_km: float = 1.0, strike_km: float = 4.0,
+        dur: float = None, crack: float = None, seed: int = 0,
+        norm: bool = True) -> np.ndarray:
+    """A lightning strike heard from dist_km away. Farnell's point:
+    thunder is GEOMETRY — every meter of a kilometers-long channel
+    shocks at once, and what reaches you is that line source
+    integrated over arrival time.
+
+    - Segment at height h arrives at t = (sqrt(dist^2+h^2)-dist)/c:
+      a close strike smears over many seconds (the TOP of the bolt
+      is far even when the bottom is close); a far strike
+      compresses toward a single clap. Duration is not a knob, it
+      falls out of the geometry (dur, if given, caps it — smoke
+      tests, not physics).
+    - Air absorbs highs ~ exp(-d/L): each arrival is a noise burst
+      bandpassed to its own path's surviving spectrum, so the tail
+      darkens CAUSALLY — later sound walked farther.
+    - The crack is the nearest segments' N-wave: a biphasic snap
+      plus a hot 0.8-5 kHz tear, dying as exp(-dist/1.2) unless
+      overridden.
+    - Two or three branch clusters (segments bunched at shared
+      heights, shared azimuth) are the afterclaps.
+
+    Returns a stereo one-shot (an event, like bubble — not a loop).
+    norm=False for cross-call energy comparisons (house rule)."""
+    rng = np.random.default_rng(seed)
+    c_kms = 0.343
+    d_min = dist_km
+    spread = (np.hypot(dist_km, strike_km) - dist_km) / c_kms
+    tscale = 1.0
+    if dur is not None and spread > dur * 0.7:
+        tscale = (dur * 0.7) / spread
+    total = spread * tscale + 2.5
+    n = int(total * SR)
+    out = np.zeros((n, 2))
+
+    heights = [rng.uniform(0, strike_km, 48)]
+    amps = [np.ones(48)]
+    pans = [rng.normal(0.0, 0.22, 48)]
+    for _ in range(int(rng.integers(2, 4))):        # afterclap branches
+        hc = rng.uniform(0.25, 0.95) * strike_km
+        az = rng.uniform(-0.7, 0.7)
+        heights.append(np.abs(rng.normal(hc, 0.18, 8)))
+        amps.append(np.full(8, 2.2))
+        pans.append(np.full(8, az) + rng.normal(0, 0.08, 8))
+    h = np.concatenate(heights)
+    base_amp = np.concatenate(amps)
+    pan = np.clip(np.concatenate(pans), -0.9, 0.9)
+    d = np.hypot(dist_km, h)
+    t_at = (d - d_min) / c_kms * tscale
+    # absolute 1/d law — an event-relative one (d_min/d) silently
+    # peak-normalizes every strike and lies about distance loudness
+    seg_amp = base_amp * d ** -1.2 * np.exp(-d / 6.0) \
+        * rng.lognormal(0.0, 0.55, len(d))
+    fc = np.clip(6000.0 * np.exp(-d / 1.0), 45.0, 6000.0)
+    for k in range(len(d)):
+        ln = int(rng.uniform(0.10, 0.32) * SR)
+        tt = np.arange(ln) / SR
+        burst = rng.standard_normal(ln) * np.exp(-tt * rng.uniform(4, 9))
+        sos = butter(2, [28.0, float(max(fc[k], 60.0))], btype="band",
+                fs=SR, output="sos")
+        burst = sosfilt(sos, burst)
+        # a shock's far-field spectrum peaks LOW and rolls off —
+        # white bursts made the rumble lose to its own mid band
+        sos_tilt = butter(1, float(max(60.0, 0.12 * fc[k])),
+                btype="low", fs=SR, output="sos")
+        burst = sosfilt(sos_tilt, burst) * seg_amp[k]
+        ch = stereo(burst, float(pan[k]))
+        idx = (int(t_at[k] * SR) + np.arange(ln)) % n
+        np.add.at(out, idx, ch)
+
+    if crack is None:
+        crack = float(np.exp(-dist_km / 1.2))
+    if crack > 0.01:
+        ln = int(0.05 * SR)
+        tt = np.arange(ln) / SR
+        snap = -np.gradient(np.exp(-((tt - 0.0015) / 0.0007) ** 2))
+        snap = snap / (np.max(np.abs(snap)) + 1e-12) * 1.1
+        sos_t = butter(2, [800, 5200], btype="band", fs=SR, output="sos")
+        tear = sosfilt(sos_t, rng.standard_normal(ln)) \
+            * np.exp(-tt * 70.0) * 0.9
+        # scale to the LOCAL mix: the snap competes with sums of
+        # overlapping bursts, not with one segment's amplitude
+        loc = np.max(np.abs(out[:SR])) + 1e-12
+        out[:ln] += stereo((snap + tear) * crack * 2.2 * loc, 0.0)
+
+    # sub weight: decorrelated 25-80 Hz noise riding the event's
+    # own smoothed envelope (the pressure wave you feel, not hear)
+    env = np.abs(out.mean(axis=1))
+    sos_e = butter(2, 3.0, btype="low", fs=SR, output="sos")
+    env = sosfilt(sos_e, env)
+    sos_s = butter(2, [25.0, 80.0], btype="band", fs=SR, output="sos")
+    sub = np.stack([sosfilt(sos_s, rng.standard_normal(n)),
+            sosfilt(sos_s, rng.standard_normal(n))], axis=1)
+    out += sub * env[:, None] * 3.5
+
+    if norm:
+        out *= 0.9 / (np.max(np.abs(out)) + 1e-12)
+    return out
+
+
 def bubble(f0: float, chirp: float = 1.0, amp: float = 1.0,
         damp: float = 1.0) -> np.ndarray:
     """One bubble (van den Doel): damped sine at the Minnaert

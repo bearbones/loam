@@ -22,7 +22,7 @@ from loam.voice import sing
 from loam.drums import (kick, snare, hat, clap, tom, conga, cowbell,
         rim, shaker)
 from loam.analog import saw, pulse, supersaw, ladder
-from loam.texture import rain, wind, fire, bubble, bubbles
+from loam.texture import rain, wind, fire, bubble, bubbles, thunder
 from loam.space import (reverb_loop, reverb_tail, tape_echo_loop,
         ir_room, ir_tank, ir_bone, convolve_loop, convolve_tail)
 from loam.spectral import freeze, stretch, cross_synth
@@ -70,6 +70,7 @@ ok("wind", wind(1.5, seed=1))
 ok("fire", fire(1.5, seed=1))
 ok("bubble", bubble(800.0))
 ok("bubbles", bubbles(1.5, seed=1))
+ok("thunder", thunder(dist_km=3.0, dur=1.2, seed=1))
 _zb = bubble(500.0)
 _z = np.where(np.diff(np.signbit(_zb)))[0]
 _fa = 1.0 / np.diff(_z[:3]).mean() * SR / 2
