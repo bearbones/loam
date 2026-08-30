@@ -1,5 +1,76 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 57: the gat — the arc arrives (e57, ensemble)
+
+The banked destination, new-idea cycle: melody, drone, taraf
+halo, and theka TOGETHER for the first time — every voice a
+certified construct playing inside its measured contract.
+Teental, two avartans per 9.6 s loop, Kafi in D. Avartan 1
+states the sthayi (21 fdpluck notes on the matra grid, Sa held
+at sam); avartan 2 answers — the melody rests after khali and
+the bayan glides a perfect fourth into sam (e56's gesture as
+STRUCTURE: call and answer between hand and drum). The taraf
+bank is driven by the melody bus only (e53: driver coherence
+determines selectivity — the drums would kick every string
+alike). Assembly is not exemption: every claim re-measured
+per-bus in situ, 12/12.
+
+Ruler lessons:
+  - a 2-sample median is a mean: 1-slot notes left only 2
+    contour windows inside the strict note interior, and the
+    previous pluck's 0.25 s ring-over pulled the two A-after-B
+    notes to a phantom +103 cents (exactly halfway to B).
+    Measure notes at the HEAD (first 0.26 s, >=3 windows);
+    the notes were never wrong, the statistic was.
+  - the dwell tie was a DESIGN bug the ruler caught: the first
+    sthayi draft gave Sa and G 1.8 s each and ring-over broke
+    the tie toward G (dwell argmax 5, mix poles {G, A}). One
+    phrase recomposed (B-A falling home to Sa) restored the
+    designed hierarchy Sa 2.4 > Pa 1.8 > G 1.2 — and the mix
+    poles snapped back to {D, A}. Composition claims need
+    MARGINS, not ties.
+  - chroma is the wrong ruler for a jawari halo: the bridge's
+    whole job is pouring energy up the ladder, and Sa's h5
+    lands on F# (734 Hz) — harmonic color read as a scale
+    violation — while any band tight enough to exclude h5
+    makes "halo is Kafi" vacuous (the bank IS Kafi). Ask which
+    STRINGS ring, not which classes shine.
+  - whole-piece taraf selectivity is honestly flat (x1.28 vs
+    e53's x12.7): a gat visits every class and t60~58 s never
+    forgets — over a composition the halo becomes a reverb
+    tuned to the raga. Selectivity lives in WINDOWS: during
+    the opening sam hold (memory still empty) the top-3
+    strings are Sa, high Sa, and G at a 3.9x cliff over 4th.
+  - the ledger gem: the loudest opening string (and 2nd over
+    the whole piece) is high-Sa midi 62 — a string the melody
+    NEVER PLAYS, fed entirely by Sa's h2. Octave sympathy, the
+    tanpura's trick, emerging unprompted; G rides its h3 on
+    Sa's h4 (588 vs 587.2 Hz), e53's shared-partial sympathy
+    in situ.
+
+Verdicts (all own-bus): 21/21 notes read back worst 2.0 cents;
+dwell argmax Sa (2.3 s); opening halo top-3 {50, 55, 62} gap
+x3.9 (bar 2.0); whole-piece halo poles Sa/Pa; halo -19.2 dB
+under melody; theka 32/32 slots, pulse 3.33 Hz, khali hole
+0.011; the drum's answer rises 500 cents while the melody
+rests and arrives -3 cents from Sa at sam; seam p8.8; mix
+pulse 3.33 Hz; mix poles {D, A}. No library change, dev_smoke
+not required.
+
+Render sent: e57_gat.ogg (two loop passes).
+
+Open threads: the gat wants DEVELOPMENT — an antara (second
+melody in the upper tetrachord, high-Sa territory the halo
+already loves), or layakari (double-time sthayi over the same
+theka); glide DOWN (release after pressure); bols as strike
+families (tin = rim, ke = muted); grid-resolution study of the
+split-pair beat; windowed halo selectivity could become a
+ruler (ruler.window_rank?) if a third piece needs it. Carried:
+per-string taraf gain; jhala-bus taraf drive; per-string
+readout pan; jhala acceleration; bol patterns; (8,15)-family
+triad misses; passing tones; pluck angle; meend on two-pol;
+canon at the 4th; FD tanpura dyad verify; sub-midi-40 window.
+
 ## 2026-08-30 — session 56: bayan glide — meend comes to the drum (e56, fddrum f1-trajectory, ruler.partial_track)
 
 Refinement cycle on e55's membrane: the bayan's palm-pressure
