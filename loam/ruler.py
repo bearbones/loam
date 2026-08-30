@@ -914,6 +914,50 @@ def env_peak_s(x: np.ndarray, lo: float = 1500.0, hi: float = 6000.0,
     return float(np.argmax(band_env(x, lo, hi, win_s))) * win_s
 
 
+def decay_t60(x: np.ndarray, lo: float, hi: float,
+        win_s: float = 0.03, hop_s: float = 0.005,
+        drop: float = 25.0) -> float:
+    """Band decay time to -60 dB: linear fit on the top `drop` dB
+    of the band's short-window FFT power envelope, from the
+    envelope peak. Memoryless ON PURPOSE (the khali filter lesson
+    of e55, re-earned in e59): a narrowband recursive filter
+    rings for ~1/bandwidth, and filtfilt squares that — an
+    order-4 band 30 Hz wide reads ~140 ms for ANY faster decay,
+    measuring itself, and the verdict barely moves as the true
+    t60 changes (constant verdict under changing input = broken
+    ruler). Windowed FFT power has no feedback; its floor is the
+    window length, stated rather than hidden.
+
+    If the band holds no bin at this window length (bins are
+    1/win_s wide), the single nearest bin to the band center is
+    used — an empty selection otherwise returns silence and fits
+    the noise floor. Returns nan when fewer than 4 envelope
+    points span the drop: a decay faster than ~win_s is honestly
+    unmeasurable at this resolution, not zero."""
+    m = _mono(x)
+    w = int(win_s * SR)
+    hop = int(hop_s * SR)
+    hann = np.hanning(w)
+    f = np.fft.rfftfreq(w, 1.0 / SR)
+    sel = (f >= lo) & (f <= hi)
+    if not sel.any():
+        sel = np.zeros(len(f), dtype=bool)
+        sel[int(np.argmin(np.abs(f - (lo + hi) / 2)))] = True
+    env, tt = [], []
+    for a in range(0, len(m) - w, hop):
+        p = np.abs(np.fft.rfft(m[a:a + w] * hann)) ** 2
+        env.append(np.sqrt(p[sel].sum()))
+        tt.append((a + w / 2) / SR)
+    env = np.asarray(env)
+    tt = np.asarray(tt)
+    ip = int(np.argmax(env))
+    db = 20 * np.log10(env + 1e-15)
+    s = np.arange(ip, len(db))[db[ip:] > db[ip] - drop]
+    if len(s) < 4:
+        return float("nan")
+    return float(-60.0 / np.polyfit(tt[s], db[s], 1)[0])
+
+
 def seam_rank(x: np.ndarray) -> float:
     """Numeric twin of loam.seam_report: percentile rank of the
     wrap step in the adjacent-delta distribution. <= ~0.999 is

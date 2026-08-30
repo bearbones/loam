@@ -1,5 +1,77 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 59: bols — the drum learns its consonants (e59, ruler.decay_t60)
+
+New idea: strike FAMILIES on the e55 membrane — the tabla's
+vocabulary as physics. Same drum, different touch: na (rim,
+full stack), tun (center), te (closed, sig0=200), ke (muted
+bayan, sig0=45). Composed into a kaida — dha dha te te / dha
+dha tun na (x2) / khali with ke under ta / bass returning into
+sam. 12/12 rulers, dev_smoke 87 green.
+
+The headline measurement: THE DRUM TRANSPOSES UP A FIFTH AT
+ITS CENTER. tun's {2,4,6}f0 family collapses ~25,000x while
+{3,5}f0 remains; the strongest surviving mode is 221.7 Hz ~ A3
+(-4c via mode_freqs) against na's 147.7 ~ D3 (+10c). One drum:
+Sa at the rim, Pa at the middle — and the mix's D/A poles are
+now carried by the treble drum itself, not just drone tuning.
+Mechanism separated by CONTROLS, not assumed: on the uniform
+drum, center strike keeps the fund (0.84 of power) and kills
+(1,1) to 0.0000 — strike-position symmetry selects m=0, the
+Bessel textbook. But the LOADED fund also dies at center
+(9e-6) where symmetry says it should survive — the syahi has
+pushed the fundamental out into the annulus. Two mechanisms,
+one ledger each.
+
+Ruler lessons:
+  - e55's khali filter lesson re-earned on a new claim: a
+    narrowband recursive filter rings for ~1/bandwidth, and an
+    order-4 filtfilt 30 Hz wide reads ~140 ms for ANY faster
+    decay — te's t60 appeared IMMUNE to sig0 (100 -> 400 gave
+    0.137 -> 0.142 s: constant verdict under changing input =
+    broken ruler, measuring itself). decay_t60 now does
+    memoryless windowed-FFT band power; synthetics read exact
+    (500 -> 500.0 ms, 30 -> 30.0 ms).
+  - a band can be EMPTY: 30 ms windows put bins 33 Hz apart,
+    and [135,165] holds none — the envelope was pure noise
+    floor and the fit returned garbage with a straight face.
+    decay_t60 guards by falling back to the nearest bin to the
+    band center. Check what your selection actually selected.
+  - the sustain ledger read the wrong instrument: open/closed
+    contrast measured on the full drums bus was really the
+    BAYAN's 137 Hz tail under every dha (0.011 wherever ge
+    rang, ~0 elsewhere). Voiced-na treble lives entirely
+    inside 160 ms, so the piece claim moved to the treble bus
+    with windows inside the first 120 ms — 9 orders of
+    magnitude of split (te 4e-12, open 5e-3).
+  - design premises die in probe: te-by-sig0 barely moved the
+    fund t60 at sig0=50 because syahi damping (sig_s=60)
+    already dominates the annulus modes' decay; sig0=200 is
+    what beats it (31 ms).
+
+Verdicts: even-family collapse 25,825x; uniform control 0.84 /
+0.0000 / 0.49; loaded-fund-at-center 9e-6; poles D3+10c and
+A3-4c; t60 na 158 / tun 146 / te 30 ms; ke/ge sustained bass
+0.0106; kaida sustain split te 4e-12 vs open 4.9e-3; 32/32
+onsets; pulse 3.33 Hz; khali hole 0.015; seam p39.2; mix poles
+{D, A}.
+
+Render sent: e59_bols.ogg (two passes of the 9.6 s kaida).
+
+Open threads: dha/dhin as COMBINED voiced strokes is done, but
+the bol set wants tin (rim near edge, ringing but bass-less
+treble in khali — currently ta = na) and tirakita (te-family
+double-strokes at half-slot subdivision — needs the grid to go
+to SUB/2); kaida development (theme -> paltas -> tihai to
+sam); tun + meend (center strike on a GLIDING drum — Pa that
+bends); layakari on the gat (e58 thread, still open); glide
+DOWN. Carried: bols-as-families now exists — retire that
+thread; grid-resolution study of the split-pair beat;
+ruler.note_evidence; jod voices; per-string taraf gain;
+jhala-bus taraf drive; jhala acceleration; (8,15)-family
+triad misses; passing tones; pluck angle; meend on two-pol;
+canon at the 4th; FD tanpura dyad verify; sub-midi-40 window.
+
 ## 2026-08-30 — session 58: antara — the gat learns its second half (e58)
 
 Refinement of e57's gat, the LOG's first open thread. The

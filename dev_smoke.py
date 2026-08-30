@@ -152,9 +152,15 @@ from loam.ruler import (hps_pitch, centroid_hz, band_density,
         pulse_rate, seam_rank, flatness, chroma, onset_times,
         transcribe, env_peak_s, dyad_pitches, triad_pitches,
         pitch_contour, dwell_seconds, ornament_profile,
-        beat_profile, accent_profile)
+        beat_profile, accent_profile, decay_t60)
 _tt = np.arange(2 * SR) / SR
 _sine = np.sin(2 * np.pi * 500.0 * _tt)
+_dec = np.sin(2 * np.pi * 150.0 * _tt) * 10.0 ** (-3.0 * _tt / 0.3)
+_t60 = decay_t60(_dec, 135.0, 165.0)
+checks.append(("ruler_t60", abs(_t60 - 0.3) < 0.045))
+_dec2 = np.sin(2 * np.pi * 150.0 * _tt) * 10.0 ** (-3.0 * _tt / 0.06)
+_t62 = decay_t60(_dec2, 135.0, 165.0, win_s=0.02, hop_s=0.003)
+checks.append(("ruler_t60_fast", abs(_t62 - 0.06) < 0.021))
 checks.append(("ruler_hps",
         abs(hps_pitch(pluck(hz(69), 1.0)) - 440.0) < 5.0))
 checks.append(("ruler_centroid",
