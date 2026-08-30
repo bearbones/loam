@@ -33,7 +33,7 @@ from loam.shift import freq_shift, ring_mod, barber
 from loam.dyn import compress, duck, transient, limiter
 from loam.lofi import gramophone, worn_tape
 from loam.rhythm import euclid, rotate, swing, scale_notes, quantize_to
-from loam.fdstring import fdpluck
+from loam.fdstring import fdpluck, fdpluck2
 
 L = Loop(2.0, 1)
 checks = []
@@ -112,12 +112,13 @@ checks.append(("rhythm", True))
 ok("fdpluck", fdpluck(110.0, 0.6, N=140))
 ok("fdpluck_meend", fdpluck(np.linspace(110.0, 123.47, 100), 0.6,
         N=140))
+ok("fdpluck2", fdpluck2(110.0, 0.6, N=140))
 
 # ruler: self-check against signals with known answers
 from loam.ruler import (hps_pitch, centroid_hz, band_density,
         pulse_rate, seam_rank, flatness, chroma, onset_times,
         transcribe, env_peak_s, dyad_pitches, pitch_contour,
-        dwell_seconds, ornament_profile)
+        dwell_seconds, ornament_profile, beat_profile)
 _tt = np.arange(2 * SR) / SR
 _sine = np.sin(2 * np.pi * 500.0 * _tt)
 checks.append(("ruler_hps",
@@ -164,6 +165,12 @@ _dfs = np.where(_dts < 1.2, 220.0, 220.0 * 2 ** (7 / 12))
 _dw = dwell_seconds(_dts, _dfs, 220.0)
 checks.append(("ruler_dwell", int(np.argmax(_dw)) == 0
         and abs(_dw[0] - 1.2) < 0.11 and abs(_dw[7] - 0.8) < 0.11))
+_bt = np.arange(6 * SR) / SR
+_am = (1 + 0.3 * np.sin(2 * np.pi * 1.5 * _bt)) \
+    * np.sin(2 * np.pi * 400.0 * _bt)
+_br, _bd = beat_profile(_am, 300.0, 500.0)
+checks.append(("ruler_beat",
+        abs(_br - 1.5) < 0.2 and 1.7 < _bd < 3.3))
 _ots = np.arange(0, 2.0, 0.02)
 _ofs = 200.0 * 2 ** (80.0 * np.sin(2 * np.pi * 5.0 * _ots) / 1200)
 _rt, _dp = ornament_profile(_ots, _ofs)

@@ -130,3 +130,105 @@ def fdpluck(f0: float, dur: float, amp: float = 1.0,
     if r > 0:
         out[-r:] *= np.linspace(1, 0, r)
     return out * amp / (np.max(np.abs(out)) + 1e-12) * 0.9
+
+
+def fdpluck2(f0: float, dur: float, amp: float = 1.0,
+        kappa: float = 0.3, sig0: float = 0.9, sig1: float = 1e-4,
+        pick: float = 0.28, zone: float = 0.10, gcurve: float = 0.2,
+        K: float = 3e9, alpha: float = 1.3, pluck_m: float = 1.6e-3,
+        N: int = 0, split: float = 0.006, kc: float = 1e5,
+        angle: float = 0.6, buses: bool = False):
+    """Two-POLARIZATION pluck (e48): the string vibrates in two
+    transverse planes — vertical u (plucked, and the only one the
+    jawari barrier touches) and horizontal v (starts at rest,
+    detuned by `split`, fed only through a spring coupling of
+    strength `kc` across the bridge zone). Two phenomena fall out
+    and both are measured, not decorative:
+      - delayed energy transfer: v blooms hundreds of ms after
+        the pluck and rings within ~20 dB of u (kc=0: silence).
+      - polarization beating: the mode pair rings `f0*split`
+        apart, a slow shimmer riding every partial (measured on
+        the v bus by ruler.beat_profile; at kc=1e5 the coupling's
+        own mode split is below the detune and beat tracks
+        design within an envelope bin).
+    The pickup hears cos(angle)*u + sin(angle)*v. buses=True also
+    returns the raw per-polarization velocity buses for own-bus
+    measurement. Scalar f0 only (meend stays single-pol for now).
+    ~2x fdpluck's compute."""
+    dt = 1.0 / SR
+    steps = int(dur * SR)
+    f0h = f0 * (1.0 + split)
+    if N <= 0:
+        a = (2.0 * f0h / SR) ** 2
+        b = (2.0 * kappa / SR) ** 2
+        N = int(np.sqrt((-a + np.sqrt(a * a + 2.4 * b)) / (2 * b)))
+        N = max(min(N, 180), 24)
+    dx = 1.0 / N
+    mu2 = (kappa * dt / dx ** 2) ** 2
+    assert (2.0 * f0h * dt / dx) ** 2 + 4 * mu2 <= 1.0, \
+        "unstable grid: shrink N or kappa"
+    lam2v = (2.0 * f0 * dt / dx) ** 2
+    lam2h = (2.0 * f0h * dt / dx) ** 2
+    x = np.linspace(0.0, 1.0, N + 1)
+    u = np.where(x < pick, x / pick, (1 - x) / (1 - pick)) * pluck_m
+    u[0] = u[-1] = 0.0
+    up = u.copy()
+    v = np.zeros(N + 1)
+    vp = v.copy()
+    ou = np.empty(steps)
+    ov = np.empty(steps)
+    ro = max(int(0.12 * N), 2)
+    bz = x > 1.0 - zone
+    bb = -gcurve * (1.0 - x[bz]) ** 2
+    A = 1.0 + sig0 * dt
+    B = 1.0 - sig0 * dt
+    s1c = 2.0 * sig1 * dt / dx ** 2
+    kdt2 = kc * dt * dt
+    eta0 = np.maximum(bb - u[bz], 0.0)
+    psi = np.sqrt(2.0 * K / (alpha + 1) * eta0 ** (alpha + 1)
+            + 1e-24)
+    lap = np.zeros(N + 1)
+    lapo = np.zeros(N + 1)
+    bi = np.zeros(N + 1)
+    lp2 = np.zeros(N + 1)
+    lpo2 = np.zeros(N + 1)
+    bi2 = np.zeros(N + 1)
+    for t in range(steps):
+        lap[1:-1] = u[2:] - 2 * u[1:-1] + u[:-2]
+        lapo[1:-1] = up[2:] - 2 * up[1:-1] + up[:-2]
+        bi[2:-2] = u[4:] - 4 * u[3:-1] + 6 * u[2:-2] - 4 * u[1:-3] \
+            + u[:-4]
+        bi[1] = u[3] - 4 * u[2] + 6 * u[1] - 4 * u[0] - u[1]
+        bi[-2] = -u[-2] - 4 * u[-1] + 6 * u[-2] - 4 * u[-3] + u[-4]
+        lp2[1:-1] = v[2:] - 2 * v[1:-1] + v[:-2]
+        lpo2[1:-1] = vp[2:] - 2 * vp[1:-1] + vp[:-2]
+        bi2[2:-2] = v[4:] - 4 * v[3:-1] + 6 * v[2:-2] \
+            - 4 * v[1:-3] + v[:-4]
+        bi2[1] = v[3] - 4 * v[2] + 6 * v[1] - 4 * v[0] - v[1]
+        bi2[-2] = -v[-2] - 4 * v[-1] + 6 * v[-2] - 4 * v[-3] \
+            + v[-4]
+        un = (2 * u - B * up + lam2v * lap - mu2 * bi
+                + s1c * (lap - lapo)) / A
+        vn = (2 * v - B * vp + lam2h * lp2 - mu2 * bi2
+                + s1c * (lp2 - lpo2)) / A
+        un[bz] += kdt2 * (v[bz] - u[bz]) / A
+        vn[bz] += kdt2 * (u[bz] - v[bz]) / A
+        eta = np.maximum(bb - u[bz], 0.0)
+        g = K * eta ** alpha / psi
+        unb = (un[bz] + dt * dt / A
+                * (g * psi + g * g * up[bz] / 4.0)) \
+            / (1.0 + dt * dt * g * g / (4.0 * A))
+        psi = psi - g * (unb - up[bz]) / 2.0
+        un[bz] = unb
+        un[0] = un[-1] = 0.0
+        vn[0] = vn[-1] = 0.0
+        ou[t] = (un[ro] - u[ro]) * SR
+        ov[t] = (vn[ro] - v[ro]) * SR
+        up, u = u, un
+        vp, v = v, vn
+    out = np.cos(angle) * ou + np.sin(angle) * ov
+    r = int(min(0.05, dur * 0.1) * SR)
+    if r > 0:
+        out[-r:] *= np.linspace(1, 0, r)
+    out = out * amp / (np.max(np.abs(out)) + 1e-12) * 0.9
+    return (out, ou, ov) if buses else out

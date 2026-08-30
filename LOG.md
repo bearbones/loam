@@ -1,5 +1,56 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 48: the two-polarization string — shimmer by physics (e48, fdstring.fdpluck2 + ruler.beat_profile)
+
+The longest-carried thread, built. A real string vibrates in two
+transverse planes, split a few cents, exchanging energy at the
+bridge — and only one plane meets the jawari. fdpluck2 runs both
+lattices: vertical u (plucked, bridged), horizontal v (silent at
+t=0, detuned by `split`, fed through a spring across the bridge
+zone). Voicing that measured well: split=0.006, kc=1e5, pickup
+cos(0.6)u + sin(0.6)v.
+
+Everything the design promises, measured on the bus it happens
+on (13 rulers green):
+  - delayed transfer: v peaks 0.41 s after a pluck it never
+    received, -23.6 dB under u; kc=0 control stays at -605 dB.
+  - the jawari touches only u: sustain hi-band density ratio
+    u/v x8645.
+  - polarization beating: v-bus envelope breathes at f0*split —
+    0.84 measured vs 0.88 designed (split .006), 0.50 vs 0.44
+    (split .003), both within an envelope-FFT bin; split=0
+    collapses to the 2.8 dB junk floor (true beats read 6-9).
+  - the beats survive the mix: each drone string's fundamental
+    band carries its OWN rate in the full render — pa 0.63/0.66,
+    sa 0.84/0.88, SA 0.42/0.44 Hz, a chord of shimmer rates
+    proportional to each f0.
+
+New ruler: beat_profile (rate_hz, depth_db of a band envelope's
+slow ripple). Lessons earned:
+  - DETREND before reading an envelope spectrum: a decaying
+    note's ramp votes ~0.3 Hz for ANY signal — a beatless
+    single-pol pluck read the same 'beat' as a beating two-pol
+    until the log-envelope trend was subtracted.
+  - measurement bands need spectral ISOLATION: band_env's
+    2nd-order edges are shallow, and the sa pair's louder,
+    deeper 0.84 Hz beat colonized pa's +/-10% band (read 0.84
+    where pa's own rate is 0.66) — ring-over enfranchisement's
+    cousin in the envelope domain. pa verifies at +/-5%.
+
+The piece: the e42 drone voiced entirely with two-pol strings —
+a tanpura that breathes at four rates at once. Seam p19.5, poles
+{D, A} hold.
+
+Render sent: e48_twopol.ogg. Smoke 78 green.
+
+Open threads: pluck ANGLE as a playing parameter (energy starts
+split between planes; the jawari should bloom differently).
+Meend on the two-pol string (bend both planes, coupling under
+tension change). Jor/jhala — pulse under the drone. Carried:
+three+ voices by iterated subtraction; canon at the 4th; verify
+FD tanpura with dyad_pitches; sub-midi-40 adaptive window; the 3
+dyad-suite octave-up misses; sympathetic strings.
+
 ## 2026-08-30 — session 47: gamak and andolan — the ornament earns its ruler (e47 + ruler.ornament_profile)
 
 Session 46's lead thread. The meend machinery does oscillating

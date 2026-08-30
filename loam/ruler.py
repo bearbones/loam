@@ -323,6 +323,35 @@ def ornament_profile(ts: np.ndarray, fs: np.ndarray,
     return (rate, depth)
 
 
+def beat_profile(x: np.ndarray, lo: float, hi: float,
+        win_s: float = 0.05, trend_s: float = 1.5,
+        min_rate: float = 0.25, max_rate: float = 5.0) -> tuple:
+    """Amplitude-domain sibling of ornament_profile (e48):
+    (rate_hz, depth_db) of the slow beating that rides one band's
+    envelope. The envelope is taken in LOG domain and DETRENDED
+    (moving mean over trend_s) before its spectrum is read —
+    lesson earned: a decaying note's envelope is a ramp whose
+    low-frequency energy otherwise wins the contest at the same
+    ~0.3 Hz for ANY signal, beating or not (measured: a beatless
+    single-pol pluck read an identical 'beat' to a beating one
+    until the trend was removed; after detrending, true beats
+    show 6-9 dB depth where the beatless floor reads under 3).
+    Depth is the robust half peak-to-peak ripple in dB."""
+    env = band_env(x, lo, hi, win_s)
+    le = np.log(env + 1e-12)
+    k = max(int(trend_s / win_s) | 1, 3)
+    pad = np.concatenate([le[:k][::-1], le, le[-k:][::-1]])
+    trend = np.convolve(pad, np.ones(k) / k, "same")[k:-k]
+    c = le - trend
+    sp = np.abs(np.fft.rfft(c * np.hanning(len(c))))
+    fr = np.fft.rfftfreq(len(c), win_s)
+    sel = np.where((fr >= min_rate) & (fr <= max_rate))[0]
+    j = int(sel[int(np.argmax(sp[sel]))])
+    depth_db = 20.0 / np.log(10.0) \
+        * (np.percentile(c, 95) - np.percentile(c, 5)) / 2.0
+    return (float(fr[j]), float(depth_db))
+
+
 def centroid_hz(x: np.ndarray) -> float:
     """Spectral centroid, POWER-weighted. Earned rule: magnitude
     weighting lets thousands of tiny high bins outvote three loud
