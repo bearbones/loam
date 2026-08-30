@@ -1,5 +1,46 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 43: the unbreakable bridge, and a record corrected (e43)
+
+Chased session 42's open thread — energy-conserving collision to
+fix the grid brittleness — and the first honest measurement
+corrected the record instead: THE BRITTLENESS WAS THE OLD RULER.
+e42 diagnosed "N=150 doesn't bloom" under the displacement
+readout and single-signal env-peak ruler, then replaced both
+(velocity readout for the seam, wet/dry ratio for the attack
+tilt) without re-running the sweep. Under the shipped
+measurement, every grid 130..160 blooms — with the plain penalty
+contact AND the new one (7/7 each, asserted). Lesson earned:
+when the ruler changes mid-session, every verdict issued under
+the old ruler is unverified — re-sweep before logging it.
+
+The SAV contact (scalar auxiliary variable, psi = sqrt(2phi+eps)
+per node; midpoint force linear in the unknown, so each node
+solves in closed form, no Newton) still earned its place as
+fdpluck's default, for what it was actually built to guarantee:
+  - ENERGY: lossless string with contact live, total discrete
+    energy (string + psi^2/2 store) drifts 1.4e-12 relative —
+    machine precision — vs the explicit penalty's 1.7e-2. The
+    contact work telescopes as a difference of squares, exactly.
+  - ANY K: penalty NaN-explodes at K=1e11; SAV rings at 1e12.
+    Contact stiffness is now a voicing knob, not a footgun.
+e42 re-run green under the new default (bloom 1.0s x3.3, enrich
+x16.8 — same instrument, safer integrator). Smoke 71 green.
+
+And the knob is musical: sustain enrichment across the K
+staircase is an ARC — x3.5, x16.8, x6.7, x4.2, x0.8 for
+K=3e8..1e12. An infinitely stiff bridge is a clean hard wall
+and barely buzzes: a jawari filed too sharp goes dead, in the
+simulation as on the instrument. Render sent: e43_savbridge.ogg,
+the same A2 string five times, bridge stiffness x3000 end to
+end, panned left to right.
+
+Open threads: tension modulation for meend/glissando (c varying
+per step — stability budget allows it if c stays under the grid
+limit). Sympathetic strings driven by the FD tanpura. Raga
+sketch over the drone. Two-polarization string coupled at the
+bridge. Grandsire / touches with bobs (from e39).
+
 ## 2026-08-30 — session 42: the jawari, won (e42 + loam/fdstring.py)
 
 e41's closing conjecture — bloom needs DISTRIBUTED contact plus

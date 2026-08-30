@@ -33,13 +33,22 @@ def fdpluck(f0: float, dur: float, amp: float = 1.0,
         kappa: float = 0.3, sig0: float = 0.9, sig1: float = 1e-4,
         pick: float = 0.28, bridge: bool = True, zone: float = 0.10,
         gcurve: float = 0.2, K: float = 3e9, alpha: float = 1.3,
-        pluck_m: float = 1.6e-3, N: int = 0) -> np.ndarray:
+        pluck_m: float = 1.6e-3, N: int = 0,
+        contact: str = "sav") -> np.ndarray:
     """One plucked note on the simulated string. bridge=True adds
     the jawari barrier (gcurve = parabola curvature, K/alpha the
     contact spring). pluck_m is the physical pluck displacement —
     the contact nonlinearity is amplitude-dependent, so pluck_m vs
     gcurve sets how hard the string works the bridge. ~1 s of
-    compute per 1 s of audio."""
+    compute per 1 s of audio.
+
+    contact="sav" (default) integrates the barrier force through a
+    scalar auxiliary variable psi = sqrt(2 phi + eps) per node,
+    whose update is LINEAR in the unknown displacement — energy-
+    stable at ANY K, so contact stiffness is a safe voicing knob
+    (measured e43: K=1e12 rings where the explicit penalty NaNs at
+    1e11). contact="penalty" keeps the plain explicit force for
+    comparison."""
     dt = 1.0 / SR
     c = 2.0 * f0                       # L = 1, so c = 2 L f0
     if N <= 0:
@@ -66,6 +75,10 @@ def fdpluck(f0: float, dur: float, amp: float = 1.0,
     B = 1.0 - sig0 * dt
     s1c = 2.0 * sig1 * dt / dx ** 2
     Kdt2 = K * dt * dt
+    if contact == "sav":
+        eta0 = np.maximum(bb - u[bz], 0.0)
+        psi = np.sqrt(2.0 * K / (alpha + 1) * eta0 ** (alpha + 1)
+                + 1e-24)
     lap = np.zeros(N + 1)
     lapo = np.zeros(N + 1)
     bi = np.zeros(N + 1)
@@ -79,8 +92,20 @@ def fdpluck(f0: float, dur: float, amp: float = 1.0,
         un = (2 * u - B * up + lam2 * lap - mu2 * bi
                 + s1c * (lap - lapo)) / A
         if bridge:
-            pen = np.maximum(bb - u[bz], 0.0)
-            un[bz] += Kdt2 * pen ** alpha / A
+            if contact == "sav":
+                eta = np.maximum(bb - u[bz], 0.0)
+                g = K * eta ** alpha / psi
+                # force at midpoint: g*(psi_next + psi)/2 with
+                # psi_next = psi - g*(u_next - u_prev)/2 — linear
+                # in u_next, so each node solves in closed form
+                unb = (un[bz] + dt * dt / A
+                        * (g * psi + g * g * up[bz] / 4.0)) \
+                    / (1.0 + dt * dt * g * g / (4.0 * A))
+                psi = psi - g * (unb - up[bz]) / 2.0
+                un[bz] = unb
+            else:
+                pen = np.maximum(bb - u[bz], 0.0)
+                un[bz] += Kdt2 * pen ** alpha / A
         un[0] = un[-1] = 0.0
         # velocity readout: a string released from rest starts at
         # v=0 exactly (displacement would start on a DC step and
