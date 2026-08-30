@@ -114,7 +114,7 @@ ok("fdpluck", fdpluck(110.0, 0.6, N=140))
 # ruler: self-check against signals with known answers
 from loam.ruler import (hps_pitch, centroid_hz, band_density,
         pulse_rate, seam_rank, flatness, chroma, onset_times,
-        transcribe, env_peak_s)
+        transcribe, env_peak_s, dyad_pitches)
 _tt = np.arange(2 * SR) / SR
 _sine = np.sin(2 * np.pi * 500.0 * _tt)
 checks.append(("ruler_hps",
@@ -144,6 +144,14 @@ _tb = np.arange(4 * SR) / SR
 _bloom = np.sin(2 * np.pi * 110.0 * _tb) * np.exp(-_tb * 0.5) \
     + np.sin(2 * np.pi * 2500.0 * _tb) * np.exp(-((_tb - 0.8) / 0.35) ** 2)
 checks.append(("ruler_env_peak", 0.6 <= env_peak_s(_bloom) <= 1.0))
+_dy = [(50, 57), (60, 69), (55, 64)]      # inside the verified
+_dyok = True                               # contract: >=43, no
+for _a, _b in _dy:                         # shadow intervals
+    _mix = pluck(hz(_a), 0.5, seed=1) + pluck(hz(_b), 0.5, seed=2)
+    _lo, _hi = dyad_pitches(_mix)
+    _dyok &= (int(round(69 + 12 * np.log2(_lo / 440.0))) == _a
+            and int(round(69 + 12 * np.log2(_hi / 440.0))) == _b)
+checks.append(("ruler_dyad", _dyok))
 _tune = [62, 65, 69, 74]
 _ph = np.zeros(int(2.2 * SR))
 for _i, _md in enumerate(_tune):

@@ -46,12 +46,37 @@ def hps_pitch(x: np.ndarray, fmin: float = 40.0, fmax: float = 2500.0,
     two-sided: a modest fraction of the winner (>= 6%) AND far
     above the spectral floor (>= 8x the dilated median) — a KS
     fundamental can be 12x weaker than its own 2nd partial and
-    still be unmistakably a partial, not noise."""
+    still be unmistakably a partial, not noise. Deepened in e44
+    from seed-dependent octave errors: the winner can be harmonic
+    SIX or EIGHT of the truth (divisors 2..4 rescue onto the
+    wrong octave), and a true fundamental can be under 1% of the
+    winner yet thousands of times the floor — so divisors run
+    2..8 and strong LOCAL CONTRAST (>= 200x the median of a DONUT
+    around the sub — neighborhood minus the dilated peak itself;
+    calibrated between a measured phantom at 96x and the weakest
+    true starved fundamental at 638x)
+    qualifies a sub even when the fraction-of-winner test says
+    no. Local, not global: a long window's global floor is
+    minuscule and a decaying signal's broadband low skirt clears
+    any absolute multiple of it (that bug cost e42's open string
+    its octave for one commit) — but a skirt is FLAT where a
+    real fundamental is a peak, and the donut keeps the peak
+    from vouching for itself."""
     from scipy.ndimage import maximum_filter1d
     m = _mono(x)
     w = m * np.hanning(len(m))
     mag = maximum_filter1d(np.abs(np.fft.rfft(w)), 2 * tol_bins + 1)
     f = np.fft.rfftfreq(len(m), 1.0 / SR)
+    return float(f[_hps_core(mag, f, fmin, fmax, nharm)])
+
+
+def _hps_core(mag, f, fmin, fmax, nharm, strict_sub=False):
+    """The HPS contest + octave rescue on a prepared (dilated)
+    magnitude spectrum. Shared by hps_pitch and dyad_pitches.
+    strict_sub=True drops the local-contrast rescue clause — for
+    a NULLED residue spectrum, whose half-cut null edges mimic
+    locally-contrasting peaks and invite phantom /2../4 rescues
+    (e44: a clean 831 Hz voice dragged two octaves down)."""
     acc = np.log(mag + 1e-12).copy()
     for h in range(2, nharm + 1):
         dec = np.log(mag[::h] + 1e-12)
@@ -60,12 +85,84 @@ def hps_pitch(x: np.ndarray, fmin: float = 40.0, fmax: float = 2500.0,
     acc[~band] = -np.inf
     i0 = int(np.argmax(acc))
     floor = np.median(mag) + 1e-12
-    subs = [j for j in (int(round(i0 / d)) for d in (2, 3, 4))
-            if f[j] >= fmin and mag[j] >= 0.06 * mag[i0]
-            and mag[j] >= 8.0 * floor]
+    subs = []
+    for j in (int(round(i0 / d)) for d in range(2, 9)):
+        if f[j] < fmin or mag[j] < 8.0 * floor:
+            continue
+        if mag[j] >= 0.06 * mag[i0]:
+            subs.append(j)
+        elif not strict_sub:
+            donut = np.median(np.concatenate([
+                    mag[max(j - 25, 0):max(j - 7, 0)],
+                    mag[j + 8:j + 26]]) + 1e-12)
+            if mag[j] >= 200.0 * donut:
+                subs.append(j)
     if subs:
         i0 = min(subs)
-    return float(f[i0])
+    return i0
+
+
+def _partial_refine(raw, f0, df, tol_bins):
+    """Sub-bin f0 from where the partials ACTUALLY sit in the
+    undilated spectrum (dilation smears peak position +/-tol bins
+    — a full semitone at 100 Hz with 0.5 s windows). MEDIAN of
+    per-partial estimates, not a weighted mean: in a mix, one
+    window can catch the OTHER voice's partial (a twelfth away,
+    voice 2's fundamental sits 17 Hz off harmonic 3) and a mean
+    lets that single interloper drag f0 a semitone sharp."""
+    est = []
+    for h in range(1, 7):
+        c = h * f0 / df
+        a = int(round(c)) - (tol_bins + 2)
+        b = int(round(c)) + tol_bins + 3
+        if b >= len(raw) or a < 0:
+            break
+        j = a + int(np.argmax(raw[a:b]))
+        est.append((raw[j], j / h))
+    if not est:
+        return f0
+    top = sorted(est, reverse=True)[:5]
+    return float(np.median([p for _, p in top])) * df
+
+
+def dyad_pitches(x: np.ndarray, fmin: float = 60.0,
+        fmax: float = 2000.0, nharm: int = 5,
+        tol_bins: int = 3) -> tuple:
+    """Both fundamentals of a two-voice mix, blind: HPS finds the
+    stronger voice, its refined harmonic comb is nulled to the
+    spectral median, and a second HPS pass reads the survivor.
+    Returns (lo_hz, hi_hz). Earned rules: null WIDE (the dilated
+    ridge extends tol_bins past the true peak, and partial drift
+    grows with h), and refine BEFORE nulling (a semitone-sharp f1
+    estimate misaligns every null and poisons the residue).
+    Honest limits: octave/unison dyads are invisible (voice 2's
+    partials are a subset of voice 1's), and below ~midi 40 a
+    0.5 s window gives the fundamental too few cycles to trust."""
+    from scipy.ndimage import maximum_filter1d
+    m = _mono(x)
+    w = m * np.hanning(len(m))
+    raw = np.abs(np.fft.rfft(w))
+    mag = maximum_filter1d(raw, 2 * tol_bins + 1)
+    f = np.fft.rfftfreq(len(m), 1.0 / SR)
+    df = f[1]
+    f1 = _partial_refine(raw,
+            f[_hps_core(mag, f, fmin, fmax, nharm)], df, tol_bins)
+    mag2 = mag.copy()
+    med = np.median(mag)
+    h = 1
+    while True:
+        c = h * f1 / df
+        if c >= len(mag2):
+            break
+        wid = tol_bins + max(3, int(round(0.025 * h * f1 / df)))
+        a = int(round(c)) - wid
+        mag2[max(a, 0):a + 2 * wid + 1] = med
+        h += 1
+    f2 = _partial_refine(raw,
+            f[_hps_core(mag2, f, fmin, fmax, nharm, strict_sub=True)],
+            df, tol_bins)
+    lo, hi = sorted((float(f1), float(f2)))
+    return (lo, hi)
 
 
 def centroid_hz(x: np.ndarray) -> float:

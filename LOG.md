@@ -1,5 +1,58 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 44: crab canon, heard blind (e44 + ruler.dyad_pitches)
+
+The oldest open thread (polyphonic transcription, parked since
+e40) built as blind TWO-VOICE pitch recovery: HPS names the
+stronger voice, its refined comb is nulled to the spectral
+median, a second HPS pass reads the survivor. Contract measured
+on ~300 random pluck dyads (~99%): both voices >= midi 43, no
+SHADOW INTERVALS — octave (2:1), twelfth (2.997:1), and the
+twelfth's penumbra (interval 20, thirty cents off harmonic 3)
+hide voice 2 inside voice 1's spectrum. Proof piece: a 28-beat
+crab canon in D dorian (voice 2 = voice 1 backwards, an octave
+down) — 28/28 dyads named blind from the mixed render, and the
+crab property (low voice reversed + 12 == high voice) asserted
+on RECOVERED data, not the score.
+
+The chase fixed real hps_pitch bugs and taught this cycle's
+ruler lessons:
+  - the octave-rescue divisors ran 2..4 but the HPS winner can
+    be harmonic SIX or EIGHT of the truth — rescue landed on the
+    wrong octave (solo sweep 40..84 x6 seeds now 270/270).
+  - a true fundamental can be <1% of the winner yet unmistakably
+    real. Qualifying it by ABSOLUTE floor multiple broke e42's
+    open string (a decaying signal's broadband skirt clears any
+    multiple of a long window's minuscule global floor) — the
+    honest test is LOCAL contrast against a DONUT median
+    (neighborhood minus the peak's own dilated plateau), and the
+    threshold was CALIBRATED, not chosen: measured phantom 96x,
+    weakest true starved fundamental 638x, threshold 200x.
+  - a NULLED residue spectrum cannot vouch for weak
+    fundamentals: half-cut null edges mimic contrasting peaks
+    and invite phantom /2../4 rescues — the residue pass runs
+    strict (fraction test only).
+  - the dyad ruler caught a real COMPOSITION bug blind: a crab
+    pair (a,b) sounds in both temporal directions, (a, b-12) and
+    (b, a-12), so the palette must be closed under d -> -d
+    (e40's inversion-closure lesson in retrograde costume). The
+    solver had checked one direction; the ruler read an
+    unverified 17 out of a "finished" canon.
+  - the crab's structure plants a trap at the seam: v2[L-1] ==
+    melody[0]-12 ALWAYS, so beat L-1's low tail rings the exact
+    sub-octave under beat 0's high voice. Note length now
+    barely exceeds the beat (only the fade wraps).
+
+Render sent: e44_crabcanon.ogg (two loop passes, high voice
+right, low voice left). Smoke 72 green; e40/41/42/44 all green
+after every ruler change.
+
+Open threads: three+ voices by iterated subtraction (the null
+machinery generalizes). Canon at the 4th (rotation +
+transposition algebra). Verify the FD tanpura with dyad_pitches
+(jawari spectra are harsher than plucks). Sub-midi-40 pitch
+needs adaptive window length (a 0.5 s window starves 70 Hz).
+
 ## 2026-08-30 — session 43: the unbreakable bridge, and a record corrected (e43)
 
 Chased session 42's open thread — energy-conserving collision to
