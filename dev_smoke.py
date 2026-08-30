@@ -110,7 +110,8 @@ checks.append(("rhythm", True))
 
 # ruler: self-check against signals with known answers
 from loam.ruler import (hps_pitch, centroid_hz, band_density,
-        pulse_rate, seam_rank, flatness, chroma, onset_times)
+        pulse_rate, seam_rank, flatness, chroma, onset_times,
+        transcribe)
 _tt = np.arange(2 * SR) / SR
 _sine = np.sin(2 * np.pi * 500.0 * _tt)
 checks.append(("ruler_hps",
@@ -136,6 +137,16 @@ checks.append(("ruler_flat_sine", flatness(_sine) < 0.02))
 _a440 = np.sin(2 * np.pi * 440.0 * _tt)
 checks.append(("ruler_chroma", int(np.argmax(chroma(_a440))) == 9))
 checks.append(("ruler_onsets", len(onset_times(_clicks)) == 12))
+_tune = [62, 65, 69, 74]
+_ph = np.zeros(int(2.2 * SR))
+for _i, _md in enumerate(_tune):
+    _at = int((0.2 + 0.5 * _i) * SR)
+    _pl = pluck(hz(_md), 0.45)
+    _fd = int(0.08 * SR)                 # a truncated pluck's hard
+    _pl[-_fd:] *= np.linspace(1, 0, _fd)  # stop reads as an onset
+    _ph[_at:_at + len(_pl)] += _pl
+_got = [int(round(md)) for _, md in transcribe(_ph, min_sep=0.2)]
+checks.append(("ruler_transcribe", _got == _tune))
 
 n_fail = sum(1 for _, g in checks if not g)
 print(f"smoke: {len(checks)} checks, {n_fail} failures, "

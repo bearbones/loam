@@ -1,5 +1,58 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 40: ouroboros (e40; ruler.transcribe, hps_pitch hardened)
+
+The transcription thread, with a compositional customer: a
+CIRCULAR CANON. One 32-beat D dorian line, composed by seeded
+backtracking search to harmonize with itself rotated half the
+loop — voice two is the same melody 16 beats behind, an octave
+down, forever. Constraint theory lesson up front: each rotation
+pair sounds in BOTH directions half a loop apart, so a P5 one way
+is a P4 the other — the consonance set must be inversion-closed
+{unison, 3rds, 6ths}: the form forces invertible counterpoint at
+the octave, and the search's first "solution" (asymmetric set
+with the fifth in) failed its own verifier. Stepwise motion, no
+parallel octaves, range >= an octave, wrap obeys everything —
+bar one is bar seventeen's counterpoint in both directions.
+84 BPM, 22.9 s, two plucks + oh-drone, p89.4 seam.
+
+ruler.transcribe (onset_times + hps_pitch per inter-onset window,
+monophonic only) landed — and hardened hps_pitch through three
+honest failures on the way to 32/32:
+  - PARTIALS ARE NOT BINS: exact-bin downsampling demands partial
+    h at bin h*i; real pluck partials drift a bin or three, one
+    missed high partial lands on log(~0), and the true candidate
+    loses to its own 3rd harmonic. Fix: dilate magnitudes
+    (maximum_filter, +/-3 bins) before the harmonic sum.
+  - the OCTAVE ERROR has a physical accomplice: pick=0.2 notches
+    partial 5 (the pick-position comb), sabotaging f0's 5-term
+    product while 2*f0's harmonic set dodges the notch. Fix:
+    subharmonic rescue — genuine energy AT f*/2,3,4 means the
+    subharmonic is the fundamental.
+  - "genuine" must be TWO-SIDED: a KS fundamental can be 12x
+    weaker than its own 2nd partial (8% of the octave peak, below
+    any winner-relative bar) yet sit unmistakably above the
+    spectral floor. >= 6% of winner AND >= 8x the dilated median.
+Also: the dyad ruler's quarter-tone probe at +/-3% width
+CONTAINED the peak it probed against (band [0.998f, 1.060f]) —
+probes moved to 3/4-semitone +/-2% and Hann-tapered (rectangular
+sidelobes flood narrow bands); 1.7x became 6684x. And a
+truncated test pluck's hard stop reads as an onset (smoke fade).
+
+All 5 rulers pass: a line exists, counterpoint holds (32/32
+intervals consonant, 0 parallel perfects, range 19), the tune
+comes back 32/32 exact from voice one's bus, designed-dyad
+density 6684x probes, seam p89.4. e39 re-run green after the
+hps changes (regression checked). dev_smoke 69. Render sent:
+e40_ouroboros.ogg.
+
+Open threads: canon at OTHER intervals (rotation + transposition:
+canon at the 4th needs its own interval algebra); a crab canon
+(retrograde needs non-loop rendering or palindromic melody);
+polyphonic transcription (NMF or iterative subtraction — the
+"different animal" the docstring warns about); Risset decel /
+thunder doublet / taraf bridge still open.
+
 ## 2026-08-30 — session 39: Plain Bob Minor (e39; ruler.onset_times)
 
 Permutation music: change ringing on the modal church bells. A

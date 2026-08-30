@@ -27,14 +27,30 @@ def _mono(x: np.ndarray) -> np.ndarray:
 
 
 def hps_pitch(x: np.ndarray, fmin: float = 40.0, fmax: float = 2500.0,
-        nharm: int = 5) -> float:
-    """Fundamental via harmonic product spectrum. Earned rule:
+        nharm: int = 5, tol_bins: int = 3) -> float:
+    """Fundamental via harmonic product spectrum. Earned rules:
     plain argmax lies when a harmonic edges the fundamental (e04);
     multiplying downsampled spectra makes only the true f0's comb
-    line up."""
+    line up. And (e40) PARTIALS ARE NOT BINS: exact-bin
+    downsampling demands partial h sit exactly at bin h*i, but
+    real partials drift a bin or three (inharmonicity, window
+    edges) — one missed high partial lands on log(~0) and the
+    true candidate loses to its own 3rd harmonic. Dilating the
+    magnitudes (local max over +/-tol_bins) before the harmonic
+    sum forgives the drift. Then the octave rescue (same cycle):
+    an instrument can NOTCH a low harmonic (a pluck picked at 0.2
+    of the string zeroes partial 5), sabotaging the true
+    candidate's product while 2*f0's harmonic set dodges the
+    notch — so if genuine energy sits AT a subharmonic of the
+    winner, the subharmonic is the fundamental. "Genuine" is
+    two-sided: a modest fraction of the winner (>= 6%) AND far
+    above the spectral floor (>= 8x the dilated median) — a KS
+    fundamental can be 12x weaker than its own 2nd partial and
+    still be unmistakably a partial, not noise."""
+    from scipy.ndimage import maximum_filter1d
     m = _mono(x)
     w = m * np.hanning(len(m))
-    mag = np.abs(np.fft.rfft(w))
+    mag = maximum_filter1d(np.abs(np.fft.rfft(w)), 2 * tol_bins + 1)
     f = np.fft.rfftfreq(len(m), 1.0 / SR)
     acc = np.log(mag + 1e-12).copy()
     for h in range(2, nharm + 1):
@@ -42,7 +58,14 @@ def hps_pitch(x: np.ndarray, fmin: float = 40.0, fmax: float = 2500.0,
         acc[:len(dec)] += dec
     band = (f >= fmin) & (f <= fmax)
     acc[~band] = -np.inf
-    return float(f[int(np.argmax(acc))])
+    i0 = int(np.argmax(acc))
+    floor = np.median(mag) + 1e-12
+    subs = [j for j in (int(round(i0 / d)) for d in (2, 3, 4))
+            if f[j] >= fmin and mag[j] >= 0.06 * mag[i0]
+            and mag[j] >= 8.0 * floor]
+    if subs:
+        i0 = min(subs)
+    return float(f[i0])
 
 
 def centroid_hz(x: np.ndarray) -> float:
@@ -221,6 +244,28 @@ def onset_times(x: np.ndarray, frame: int = 1024, hop: int = 256,
             if not hits or i - hits[-1] >= sep:
                 hits.append(i)
     return np.array(hits) * hop / SR
+
+
+def transcribe(x: np.ndarray, min_sep: float = 0.08,
+        fmin: float = 80.0, fmax: float = 1500.0,
+        max_win: float = 0.5) -> list:
+    """MONOPHONIC transcription: onset_times for the whens,
+    hps_pitch over each inter-onset window for the whats. Returns
+    [(onset_s, midi_float)] — round midi yourself, and remember
+    onset latency (see onset_times). Born in e40, where the
+    ouroboros canon had to give its tune back from the render.
+    Polyphony is a different animal — do not point this at it."""
+    m = _mono(x)
+    ts = onset_times(x, min_sep=min_sep)
+    out = []
+    for i, t in enumerate(ts):
+        a = int((t + 0.015) * SR)
+        end = ts[i + 1] - 0.01 if i + 1 < len(ts) else t + max_win
+        b = int(min(end, t + max_win) * SR)
+        b = max(b, a + int(0.05 * SR))
+        f = hps_pitch(m[a:min(b, len(m))], fmin, fmax)
+        out.append((float(t), 69.0 + 12.0 * np.log2(f / 440.0)))
+    return out
 
 
 def seam_rank(x: np.ndarray) -> float:
