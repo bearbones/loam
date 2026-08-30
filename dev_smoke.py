@@ -110,7 +110,7 @@ checks.append(("rhythm", True))
 
 # ruler: self-check against signals with known answers
 from loam.ruler import (hps_pitch, centroid_hz, band_density,
-        pulse_rate, seam_rank, flatness, chroma)
+        pulse_rate, seam_rank, flatness, chroma, onset_times)
 _tt = np.arange(2 * SR) / SR
 _sine = np.sin(2 * np.pi * 500.0 * _tt)
 checks.append(("ruler_hps",
@@ -119,10 +119,12 @@ checks.append(("ruler_centroid",
         abs(centroid_hz(_sine) - 500.0) < 25.0))
 checks.append(("ruler_density", band_density(_sine, 400, 600)
         > 100 * band_density(_sine, 1000, 2000)))
-_clicks = np.zeros(4 * SR)
+_clicks = np.zeros(5 * SR)
 _rngc = np.random.default_rng(9)
 for _i in range(12):
-    _at = int(_i * SR / 3.0)
+    # offset from 0: an onset inside frame 0 has no prior frame to
+    # rise from — spectral flux is blind to a strike at t=0
+    _at = int((0.2 + _i / 3.0) * SR)
     _clicks[_at:_at + 200] = _rngc.standard_normal(200)
 checks.append(("ruler_pulse",
         abs(pulse_rate(_clicks, 2.0, 4.5) - 3.0) < 0.15))
@@ -133,6 +135,7 @@ checks.append(("ruler_flat_noise", flatness(_nz) > 0.3))
 checks.append(("ruler_flat_sine", flatness(_sine) < 0.02))
 _a440 = np.sin(2 * np.pi * 440.0 * _tt)
 checks.append(("ruler_chroma", int(np.argmax(chroma(_a440))) == 9))
+checks.append(("ruler_onsets", len(onset_times(_clicks)) == 12))
 
 n_fail = sum(1 for _, g in checks if not g)
 print(f"smoke: {len(checks)} checks, {n_fail} failures, "

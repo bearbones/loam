@@ -182,6 +182,47 @@ def chroma(x: np.ndarray, lo: float = 60.0, hi: float = 2000.0) -> np.ndarray:
     return out / (out.sum() + 1e-30)
 
 
+def onset_times(x: np.ndarray, frame: int = 1024, hop: int = 256,
+        k: float = 3.0, min_sep: float = 0.08,
+        floor_frac: float = 0.15) -> np.ndarray:
+    """Onset times (s) via spectral flux — the half-wave-rectified
+    frame-to-frame magnitude increase, peak-picked above a LOCAL
+    adaptive threshold (median + k*MAD over a sliding ~1 s
+    neighborhood; a global threshold misses soft strikes under
+    loud ones). Promised in e36, born in e39, where change
+    ringing needed its 360 strikes counted and ordered.
+    Earned rule, same cycle: in a rest the local median AND MAD
+    collapse together and the threshold chases noise — every ghost
+    fired inside the handstroke gaps. The floor (floor_frac of the
+    flux's own 90th percentile) keeps silence from becoming
+    hypersensitive. Absolute times carry a ~frame/2 latency —
+    compare onsets to onsets, or allow that offset when matching
+    design times."""
+    m = _mono(x)
+    n_fr = 1 + (len(m) - frame) // hop
+    idx = np.arange(frame)[None, :] + hop * np.arange(n_fr)[:, None]
+    w = np.hanning(frame)
+    mags = np.abs(np.fft.rfft(m[idx] * w, axis=1))
+    flux = np.sum(np.maximum(mags[1:] - mags[:-1], 0.0), axis=1)
+    flux = np.concatenate([[0.0], flux])
+    half = max(int(0.5 * SR / hop), 8)
+    floor = floor_frac * np.percentile(flux, 90)
+    thr = np.empty_like(flux)
+    for i in range(len(flux)):
+        seg = flux[max(0, i - half):i + half]
+        med = np.median(seg)
+        mad = np.median(np.abs(seg - med)) + 1e-12
+        thr[i] = max(med + k * mad, floor)
+    sep = max(int(min_sep * SR / hop), 1)
+    hits = []
+    for i in range(1, len(flux) - 1):
+        if flux[i] > thr[i] and flux[i] == flux[
+                max(0, i - sep):i + sep + 1].max():
+            if not hits or i - hits[-1] >= sep:
+                hits.append(i)
+    return np.array(hits) * hop / SR
+
+
 def seam_rank(x: np.ndarray) -> float:
     """Numeric twin of loam.seam_report: percentile rank of the
     wrap step in the adjacent-delta distribution. <= ~0.999 is

@@ -1,5 +1,55 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 39: Plain Bob Minor (e39; ruler.onset_times)
+
+Permutation music: change ringing on the modal church bells. A
+plain course of Plain Bob Minor — six bells, place notation
+x.16 alternating with 12 at each lead end, five leads, 60
+distinct rows, and the 60th change returns to rounds: the loop
+IS the group-theoretic closure (design self-check asserts both).
+G-major hexachord E5..G4, rounds descend; rope-circle panning,
+tenor rings longest; the handstroke gap observed (one bell-space
+of breath before every handstroke row). 93.6 s, 360 strikes,
+tower reverb.
+
+The cycle's real purpose: an honest customer for
+ruler.onset_times (promised in e36). Spectral flux, local
+median+MAD threshold, peak picking. Two earned rules:
+  - in a REST the local median and MAD collapse together and the
+    threshold chases noise: all four ghosts fired inside
+    handstroke gaps, 130-210 ms after a strike (tail flutter).
+    An absolute floor helps but cannot fully separate — measured
+    flux distributions OVERLAP (faintest true strike 8.7 vs
+    ghosts 40-53; a re-struck bell rises less over its own still-
+    ringing tail). The separation that works is the CALLER'S
+    PRIOR: min_sep just under the known pace (0.2 s vs 0.24
+    spacing) makes each ghost lose the local-max contest to its
+    parent peak. Detector generality stays; the pace knowledge
+    lives in the experiment where it belongs.
+  - spectral flux is blind to a strike at t=0 (it sits inside
+    frame 0 with no prior frame to rise from) — smoke-test
+    clicks start at 0.2 s, and the docstring says so.
+  - (comparison-logic tuition, cheap but real: zip-aligning
+    detected to designed sequences turns 4 insertions into ~340
+    "errors" — 6.4% measured, worse than chance, which was
+    itself the tell that alignment, not sound, was broken.)
+
+Bell-order recovery: per-bell narrowband energy RISE at each
+detected onset (rise, not level — ringing tails don't rise;
+whole-tone spacing keeps prime bands disjoint). All 5 rulers
+pass: course closes (60 distinct, returns to rounds), all 360
+strikes counted, order recovered 98.9% (356/360), handstroke gap
+2.02x a bell-space vs plain joins 1.00x, seam p32.1. dev_smoke
+68 checks. Render sent: e39_plainbob.ogg.
+
+Open threads: Risset decelerando / ITD treadmill (e36); thunder
+ground-reflection doublet (e37); storm-harp dynamics + nonlinear
+taraf bridge (e38); with onset_times + chroma + hps in the
+drawer, a TRANSCRIPTION ruler (recover a full melody from a
+render) is within reach — would let melodic experiments claim
+their tunes; Grandsire or a touch with bobs/singles would test
+the method machinery harder.
+
 ## 2026-08-30 — session 38: the storm harp (e38; ruler.flatness, ruler.chroma)
 
 e37's open thread, the storm SONG: thunder as a chord source.
