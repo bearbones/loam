@@ -1,5 +1,60 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 56: bayan glide — meend comes to the drum (e56, fddrum f1-trajectory, ruler.partial_track)
+
+Refinement cycle on e55's membrane: the bayan's palm-pressure
+pitch bend, the tabla's most vocal gesture. Implementation is
+fdpluck's meend trick transplanted — pitch lives in one
+coefficient (lam2 per step), so f1 may now be a per-sample
+array and time-varying tension costs one multiply. Because
+every mode scales with f1 on a fixed grid, the WHOLE STACK
+bends as one voice — measured, not assumed: fund/f1 ratio
+0.5199 at rest vs 0.5204 pressed (0.09% apart).
+
+New ruler: partial_track (one spectral peak followed through
+time, hann windows, parabolic refinement). pitch_contour's HPS
+is the wrong tool for a drum — sparse stack, low fundamental —
+but the gliding mode is loud and alone in its band. Keep the
+band tight: the tracker follows the strongest thing you let it
+see.
+
+Ruler lessons:
+  - the static CONTROL failed before the glide did: an unbent
+    drum tracked +/-40 cents early in its ring. Real physics,
+    not tracker noise — the staircase-split degenerate pair
+    (~0.5 Hz apart) BEATS, and the apparent single peak wobbles
+    at beat rate until one member decays. The median rides
+    through it; matching statistics between claim and control
+    (both median) made the comparison honest.
+  - design-vs-measured on a trajectory wants the RATIO design
+    (f(t)/f(t0) vs f1(t)/f1(t0)) so the static calibration
+    (fund = 0.52 * f1) carries no error into the glide claim.
+
+Verdicts: glide follows design at 5.0 cents median across the
+ramp; lands -0 cents from D2 after 503 cents of travel (a
+perfect fourth, A1 -> Sa); static control median 6.1 cents;
+piece glide read on its own ge bus ACROSS the loop seam (500
+cents risen, arriving -3 cents from Sa at the wrap). Teental
+keeps all its e55 verdicts: 32/32 slots (the na keeps time
+through the glide), pulse 3.33 Hz, khali hole 0.011, seam
+p34.7, poles {D, A} — the bayan lives on A and arrives on D.
+dev_smoke 85 green.
+
+Render sent: e56_bayan_glide.ogg (two loop passes).
+
+Open threads: the full GAT — melody + theka + taraf halo, the
+arc's destination, now unblocked (every element exists:
+fdpluck melody, fdpluck2 drone, fdsym+jawari halo, tuned
+na/ge, glide bayan); glide DOWN (release after pressure — the
+classic dha-glide releases); bols as strike families (tin =
+rim, ke = muted); grid-resolution study of the split-pair beat
+(N up -> split down — is the beat a lattice artifact or a
+voicing?). Carried: per-string taraf gain; jhala-bus taraf
+drive; per-string readout pan; jhala acceleration; bol
+patterns; (8,15)-family triad misses; passing tones; pluck
+angle; meend on two-pol; canon at the 4th; FD tanpura dyad
+verify; sub-midi-40 window.
+
 ## 2026-08-30 — session 55: syahi — the drum that learned to sing Sa (e55, loam/membrane.py, ruler.mode_freqs/mode_misfit)
 
 New instrument CLASS: the FD family's 2D member. membrane.py

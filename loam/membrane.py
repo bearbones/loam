@@ -38,7 +38,10 @@ def fddrum(f1: float, dur: float, amp: float = 1.0,
     """One struck drum. f1 = the UNIFORM membrane's fundamental
     (2.405 c / 2 pi R); loading lowers every mode, so a loaded
     drum's sounding pitch is a measured quantity, not this
-    parameter. strike/read are (x, y) in the unit disc; width is
+    parameter. f1 may be an ARRAY of per-sample values (any
+    length; resampled to the step count): time-varying tension,
+    i.e. the bayan's palm-pressure GLIDE. The grid is sized for
+    the trajectory's highest point. strike/read are (x, y) in the unit disc; width is
     the mallet bump radius. load = syahi peak density above 1,
     rs = syahi radius: rho = 1 + load * max(0, 1-(r/rs)^2).
     sig0 sets ring (t60 ~ 6.9/sig0); sig1 damps highs first —
@@ -66,9 +69,22 @@ def fddrum(f1: float, dur: float, amp: float = 1.0,
     dt = 1.0 / SR
     steps = int(dur * SR)
     dx = 2.0 / N
-    c = 2.0 * np.pi * f1 / 2.405
+    f1 = np.asarray(f1, dtype=float)
+    f1max = float(f1) if f1.ndim == 0 else float(f1.max())
+    c = 2.0 * np.pi * f1max / 2.405
     lam2 = (c * dt / dx) ** 2
     assert lam2 <= 0.5, "unstable grid: raise N or lower f1"
+    if f1.ndim == 0:
+        lam2s = np.full(steps, lam2)
+    else:
+        # the bayan GLIDE (e56): palm pressure is time-varying
+        # tension, and pitch lives in one coefficient — exactly
+        # fdpluck's meend trick, one multiply per step. All mode
+        # frequencies scale together (lam2 ~ f1^2 on a fixed
+        # grid), so the whole stack bends as one voice.
+        traj = np.interp(np.linspace(0, 1, steps),
+                np.linspace(0, 1, len(f1)), f1)
+        lam2s = (2.0 * np.pi * traj / 2.405 * dt / dx) ** 2
     ax = np.linspace(-1.0, 1.0, N + 1)
     X, Y = np.meshgrid(ax, ax, indexing="ij")
     r = np.sqrt(X ** 2 + Y ** 2)
@@ -96,7 +112,7 @@ def fddrum(f1: float, dur: float, amp: float = 1.0,
                 + up[1:-1, 2:] + up[1:-1, :-2]
                 - 4 * up[1:-1, 1:-1])
         un = (2 * u - B * up
-                + (lam2 * lap + s1c * (lap - lapo)) / rho) / A
+                + (lam2s[t] * lap + s1c * (lap - lapo)) / rho) / A
         un *= mask
         out[t] = un[ri] if readout == "disp" \
             else (un[ri] - u[ri]) * SR

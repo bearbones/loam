@@ -141,6 +141,11 @@ _mm, _mf0, _mi = mode_misfit(
         np.array([100.0, 150.0, 200.0, 250.0]), 20.0, 105.0)
 checks.append(("ruler_misfit",
         _mi == (2, 3, 4, 5) and _mm < 1.0))
+from loam.ruler import partial_track
+_gd = fddrum(np.linspace(180.0, 240.0, 50), 0.5, N=29)
+_gt, _gf = partial_track(_gd, 120.0, 280.0)
+checks.append(("membrane_glide",
+        1.25 < _gf[-1] / _gf[0] < 1.42))
 
 # ruler: self-check against signals with known answers
 from loam.ruler import (hps_pitch, centroid_hz, band_density,

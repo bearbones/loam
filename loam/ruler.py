@@ -636,6 +636,44 @@ def mode_misfit(freqs, f0lo: float, f0hi: float,
     return best
 
 
+def partial_track(x: np.ndarray, lo: float, hi: float,
+        win_s: float = 0.09, hop_s: float = 0.02):
+    """(ts, fs): the strongest spectral peak inside [lo, hi] Hz
+    per window — ONE partial followed through time (e56). Born
+    for the bayan glide, where pitch_contour's HPS is the wrong
+    tool: a drum's stack is too sparse and its fundamental too
+    low for harmonic voting, but the gliding MODE itself is loud
+    and alone in its band. Windows are hann, peaks parabolically
+    refined; a window whose band peak is under 1e-6 of its
+    global peak reports NaN (silence has no partial). Keep the
+    band tight enough to exclude the mode's neighbours — the
+    tracker follows the strongest thing you let it see."""
+    m = _mono(x)
+    w = int(win_s * SR)
+    h = int(hop_s * SR)
+    hann = np.hanning(w)
+    ts, fs = [], []
+    for a in range(0, len(m) - w, h):
+        seg = m[a:a + w] * hann
+        p = np.abs(np.fft.rfft(seg)) ** 2
+        f = np.fft.rfftfreq(w, 1.0 / SR)
+        bi, bj = np.searchsorted(f, (lo, hi))
+        band = p[bi:bj]
+        ts.append((a + w / 2) / SR)
+        if band.max() < 1e-6 * p.max():
+            fs.append(float("nan"))
+            continue
+        i = int(np.argmax(band))
+        j = bi + i
+        if 0 < j < len(p) - 1:
+            a3, b3, c3 = np.log(p[j - 1:j + 2] + 1e-24)
+            off = 0.5 * (a3 - c3) / (a3 - 2 * b3 + c3 + 1e-24)
+        else:
+            off = 0.0
+        fs.append(float(f[j] + off * (f[1] - f[0])))
+    return np.array(ts), np.array(fs)
+
+
 def crest_db(x: np.ndarray) -> float:
     """Crest factor (peak over RMS) in dB — transients are PEAKS,
     not energy sums (e19). Over a ramping gesture, window the
