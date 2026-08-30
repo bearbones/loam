@@ -285,6 +285,44 @@ def dwell_seconds(ts: np.ndarray, fs: np.ndarray, tonic_hz: float,
     return out
 
 
+def ornament_profile(ts: np.ndarray, fs: np.ndarray,
+        min_rate: float = 1.0) -> tuple:
+    """Oscillation (rate_hz, depth_cents) of a pitch-contour
+    segment around its median — the gamak/andolan ruler (e47).
+    Rate is the dominant line of the cents-contour spectrum at or
+    above min_rate, log-parabola interpolated; depth is half the
+    robust peak-to-peak ((p95 - p5) / 2) of the cents contour.
+    HONEST LIMIT (measured, e47): the contour under FM is NOT a
+    plain moving average — each partial's refined peak sits where
+    the oscillation DWELLS (its extremes), so depth attenuation
+    is milder than the sinc story (0.95 at 3 Hz and 0.88 at 6 Hz
+    with 0.08 s windows on a harmonic-rich source) but still
+    real: calibrate depth against a synthetic control of the SAME
+    instrument class at the same rate and window. Same-class
+    means HARMONIC-RICH — a bare FM sine gives the contour no
+    partials to refine against and one glitch per quarter-cycle
+    reads as rate-multiplied junk (a 6 Hz ornament measured 24
+    Hz). Rate passes through the smoothing untouched."""
+    ts = np.asarray(ts, dtype=float)
+    fs = np.asarray(fs, dtype=float)
+    c = 1200.0 * np.log2(fs / np.median(fs))
+    c = c - c.mean()
+    dt = float(np.median(np.diff(ts)))
+    sp = np.abs(np.fft.rfft(c * np.hanning(len(c))))
+    fr = np.fft.rfftfreq(len(c), dt)
+    sel = np.where(fr >= min_rate)[0]
+    j = int(sel[int(np.argmax(sp[sel]))])
+    pos = float(j)
+    if 0 < j < len(sp) - 1:
+        la, lb, lc = np.log(sp[j - 1:j + 2] + 1e-30)
+        den = la - 2 * lb + lc
+        if den < 0:
+            pos = j + min(max(0.5 * (la - lc) / den, -0.5), 0.5)
+    rate = pos * float(fr[1])
+    depth = float((np.percentile(c, 95) - np.percentile(c, 5)) / 2)
+    return (rate, depth)
+
+
 def centroid_hz(x: np.ndarray) -> float:
     """Spectral centroid, POWER-weighted. Earned rule: magnitude
     weighting lets thousands of tiny high bins outvote three loud

@@ -1,5 +1,51 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 47: gamak and andolan — the ornament earns its ruler (e47 + ruler.ornament_profile)
+
+Session 46's lead thread. The meend machinery does oscillating
+ornaments for free; the cycle's work was the honest ruler:
+ornament_profile reads (rate_hz, depth_cents) off a pitch
+contour — rate from the cents-contour spectrum's dominant line
+(log-parabola sub-bin), depth as robust half peak-to-peak.
+Measured on the FD string, own bus: andolan on ga (designed 3
+Hz, +/-30 c) reads 3.00 Hz / 0.96 of design; gamak ga<->ma
+(designed 6 Hz, 200 c pp, 11.5 cycles so it LANDS on ma) reads
+5.99 Hz / 0.90 of design through the calibrated transfer. Dwells
+around the ornaments at 0.8-1.5 cents.
+
+Ruler lessons earned, both from measured surprises:
+  - the contour under FM is NOT a moving average, and the sinc
+    story I brought to the cycle was wrong: each partial's
+    refined peak sits where the oscillation DWELLS (its
+    extremes), so a 0.08 s window keeps 0.88 of a 6 Hz depth
+    where naive averaging predicts 0.66 (and 0.22 s windows keep
+    0.80, not 0.16). Depth claims go through a TRANSFER
+    CALIBRATION — design x the control's measured ratio, +/-20%
+    — never through theory.
+  - the control must model the INSTRUMENT CLASS. The first
+    control was a bare FM sine: single partial, nothing for
+    _partial_refine to refine against, one glitch per
+    quarter-cycle — a 6 Hz ornament measured 24.0 Hz and depth
+    6.4x design. The harmonic-rich control (h1 + 0.4 h2 +
+    0.2 h3, the instrument class of every string here) reads
+    3.01/5.99 Hz true. Asserted in the experiment: the bare-sine
+    misread IS a pass/fail check, so the lesson can't rot.
+
+The piece: two drone cycles under one sung line, two plucks
+breathing where a singer would — Sa, rise to ga, andolan, the
+gamak shake up to ma, settle, the long way home. Seam p7.9,
+poles {D, A} hold.
+
+Render sent: e47_gamak.ogg. Smoke 76 green.
+
+Open threads: jor — pulse under the alap (the drone pluck grid
+is a latent tala); a full alap+jor+jhala arc as a longform
+piece. Gamak between non-adjacent degrees (Sa<->ga thirds).
+Carried: three+ voices by iterated subtraction; canon at the
+4th; verify FD tanpura with dyad_pitches; sub-midi-40 adaptive
+window; the 3 dyad-suite octave-up misses; sympathetic strings;
+two-polarization string.
+
 ## 2026-08-30 — session 46: alap in Kafi — the meend vocabulary speaks (e46 + ruler.dwell_seconds)
 
 Session 45's raga thread, cashed in. D dorian IS Kafi thaat and

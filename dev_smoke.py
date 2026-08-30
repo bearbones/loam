@@ -117,7 +117,7 @@ ok("fdpluck_meend", fdpluck(np.linspace(110.0, 123.47, 100), 0.6,
 from loam.ruler import (hps_pitch, centroid_hz, band_density,
         pulse_rate, seam_rank, flatness, chroma, onset_times,
         transcribe, env_peak_s, dyad_pitches, pitch_contour,
-        dwell_seconds)
+        dwell_seconds, ornament_profile)
 _tt = np.arange(2 * SR) / SR
 _sine = np.sin(2 * np.pi * 500.0 * _tt)
 checks.append(("ruler_hps",
@@ -164,6 +164,11 @@ _dfs = np.where(_dts < 1.2, 220.0, 220.0 * 2 ** (7 / 12))
 _dw = dwell_seconds(_dts, _dfs, 220.0)
 checks.append(("ruler_dwell", int(np.argmax(_dw)) == 0
         and abs(_dw[0] - 1.2) < 0.11 and abs(_dw[7] - 0.8) < 0.11))
+_ots = np.arange(0, 2.0, 0.02)
+_ofs = 200.0 * 2 ** (80.0 * np.sin(2 * np.pi * 5.0 * _ots) / 1200)
+_rt, _dp = ornament_profile(_ots, _ofs)
+checks.append(("ruler_ornament",
+        abs(_rt - 5.0) < 0.2 and abs(_dp - 80.0) < 6.0))
 _tune = [62, 65, 69, 74]
 _ph = np.zeros(int(2.2 * SR))
 for _i, _md in enumerate(_tune):
