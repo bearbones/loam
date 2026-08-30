@@ -577,6 +577,34 @@ def width_corr(x: np.ndarray, above_hz: float = 250.0) -> float:
     return float(c)
 
 
+def accent_profile(x: np.ndarray, times, attack_s: float = 0.04
+        ) -> np.ndarray:
+    """Per-onset accent: what the strike ADDS — attack-window
+    peak |x| minus the pre-onset window's peak, floored at zero.
+    Raw attack peak was tried first (e52) and inherits the
+    PRESENCE of any note still ringing through the slot: a
+    0.9-amp melody note's tail put a near-melody-size peak in
+    every chikari slot it crossed, and the measured hierarchy
+    shrank to x1.4 no matter how quiet the chikari got. The
+    difference of adjacent peaks cancels the ring (it spans both
+    windows at nearly equal level, t60 decay excepted) and keeps
+    the strike. Returns one value per time, in order. Measure on
+    the bus that carries the accents; compare CLASSES of onsets
+    (melody vs filler, downbeat vs upbeat), not absolute
+    numbers."""
+    m = _mono(x)
+    out = []
+    n = int(attack_s * SR)
+    for t in times:
+        a = int(t * SR)
+        b = min(a + n, len(m))
+        post = float(np.abs(m[a:b]).max()) if b > a else 0.0
+        pre = float(np.abs(m[max(a - n, 0):a]).max()) if a > 0 \
+            else 0.0
+        out.append(max(post - pre, 0.0))
+    return np.array(out)
+
+
 def rms_db(x: np.ndarray) -> float:
     return 20.0 * np.log10(float(np.sqrt(np.mean(_mono(x) ** 2))) + 1e-12)
 

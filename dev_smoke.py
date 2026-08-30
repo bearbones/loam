@@ -119,7 +119,7 @@ from loam.ruler import (hps_pitch, centroid_hz, band_density,
         pulse_rate, seam_rank, flatness, chroma, onset_times,
         transcribe, env_peak_s, dyad_pitches, triad_pitches,
         pitch_contour, dwell_seconds, ornament_profile,
-        beat_profile)
+        beat_profile, accent_profile)
 _tt = np.arange(2 * SR) / SR
 _sine = np.sin(2 * np.pi * 500.0 * _tt)
 checks.append(("ruler_hps",
@@ -182,6 +182,17 @@ _am = (1 + 0.3 * np.sin(2 * np.pi * 1.5 * _bt)) \
 _br, _bd = beat_profile(_am, 300.0, 500.0)
 checks.append(("ruler_beat",
         abs(_br - 1.5) < 0.2 and 1.7 < _bd < 3.3))
+_ax = np.zeros(2 * SR)                 # every 4th click louder
+_ats = np.arange(0, 1.9, 0.1)
+for _i, _t in enumerate(_ats):
+    _a = int(_t * SR)
+    _ax[_a:_a + 300] = (1.0 if _i % 4 == 0 else 0.3) \
+        * np.random.default_rng(_i).standard_normal(300)
+_acc = accent_profile(_ax, _ats)
+checks.append(("ruler_accent",
+        float(np.median(_acc[::4]) / np.median(
+                np.delete(_acc, np.arange(0, len(_ats), 4))))
+        > 2.0))
 _ots = np.arange(0, 2.0, 0.02)
 _ofs = 200.0 * 2 ** (80.0 * np.sin(2 * np.pi * 5.0 * _ots) / 1200)
 _rt, _dp = ornament_profile(_ots, _ofs)

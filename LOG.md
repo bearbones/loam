@@ -1,5 +1,52 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 52: jhala — the raga arc reaches its fast texture (e52, ruler.accent_profile)
+
+Two open threads answered as one: jhala (the arc's climactic
+register after alap/gamak/jor) IS an accent hierarchy on a fast
+grid, so it ships with the accent ruler it needs. 48 slots at
+6.67 Hz: a 12-note Kafi line (fdpluck, one note per 4-slot
+group, double Sa at the cadence so dwell has a margin, not a
+tie) ringing over chikari strikes — high Sa + high Pa plucks —
+on every subdivision between. Over the two-pol drone; brightest
+render of the arc (centroid 865 Hz, the rest sit 2.5-2.9 kHz).
+
+New ruler: accent_profile (per-onset accent = attack-window
+peak MINUS pre-onset-window peak, floored at zero). Lessons,
+each measured before believed:
+  - raw attack PEAK inherits ring-over PRESENCE, not just
+    accumulation: a 0.9-amp melody tail put near-melody-size
+    peaks in every chikari slot it crossed, and the hierarchy
+    read x1.4 no matter how quiet the chikari got. The
+    adjacent-window difference cancels what rings through both
+    and keeps what the strike ADDS: hierarchy x20.1 vs control
+    x0.99.
+  - a control with SILENT melody slots is not 'no hierarchy':
+    a hole every 4th slot is itself a period-4 signature (x18
+    in the accent spectrum, stronger than the real piece's
+    x11). Equal strikes everywhere is the honest null.
+  - thresholds sit at log-midpoints of measured false/true:
+    hierarchy >=3.0 (0.99 vs 20.1), grouping >=4.0 at bin 12
+    (control's best bin x2.3 vs x11.0).
+
+Own-bus verdicts: 48/48 slots strike within 50 ms (doubled
+signal + k%NP fold, the e49 practice), pulse 6.68/6.67 Hz and
+6.73 in the full mix, every melody note within 9.8 cents
+(hps_pitch under a 400 Hz fence — chikari live above it), line
+lives on Sa (1.6 s dwell), seam p30.4, poles {D, A}.
+
+Render sent: e52_jhala.ogg (two loop passes).
+
+Open threads: acceleration — real jhala speeds up; a tempo-ramp
+loop needs the seam story rethought (the grid wraps but the
+period doesn't). Bol patterns (da-ra-da-ra vs da-da-ra):
+unequal chikari groupings the accent ruler can already read.
+Carried: remaining triad-sweep misses ((8,15)-family, a
+fourth-pass residue trick?); passing tones between certified
+verticals; pluck angle; meend on two-pol; canon at the 4th; FD
+tanpura dyad verify; sub-midi-40 window; sympathetic strings;
+re-calibrate STRUCT_BAR on jawari content.
+
 ## 2026-08-30 — session 51: the exiles return — a structural witness for the octave rescue (e51, ruler._sub_structure)
 
 Session 50's open thread, answered the same day: could a rescue
