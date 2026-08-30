@@ -1,5 +1,74 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 58: antara — the gat learns its second half (e58)
+
+Refinement of e57's gat, the LOG's first open thread. The
+piece grows to FOUR avartans (19.2 s): sthayi twice, then a
+mukhda climb (G-A-B-C across the old rest bar) lifts into the
+antara — upper tetrachord, taar Sa held at the third sam,
+Ga' touched above it, full-ladder descent home. The bayan's
+glide answer moves to the final bar so the whole form funnels
+into ONE sam. 13/13 rulers.
+
+Negative result, logged with its physics: the planned claim
+"the antara STRIKES the string the sthayi only whispered to"
+died in probe — an octave-below drive contains EVERY harmonic
+of the upper string, so octave sympathy is nearly lossless
+(struck/whispered x1.31 on the 62-bus vs unplayed controls at
+x1.06-1.36; no honest bar fits between). The tanpura's trick
+is not merely present, it is efficient. Register claims moved
+to the melody bus, where the contrast is real (x3.6). Also
+observed, below claim-worthy margin: taar-Sa became the
+whole-piece loudest string (x1.03 over Pa — coin flip, so the
+e57 whole-piece poles claim was DROPPED, not gamed; opening
+Sa-family claim kept at its x3.9 cliff).
+
+Ruler lessons:
+  - e57's head-window lesson, sharpened into its real cause:
+    fdpluck's played-string t60 ~ 7.7 s means the 0.25 s
+    ring-over is a SECOND NOTE at full amplitude, not a fading
+    ghost. Every note head honestly holds two pitches; there
+    is NO clean window inside a 0.3 s slot (tail ends +0.25,
+    next attack +0.30, window 0.22 wide). Single-pitch HPS per
+    window is a register-weighted coin flip — e57's low octave
+    always won it, the antara's B/C/D/E cluster flipped (a
+    1-slot Ga' between two taar-Sa notes read its neighbours:
+    both contaminants AGREE and outvote any median).
+  - the fix is to ask the polyphonic question: dyad_pitches
+    per note head — "is the designed pitch one of the two
+    sounding?" — 46/46 within 2.7 cents.
+  - negative controls must respect the grid: a shifted-design
+    control at -86c falsely matches the previous note wherever
+    the line steps a semitone (B under C); -50c is maximally
+    far from the chromatic grid and can never match. Measured:
+    best false match 39.5c, ruler says no.
+  - contour stays the right ruler for LONG-SPAN statistics
+    (dwell 5.5 s Sa vs 2.5 s Pa; register frac >=240 Hz 0.17
+    sthayi vs 0.63 antara) — per-frame flips wash out over
+    hundreds of frames. Match the ruler to the span.
+
+Verdicts: dyad readback 46/46 worst 2.7c, control refuses at
+39.5c; dwell argmax Sa across both octaves; register split
+0.17/0.63 (bars 0.30/0.45); opening halo {50, 55, 62} gap
+x3.9; halo -20.1 dB; theka 64/64, pulse 3.33 Hz; khali hole
+0.011 across all four quarters; glide answer 500c rising to
+-3c of Sa at the single sam; seam p6.3; mix poles {D, A}.
+No library change, dev_smoke not required.
+
+Render sent: e58_antara.ogg (two loop passes, 76.8 s).
+
+Open threads: layakari (double-time sthayi over the same
+theka — the remaining gat-development move); glide DOWN
+(release after pressure); bols as strike families (tin = rim,
+ke = muted); grid-resolution study of the split-pair beat;
+dyad-per-note-head could graduate into ruler.note_evidence if
+a third melody piece wants it; sthayi/antara as call-response
+between TWO string voices (jod?). Carried: per-string taraf
+gain; jhala-bus taraf drive; per-string readout pan; jhala
+acceleration; bol patterns; (8,15)-family triad misses;
+passing tones; pluck angle; meend on two-pol; canon at the
+4th; FD tanpura dyad verify; sub-midi-40 window.
+
 ## 2026-08-30 — session 57: the gat — the arc arrives (e57, ensemble)
 
 The banked destination, new-idea cycle: melody, drone, taraf
