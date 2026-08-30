@@ -55,6 +55,10 @@ Transformations & effects:
 - `lofi` — gramophone and worn tape: age as an effect.
 - `rhythm` — Euclidean rhythms (Bjorklund/Toussaint), swing, and
   the scale/maqam tables.
+- `ruler` — the consolidated measurement kit: every earned rule
+  below as a callable default (HPS pitch, power-weighted centroid,
+  band power DENSITY, crest, width >250 Hz, pulse rate read in the
+  fast-decaying band, seam rank, RMS contour, `report()`).
 
 `songs/` — finished pieces (The Bore, Reel Home, the hermit suite,
 Reliquary, The Long Stair, The Alembic). `experiments/` — one idea per script,

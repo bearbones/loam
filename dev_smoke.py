@@ -107,6 +107,27 @@ assert sum(euclid(5, 16)) == 5
 assert quantize_to(63.4, 62, "hijaz_kar") in scale_notes(50, "hijaz_kar", 3)
 checks.append(("rhythm", True))
 
+# ruler: self-check against signals with known answers
+from loam.ruler import (hps_pitch, centroid_hz, band_density,
+        pulse_rate, seam_rank)
+_tt = np.arange(2 * SR) / SR
+_sine = np.sin(2 * np.pi * 500.0 * _tt)
+checks.append(("ruler_hps",
+        abs(hps_pitch(pluck(hz(69), 1.0)) - 440.0) < 5.0))
+checks.append(("ruler_centroid",
+        abs(centroid_hz(_sine) - 500.0) < 25.0))
+checks.append(("ruler_density", band_density(_sine, 400, 600)
+        > 100 * band_density(_sine, 1000, 2000)))
+_clicks = np.zeros(4 * SR)
+_rngc = np.random.default_rng(9)
+for _i in range(12):
+    _at = int(_i * SR / 3.0)
+    _clicks[_at:_at + 200] = _rngc.standard_normal(200)
+checks.append(("ruler_pulse",
+        abs(pulse_rate(_clicks, 2.0, 4.5) - 3.0) < 0.15))
+_qsine = np.sin(2 * np.pi * 500.0 * np.arange(SR) / SR)[:, None]
+checks.append(("ruler_seam", seam_rank(_qsine) <= 0.999))
+
 n_fail = sum(1 for _, g in checks if not g)
 print(f"smoke: {len(checks)} checks, {n_fail} failures, "
       f"{time.time() - t0:.1f}s")
