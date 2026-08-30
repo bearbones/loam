@@ -1,5 +1,49 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 41: the bridge that wouldn't buzz (e41 — a negative result, kept)
+
+Chased e38's nonlinear-bridge thread to the tanpura: the jawari,
+whose signature is the BLOOM — high partials swelling AFTER the
+attack. Four bridge models went into the KS loop; every one
+measured as something other than a jawari, and the failures were
+more instructive than a success would have been:
+  - one-sided saturator: a DAMPER (sustain 2.5-6 kHz x0.48 vs
+    dry). Mechanism: anything riding the fundamental's positive
+    half-cycle sees the transfer curve's derivative gain < 1 —
+    modulation loss beats harmonic generation, every trip.
+  - saturator + per-block RMS restitution: restores ENERGY, but
+    the fundamental owns the energy — the high partials stay
+    lost (late centroid 0.16x dry). Lossless-on-average is not
+    lossless-per-band.
+  - moving contact (displacement-dependent delay — the honest
+    physics: the string's effective length shortens as it swings
+    toward the curved bridge): pitch-exact, but the SWEPT
+    fractional-delay interpolation smears highs (0.41x dry).
+    Phase-modulation was right in intent; linear interp is a
+    lowpass whose loss the modulation exercises.
+  - hard obstacle at fixed height: barely engages — per-band
+    ratios 1.12..1.31, uniform: GAIN, not spectral change.
+Positive controls: all five keep HPS pitch at exactly 110.0 Hz,
+all four bridges measurably alter the waveform, and a synthetic
+bloom signal proves the bloom ruler reads a delayed HF max
+correctly (0.8 s designed, 0.8 s read) — the negative is not a
+blind ruler.
+
+Conclusion, recorded: delayed-HF-max bloom needs DISTRIBUTED
+contact along the bridge plus string dispersion (van Walstijn's
+tanpura simulations have both); a point nonlinearity anywhere in
+a KS loop either damps or does nothing. strings.py stays as
+shipped (buzz/level params reverted before commit);
+e41_bridgetrials.py keeps the evidence as 20 passing assertions.
+Exhibit render sent: e41_bridgetrials.ogg (the same A2 pluck
+through all five bridges, 4 s each: dry, saturator, restored,
+contact, obstacle).
+
+Open threads: a REAL jawari needs a waveguide with several
+contact cells + a dispersion allpass — a proper future cycle
+(maybe a new loam/waveguide.py); canon at the 4th; polyphonic
+transcription; Risset decelerando; thunder doublet.
+
 ## 2026-08-30 — session 40: ouroboros (e40; ruler.transcribe, hps_pitch hardened)
 
 The transcription thread, with a compositional customer: a
