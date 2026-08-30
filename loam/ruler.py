@@ -259,6 +259,32 @@ def pitch_contour(x: np.ndarray, win_s: float = 0.22,
     return (np.array(ts), np.array(fs))
 
 
+def dwell_seconds(ts: np.ndarray, fs: np.ndarray, tonic_hz: float,
+        tol_cents: float = 35.0) -> np.ndarray:
+    """Contour dwell time per chromatic class relative to a tonic:
+    12 floats, seconds spent within tol_cents of each class. Built
+    for e46's alap — a raga's note HIERARCHY (which degrees the
+    line actually lives on) becomes a measured claim instead of a
+    vibe. Frames farther than tol_cents from every class (i.e.
+    mid-glide) vote nowhere: a meend is motion, not residence —
+    which is also the honest reason this consumes pitch_contour
+    output rather than a chroma vector (chroma integrates ENERGY,
+    crediting loud glides to whatever bins they cross)."""
+    ts = np.asarray(ts, dtype=float)
+    fs = np.asarray(fs, dtype=float)
+    out = np.zeros(12)
+    if len(ts) < 2:
+        return out
+    dt = float(np.median(np.diff(ts)))
+    c = 1200.0 * np.log2(fs / tonic_hz)
+    k = np.round(c / 100.0)
+    dev = c - 100.0 * k
+    for kk, dv in zip(k.astype(int) % 12, dev):
+        if abs(dv) <= tol_cents:
+            out[kk] += dt
+    return out
+
+
 def centroid_hz(x: np.ndarray) -> float:
     """Spectral centroid, POWER-weighted. Earned rule: magnitude
     weighting lets thousands of tiny high bins outvote three loud

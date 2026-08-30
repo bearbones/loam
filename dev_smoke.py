@@ -116,7 +116,8 @@ ok("fdpluck_meend", fdpluck(np.linspace(110.0, 123.47, 100), 0.6,
 # ruler: self-check against signals with known answers
 from loam.ruler import (hps_pitch, centroid_hz, band_density,
         pulse_rate, seam_rank, flatness, chroma, onset_times,
-        transcribe, env_peak_s, dyad_pitches, pitch_contour)
+        transcribe, env_peak_s, dyad_pitches, pitch_contour,
+        dwell_seconds)
 _tt = np.arange(2 * SR) / SR
 _sine = np.sin(2 * np.pi * 500.0 * _tt)
 checks.append(("ruler_hps",
@@ -158,6 +159,11 @@ _ct, _cf = pitch_contour(np.sin(2 * np.pi * 220.0
         * np.arange(SR) / SR), fmin=100, fmax=800)
 checks.append(("ruler_contour",
         bool(np.abs(1200 * np.log2(_cf / 220.0)).max() < 10.0)))
+_dts = np.arange(0, 2.0, 0.05)
+_dfs = np.where(_dts < 1.2, 220.0, 220.0 * 2 ** (7 / 12))
+_dw = dwell_seconds(_dts, _dfs, 220.0)
+checks.append(("ruler_dwell", int(np.argmax(_dw)) == 0
+        and abs(_dw[0] - 1.2) < 0.11 and abs(_dw[7] - 0.8) < 0.11))
 _tune = [62, 65, 69, 74]
 _ph = np.zeros(int(2.2 * SR))
 for _i, _md in enumerate(_tune):

@@ -1,5 +1,50 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 46: alap in Kafi — the meend vocabulary speaks (e46 + ruler.dwell_seconds)
+
+Session 45's raga thread, cashed in. D dorian IS Kafi thaat and
+the FD tanpura already drones D-A, so the alap wrote itself onto
+the existing instrument: four single-pluck phrases over four
+drone cycles (19.2 s loop) — establish Sa with the step above,
+lean into ga-ma, reach Pa and touch upper ni, come the long way
+home to Sa. Every gesture is a designed per-sample trajectory
+(geometric glides — equal cents per second, how a hand bends)
+and pitch_contour reads all four phrases back at 1.1-2.3 cents
+worst-dwell on the solo's own bus.
+
+New ruler: dwell_seconds (contour -> seconds of residence per
+chromatic class, relative to a declared tonic). A raga's note
+HIERARCHY becomes a measured claim: frames farther than 35 cents
+from every class vote nowhere, because a meend is motion, not
+residence — and that is also why it consumes pitch_contour
+output rather than a chroma vector (chroma integrates ENERGY,
+crediting loud glides to whatever bins they cross). Measured on
+the alap: Sa 4.0 s (argmax), Pa 2.6 s (runner-up, the vadi
+claim), next class 2.2 s. Register arc asserted from measured
+ceilings (165 < 196 < 261 Hz, home at 196), not the score.
+
+Ruler lesson earned (e35's chroma rule, sharpened): with the
+solo dwelling on Pa, the mix's D-vs-A chroma argmax became a
+NEAR-TIE that flips with window length (one loop pass: A wins
+by 4%; two passes: D by 1.8x — low-partial skirts fold
+differently as resolution doubles). An argmax between two poles
+that close is not a stable claim. The honest mix claims: top-2
+== {D, A} and their combined share >= 0.5 (measured 0.63);
+tonic supremacy lives in the dwell ruler on the solo bus, where
+it is actually true by 1.5x.
+
+Render sent: e46_alap.ogg (two loop passes). Smoke 75 green.
+
+Open threads: gamak (oscillating meend — the trajectory
+machinery does vibrato-depth ornaments for free; needs a ruler
+for oscillation rate/depth against design). Jor: add pulse under
+the alap (the drone's pluck grid is already a latent tala).
+Multiple plucks per phrase (bols) with re-articulation mid-bend.
+Carried: three+ voices by iterated subtraction; canon at the
+4th; verify FD tanpura with dyad_pitches; sub-midi-40 adaptive
+window; the 3 dyad-suite octave-up misses; sympathetic strings;
+two-polarization string.
+
 ## 2026-08-30 — session 45: meend — the FD string learns to bend (e45 + ruler.pitch_contour)
 
 Session 43's open thread. Pitch lives in ONE coefficient of the
