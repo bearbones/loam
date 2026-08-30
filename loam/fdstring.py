@@ -236,7 +236,10 @@ def fdpluck2(f0: float, dur: float, amp: float = 1.0,
 
 def fdsym(f0s, drive: np.ndarray, amp: float = 1.0,
         kappa: float = 0.3, sig0: float = 0.12, sig1: float = 1e-4,
-        node: float = 0.93, N: int = 0, buses: bool = False):
+        node: float = 0.93, N: int = 0, buses: bool = False,
+        jawari: bool = False, zone: float = 0.10,
+        gcurve: float = 0.2, K: float = 3e9, alpha: float = 1.3,
+        gain: float = 1.0):
     """A bank of SYMPATHETIC strings (taraf, e53): S undisturbed
     lattices, one per Hz in f0s, forced at a shared bridge node
     by an external signal. No pluck, no barrier — every string
@@ -259,7 +262,17 @@ def fdsym(f0s, drive: np.ndarray, amp: float = 1.0,
     (len(drive) samples); buses=True also returns the RAW
     (S, steps) per-string velocity buses for own-bus
     measurement — selectivity and sustain live in their ratios,
-    which normalization would erase."""
+    which normalization would erase.
+
+    jawari=True (e54) seats the bank on its own SAV bridge
+    contact (same parabolic barrier as fdpluck). A sympathetic
+    string driven at audio-force scale reaches displacements
+    ~1000x smaller than a plucked string, far above the barrier
+    — so `gain` scales the drive force until the taraf work the
+    curve the way a plucked string does. Because the contact is
+    the model's only nonlinearity, gain is VOICING, not level:
+    it sets how hard each string wraps the bridge, and with it
+    how much energy climbs the partial ladder (the shimmer)."""
     dt = 1.0 / SR
     steps = len(drive)
     f0s = np.asarray(f0s, dtype=float)
@@ -283,7 +296,13 @@ def fdsym(f0s, drive: np.ndarray, amp: float = 1.0,
     A = 1.0 + sig0 * dt
     B = 1.0 - sig0 * dt
     s1c = 2.0 * sig1 * dt / dx ** 2
-    fdt2 = dt * dt / A
+    fdt2 = dt * dt / A * gain
+    if jawari:
+        x = np.linspace(0.0, 1.0, N + 1)
+        bz = x > 1.0 - zone
+        bb = -gcurve * (1.0 - x[bz]) ** 2
+        # zero initial state: eta0 = 0 everywhere, psi = eps
+        psi = np.full((S, bz.sum()), 1e-12)
     lap = np.zeros((S, N + 1))
     lapo = np.zeros((S, N + 1))
     bi = np.zeros((S, N + 1))
@@ -299,6 +318,14 @@ def fdsym(f0s, drive: np.ndarray, amp: float = 1.0,
         un = (2 * u - B * up + lam2 * lap - mu2 * bi
                 + s1c * (lap - lapo)) / A
         un[:, ni] += fdt2 * drive[t]
+        if jawari:
+            eta = np.maximum(bb[None, :] - u[:, bz], 0.0)
+            g = K * eta ** alpha / psi
+            unb = (un[:, bz] + dt * dt / A
+                    * (g * psi + g * g * up[:, bz] / 4.0)) \
+                / (1.0 + dt * dt * g * g / (4.0 * A))
+            psi = psi - g * (unb - up[:, bz]) / 2.0
+            un[:, bz] = unb
         un[:, 0] = un[:, -1] = 0.0
         outs[:, t] = (un[:, ro] - u[:, ro]) * SR
         up, u = u, un

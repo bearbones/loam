@@ -1,5 +1,61 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 54: jawari taraf — the halo learns to shimmer (e54, fdsym jawari + gain)
+
+Refinement cycle on session 53's bank: the taraf get their own
+bridge. fdpluck's SAV parabolic contact, vectorized across the
+(S, nbz) bank, plus one new knob with a physics argument behind
+it: `gain`, scaling the drive FORCE. Estimated before probing,
+confirmed by the sweep: a driven sympathetic string reaches
+displacements ~1000x smaller than a plucked one (velocity bus
+rms / 2*pi*f ~ 1e-6 vs pluck_m 1.6e-3), so at audio force it
+NEVER touches the played string's barrier. gain lifts it into
+contact — and because the contact is the model's only
+nonlinearity, gain is VOICING, not level: it sets wrap depth,
+which sets how much energy climbs the partial ladder.
+
+Ruler lessons:
+  - the engagement null is a strong control shape: below the
+    knee (gain 100) the jawari spectrum is IDENTICAL to plain
+    (high-band ratio 1.000 +/- 0.05) — the barrier is provably
+    out of reach, not merely quiet. Above (gain 5000): x161
+    high-band on the phrase-driven bank. The knee measured
+    between 100 and 1000.
+  - BLOOM on an unplucked string: the jawari taraf's high band
+    climbs for 1.25 s before peaking (window 5) while plain
+    peaks in window 1 and decays — the e41 tanpura signature,
+    now arriving through the bridge of a string nobody plucked.
+    Energy climbs the ladder; a filter could only shave it.
+  - selectivity survives the nonlinearity: unison/semitone
+    x9.4 with jawari (x12.7 plain, bar 6.0) — the contact
+    spreads some energy but the resonance verdict stands.
+  - zero-drive silence exact with contact enabled (eta=0 ->
+    g=0; the SAV force literally cannot fire on a still
+    string).
+  - carried STRUCT_BAR worry answered for this content: hps
+    reads a jawari taraf at 2.6 cents, dyad on two jawari
+    buses worst 4.1 cents. The shimmer is loud but it is
+    HARMONIC — it lands on the comb, not between its teeth.
+
+The piece: e53's Kafi phrase, same 8-string bank, jawari at
+gain 5000 — and the A/B is a ruler, not a vibe: halo centroid
+1371 Hz vs the plain bank's 573 Hz on the SAME drive (x2.39).
+Halo at -16.9 dB under the melody, top-3 chroma all Kafi,
+melody reads at 0.7 cents, seam p4.8, poles {D, A}. 12/12
+first run — probe-first calibration is cheaper than
+render-and-retry. dev_smoke 82 green (new jawari check).
+
+Render sent: e54_jawari_taraf.ogg (two loop passes).
+
+Open threads: gain is per-BANK but real taraf voicing varies
+per string — per-string gain array (bass taraf worked harder)?
+jhala-bus drive (now doubly interesting: does the shimmer
+survive broadband strikes, or wash?); per-string readout pan
+at distinct nodes. Carried: jhala acceleration; bol patterns;
+(8,15)-family triad misses; passing tones; pluck angle; meend
+on two-pol; canon at the 4th; FD tanpura dyad verify;
+sub-midi-40 window.
+
 ## 2026-08-30 — session 53: taraf — strings nobody plucks (e53, fdstring.fdsym)
 
 The oldest banked thread, from the tanpura sessions:

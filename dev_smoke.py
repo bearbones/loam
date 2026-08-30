@@ -118,6 +118,18 @@ _sdrv = 0.3 * np.sin(2 * np.pi * 220.0 * np.arange(int(0.6 * SR))
 _, _sb = fdsym([220.0, 233.1], _sdrv, N=60, buses=True)
 _sr = [float(np.sqrt(np.mean(b ** 2))) for b in _sb]
 checks.append(("fdsym", _sr[0] > 5.0 * _sr[1]))
+_, _jb = fdsym([220.0], _sdrv, N=60, buses=True, jawari=True,
+        gain=5000.0)
+
+
+def _hb(x):
+    _F = np.abs(np.fft.rfft(x)) ** 2
+    _f = np.fft.rfftfreq(len(x), 1 / SR)
+    return float(_F[_f > 1500.0].sum() / (_F.sum() + 1e-24))
+
+
+checks.append(("fdsym_jawari", np.isfinite(_jb).all()
+        and _hb(_jb[0]) > 3.0 * _hb(_sb[0])))
 
 # ruler: self-check against signals with known answers
 from loam.ruler import (hps_pitch, centroid_hz, band_density,
