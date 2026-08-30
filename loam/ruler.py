@@ -268,6 +268,29 @@ def transcribe(x: np.ndarray, min_sep: float = 0.08,
     return out
 
 
+def band_env(x: np.ndarray, lo: float = 1500.0, hi: float = 6000.0,
+        win_s: float = 0.1) -> np.ndarray:
+    """Coarse envelope of one band: mean |bandpassed| in win_s bins.
+    The primitive under env_peak_s, exposed because RATIOS of two
+    band envelopes (same bins, common-mode attack cancelling) are
+    how you ask 'what did the process ADD, and when?'"""
+    sos = butter(2, [lo, hi], btype="band", fs=SR, output="sos")
+    e = np.abs(sosfilt(sos, _mono(x)))
+    win = int(win_s * SR)
+    return np.array([e[k:k + win].mean()
+            for k in range(0, len(e) - win, win)])
+
+
+def env_peak_s(x: np.ndarray, lo: float = 1500.0, hi: float = 6000.0,
+        win_s: float = 0.1) -> float:
+    """When does this band's envelope peak? The bloom clock (born
+    ad hoc in e41, promoted for e42): a plucked string's highs
+    normally peak at t=0 and decay; a jawari bloom peaks LATE.
+    Coarse on purpose — win_s bins, so the answer is honest about
+    its resolution."""
+    return float(np.argmax(band_env(x, lo, hi, win_s))) * win_s
+
+
 def seam_rank(x: np.ndarray) -> float:
     """Numeric twin of loam.seam_report: percentile rank of the
     wrap step in the adjacent-delta distribution. <= ~0.999 is

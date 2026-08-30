@@ -1,5 +1,53 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 42: the jawari, won (e42 + loam/fdstring.py)
+
+e41's closing conjecture — bloom needs DISTRIBUTED contact plus
+dispersion — built and CONFIRMED. New module loam/fdstring.py:
+Bilbao's explicit stiff-string scheme (u_tt = c²u_xx − κ²u_xxxx
+− 2σ₀u_t + 2σ₁u_txx, stable while λ²+4μ² ≤ 1) with a parabolic
+barrier under the last 10% of string, elastic penalty contact
+(K·pen^1.3). ~1 s compute per 1 s audio. The rulers, all green:
+wet/dry 1.5-6 kHz envelope ratio peaks at 0.8 s at x3.5 (the
+bloom, as WHAT THE BRIDGE ADDS — attack is common-mode and
+cancels), sustain enrichment x18.8, pitch 110.0 exact both, late
+RMS within 4 dB of the open string (the e41 damper result,
+inverted). Render: Pa-sa-sa-SA tanpura cycle in D, middle
+strings 3 cents apart, 12 s tails wrapping a 4.8 s loop.
+
+Three lessons paid for in failed runs:
+  - GEOMETRY: the barrier apex must sit AT the termination.
+    First attempt put the parabola's zero mid-zone — the string
+    got pinned there and the PITCH said so: 117.5 = 110/0.94,
+    the detuning naming the bug's location exactly.
+  - CONTACT: projection (max(u, barrier)) is a perfectly
+    inelastic collision — it ate the string alive (late RMS
+    −101 dB, enrichment x0.0). Elastic penalty force preserves
+    the energy the bloom needs.
+  - READOUT: displacement starts on a DC step (string released
+    from a held shape) — clicked at every onset and killed the
+    loop seam (p100). Velocity readout starts at exactly 0
+    (released from REST) — seam p7.3, and it's what a pickup
+    measures anyway.
+
+Ruler lessons: env_peak_s + band_env promoted into ruler.py (the
+e41 ad-hoc bloom clock, used twice = library). Ratio-of-band-envs
+in matched bins is the honest "what did the process add, and
+when" question; single-signal env peak was fooled by velocity's
++6 dB/oct attack tilt. And a caveat kept in the open: the
+grazing-contact regime is GRID-BRITTLE — N=140 blooms at 110 Hz,
+N=150 doesn't (verified at every readout node, so it's dynamics,
+not measurement; α=2 Hertzian didn't cure it). N is therefore a
+per-string VOICING parameter, swept and pinned per note like
+walking the jawari thread on a real bridge (pa 140, sa 112,
+SA 138).
+
+Open threads: energy-conserving implicit collision (Bilbao &
+Chatziioannou) would likely fix the grid brittleness — worth a
+cycle. Sympathetic strings DRIVEN by the FD tanpura (feed it to
+strings.sympathetic). Raga sketch over the drone (flute/ney).
+Two-transversal-polarization string with coupling at the bridge.
+
 ## 2026-08-30 — session 41: the bridge that wouldn't buzz (e41 — a negative result, kept)
 
 Chased e38's nonlinear-bridge thread to the tanpura: the jawari,

@@ -33,6 +33,7 @@ from loam.shift import freq_shift, ring_mod, barber
 from loam.dyn import compress, duck, transient, limiter
 from loam.lofi import gramophone, worn_tape
 from loam.rhythm import euclid, rotate, swing, scale_notes, quantize_to
+from loam.fdstring import fdpluck
 
 L = Loop(2.0, 1)
 checks = []
@@ -108,10 +109,12 @@ assert sum(euclid(5, 16)) == 5
 assert quantize_to(63.4, 62, "hijaz_kar") in scale_notes(50, "hijaz_kar", 3)
 checks.append(("rhythm", True))
 
+ok("fdpluck", fdpluck(110.0, 0.6, N=140))
+
 # ruler: self-check against signals with known answers
 from loam.ruler import (hps_pitch, centroid_hz, band_density,
         pulse_rate, seam_rank, flatness, chroma, onset_times,
-        transcribe)
+        transcribe, env_peak_s)
 _tt = np.arange(2 * SR) / SR
 _sine = np.sin(2 * np.pi * 500.0 * _tt)
 checks.append(("ruler_hps",
@@ -137,6 +140,10 @@ checks.append(("ruler_flat_sine", flatness(_sine) < 0.02))
 _a440 = np.sin(2 * np.pi * 440.0 * _tt)
 checks.append(("ruler_chroma", int(np.argmax(chroma(_a440))) == 9))
 checks.append(("ruler_onsets", len(onset_times(_clicks)) == 12))
+_tb = np.arange(4 * SR) / SR
+_bloom = np.sin(2 * np.pi * 110.0 * _tb) * np.exp(-_tb * 0.5) \
+    + np.sin(2 * np.pi * 2500.0 * _tb) * np.exp(-((_tb - 0.8) / 0.35) ** 2)
+checks.append(("ruler_env_peak", 0.6 <= env_peak_s(_bloom) <= 1.0))
 _tune = [62, 65, 69, 74]
 _ph = np.zeros(int(2.2 * SR))
 for _i, _md in enumerate(_tune):
