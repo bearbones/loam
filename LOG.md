@@ -1,5 +1,70 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 70: the broken halo (e70)
+
+Refinement marrying e68 and e69: what the sympathetic bank
+hears when the voice cracks. 14/14 rulers, library unchanged.
+
+The instrument section (e69's crack, rebuilt sample-exact):
+  - the crack rewrites the drive: healthy crowns h2; broken
+    crowns h3 with h1/h2 collapsed to <= 6%. And the flavors
+    VARY: e66's slam {2,5,7}, e69's hold {3,5}, this piece's
+    ghost {3,6} — a crack is a family of states; measure your
+    own ghost, always.
+  - the halo hears it: isolated-drive A/B reshuffles the
+    ledger (agreement 0.38, crown C -> Sa', gains x12.6/x3.4,
+    fifth-family x0.2-0.4).
+  - the boundary of the forecast, logged: ma gains x3.4 with
+    NO lattice address (nearest drive line 31c away, n,m<=8),
+    and every coincidence forecast of the gain ledger (v2/v3,
+    tol 15/25c) scores <= 0.15. Intermodulation at the
+    string's own contact recruits where no coincidence lands
+    — v2/v3 rank strings, not what the barrier builds.
+  - THE TREBLE WINDOW: fdbow sizes its grid from the phrase's
+    HIGHEST note, so one Sa' coarsens the whole take
+    (N 96 -> 58) and e69's certified heal dies there (ga
+    returns at 0.000 vs 0.69 native). Recipes are PER-GRID;
+    the top note silently retunes the instrument. Found when
+    a planned Sa'-return piece broke everywhere at once.
+
+The piece: "the ghost duet" — Sa-Re-ga, then the voice cracks
+and STAYS broken 2.2 s. This ghost's {3,6} lattice lands 2c
+from komal ni's h2 and h4: ni's taraf string gains x1.27 vs
+the no-crack control while Re's starves at x0.58 (this flavor
+HAS an address — unlike ma's gain in the A/B), and the ghost
+sings enough C into the mix that ni is the chroma's SECOND
+CLASS (0.15), above the drone's Pa and the sung ga. The crack
+composed a note the bow never played. Then the mute, home to
+Sa (0.58/0.17), lift at 1.72 s, seam p34.5.
+
+Ruler lessons:
+  - the phrase's top note is a hidden global: an f0 anywhere
+    in the array resizes the grid EVERYWHERE — when a take
+    behaves differently after an "unrelated" edit, diff the
+    render prefix first (np.allclose on the first seconds
+    found this in one probe).
+  - paired controls beat absolute gates for windowed bank
+    measurements: the integrator carries the sung past into
+    every window, but a control take differing ONLY in the
+    gesture cancels it (share-gain crack/ctl).
+  - negative results need their own gates: "the forecast
+    cannot see this" is a claim (best spearman <= 0.15 across
+    both models and tolerances), not a shrug.
+
+Open threads: certify the treble window (re-earn the recipe
+grids at N=58-77, or pin N with a stability-aware kappa —
+Sa' and the avroha descent wait on it); crack flavors (what
+selects {3,5} vs {3,6}? drag depth/timing?); the ghost as
+harmony (compose FOR a target ghost class — ni arrived here,
+who else is reachable?); intermodulation forecast (model the
+contact's sum/difference products — the addressless gains);
+organum jor in fourths; tihai + gat mukhda; jhala; gamak map;
+dark bow; chakradar; jugalbandi. Carried: ruler.note_evidence;
+jod voices; per-string taraf gain; passing tones; canon at
+the 4th; FD tanpura dyad verify; sub-midi-40 window.
+
+Render sent: e70_broken_halo.ogg (two passes).
+
 ## 2026-08-30 — session 69: the crack and the return (e69)
 
 Brand-new expressive class: a composed BREAK in the bowed
