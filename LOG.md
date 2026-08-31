@@ -1,5 +1,54 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 60: tihai — the kaida learns to end (e60)
+
+Refinement of e59: kaida DEVELOPMENT, the rhythmic argument.
+Four avartans: theme, palta (theme cells rearranged), khali
+palta (ke under the ta, bass returning in the last bar), then
+the TIHAI — dha at sam, then "tirakita tun dha" three times
+with equal two-slot gaps, the third dha landing ON SAM. In a
+loop, sam is the wrap: the tihai's landing stroke IS the
+theme's opening dha of the next pass, so the cadence
+perpetually re-launches the form (e56's across-the-seam
+practice, now structural). 8/8 rulers, first run.
+
+Two new rhythmic devices, both measured against design:
+  - the grid opened to HALF-slots: tirakita = four te strokes
+    at 150 ms. e59's consonant was built for this — a 30 ms
+    thud articulates at 6.67 Hz where the 158 ms na would
+    smear. Measured: 9/9 inter-onset intervals, worst
+    |IOI - 150 ms| = 1 ms.
+  - designed SILENCE became a claim: the onset match is now
+    two-sided — every designed stroke sounds (67/67 within
+    50 ms) AND nothing else does (0 unexplained onsets). The
+    tihai's rests are composition, so the ruler checks for
+    their absence, not just the strokes' presence.
+  - tihai equality: phrase-final dhas at 15.59 / 17.39 /
+    19.19 s, gaps exactly 1.800 s, third = the wrap.
+
+Ruler note: matching claims (onset lists, IOIs, equal gaps)
+take DESIGN tolerances (grid +/-40-50 ms), not probe-
+calibrated bars — calibration is for ratio thresholds where
+the false case must be measured. Khali hole (0.015) and pulse
+(3.33 Hz, unshaken by paltas, rests and half-slot runs) reuse
+their certified bars. Poles {D, A} still carried by drum +
+drone. No library change, dev_smoke not required.
+
+Render sent: e60_tihai.ogg (two passes — listen for the tihai
+folding into the theme's return).
+
+Open threads: chakradar (a tihai OF tihais — the phrase itself
+contains three dhas, 9 landings); tin as a true rim stroke
+(ringing but bass-less, distinct from ta=na); tun + meend
+(center strike on a gliding drum — Pa that bends); layakari on
+the gat (e58 thread); glide DOWN; kaida theme with MELODY
+answering (jugalbandi: e58 gat phrases traded against e60
+paltas). Carried: grid-resolution study of the split-pair
+beat; ruler.note_evidence; jod voices; per-string taraf gain;
+jhala-bus taraf drive; jhala acceleration; (8,15)-family triad
+misses; passing tones; pluck angle; meend on two-pol; canon at
+the 4th; FD tanpura dyad verify; sub-midi-40 window.
+
 ## 2026-08-30 — session 59: bols — the drum learns its consonants (e59, ruler.decay_t60)
 
 New idea: strike FAMILIES on the e55 membrane — the tabla's
