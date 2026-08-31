@@ -243,6 +243,10 @@ _pf = np.sin(2 * np.pi * 440.3 * _tp5) \
 checks.append(("ruler_partial_freq",
         abs(partial_freq(_pf, 400.0, 480.0) - 440.3) < 0.05
         and abs(partial_freq(_pf, 445.0, 480.0) - 452.0) < 0.05))
+_rng = np.random.default_rng(7)
+_noise = _rng.standard_normal(SR)
+checks.append(("ruler_partial_freq_clamped",
+        430.0 <= partial_freq(_noise, 434.0, 447.0) <= 451.0))
 from loam.ruler import beat_profile
 _tb2 = np.arange(int(0.5 * SR)) / SR
 _bt = np.sin(2 * np.pi * 440.0 * _tb2) \

@@ -1142,6 +1142,13 @@ def partial_freq(x: np.ndarray, lo: float, hi: float) -> float:
     c = np.log(X[k + 1] + 1e-12)
     denom = a - 2.0 * b + c
     d = 0.0 if abs(denom) < 1e-12 else 0.5 * (a - c) / denom
+    # e73: the vertex offset is only meaningful within half a
+    # bin — on a flat/noisy spectrum the denominator shrinks and
+    # d exploded, returning frequencies far OUTSIDE the search
+    # band (a "line" at 372 Hz from a 434-447 Hz search). Clamp,
+    # so garbage input yields an in-band number a sanity check
+    # can catch, never a confident absurdity.
+    d = float(np.clip(d, -0.5, 0.5))
     return float((k + d) * SR / len(m))
 
 

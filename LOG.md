@@ -1,5 +1,70 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 73: the breathing chord (e73)
+
+Brand-new: RHYTHM MADE ONLY OF INTERFERENCE. Four held
+voices — Sa and ga on the treble bow, Pa- and ni- on the
+heavy bow — form a tetrad with no tanpura (the chord IS the
+drone) and no articulation after its entries. Two coincidence
+bands (Sa h3/Pa- h4 near 440; ga h3/ni- h4 near 523) carry
+two written beat rates in exact 2:3, both chosen as INTEGER
+CYCLES PER LOOP (18 and 27 in 9.6 s) so the interference
+pattern closes at the seam. 15/15 rulers, dev_smoke 98.
+
+Measured: band A breathes at 1.90 Hz (4.1 dB), band B at
+2.83 Hz (3.1 dB), ratio 1.494; one-loop envelope spectra
+crown at exactly bins 18 and 27, in the sub-mix AND the
+mastered mix — the breathing is seamless by construction.
+The still control (same voices, basses retuned ONTO the
+melody lines) reads 0.7/0.9 dB: same envelopes, no rhythm.
+
+Boundaries and lessons, each pinned as a gate:
+  - THE BOW CANNOT CREEP FROM ZERO: an entry ramping vb
+    0 -> 0.085 crosses the dead zone and never locks (fund
+    0.000 on both grids); entries must STEP to the certified
+    0.085. Found as a CONFOUND — the first probe changed
+    attack and grid in one edit and blamed the grid; the
+    script's own control unmasked it (native-grid solo Sa
+    with step attack: fund 0.52). One variable per probe,
+    or the control catches you.
+  - THE TUNING KNOB IS NOTE-DEPENDENT: ni-'s line converges
+    to 3 mHz in four iterations; Pa-'s jitters in a ~50 mHz
+    band under sub-cent command steps (8x coarser floor).
+    Iterate with a best-pick, not a formula. (rho was also
+    remeasured off e72's value here — treat rho as per-take,
+    always.)
+  - THE ONSET RULER CANNOT HEAR THIS RHYTHM: beating and
+    still chords read the same onset count (34/30) — the
+    detector fires on bow jitter, not interference. Almost
+    shipped as "31 onsets of written rhythm" until the still
+    control read 32. Onset-free rhythm lives in the envelope
+    spectrum's integer bins.
+  - partial_freq hardened: the parabolic vertex offset is
+    now clamped to half a bin — on a silent band it returned
+    confident absurdities (a "line" at 372 Hz from a
+    434-447 Hz search).
+
+Open threads: more breath voices (the 2:3 wants a third band
+— Re/Dha- at 4:5? a full breathing raga); breath TALA (rates
+that sum to a cycle grid — can the 2:3 carry a slow teental
+skeleton?); the Pa- jitter (why does one note's line wander
+under micro-commands where another's is smooth? mode
+structure? worth a map over the bass window); entries as
+music (the staggered chord build is expressive — compose
+entry orders); creep-attack physics (WHERE is the dead
+zone's edge? map minimum lockable vb step). Carried: shimmer
+as rhythm/tala; shimmer counterpoint (partly landed here);
+away-retune modulation; ring sharpening; rho at other notes
+(partly: ni- -2c); canon at the 4th; oblique organum; bass
+window floor; k=5e4 cliff law; chroma register-blindness;
+crack flavors in the bass window; treble window
+certification; ghost as harmony; intermodulation forecast;
+tihai + gat mukhda; jhala; gamak map; chakradar; jugalbandi;
+ruler.note_evidence; jod voices; per-string taraf gain;
+passing tones; FD tanpura dyad verify.
+
+Render sent: e73_breathing_chord.ogg.
+
 ## 2026-08-30 — session 72: written shimmer (e72)
 
 Refinement of e71: the beat chain, run BACKWARDS. Last cycle
