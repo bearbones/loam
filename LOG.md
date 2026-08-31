@@ -1,5 +1,67 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 62: sarangi + taraf — the halo hears the lattice (e62)
+
+Refinement joining e61's bowed voice to the e53/e54 bank: the
+full sarangi, whose signature IS its taraf. 14/14 rulers. Two
+predictions walked in, one died, one transformed:
+
+DEAD, with parity measured: "a sustained driver out-selects a
+plucked one." Bowed x18.9 vs plucked x18.7 on the same bank.
+e53's coherence lesson was really LINE-SPECTRUM vs broadband —
+fdpluck (t60 7.7 s) is already a line spectrum, and
+selectivity saturates there. What the bow actually changes:
+its brighter sustained spectrum RECRUITS THE FIFTH-FAMILY —
+the Pa string tops the whole bank under bowed drive (1.00 vs
+0.25 plucked). Richer halo, not sharper.
+
+TRANSFORMED by its own dark control: "the halo hands off as
+the meend moves" became a four-way taxonomy of how a string
+lights (Sa-hold vs Ga-hold windows, all own-bus):
+    sung      F, the note itself                    x17.3
+    crossed   E, brushed by the Sa->Ga glide        x23.2
+    lattice   C — NEVER sung, never crossed; Ga's
+              h3 sits on C's h2 (fifth-above)       x45.2
+    remembered  Sa/high-Sa hold within 2% through
+              the Ga hold (t60 58 s designs -0.3dB) x1.0
+The intended dark control (C) lit up brightest of all — the
+bank hears the harmonic lattice, not the score. The only
+honestly dark string is B (x4.6), the one note the phrase
+gives nothing to.
+
+Ruler lessons:
+  - when the dark control lights up, the taxonomy was too
+    small: the ledger surfaced a fourth mechanism (lattice
+    recruitment) that the claim design didn't know about.
+    Read the FULL bank ledger before writing bars, not only
+    the strings the hypothesis mentions.
+  - level calibration must follow the actual signal path: the
+    halo estimate used raw rms sums but the mix divides by
+    the bank PEAK (tnorm) — first run landed -32.2 dB, 0.2 dB
+    below its own window. Peak-norm and rms-norm differ by
+    the crest factor; calibrate on the path you ship.
+
+The piece: e61's jor, now with its shimmer — the bowed phrase
+drives the bank, taraf at -19.8 dB under the voice, every e61
+claim re-verified in the new mix (holds 2.6c, contour 2.1c,
+release 1.72 s, seam p48, Sa center x2.3).
+
+Render sent: e62_sarangi_taraf.ogg (two passes).
+
+Open threads: the lattice taxonomy suggests a RULER —
+given a phrase and a bank, predict each string's lighting
+(sung/crossed/lattice/dark) from the score and check the
+ledger against prediction (score -> halo forward model);
+sarangi + tabla (jor -> jhala); vibrato/andolan; double
+stops (dyad ruler); bow position xb brightness sweep;
+chakradar; tin rim stroke; layakari; glide DOWN; jugalbandi.
+Carried: time-uniform chroma -> ruler if it recurs (2nd use
+this session — promote next time it appears); grid-resolution
+study; note_evidence; jod voices; per-string taraf gain;
+jhala-bus taraf drive; jhala acceleration; (8,15)-family
+triad misses; passing tones; pluck angle; meend on two-pol;
+canon at the 4th; FD tanpura dyad verify; sub-midi-40 window.
+
 ## 2026-08-30 — session 61: sarangi — the first voice that sustains (e61, fdstring.fdbow)
 
 New instrument CLASS: the bowed string. Everything loam played
