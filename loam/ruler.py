@@ -914,6 +914,107 @@ def env_peak_s(x: np.ndarray, lo: float = 1500.0, hi: float = 6000.0,
     return float(np.argmax(band_env(x, lo, hi, win_s))) * win_s
 
 
+def chroma_uniform(x: np.ndarray, nwin: int = 8,
+        lo: float = 60.0, hi: float = 2000.0) -> np.ndarray:
+    """Time-uniform chroma: mean of overlapping short-window
+    chromas, so every second counts equally. Whole-signal hann
+    chroma (plain `chroma`) weights a MOVING line by where the
+    window bump lands — e61 measured the same jor crowning F/E
+    as a single pass and D when doubled, because the phrase's
+    holds sat under different parts of the bump. Stationary
+    buses never see this; melodies always will. Promoted after
+    its third use (e61 mix, e62 mix, e63)."""
+    m = _mono(x)
+    W = len(m) // (nwin // 2 + 1)
+    acc = np.zeros(12)
+    for a in range(0, len(m) - W + 1, W // 2):
+        acc += chroma(m[a:a + W], lo, hi)
+    return acc / (acc.sum() + 1e-30)
+
+
+def sympathy_forecast(f0s: np.ndarray, frame_s: float, bank,
+        nh_drive: int = 6, nh_string: int = 4,
+        tol_cents: float = 15.0, drive_w=None, amp=None,
+        integrate: bool = False,
+        cascade: float = 0.0) -> np.ndarray:
+    """Score -> halo forward model (e62's lesson made
+    predictive): a sympathetic bank hears the harmonic LATTICE,
+    not the score — a string lights when ANY driver harmonic
+    lands on ANY of its modes, whether the note is sung, crossed
+    by a glide, or a fifth away (e62: the 'dark control' lit
+    x45 through its h2 on the sung note's h3).
+
+    f0s: driver fundamental per frame in Hz (NaN/0 = silent),
+    frame_s seconds per frame. Returns one predicted drive score
+    per bank string: sum over frames and harmonic pairs (n, m)
+    of power-weighted coincidence (drive_w[n]/m)^2 * amp^2 where
+    |n*f0 - m*fs| <= tol_cents. Tolerance is the measured
+    coincidence width (e62's lattice hits sat 2-3c apart).
+
+    drive_w: driver harmonic amplitude profile, one weight per
+    harmonic (overrides nh_drive). MEASURE it from one steady
+    note — the flat 1/n default put the e62 Pa string 5th when
+    it measured 1st, because fdbow at xb=0.12 carries its
+    fundamental at 0.19 of h2 (e61 saw this: strongest five
+    modes are harmonics 2..6).
+
+    amp: per-frame driver amplitude (e.g. the vb envelope).
+
+    integrate: model the bank as a lossless INTEGRATOR — for
+    t60 >> phrase length, a string keeps everything it is fed,
+    so whole-phrase rms rewards EARLY excitation (e62's Ga
+    string, sung 1.6 s but lit last, measured darkest in
+    whole-phrase rms). Returns sqrt(mean(cumsum(power))) —
+    the rms of the predicted stored-energy trajectory.
+
+    cascade: one-pass BRIDGE model (e63's correction of e62:
+    fifth-family recruitment is the jawari bridge, not the bow
+    — jawari off, same bowed driver: Pa falls 1.00 -> 0.21 and
+    Sa tops the bank). Each string's stored energy re-radiates
+    its harmonic stack (1/n) through the bridge and feeds every
+    other string by the same coincidence rule, scaled by this
+    one coupling constant (0 = bridge silent). Calibrate it on
+    ONE steady-note ledger, then freeze it for phrases.
+
+    A ranking tool: claims should be rank agreement and
+    targeted bright/dark calls, never absolute levels."""
+    f0s = np.asarray(f0s, dtype=float)
+    ok = np.isfinite(f0s) & (f0s > 0)
+    if drive_w is None:
+        drive_w = 1.0 / np.arange(1, nh_drive + 1)
+    drive_w = np.asarray(drive_w, dtype=float)
+    a2 = np.ones(len(f0s)) if amp is None \
+        else np.asarray(amp, dtype=float) ** 2
+    nb = len(bank)
+    rates = np.zeros((nb, len(f0s)))
+    for si, fs in enumerate(bank):
+        for n in range(1, len(drive_w) + 1):
+            for m in range(1, nh_string + 1):
+                dev = np.abs(1200.0 * np.log2(
+                        np.maximum(n * f0s, 1e-9) / (m * fs)))
+                hit = ok & (dev <= tol_cents)
+                rates[si, hit] += (drive_w[n - 1] / m) ** 2 \
+                    * a2[hit]
+    if cascade > 0.0:
+        E1 = np.cumsum(rates, axis=1) * frame_s
+        coup = np.zeros((nb, nb))
+        for sj, fj in enumerate(bank):        # radiator
+            for si, fs in enumerate(bank):    # receiver
+                if si == sj:
+                    continue
+                for n in range(1, 7):
+                    for m in range(1, nh_string + 1):
+                        dc = abs(1200.0 * np.log2(
+                                (n * fj) / (m * fs)))
+                        if dc <= tol_cents:
+                            coup[sj, si] += (1.0 / (n * m)) ** 2
+        rates = rates + cascade * (coup.T @ E1)
+    if integrate:
+        return np.sqrt(np.cumsum(rates, axis=1).mean(axis=1)
+                * frame_s)
+    return rates.sum(axis=1) * frame_s
+
+
 def decay_t60(x: np.ndarray, lo: float, hi: float,
         win_s: float = 0.03, hop_s: float = 0.005,
         drop: float = 25.0) -> float:

@@ -1,5 +1,88 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 63: score->halo forecast — the bridge is the recruiter (e63)
+
+Brand-new tooling: ruler.sympathy_forecast, a forward model
+that predicts a sympathetic bank's ledger FROM THE SCORE —
+integrate harmonic coincidences (15c tolerance) between the
+driver's f0 trajectory and each string's modes, weight by the
+driver's MEASURED harmonic profile, and treat the t60-58s bank
+as a lossless integrator (early excitation is kept forever, so
+whole-phrase rms rewards it — e62's Ga string, sung 1.6 s but
+lit last, measures darkest). Also promoted after its third
+use: ruler.chroma_uniform. 16/16 rulers, dev_smoke 91.
+
+What the model certified, what it corrected, what it refused:
+  - the BRIDGE-LESS bank obeys the lattice forecast: spearman
+    0.90 on a steady-note ledger, predicted top-4 set exact
+    {Sa, G, Pa, Sa'}. Tolerance is load-bearing (200c: 0.48).
+  - e62's attribution FALSIFIED by a controlled A/B: "the bow
+    recruits the fifth-family" — no. Same bowed driver, jawari
+    off: Pa falls 1.00 -> 0.21 and Sa tops the bank. The
+    recruiter is the JAWARI BRIDGE — the bank talks to itself
+    (Sa string's h3 sits 1.6c from Pa's h2).
+  - a one-knob linear cascade (each string re-radiating a 1/n
+    stack through the bridge) CANNOT reproduce the jawari
+    ledger: spearman plateaus ~0.6 across three decades of
+    coupling. In the cascade's algebra octaves always beat
+    fifths (coupling 0.25 vs 0.028); measured jawari puts Pa
+    and G ABOVE the octave. Wrong model FORM — jawari is
+    intermodulation at a shared bridge, not per-string
+    re-radiation. Logged as the falsification it is.
+  - under jawari the forecast still calls SETS out-of-sample:
+    top-4 overlap 3/4, predicted bottom-2 inside measured
+    bottom-3 (fine ranks reshuffle, spearman 0.55).
+
+The composition is the model used in anger: e62's phrase left
+B (Dha) rank 7/8 — the string the score fed nothing. e63's
+phrase is written FOR it (Sa - Pa - Dha - meend down to Re -
+Sa): forecast says B goes bright and C goes darkest; measured
+B rank 2/8, C rank 8/8. Composing BY prediction closes the
+loop the e62 open thread asked for.
+
+Ruler lessons:
+  - a measured harmonic profile beats a spectral guess: 1/n
+    put the fundamental on top; the real bow at xb=0.12
+    carries h1 at 0.19 of h2. One steady-note FFT fixed the
+    driver side of the model — characterize, don't assume.
+  - the bridge is NONLINEAR, so drive LEVEL is part of the
+    experiment: the raw (un-normalized) bow gave Pa 0.85 and a
+    cascade spearman of 0.79; the normalized driver every
+    piece actually ships gave 1.00 and 0.64. Two claims
+    flipped on level alone. Normalize to the shipped path
+    before measuring a nonlinear element.
+  - a plateau across three decades of a knob is the
+    session-43 smell pointed at MODELS: constant verdict
+    under a changing coupling means the form is wrong, not
+    the constant. Falsify the form, don't tune it.
+  - claim shape follows the phrase: this piece SINGS Pa
+    against a Pa drone — chroma top-2 {D 0.24, A 0.20} is a
+    two-pole fact, not a failed solo-center claim. e61's "Sa
+    is the tonal center" gate belongs to phrases that don't
+    sing the fifth.
+
+The piece: jor for the dark string — Sa swells up to Pa, leans
+on Dha (B alight at last), falls through a fifth-wide meend to
+Re, home to Sa; taraf at -17.9 dB, holds worst 3.5c, contour
+1.8c, release 1.72 s, seam p36.
+
+Open threads: a bridge model with the right FORM —
+intermodulation products of the SUM at the bridge (f1+-f2
+lines feeding strings), one pass, calibrated on the steady
+ledger; score->halo forecast for window RATIOS (e62's four-way
+taxonomy numbers are exactly ratio-shaped, and response
+constants cancel); use the forecast to compose a phrase that
+lights the bank EVENLY (flattest ledger); sarangi + tabla (jor
+-> jhala with e59/e60 vocabulary); vibrato/andolan on the bow;
+double stops; xb brightness sweep; chakradar; layakari;
+jugalbandi. Carried: grid-resolution study of the split-pair
+beat; ruler.note_evidence; jod voices; per-string taraf gain;
+jhala acceleration; (8,15)-family triad misses; passing tones;
+pluck angle; canon at the 4th; FD tanpura dyad verify;
+sub-midi-40 window.
+
+Render sent: e63_forecast.ogg (two passes).
+
 ## 2026-08-30 — session 62: sarangi + taraf — the halo hears the lattice (e62)
 
 Refinement joining e61's bowed voice to the e53/e54 bank: the

@@ -191,6 +191,21 @@ checks.append(("ruler_flat_noise", flatness(_nz) > 0.3))
 checks.append(("ruler_flat_sine", flatness(_sine) < 0.02))
 _a440 = np.sin(2 * np.pi * 440.0 * _tt)
 checks.append(("ruler_chroma", int(np.argmax(chroma(_a440))) == 9))
+from loam.ruler import chroma_uniform, sympathy_forecast
+_cu = chroma_uniform(_a440)
+checks.append(("ruler_chroma_uniform", int(np.argmax(_cu)) == 9
+        and abs(float(_cu.sum()) - 1.0) < 1e-6))
+_sf = sympathy_forecast(np.full(100, 100.0), 0.01,
+        [100.0, 150.0, 137.0])
+checks.append(("ruler_sympathy", _sf[0] > _sf[1] > 0.0
+        and _sf[2] == 0.0))   # unison > fifth (3:2 lattice) > inharmonic
+_sfc = sympathy_forecast(np.full(100, 100.0), 0.01,
+        [100.0, 150.0, 137.0], integrate=True, cascade=10.0)
+_sfi = sympathy_forecast(np.full(100, 100.0), 0.01,
+        [100.0, 150.0, 137.0], integrate=True)
+checks.append(("ruler_sympathy_cascade",
+        _sfc[1] / _sfc[0] > _sfi[1] / _sfi[0]
+        and _sfc[2] == 0.0))  # bridge coupling lifts the fifth
 checks.append(("ruler_onsets", len(onset_times(_clicks)) == 12))
 _tb = np.arange(4 * SR) / SR
 _bloom = np.sin(2 * np.pi * 110.0 * _tb) * np.exp(-_tb * 0.5) \
