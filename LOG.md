@@ -1,5 +1,64 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 66: the gat — sarangi meets the theka (e66)
+
+Refinement joining the bowed voice (e61-65) to the tabla
+vocabulary (e59-60): a vilambit gat in tintal, two avartans,
+theka underneath, the sarangi singing a stepwise Kafi line
+composed ON the slot grid with shared sam arrivals. The first
+ensemble piece where the melody SUSTAINS. 13/13 rulers.
+
+The physics gate — can the bow play in laya? Gat motion means
+0.3 s glides, far quicker than e64's certified 0.8 s. Answer:
+yes, ALL taken in lock — provided the take enters through the
+vb=0.085 shelf. THE ATTACK IS THE RECIPE:
+  - slammed flat at vb=0.105 from t=0, the string never finds
+    Helmholtz: it plays a fundamental-less multiphonic (lines
+    at {2,5,7}*f0) for the ENTIRE take at healthy rms — the
+    level rulers never see it, the pitch tracker reads the
+    octave, and even lock_ratio is fooled (the multiphonic's
+    strong 5f0 lands in the odd set). Fundamental PRESENCE
+    (f0 line / strongest line >= 0.1) is the honest slam
+    detector; measured 0.000 slammed vs 0.12+ ramped.
+  - ramped in over 0.6 s, every downstream hold locks
+    (0.40-1.11) and lands within 3c, 0.3 s glides included.
+
+The piece: theka dha dhin dhin dha / dha dhin dhin dha / dha
+tin tin ta / ta dhin dhin dha, 33/33 onsets two-sided, khali
+bass-hole 0.021 in both avartans, pulse 3.33 Hz on the nose.
+Gat line Sa-Re-ga-Re-Sa twice, home a breath BEFORE each sam
+and holding through it (worst hold 2.8c, sam arrivals
+included); lift at 8.5 rings the wrap. Balance measured:
+drums -11.1 dB and taraf -18.3 dB under the voice. Chroma:
+the gat's compass {Sa, Re, ga} owns the top-3 with the
+orbited Re first, then x2.7 down to the drone's A — the
+bowed voice, not the theka, owns the mix's chroma (e60's
+{D, A} two-pole claim belongs to drum+drone pieces).
+
+Ruler lessons:
+  - lock_ratio has a blind spot: a multiphonic with a strong
+    5f0 reads as "odd-rich" and passes. Parity assumes the
+    tone is SOME harmonic stack; when the failure mode is
+    no-stack-at-all, measure fundamental presence instead.
+    Two rulers, two failure modes, keep both.
+  - a healthy-rms take can be wrong from t=0: the slammed
+    attack sounds at full level for 5.4 s without ever being
+    a note. Attack transients deserve their own gate in any
+    driven-instrument piece — level and sustain rulers are
+    structurally blind to WHICH branch is sounding.
+
+Open threads: tihai + gat (the mukhda arriving via tirakita,
+e60's machinery under the bowed line); jhala (double-time
+theka, sarangi in eighth-note jod); the compressor into
+sympathy_forecast (carried); vibrato-defocuses-the-halo
+(carried); gamak map; the dark bow; the cliff exhibit as
+music; double stops; chakradar; jugalbandi. Carried:
+ruler.note_evidence; jod voices; per-string taraf gain;
+jhala acceleration; passing tones; canon at the 4th; FD
+tanpura dyad verify; sub-midi-40 window.
+
+Render sent: e66_gat_sarangi.ogg (two passes).
+
 ## 2026-08-30 — session 65: andolan — the wobbling bow (e65)
 
 Brand-new expressive class for the bowed voice: slow deep
