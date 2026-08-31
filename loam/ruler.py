@@ -1110,6 +1110,37 @@ def fund_presence(x: np.ndarray, f0: float,
     return float(X[s].max() / (X[f < fmax].max() + 1e-12))
 
 
+def partial_freq(x: np.ndarray, lo: float, hi: float) -> float:
+    """Frequency of the strongest spectral line in [lo, hi], by
+    parabolic interpolation of the log-magnitude peak. Born e71:
+    beat rates between two voices' coinciding partials sit near
+    0.2-0.6 Hz, and predicting them as 3*hps_pitch(A) -
+    4*hps_pitch(B) fails — hps_pitch's ~0.5c granularity is
+    ~0.4 Hz of error at 440 Hz, twice the signal. Reading each
+    voice's OWN line directly (5+ s window, parabolic vertex on
+    three log bins) resolves ~0.01 Hz, and closed the chain:
+    three fourths predicted 0.23/0.60/0.63 Hz from own-bus lines
+    and measured 0.23/0.61/0.61 in the mix. The score arithmetic
+    3*hz(hi)-4*hz(lo) promised 0.50 Hz where the strings sounded
+    0.23 — friction flattening moves the lines, so predict from
+    the sounded lines, not the written notes."""
+    m = _mono(x)
+    X = np.abs(np.fft.rfft(m * np.hanning(len(m))))
+    f = np.fft.rfftfreq(len(m), 1.0 / SR)
+    s = np.where((f >= lo) & (f <= hi))[0]
+    if len(s) < 3:
+        return 0.0
+    k = int(s[int(np.argmax(X[s]))])
+    if k <= 0 or k >= len(X) - 1:
+        return float(f[k])
+    a = np.log(X[k - 1] + 1e-12)
+    b = np.log(X[k] + 1e-12)
+    c = np.log(X[k + 1] + 1e-12)
+    denom = a - 2.0 * b + c
+    d = 0.0 if abs(denom) < 1e-12 else 0.5 * (a - c) / denom
+    return float((k + d) * SR / len(m))
+
+
 def decay_t60(x: np.ndarray, lo: float, hi: float,
         win_s: float = 0.03, hop_s: float = 0.005,
         drop: float = 25.0) -> float:

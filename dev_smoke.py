@@ -236,6 +236,13 @@ from loam.ruler import fund_presence
 checks.append(("ruler_fund_presence",
         fund_presence(_lk, 100.0) > 0.5
         and fund_presence(_oc, 100.0) < 0.05))
+from loam.ruler import partial_freq
+_tp5 = np.arange(5 * SR) / SR
+_pf = np.sin(2 * np.pi * 440.3 * _tp5) \
+    + 0.3 * np.sin(2 * np.pi * 452.0 * _tp5)
+checks.append(("ruler_partial_freq",
+        abs(partial_freq(_pf, 400.0, 480.0) - 440.3) < 0.05
+        and abs(partial_freq(_pf, 445.0, 480.0) - 452.0) < 0.05))
 checks.append(("ruler_onsets", len(onset_times(_clicks)) == 12))
 _tb = np.arange(4 * SR) / SR
 _bloom = np.sin(2 * np.pi * 110.0 * _tb) * np.exp(-_tb * 0.5) \

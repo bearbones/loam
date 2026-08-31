@@ -1,5 +1,82 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 71: organum, and the bass window (e71)
+
+Brand-new cycle, two findings braided: the instrument's SECOND
+window, and parallel fourths that beat at the rate the strings
+choose. 18/18 rulers, dev_smoke 96 (+ruler.partial_freq).
+
+THE BASS WINDOW. e70 showed recipes are per-grid; e71 shows
+the grids come in REGISTERS. The certified treble bow
+(FB=1e4*vb) simply fails below the phrase — at midi 45/47/48
+(N 125-144) it leaves lock 0.01-0.02, the string never
+speaks. The bass wants a four-times heavier bow: FB=4e4*vb at
+vb~0.10 locks all three (lock 0.74-1.20, fund 0.49-1.00),
+with a hard ceiling one step up (k=5e4 at ni-: 0.00/0.000,
+total silence). And the voice inside the pocket is DARK: ni-
+crowns h1 (fund_presence 1.00) where the treble voice crowns
+h2 — a different voice, not a transposed one. Sounded
+flattening stays under 3c across the window.
+
+THE BEAT CHAIN, CLOSED. ET fourths beat where melody h3 meets
+bass h4 (~440/494/523 Hz). Own-bus sounded lines (new
+ruler.partial_freq: parabolic vertex on three log bins,
+~0.01 Hz on 5 s windows) predict 0.23/0.60/0.63 Hz; the mix
+measures 0.23/0.61/0.61 — three fourths, all within 0.03 Hz.
+Score arithmetic |3*hz(Sa)-4*hz(Pa-)| promises 0.50 Hz where
+the strings sound 0.23: friction flattening moves the lines,
+so predict from the sounded lines, not the written notes.
+And the just-intonation control must be tuned by SOUNDED
+pitch: re-commanding the bass so its h4 lands on the melody's
+h3 collapses 52/47 from 5.4 to 0.5 dB (line residuals
+0.07/0.01 Hz). Commanding 3:4 of the score does NOT collapse
+it — the bass's own flattening detunes the command.
+
+The piece: "organum" — Sa-Re-ga-Re-Sa on the treble bow, a
+second voice in strict parallel fourths below on the heavy
+bow. Ninth-century two-part organum from one instrument's two
+windows. Every hold sounds its fourth within 6.9c of ET-500,
+the bass keeps fund 0.84-1.00 under the melody, both voices
+obey the same release law (t60 1.72/1.72 vs design 1.73),
+and the chroma says the counterpoint worked: Sa leads 1.6x,
+and the bass lifts Pa- into the top four ABOVE the sung ga
+without re-keying the mix. Halo -15.0 dB, seam p16.6.
+
+Ruler lessons:
+  - a rate window is a claim: beat_profile's default
+    min_rate=0.25 sits above the slow fourth's 0.23 Hz beat,
+    so the ruler returned the log-envelope's 2ND HARMONIC —
+    exactly 2.0x — and the 1.5 s detrend ate the depth
+    (3.1 dB shown, 9.0 real). Gates now pin the trap itself:
+    the default window MUST read 2x on this mix. Size the
+    window to the prediction before trusting the peak.
+  - hps_pitch has the wrong grain for beats: its ~0.5c step
+    is ~0.4 Hz at 440 Hz — twice the signal being predicted.
+    partial_freq reads the line itself and closed the chain.
+  - a control is only a control at the SOUNDED pitch: the
+    "just intonation" bass commanded at 3:4 kept beating
+    (its own flattening detuned it); tuned by measured line,
+    the beat died. Same lesson as e65's calibrated depth,
+    now on the prediction side.
+
+Open threads: the organum only certified fourths downward —
+canon at the 4th is now buildable (two windows, one law);
+moving organum with oblique motion (drone-note bass under a
+moving melody — when does the beat chain break?); the bass
+window's floor (midi 40-44 untested; sub-midi-40 carried);
+why k=5e4 is a cliff not a taper (the ceiling wants a law
+like e64's); Dha-/ni- barely register in chroma (dark
+fundamentals octave-collapse weakly — is chroma_uniform
+register-blind and should a bass-aware variant exist?);
+crack flavors in the bass window (does the heavy bow crack
+darker?). Carried: treble window certification (N=58-77);
+ghost as harmony; intermodulation forecast; tihai + gat
+mukhda; jhala; gamak map; chakradar; jugalbandi;
+ruler.note_evidence; jod voices; per-string taraf gain;
+passing tones; FD tanpura dyad verify.
+
+Render sent: e71_organum.ogg.
+
 ## 2026-08-30 — session 70: the broken halo (e70)
 
 Refinement marrying e68 and e69: what the sympathetic bank
