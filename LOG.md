@@ -1,5 +1,93 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 64: the flat halo — composing evenness, finding the compressor (e64)
+
+Refinement of e63's forecast, planned as "compose the flattest
+ledger." Three corrections deep. 16/16 rulers, dev_smoke 93.
+
+V2 RECEIVER PHYSICS (zero fitted knobs): fdsym injects force
+at x=0.93 and reads VELOCITY at x=0.12, so mode m couples as
+|sin(.93 m pi)|*|sin(.12 m pi)| with a velocity factor m*fs —
+the fundamental couples at 0.22, m=4 at 0.78: the bank is
+built for its upper modes. Lifted e63's ledgers: jawari steady
+0.76->0.88, e63 phrase 0.52->0.81, and the e62-phrase residual
+collapsed to ONE swap (drop F and C: 0.02 -> 0.94).
+
+THE BOW'S CLIFF (correcting e61): FB=1e3, vb=0.10 sits on a
+chaotic multistability edge. One phrase's vb ramp survives it;
+e64's first phrase fell onto the even-harmonics-only
+double-slip branch at 0.6 s — during a Sa HOLD, no leap — and
+hysteresis kept it there for the take. e61-63 survived on
+initial conditions. New ruler born of a broken classifier:
+"tallest line = 2f0" reads a bright LOCKED tone as octave
+(h2 tops the certified profile); regime is periodicity, so
+ruler.lock_ratio measures odd/even. Certified recipe: FB =
+1e4*vb (Schelleng's wedge scales with bow speed — flat FB at
+vb=0.065 sits above the speed-scaled MAXIMUM force and
+chokes to rms 0.0000), vb in [0.08, 0.14], stepwise notes,
+slow glides. Locks at every hold, worst 3.6c, swell corr
+0.975 with FB riding vb.
+
+THE COMPRESSOR (e63's anomaly becomes a law): same flat-fed
+phrase, jawari off/on A/B. Linear bank: the four sung strings
+rank exactly 1-4 — v2's feed account confirmed on its home
+ground. Jawari bank: the sung four sink to mean rank 6.5 and
+the ledger CV halves (0.465 -> 0.236). The jawari contact is
+a per-string LIMITER: overfed strings work the barrier
+hardest and pay the contact tax. e63's "sung F darkest,
+lattice C 2nd" was this law, not a glitch. Corollary: the
+jawari bank actively flattens its own halo — the instrument
+cooperates with the composition.
+
+The piece: "sarva" — Sa ga Re ma Re Sa, the stepwise phrase
+an exhaustive v2 search chose to feed all eight strings
+(predicted-feed CV 0.091 vs 0.33/0.45 for e62/e63's phrases).
+Measured ledger CV 0.236: flattest of the series (e62 0.282,
+e63 0.345). Every string lit, none shouting; chroma top-4 ==
+the sung classes at 0.65 mass with no pole above x1.05 —
+flat bank, flat chroma, and the claim shape follows the
+phrase.
+
+Ruler lessons:
+  - regime is periodicity, not spectral tilt: a classifier
+    that peak-picks calls every bright locked tone an octave.
+    Build the ruler from the INVARIANT (even-only vs
+    odd+even), not the symptom.
+  - a certified operating point is not a certified
+    NEIGHBORHOOD: e61 pinned (FB, vb) as a point; phrases
+    live on trajectories through it, and the basin boundary
+    ran straight between two nearly identical vb ramps. Map
+    the shelf, not the point — and put the recipe (FB=1e4*vb)
+    in the envelope, not the luck.
+  - the driver profile is an operating-point function:
+    measured at (1.05e3, 0.105) it was h3-dominant; the
+    phrase actually played h2-dominant. For phrase-level
+    forecasts, measure the PLAYED profile from the take
+    (own-bus), not from a reference note at other settings.
+  - a flat-fed probe is a differential instrument: feeding
+    everything equally exposed the bank's response law
+    (sung-sink/lattice-rise) that uneven phrases entangled
+    with their feeds. When a model residual looks like noise,
+    design the input that isolates it.
+
+Open threads: put the compressor INTO sympathy_forecast (a
+saturating output map fitted on the flat-fed A/B, then
+re-test ph62 end-to-end — the F<->C swap should resolve);
+lock_ratio as a per-hold assertion in future bowed pieces
+(cheap, catches falls); the vb=0.06 near-sine "dark bow"
+regime as a timbre (odd/even ~1e4+ at low FB before the
+choke); swell range past 0.14 with the ratio rule; the
+cliff exhibit as MUSIC (a phrase that deliberately falls to
+the octave branch and returns — needs a re-lock recipe);
+score->halo for window RATIOS; sarangi + tabla; vibrato;
+double stops; chakradar; jugalbandi. Carried: grid-resolution
+study of the split-pair beat; ruler.note_evidence; jod
+voices; per-string taraf gain; jhala acceleration; passing
+tones; canon at the 4th; FD tanpura dyad verify; sub-midi-40
+window.
+
+Render sent: e64_flat_halo.ogg (two passes).
+
 ## 2026-08-30 — session 63: score->halo forecast — the bridge is the recruiter (e63)
 
 Brand-new tooling: ruler.sympathy_forecast, a forward model

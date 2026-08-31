@@ -206,6 +206,20 @@ _sfi = sympathy_forecast(np.full(100, 100.0), 0.01,
 checks.append(("ruler_sympathy_cascade",
         _sfc[1] / _sfc[0] > _sfi[1] / _sfi[0]
         and _sfc[2] == 0.0))  # bridge coupling lifts the fifth
+_sfv = sympathy_forecast(np.full(100, 100.0), 0.01,
+        [100.0, 150.0, 137.0], integrate=True,
+        node=0.93, tap=0.12, vel=True)
+checks.append(("ruler_sympathy_v2", np.isfinite(_sfv).all()
+        and _sfv[0] > 0.0 and _sfv[2] == 0.0))
+from loam.ruler import lock_ratio
+_tl = np.arange(SR) / SR
+_lk = np.sin(2 * np.pi * 100.0 * _tl) \
+    + 0.8 * np.sin(2 * np.pi * 200.0 * _tl) \
+    + 0.5 * np.sin(2 * np.pi * 300.0 * _tl)
+_oc = np.sin(2 * np.pi * 200.0 * _tl) \
+    + 0.5 * np.sin(2 * np.pi * 400.0 * _tl)
+checks.append(("ruler_lock_ratio", lock_ratio(_lk, 100.0) > 0.5
+        and lock_ratio(_oc, 100.0) < 0.05))
 checks.append(("ruler_onsets", len(onset_times(_clicks)) == 12))
 _tb = np.arange(4 * SR) / SR
 _bloom = np.sin(2 * np.pi * 110.0 * _tb) * np.exp(-_tb * 0.5) \

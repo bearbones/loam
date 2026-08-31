@@ -935,8 +935,9 @@ def chroma_uniform(x: np.ndarray, nwin: int = 8,
 def sympathy_forecast(f0s: np.ndarray, frame_s: float, bank,
         nh_drive: int = 6, nh_string: int = 4,
         tol_cents: float = 15.0, drive_w=None, amp=None,
-        integrate: bool = False,
-        cascade: float = 0.0) -> np.ndarray:
+        integrate: bool = False, cascade: float = 0.0,
+        node: float = 0.0, tap: float = 0.0,
+        vel: bool = False) -> np.ndarray:
     """Score -> halo forward model (e62's lesson made
     predictive): a sympathetic bank hears the harmonic LATTICE,
     not the score — a string lights when ANY driver harmonic
@@ -976,6 +977,21 @@ def sympathy_forecast(f0s: np.ndarray, frame_s: float, bank,
     one coupling constant (0 = bridge silent). Calibrate it on
     ONE steady-note ledger, then freeze it for phrases.
 
+    node/tap/vel: the e64 "v2" receiver weights, every factor
+    DERIVED, none fitted. fdsym injects force at x = node and
+    reads velocity at x = tap, so mode m couples through
+    |sin(node*m*pi)| and speaks through |sin(tap*m*pi)| — at
+    fdsym's defaults (node 0.93, tap 0.12) the fundamental
+    couples at 0.22 while m=4 couples at 0.78: the bank is
+    BUILT to receive and speak through its upper modes.
+    vel=True weights readout by mode frequency (velocity, what
+    the tap actually measures) instead of the 1/m displacement
+    guess. Together these lifted the jawari steady ledger from
+    0.76 to 0.88 and the e63 phrase from 0.52 to 0.81 spearman
+    with zero free parameters. Certified residual (e62 phrase):
+    the sung-late F and lattice-lit C swap extreme ranks — the
+    lattice hit outdraws the sung note; open anomaly.
+
     A ranking tool: claims should be rank agreement and
     targeted bright/dark calls, never absolute levels."""
     f0s = np.asarray(f0s, dtype=float)
@@ -985,6 +1001,7 @@ def sympathy_forecast(f0s: np.ndarray, frame_s: float, bank,
     drive_w = np.asarray(drive_w, dtype=float)
     a2 = np.ones(len(f0s)) if amp is None \
         else np.asarray(amp, dtype=float) ** 2
+    fref = float(min(bank))
     nb = len(bank)
     rates = np.zeros((nb, len(f0s)))
     for si, fs in enumerate(bank):
@@ -993,8 +1010,13 @@ def sympathy_forecast(f0s: np.ndarray, frame_s: float, bank,
                 dev = np.abs(1200.0 * np.log2(
                         np.maximum(n * f0s, 1e-9) / (m * fs)))
                 hit = ok & (dev <= tol_cents)
-                rates[si, hit] += (drive_w[n - 1] / m) ** 2 \
-                    * a2[hit]
+                w = drive_w[n - 1] * (m * fs / fref if vel
+                        else 1.0 / m)
+                if node > 0.0:
+                    w *= abs(np.sin(node * m * np.pi))
+                if tap > 0.0:
+                    w *= abs(np.sin(tap * m * np.pi))
+                rates[si, hit] += w ** 2 * a2[hit]
     if cascade > 0.0:
         E1 = np.cumsum(rates, axis=1) * frame_s
         coup = np.zeros((nb, nb))
@@ -1013,6 +1035,29 @@ def sympathy_forecast(f0s: np.ndarray, frame_s: float, bank,
         return np.sqrt(np.cumsum(rates, axis=1).mean(axis=1)
                 * frame_s)
     return rates.sum(axis=1) * frame_s
+
+
+def lock_ratio(x: np.ndarray, f0: float) -> float:
+    """Odd/even harmonic ratio — the honest bowed-string regime
+    detector (e64). A locked Helmholtz tone carries odd AND
+    even harmonics (ratio ~0.4-3 for fdbow); the double-slip
+    octave branch is EVEN-ONLY (ratio ~0). Born from a broken
+    classifier: 'tallest spectral line = 2*f0' reads a bright
+    LOCKED tone (h2 tops fdbow's certified profile) as octave
+    — regime is periodicity, not spectral tilt. Compares the
+    peak amplitude in ±5% bands around {1,3,5}*f0 vs
+    {2,4,6}*f0."""
+    m = _mono(x)
+    X = np.abs(np.fft.rfft(m * np.hanning(len(m))))
+    f = np.fft.rfftfreq(len(m), 1.0 / SR)
+
+    def a(ff):
+        s = (f >= ff * 0.95) & (f <= ff * 1.05)
+        return float(X[s].max()) if s.any() else 0.0
+
+    odd = a(f0) + a(3 * f0) + a(5 * f0)
+    even = a(2 * f0) + a(4 * f0) + a(6 * f0)
+    return odd / max(even, 1e-9)
 
 
 def decay_t60(x: np.ndarray, lo: float, hi: float,
