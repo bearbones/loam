@@ -1,5 +1,61 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 67: double stops — the tempered fifth beats (e67)
+
+Brand-new texture: two strings under one bow. And with it,
+temperament made audible and measured. 11/11 rulers.
+
+The physics — a full chain, each link its own ruler:
+  - an equal-tempered fifth is 2c narrow of pure, so a bowed
+    Sa+Pa dyad BEATS where Sa's h3 meets Pa's h2. Each
+    string's SOUNDING pitch measured own-bus (friction-
+    flattened -2.7c and -3.2c — per-voice, consistent),
+    predicted beat |3fSa - 2fPa| = 0.60 Hz, measured in the
+    mix's 440 Hz band envelope: 0.61 Hz at 2.4 dB depth.
+    Design -> pitch ruler -> arithmetic -> envelope ruler,
+    and the ends agree within 2%.
+  - the just-intonation control (Pa = 1.5 Sa exactly) goes
+    STILL: depth 2.4 -> 0.3 dB. Its rate reading (0.40 Hz vs
+    predicted 0.20) is honestly meaningless — you cannot read
+    the rate of a beat that isn't there. The JI claim is
+    DEPTH, extending beat_profile's detrending lesson.
+
+The piece: jor in double stops — the Sa-ga-Re-Sa line over a
+bowed Sa pedal, both on the certified recipe (shelf attack,
+ratio rule), both lifting at 8.5 s. Melody: locks 0.39+,
+worst hold 2.8c, contour 2.2c. Pedal: 2.0c worst deviation
+over 7.8 s. Dyad readback (e58 practice): both notes found
+in every two-note hold at 2.2c worst, the -50c shifted design
+refused at 47.8c. Pedal -6.3 dB under the line, halo -15.5,
+release 1.71 s, and the pedal does what a pedal does: Sa
+x3.15 over the runner-up — the strongest tonal center any
+piece has measured.
+
+Ruler lessons:
+  - a depth-gated rate: when an oscillation's DEPTH collapses,
+    its rate estimate becomes noise — gate the rate claim on
+    the depth first, or the negative control will "measure"
+    a phantom rate and fail an honest experiment.
+  - calibrate gates from the failure they guard against: the
+    fundamental-presence gate was set at 0.10 by round-number
+    instinct; the slam failure it detects reads 0.000-0.005
+    and true tones read 0.09-0.19. The calibrated midpoint is
+    0.05 — a bright high-vb hold honestly dips to 0.09, and
+    the first run failed a working melody on an uncalibrated
+    threshold (probe-first applies to REUSED gates too).
+
+Open threads: dyads elsewhere in the phrase (parallel
+motion? organum-style jor in fourths — and the tempered
+FOURTH beats at the same 0.5 Hz for Sa over Pa-low); tihai +
+gat mukhda; jhala; the compressor into sympathy_forecast;
+vibrato-defocus-the-halo; gamak map; dark bow; cliff as
+music; chakradar; jugalbandi. Carried: ruler.note_evidence;
+jod voices; per-string taraf gain; jhala acceleration;
+passing tones; canon at the 4th; FD tanpura dyad verify;
+sub-midi-40 window.
+
+Render sent: e67_double_stop.ogg (two passes).
+
 ## 2026-08-30 — session 66: the gat — sarangi meets the theka (e66)
 
 Refinement joining the bowed voice (e61-65) to the tabla
