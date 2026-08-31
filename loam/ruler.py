@@ -522,7 +522,11 @@ def beat_profile(x: np.ndarray, lo: float, hi: float,
     Depth is the robust half peak-to-peak ripple in dB."""
     env = band_env(x, lo, hi, win_s)
     le = np.log(env + 1e-12)
-    k = max(int(trend_s / win_s) | 1, 3)
+    # e72: clamp the detrend to half the window — a trend_s
+    # longer than the signal collapsed the moving-mean slice to
+    # an empty/short array and crashed on sub-second windows.
+    k = max(min(int(trend_s / win_s) | 1,
+            (len(le) // 2) | 1), 3)
     pad = np.concatenate([le[:k][::-1], le, le[-k:][::-1]])
     trend = np.convolve(pad, np.ones(k) / k, "same")[k:-k]
     c = le - trend

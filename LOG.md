@@ -1,5 +1,82 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 72: written shimmer (e72)
+
+Refinement of e71: the beat chain, run BACKWARDS. Last cycle
+closed prediction (own-bus lines -> mix rate to 0.03 Hz);
+this cycle makes the beat rate WRITTEN MATERIAL. 15/15
+rulers, dev_smoke 97 (beat_profile short-window clamp).
+
+THE WRITING TOOL. rho (sounded h4 / 4*command of the heavy
+bow) is flat to 0.36c across +-10c of command — so the bass
+command for any target beat rate r against a measured melody
+line is one division: c = (f3 - r)/(4*rho). One-shot writing
+carries an ABSOLUTE error (the rho wobble, 0.03-0.16 Hz
+across a 0.5-4 Hz ladder): a 4 Hz write lands at 1%, a
+0.5 Hz write can miss by 30%. Slow shimmer needs the
+TWO-SHOT score: fdbow is deterministic, so render the bass,
+measure each segment's achieved separation, correct (~0.2c),
+render final — every written rate then lands within 0.05 Hz.
+
+And the score listens to THE TAKE, not a reference: in-piece
+the same melody recipe sounds its h3 0.19-0.24 Hz below the
+standalone take (context/trajectory history moves the line).
+A bass tuned to the reference would miss the slowest written
+rate by 25%. Tune to what this take sings.
+
+The piece: "written shimmer" — the melody is ONE note. All
+the motion is beat rate, written to double twice: 0.8 ->
+1.6 -> 3.2 Hz (reads 0.77/1.62/3.00 in the mastered mix,
+ratios 2.11/1.85). Then the melody steps away to ga — no
+line pair in the band, shimmer dies (ripple 5.7 -> 0.4 dB)
+— and WHILE IT IS AWAY the bass silently retunes to the
+melody's own sounded line; the melody comes home to written
+stillness (separation 0.04 Hz, ripple 0.4 dB). Chroma: Sa
+0.51, Pa- 0.23, everything else <= 0.06 — the whole pitch
+story is two classes; the music was the rate. Drone's pa
+pluck REMOVED by design (its h4 = 440.0 exactly — a third
+line inside the written band). Seam p43, halo -17 dB, both
+voices t60 1.72.
+
+Ruler lessons:
+  - one-shot error is absolute, not relative: a fixed
+    ~0.1 Hz band from the rho wobble. Claim rates as
+    absolute error against the tool's band, not percent —
+    percent flattered the fast writes and damned the slow
+    ones for the same physics.
+  - the default beat_profile window is properly blind below
+    0.25 Hz, and that blindness IS the stillness ruler: a
+    0.08 Hz residual read 4.9 dB of "swell" in a slow-window
+    ruler and 0.8 dB in the default — for "no audible beat,"
+    use the window that ignores what no listener hears.
+  - beat_profile crashed when the window was shorter than
+    the detrend (sub-second stillness windows) — clamp the
+    trend to half the envelope. A ruler that can only
+    measure long claims quietly forbids short ones.
+  - gate-calibration re-earned (e68): the probe's 0.5 Hz
+    write missed by 0.16, the script's by 0.08 — per-take
+    wobble. The failed "floor at 0.5 Hz" gate was the wrong
+    claim SHAPE; the absolute-band claim survives both.
+
+Open threads: written shimmer as rhythm (lock the beat rate
+to a tala — 3.2 Hz is already a tabla roll; can the shimmer
+carry the theka?); shimmer counterpoint (two dyads, two
+written rates at once in separate bands); the away-retune as
+standard modulation move (retune ANY voice while its partner
+is absent — pivot tunings between phrases); ring sharpening
+(on FB lift both voices lose friction flattening — does the
+tuned pair UN-tune in the release ring? measure); rho at
+other bass notes (is 0.36c flatness universal or Pa--local?).
+Carried: canon at the 4th; oblique organum full piece; bass
+window floor (midi 40-44); k=5e4 cliff law; chroma
+register-blindness; crack flavors in the bass window; treble
+window certification; ghost as harmony; intermodulation
+forecast; tihai + gat mukhda; jhala; gamak map; chakradar;
+jugalbandi; ruler.note_evidence; jod voices; per-string
+taraf gain; passing tones; FD tanpura dyad verify.
+
+Render sent: e72_written_shimmer.ogg.
+
 ## 2026-08-30 — session 71: organum, and the bass window (e71)
 
 Brand-new cycle, two findings braided: the instrument's SECOND

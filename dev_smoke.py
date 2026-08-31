@@ -243,6 +243,14 @@ _pf = np.sin(2 * np.pi * 440.3 * _tp5) \
 checks.append(("ruler_partial_freq",
         abs(partial_freq(_pf, 400.0, 480.0) - 440.3) < 0.05
         and abs(partial_freq(_pf, 445.0, 480.0) - 452.0) < 0.05))
+from loam.ruler import beat_profile
+_tb2 = np.arange(int(0.5 * SR)) / SR
+_bt = np.sin(2 * np.pi * 440.0 * _tb2) \
+    * (1.0 + 0.5 * np.sin(2 * np.pi * 3.0 * _tb2))
+_rb, _db = beat_profile(_bt, 400.0, 480.0, trend_s=1.5,
+        min_rate=0.5)
+checks.append(("ruler_beat_short_window",
+        np.isfinite(_rb) and _db > 1.0))
 checks.append(("ruler_onsets", len(onset_times(_clicks)) == 12))
 _tb = np.arange(4 * SR) / SR
 _bloom = np.sin(2 * np.pi * 110.0 * _tb) * np.exp(-_tb * 0.5) \
