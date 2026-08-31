@@ -1,5 +1,64 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 65: andolan — the wobbling bow (e65)
+
+Brand-new expressive class for the bowed voice: slow deep
+vibrato on a held note, the andolan a komal note carries in
+Kafi. e64 taught that TRANSITIONS throw the string off the
+fundamental branch, and vibrato is a continuous transition —
+so the cycle opened with physics, not taste. 13/13 rulers.
+
+What the grid measured (steady ga, ratio recipe, lock_ratio):
+  - slow andolan keeps the lock at ANY depth tried: 2 Hz at
+    +-40c and +-80c hold odd/even 0.66/0.60. The bow
+    tolerates a breathing pitch.
+  - the vibrato plane has a HOLE, like every playability map
+    so far: +-40c at 5 Hz drops lock to 0.08 while +-20c at
+    the same rate holds 1.38. Pinned and avoided (e61's
+    octave pocket, e64's cliff, now this).
+  - ornament_profile reads RATE exactly (worst 0.01 Hz off
+    across the grid); DEPTH passes through a consistent
+    calibrated attenuation, x0.91-0.92 at 2 Hz across
+    20/40/80c — e47's lesson holds for the bow: calibrate
+    depth against the same class at the same rate, never
+    trust the raw number. Zero-depth control reads 0.1c.
+
+The piece: jor with a breathing ga. Sa rises to komal Ga,
+which oscillates +-40c at 2 Hz for 2.6 s — in-phrase readback
+1.99 Hz at 36.6c against the calibrated expectation 36.7c —
+falls through Re, home to Sa, lift into the seam. Every hold
+locked (wobble included, odd/even >= 0.47); the hold ruler
+still lands because the andolan's MEDIAN is the note (3.1c
+worst); the contour claim compares against the MODULATED
+design line (2.3c median). Chroma: Sa leads, the breathing ga
+is the honest second pole (D 0.28 > F 0.22 > rest) — claim
+shape follows the phrase.
+
+Ruler lessons:
+  - an ornament claim is two claims: the SIGNAL claim (rate,
+    calibrated depth, measured in the ornament window) and
+    the NOTE claim (the hold's median still lands). Both
+    passed; conflating them would have gated the wobble
+    against the hold tolerance and failed a working ornament.
+  - when a piece features a note, the tonal-center gate must
+    yield: margin 1.25 under a 2.6 s ga spotlight is the
+    phrase working as written, not a broken center. Name the
+    second pole instead of forcing the first.
+
+Open threads: gamak (fast+shallow, the 5 Hz hole says the
+map needs charting before composing there); andolan on OTHER
+notes (Re, Dha); does vibrato defocus the halo? (the forecast
+already takes the modulated f0t — predict ga-string lighting
+loss vs plain hold, measure); the compressor into
+sympathy_forecast (carried from e64); the "dark bow" near-
+sine regime; the cliff exhibit as music; sarangi + tabla
+(jor -> jhala); double stops; chakradar; jugalbandi.
+Carried: ruler.note_evidence; jod voices; per-string taraf
+gain; jhala acceleration; passing tones; canon at the 4th;
+FD tanpura dyad verify; sub-midi-40 window.
+
+Render sent: e65_andolan.ogg (two passes).
+
 ## 2026-08-30 — session 64: the flat halo — composing evenness, finding the compressor (e64)
 
 Refinement of e63's forecast, planned as "compose the flattest
