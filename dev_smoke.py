@@ -232,6 +232,10 @@ _oc = np.sin(2 * np.pi * 200.0 * _tl) \
     + 0.5 * np.sin(2 * np.pi * 400.0 * _tl)
 checks.append(("ruler_lock_ratio", lock_ratio(_lk, 100.0) > 0.5
         and lock_ratio(_oc, 100.0) < 0.05))
+from loam.ruler import fund_presence
+checks.append(("ruler_fund_presence",
+        fund_presence(_lk, 100.0) > 0.5
+        and fund_presence(_oc, 100.0) < 0.05))
 checks.append(("ruler_onsets", len(onset_times(_clicks)) == 12))
 _tb = np.arange(4 * SR) / SR
 _bloom = np.sin(2 * np.pi * 110.0 * _tb) * np.exp(-_tb * 0.5) \

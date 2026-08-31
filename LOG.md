@@ -1,5 +1,69 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 69: the crack and the return (e69)
+
+Brand-new expressive class: a composed BREAK in the bowed
+voice — e64's cliff and e66's multiphonic, made playable.
+12/12 rulers, dev_smoke 95.
+
+The physics, each claim its own control:
+  - THE CRACK IS PRESSURE WITHOUT SPEED: drag the bow to
+    vb=0.03 for 0.2 s with FB held at the ratio schedule and
+    a certified ga hold falls onto the fundamental-less
+    multiphonic (presence 0.12 -> 0.014). The control: the
+    same slowdown with FB following the ratio rule is
+    unharmed (0.12) — the trigger is the ratio violation,
+    not the slowing.
+  - the broken state is sticky and deceptive: healthy rms
+    (0.137 vs 0.170 sung — a ghost of ga, not a silence),
+    still broken 4.6 s later without a gesture (presence
+    0.035 at the last hold), and lock_ratio reads it at 10.0
+    — MORE locked than the true tone ({5,7}*f0 lands in the
+    odd set). fund_presence, promoted to ruler.py this cycle
+    (fourth use), is the one that tells the truth.
+  - THE MUTE IS THE MEDICINE, NOT THE PAUSE: a bare 0.25 s
+    lift + shelf re-attack fails (the string still RINGS its
+    multiphonic at t60 1.7 s, and the new bow locks onto what
+    it hears: back at 0.000). The same 0.25 s pressing the
+    bow at zero speed — friction with vb=0 is a pure damper —
+    kills the ring, and the shelf re-attack comes home: ga
+    returns at presence 0.69.
+
+The piece: Sa rises to ga; mid-hold the voice cracks (the
+pitch never moves — the break is a bow gesture, not a note);
+a pressed silence; ga returns on the shelf, falls through Re,
+home to Sa, lift into the seam. Holds 2.8c worst, contour
+2.4c, t60 1.72, halo -17.2 (the bank rings ga's ghost through
+the break), seam p15.5, chroma D > F x1.56 — the
+cracked-and-healed note earns second.
+
+Ruler lessons:
+  - a probe harness can silently cancel its own trigger: the
+    first recovery probe recomputed FB=1e4*vb AFTER dragging
+    vb, so force followed the slowdown and nothing broke —
+    "chaotic basin edge" was a bug in the probe, not physics
+    (fdbow is deterministic; suspect the harness first). The
+    fix became the best control in the script.
+  - blind spots can be load-bearing in reverse: lock_ratio
+    calling the broken state "locked" is exactly what makes
+    fund_presence's testimony sharp — pair rulers so each
+    covers the other, then CLAIM the disagreement.
+
+Open threads: the crack vocabulary (multiple cracks; crack
+depth — partial breaks at shallower drags; the octave-branch
+fall as a SECOND distinct break, e64's even-only state, with
+its own heal?); mute as ornament (pressed silences as
+punctuation in a healthy phrase); v3-forecast the broken
+bank feed (the multiphonic's {2,5,7} lattice should light
+different taraf strings — measurable); organum jor in
+fourths; tihai + gat mukhda; jhala; v2/v3 two-regime
+forecast; the Re soft-contact anomaly; gamak map; dark bow;
+chakradar; jugalbandi. Carried: ruler.note_evidence; jod
+voices; per-string taraf gain; passing tones; canon at the
+4th; FD tanpura dyad verify; sub-midi-40 window.
+
+Render sent: e69_the_crack.ogg (two passes).
+
 ## 2026-08-30 — session 68: the compressor law becomes the forecast — v3 (e68)
 
 Refinement cycle, closing the thread carried since e64: the

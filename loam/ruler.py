@@ -1086,6 +1086,30 @@ def lock_ratio(x: np.ndarray, f0: float) -> float:
     return odd / max(even, 1e-9)
 
 
+def fund_presence(x: np.ndarray, f0: float,
+        fmax: float = 2000.0) -> float:
+    """Fundamental presence: peak amplitude in a ±5% band around
+    f0 over the strongest line below fmax. THE honest detector
+    for the bowed string's fundamental-less multiphonic (born
+    e66: a slammed attack plays lines at {2,5,7}*f0 at healthy
+    rms for an entire take — level rulers never see it, the
+    pitch tracker reads the octave, and lock_ratio is fooled
+    because a strong 5*f0 lands in its odd set). Calibrated
+    gate 0.05 (e67): the failure it guards against reads
+    0.000-0.014, true locked tones 0.09-0.19 — the log-midpoint,
+    not a round number. Pair it with lock_ratio: each covers the
+    other's blind spot, and e69 leaned on the asymmetry — a
+    cracked take read lock_ratio 10-66 (odd-rich, "healthy")
+    while fund_presence told the truth."""
+    m = _mono(x)
+    X = np.abs(np.fft.rfft(m * np.hanning(len(m))))
+    f = np.fft.rfftfreq(len(m), 1.0 / SR)
+    s = (f >= f0 * 0.95) & (f <= f0 * 1.05)
+    if not s.any():
+        return 0.0
+    return float(X[s].max() / (X[f < fmax].max() + 1e-12))
+
+
 def decay_t60(x: np.ndarray, lo: float, hi: float,
         win_s: float = 0.03, hop_s: float = 0.005,
         drop: float = 25.0) -> float:
