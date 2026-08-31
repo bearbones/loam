@@ -1,5 +1,84 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 68: the compressor law becomes the forecast — v3 (e68)
+
+Refinement cycle, closing the thread carried since e64: the
+jawari compressor folded into ruler.sympathy_forecast. 18/18
+rulers, dev_smoke 94.
+
+The measurement that cracked it — e64's flat-fed phrase driven
+at FOUR levels (x0.05..x1.0), jawari off/on, 32 (feed, output)
+points:
+  - the linear bank is exact superposition (x20 drive -> x20.0
+    output). Below a knee the barrier is a bystander (7/8
+    strings within 5% of identity at x0.05; Re overshoots 1.41
+    — a soft contact can also ADD sizzle). Above it the fed
+    are taxed (sung gains <= 0.21) and the light are spared
+    (unsung >= 0.58): a per-string limiter.
+  - the knee variable is DISPLACEMENT, not speed: at equal
+    tap-velocity rms the outputs differ 2.3x across strings,
+    because a lower string swings further per unit velocity
+    (u ~ v/omega). Scaling the knee by omega drops the fit
+    log-residual 0.33 -> 0.25. Law: out = feed *
+    (1 + (feed*(200/fs)/K)^q)^(-p), K=0.74, high-end slope
+    0.25, fit on the flat A/B only.
+  - the structural theorem, demonstrated as a control: a
+    frequency-blind compressor CANNOT move a rank — any shared
+    monotone map preserves feed order (the a=0 law reproduces
+    v2's spearman to the last digit). ALL of v3's rank repair
+    lives in the omega term.
+
+The four-ledger test (out-of-sample except flat):
+  - v3 rescues what v2 inverts: flat -0.07 -> 0.76, ph62
+    -0.07 -> 0.81. e63's F<->C anomaly — the sung-late string
+    darkest, the lattice-lit one bright — was the compressor
+    all along.
+  - the law is a floor, not a crown: worst ledger -0.07 v2 ->
+    0.52 v3, but the cost is honest: ph63, which v2 nailed at
+    0.98, drops to 0.52 (saturation flattens the fine ranks),
+    steady 0.86 -> 0.76. Use v2 when the phrase feeds the bank
+    lightly, v3 when it sings the bank's own strings hard.
+  - the floor survives a 16x calibration error band (scale
+    swept x0.25..x4, worst still 0.52).
+
+The piece: "the climb" — jor up the Kafi lower tetrachord,
+Sa-Re-ga-ma, every note a bank string, sung long and hard on
+the certified recipe (locks 0.31+, presence 0.09+, holds
+3.1c, contour 2.5c, swell 0.988, t60 1.72). v3's out-of-sample
+call on its own halo: spearman 0.93, predicted top-2 and
+bottom-2 sets both land — and v2 reads the same ledger
+upside-down (-0.36). Sing hardest, glow least: the sung
+tetrachord's mean measured rank is 6.5/8 and the halo's crown
+is c', a string the phrase never touches. The audible result:
+a climbing line whose shimmer answers from a fifth above.
+Chroma: Sa leads x1.59, top-4 == the sung set.
+
+Ruler lessons:
+  - a probe session is not the script: gates set from
+    interactive probe numbers failed the script's own
+    deterministic render by one spearman swap (0.595 vs 0.52
+    on n=8 quantized ranks). Calibrate gates on the shipping
+    script's measurements, with margin sized to the ruler's
+    granularity — an n=8 spearman moves in steps of ~0.024.
+  - the strongest control can be an identity: proving the a=0
+    law changes NOTHING (to 1e-9) locates the entire effect in
+    the one term that survives — sharper than any degradation
+    gate.
+
+Open threads: v3 into the PIECE workflow (predict a phrase's
+halo before rendering it — compose FOR a target ledger under
+jawari, e63's game with the corrected model); the Re anomaly
+at soft contact (gain 1.41 at x0.05 — is the added sizzle a
+resonance of the barrier profile?); a two-regime forecast
+(v2 below the knee, v3 above — gate on predicted feed level);
+organum jor in fourths (e67's thread); tihai + gat mukhda;
+jhala; vibrato-defocuses-the-halo; gamak map; dark bow; cliff
+as music; chakradar; jugalbandi. Carried: ruler.note_evidence;
+jod voices; per-string taraf gain; passing tones; canon at the
+4th; FD tanpura dyad verify; sub-midi-40 window.
+
+Render sent: e68_compressor_law.ogg (two passes).
+
 ## 2026-08-30 — session 67: double stops — the tempered fifth beats (e67)
 
 Brand-new texture: two strings under one bow. And with it,

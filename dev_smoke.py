@@ -211,6 +211,18 @@ _sfv = sympathy_forecast(np.full(100, 100.0), 0.01,
         node=0.93, tap=0.12, vel=True)
 checks.append(("ruler_sympathy_v2", np.isfinite(_sfv).all()
         and _sfv[0] > 0.0 and _sfv[2] == 0.0))
+# v3 comp: huge K = identity times scale (ranks untouched);
+# deep saturation taxes the LOW string (displacement variable)
+_sf3i = sympathy_forecast(np.full(100, 100.0), 0.01,
+        [100.0, 150.0], integrate=True, node=0.93, tap=0.12,
+        vel=True, comp=(1.0, 1e9, 7.0, 0.1))
+_sf3 = sympathy_forecast(np.full(100, 100.0), 0.01,
+        [100.0, 150.0], integrate=True, node=0.93, tap=0.12,
+        vel=True, comp=(1e3, 0.7, 7.0, 0.1))
+checks.append(("ruler_sympathy_v3",
+        abs(_sf3i[0] / _sf3i[1] - _sfv[0] / _sfv[1]) < 1e-9
+        and np.isfinite(_sf3).all()
+        and _sf3[0] / _sf3[1] < _sf3i[0] / _sf3i[1]))
 from loam.ruler import lock_ratio
 _tl = np.arange(SR) / SR
 _lk = np.sin(2 * np.pi * 100.0 * _tl) \

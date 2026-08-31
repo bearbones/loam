@@ -937,7 +937,8 @@ def sympathy_forecast(f0s: np.ndarray, frame_s: float, bank,
         tol_cents: float = 15.0, drive_w=None, amp=None,
         integrate: bool = False, cascade: float = 0.0,
         node: float = 0.0, tap: float = 0.0,
-        vel: bool = False) -> np.ndarray:
+        vel: bool = False, comp=None,
+        comp_fref: float = 200.0) -> np.ndarray:
     """Score -> halo forward model (e62's lesson made
     predictive): a sympathetic bank hears the harmonic LATTICE,
     not the score — a string lights when ANY driver harmonic
@@ -992,6 +993,24 @@ def sympathy_forecast(f0s: np.ndarray, frame_s: float, bank,
     the sung-late F and lattice-lit C swap extreme ranks — the
     lattice hit outdraws the sung note; open anomaly.
 
+    comp: the e68 "v3" jawari output map — (scale, K, q, p).
+    The barrier is a per-string compressor whose variable is
+    DISPLACEMENT, not speed: at equal tap-velocity rms a lower
+    string swings further (u ~ v/omega), engages the contact
+    earlier, and saturates harder. Applied after integration:
+    feed = scale*out, x = feed*(comp_fref/fs), out becomes
+    feed*(1+(x/K)^q)^(-p). Fit on e64's flat-fed phrase at four
+    drive levels (identity below the knee, gain <= 0.21 on the
+    overfed sung strings above it). Two lessons carried in the
+    form: (1) a frequency-blind compressor CANNOT move a rank —
+    any shared monotone map preserves feed order, so the entire
+    rank repair lives in the omega-scaling; (2) the law is a
+    floor, not a crown: it rescues ledgers the linear model
+    inverts (overfed phrases: -0.07 -> 0.81) at the cost of the
+    ones the linear model nailed (sparse phrases: 0.98 -> 0.52).
+    Use v2 (comp=None) when the phrase feeds stay light; use v3
+    when the phrase sings the bank's own strings hard.
+
     A ranking tool: claims should be rank agreement and
     targeted bright/dark calls, never absolute levels."""
     f0s = np.asarray(f0s, dtype=float)
@@ -1032,9 +1051,16 @@ def sympathy_forecast(f0s: np.ndarray, frame_s: float, bank,
                             coup[sj, si] += (1.0 / (n * m)) ** 2
         rates = rates + cascade * (coup.T @ E1)
     if integrate:
-        return np.sqrt(np.cumsum(rates, axis=1).mean(axis=1)
+        out = np.sqrt(np.cumsum(rates, axis=1).mean(axis=1)
                 * frame_s)
-    return rates.sum(axis=1) * frame_s
+    else:
+        out = rates.sum(axis=1) * frame_s
+    if comp is not None:
+        sc, K, q, p = comp
+        feed = sc * out
+        x = feed * (comp_fref / np.asarray(bank, dtype=float))
+        out = feed * (1.0 + (x / K) ** q) ** (-p)
+    return out
 
 
 def lock_ratio(x: np.ndarray, f0: float) -> float:
