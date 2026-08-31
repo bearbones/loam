@@ -1,5 +1,62 @@
 # loam — log (newest at top)
 
+## 2026-08-31 — session 74: the breathing raga (e74)
+
+Refinement of e73, completed to the full Kafi hexad: six held
+voices (Sa/Re/ga treble bow, Pa-/Dha-/ni- heavy bow, no
+tanpura), THREE coincidence bands (440/494/523), three
+written beat rates in the harmonic proportion 2:3:4 — 18, 27,
+36 integer cycles per loop. The rhythm ratios mirror the
+raga's own pitch ratios: the chord breathes a chord. 13/13
+rulers, library unchanged.
+
+Measured: envelope spectra crown at EXACTLY bins 18/27/36 in
+the sub-mix and the mastered mix; achieved separations hold
+the proportion to 0.5% (1.507 : 1.332 : 2.007 vs 3/2, 4/3,
+2); still control (all basses retuned onto their lines,
+residuals 4-6 mHz) reads 1.6/0.2/1.0 dB against 7.1/5.6/4.8
+beating. Band-ownership gate: every claim band contains lines
+from its two design owners and nobody else (-35 dB floor) —
+no parasitic coincidences in the hexad. Bass funds 1.00 x3.
+
+Boundaries pinned:
+  - THE JITTER IS PA-SPECIFIC: Dha- and ni- converge to
+    2 mHz in 3-4 iterations; Pa-'s line sign-flips around
+    its target and bottoms out ~3x coarser (7 mHz best,
+    27-50 mHz typical steps). Two of three bass lines follow
+    the command smoothly. The heavy bow has per-note fine
+    structure — the jitter map thread now has a face.
+  - CHROMA COUNTS PARTIALS, NOT NOTES: the dark basses crown
+    h1 but sing a strong h3 that octave-folds a FIFTH UP.
+    Class 6 — which nobody sang — outranks the sung ga: it
+    is Dha-'s h3 (370 Hz) as a chroma ghost, and Pa-'s h3
+    inflates Re's class. Register-blindness thread resolved
+    with a mechanism: read chroma with the lattice in hand.
+
+Ruler practice notes: the e73 toolset (best-pick tuning, env
+integer-bin crowns, paired still control) scaled from 2 pairs
+to 3 without modification; runtime ~5 min for ~27 renders.
+
+Open threads: the breath as TALA (2:3:4 all close every
+1.067 s — put a slow melodic cycle over the composite and
+the breathing becomes accompaniment); a 5:6:8 or other
+just-proportion breath (which proportions read as consonant
+RHYTHM?); the Pa- jitter mechanism (mode structure? map
+sep(command) finely across the bass window — one note in
+three wanders); chroma_uniform with a partial-fold-aware
+variant (subtract h3 ghosts via the lattice before folding);
+entries as music (this piece builds bottom-up in 1.8 s —
+compose longer entry arcs). Carried: shimmer as tala; ring
+sharpening; canon at the 4th; oblique organum; bass window
+floor (midi 40-44); k=5e4 cliff law; crack flavors in the
+bass window; treble window certification; ghost as harmony;
+intermodulation forecast; tihai + gat mukhda; jhala; gamak
+map; chakradar; jugalbandi; ruler.note_evidence; jod voices;
+per-string taraf gain; passing tones; FD tanpura dyad verify;
+creep dead-zone edge map.
+
+Render sent: e74_breathing_raga.ogg.
+
 ## 2026-08-30 — session 73: the breathing chord (e73)
 
 Brand-new: RHYTHM MADE ONLY OF INTERFERENCE. Four held
