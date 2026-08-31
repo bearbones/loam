@@ -256,6 +256,16 @@ _rb, _db = beat_profile(_bt, 400.0, 480.0, trend_s=1.5,
 checks.append(("ruler_beat_short_window",
         np.isfinite(_rb) and _db > 1.0))
 checks.append(("ruler_onsets", len(onset_times(_clicks)) == 12))
+from loam.ruler import flux_spectrum
+_tf8 = np.zeros(4 * SR)                   # 8 Hz click train: the
+for _i in range(32):                      # rate line where event
+    _a = int(_i * SR / 8.0)               # counting would also
+    _tf8[_a:_a + 200] = np.random.default_rng(
+            _i).standard_normal(200) * np.hanning(200)
+_ffr, _fsp = flux_spectrum(_tf8)
+_fm = (_ffr > 5.0) & (_ffr < 12.0)
+_fpk = _ffr[_fm][int(np.argmax(_fsp[_fm]))]
+checks.append(("ruler_flux_spectrum", abs(_fpk - 8.0) < 0.16))
 _tb = np.arange(4 * SR) / SR
 _bloom = np.sin(2 * np.pi * 110.0 * _tb) * np.exp(-_tb * 0.5) \
     + np.sin(2 * np.pi * 2500.0 * _tb) * np.exp(-((_tb - 0.8) / 0.35) ** 2)

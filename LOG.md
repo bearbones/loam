@@ -1,5 +1,75 @@
 # loam — log (newest at top)
 
+## 2026-08-31 — session 75: jhala (e75)
+
+Brand-new texture — the strummed climax of a sitar raga, and
+the jhala thread landed. An 0.12 s grid, 80 slots per 9.6 s
+loop: a melody pluck every 4th slot (20-note gat over Sa=D)
+and chikari strokes on hz(62) filling the rest (da-da-ra hand
+alternation — two "strings" a few cents apart, different pick
+points). 8.33 strokes/s wall to wall. 13/13 rulers. Library
+grew: ruler.flux_spectrum (dev_smoke 98 → 99).
+
+Measured: gat line read back off its own bus at median 2.3c,
+worst 6.7c; chikari bus chroma crowns class 2 at 0.79 vs 0.17
+runner-up; melody-band accent ratio 1.81 at melody slots;
+melody-band envelope spectrum crowns at EXACTLY bin 20 (the
+gat cycle, seam-locked); flux spectrum crowns at 2.09 Hz
+(written group cycle 2.083) with the stroke line at 8.36 Hz
+(written 8.333, 0.3% off) at 0.62x crown and its octave at
+16.7; halo -16.1 dB; seam p83.8.
+
+THE RULER LESSON — the strum that cannot be counted hums its
+rate. At jhala density onset counting fails from both sides,
+and it is a THRESHOLD dilemma, not a tuning problem: at
+defaults the solo buses count almost true (chikari exactly
+60/60, melody 24/20 with buzz ghosts) but the mastered mix
+recalls only 34/80 (masking merges repeated strokes);
+sensitize to k=0.7 until the mix recovers (60/80) and that
+same setting makes the buses hallucinate (41/20, 71/60 —
+jawari buzz reads as re-attacks). No single threshold serves
+both sides. The e73 boundary (counter fired by bow jitter
+from below) is now completed from above. The honest ruler is
+new: ruler.flux_spectrum, the FFT of the spectral-flux
+series — counting events fails but the PERIODICITY of the
+flux survives masking and buzz alike. Count when sparse; read
+the spectrum when dense.
+
+Second lesson — ENERGY-RHYTHM vs ATTACK-RHYTHM are different
+quantities. The amplitude envelope cannot see the strum at
+all (grid-phase ratio 1.12; ringing tails fill the 120 ms
+gaps), and in the mastered mix the melody-band envelope
+defects entirely: the drone's sustained 147 Hz floods the
+band and its own seam-locked attack lattice (plucks every
+1.2 s = 8 cycles/loop) crowns the envelope spectrum at bin 8.
+But the flux still crowns at the gat cycle with the stroke
+line at 0.83x — six loud drone events cannot outvote eighty
+strums in the flux. First failing gate shipped as a reshaped
+positive claim: envelope follows energy, flux follows
+attacks; pick the ruler for the rhythm you mean.
+
+Open threads: TIHAI over this grid (three repetitions of a
+phrase ending on the sam — the flux spectrum should show the
+tihai's own comb); gamak on the gat line (the melody is
+plain plucks; bend between them); jhala dynamics (real jhala
+accelerates — a DT ramp breaks the seam-lock unless the ramp
+itself closes the loop: chakradar of grids?); flux_spectrum
+on the bowed pieces (does the bow's attack-lessness read as
+flux silence? a stillness ruler from the other side); da/ra
+asymmetry as a 2-bin line (the chikari alternation is itself
+a period-0.24 s pattern — is its 40-cycle line in the flux?).
+Carried: breath as tala; other just proportions; Pa- jitter
+mechanism; partial-fold-aware chroma; entries as music;
+shimmer as tala; ring sharpening; canon at the 4th; oblique
+organum; bass window floor (midi 40-44); k=5e4 cliff law;
+crack flavors in the bass window; ghost as harmony;
+intermodulation forecast; tihai + gat mukhda; gamak map;
+chakradar; jugalbandi; ruler.note_evidence; jod voices;
+per-string taraf gain; passing tones; FD tanpura dyad verify;
+creep dead-zone edge map.
+
+Render sent: e75_jhala.ogg.
+
 ## 2026-08-31 — session 74: the breathing raga (e74)
 
 Refinement of e73, completed to the full Kafi hexad: six held

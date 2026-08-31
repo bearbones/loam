@@ -832,6 +832,33 @@ def chroma(x: np.ndarray, lo: float = 60.0, hi: float = 2000.0) -> np.ndarray:
     return out / (out.sum() + 1e-30)
 
 
+def flux_spectrum(x: np.ndarray, frame: int = 1024,
+        hop: int = 256) -> tuple:
+    """(freqs_hz, magnitude) of the spectral-flux series — the
+    RHYTHM SPECTRUM. Born e75: a jhala strum at 8.3 strokes/s
+    defeats onset counting from both sides (masking merges
+    strokes in the mix; the jawari buzz reads as extra strokes
+    on a solo bus) and its amplitude envelope barely ripples
+    (ringing tails fill the 120 ms gaps). But the PERIODICITY
+    of the flux survives all of it: the stroke rate stands as
+    a clear line in the flux spectrum (measured 8.36 Hz against
+    a written 8.333, with its octave beside it) even when only
+    ~75% of individual strokes are findable. Count events when
+    the texture is sparse; read this spectrum when it is dense.
+    The mean is removed; window the series before the FFT."""
+    m = _mono(x)
+    n_fr = 1 + (len(m) - frame) // hop
+    idx = np.arange(frame)[None, :] \
+        + hop * np.arange(n_fr)[:, None]
+    w = np.hanning(frame)
+    mags = np.abs(np.fft.rfft(m[idx] * w, axis=1))
+    fl = np.sum(np.maximum(mags[1:] - mags[:-1], 0.0), axis=1)
+    fl = fl - fl.mean()
+    sp = np.abs(np.fft.rfft(fl * np.hanning(len(fl))))
+    fr = np.fft.rfftfreq(len(fl), hop / SR)
+    return fr, sp
+
+
 def onset_times(x: np.ndarray, frame: int = 1024, hop: int = 256,
         k: float = 3.0, min_sep: float = 0.08,
         floor_frac: float = 0.15) -> np.ndarray:
