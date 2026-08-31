@@ -234,6 +234,141 @@ def fdpluck2(f0: float, dur: float, amp: float = 1.0,
     return (out, ou, ov) if buses else out
 
 
+def fdbow(f0, dur: float, amp: float = 1.0, kappa: float = 0.3,
+        sig0: float = 2.0, sig1: float = 1e-4, xb: float = 0.12,
+        FB: float = 1.0, vb=0.2, a: float = 100.0,
+        N: int = 0, raw: bool = False) -> np.ndarray:
+    """A BOWED string (e61): the first loam voice that sustains.
+    Every construct before this decays from its excitation; here
+    stick-slip friction at one node feeds the string for as long
+    as the bow moves, so a note can hold, swell, and glide while
+    being DRIVEN — the sarangi's voice.
+
+    The bow: at node xb, force -FB * phi(vrel) with the soft
+    friction curve phi(v) = sqrt(2a) v exp(-a v^2 + 1/2)
+    (|phi| <= 1, odd, passive — it only ever opposes relative
+    motion, so it cannot pump the scheme unstable). vrel is the
+    bow-point string velocity minus bow speed, which depends on
+    the unknown displacement: solved implicitly per sample by
+    damped Newton with a bisection fallback on the guaranteed
+    bracket rfree +/- c (c = dt FB / 2A, and |phi| <= 1 brackets
+    the root; the curve's falling flank makes raw Newton
+    oscillate near the stick-slip corner).
+
+    f0 may be a per-sample array (meend while bowing — lam2s is
+    one multiply, as fdpluck). vb may be a per-sample array (bow
+    speed envelope: swells, and vb -> 0 is the bow LIFTING — the
+    string then rings down at its own t60 = 6.9/sig0). FB is the
+    bow force in the scheme's force scale, a playability knob
+    calibrated by probe, not a Newton value: below a minimum the
+    string whispers without locking; far above it the motion goes
+    raucous. sig0 defaults higher than the pluck's 0.9 — a
+    sarangi stops singing soon after the bow stops.
+
+    No jawari here: the sarangi's flat-bridge shimmer comes from
+    its taraf, and fdsym driven by this bus already exists."""
+    dt = 1.0 / SR
+    steps = int(dur * SR)
+    f0 = np.asarray(f0, dtype=float)
+    f0max = float(f0) if f0.ndim == 0 else float(f0.max())
+    if N <= 0:
+        aa = (2.0 * f0max / SR) ** 2
+        bb_ = (2.0 * kappa / SR) ** 2
+        N = int(np.sqrt((-aa + np.sqrt(aa * aa + 2.4 * bb_))
+                / (2 * bb_)))
+        N = max(min(N, 180), 24)
+    dx = 1.0 / N
+    mu2 = (kappa * dt / dx ** 2) ** 2
+    assert (2.0 * f0max * dt / dx) ** 2 + 4 * mu2 <= 1.0, \
+        "unstable grid: shrink N or kappa"
+    if f0.ndim == 0:
+        lam2s = np.full(steps, (2.0 * float(f0) * dt / dx) ** 2)
+    else:
+        traj = np.interp(np.linspace(0, 1, steps),
+                np.linspace(0, 1, len(f0)), f0)
+        lam2s = (2.0 * traj * dt / dx) ** 2
+    vb = np.asarray(vb, dtype=float)
+    if vb.ndim == 0:
+        vbs = np.full(steps, float(vb))
+    else:
+        vbs = np.interp(np.linspace(0, 1, steps),
+                np.linspace(0, 1, len(vb)), vb)
+    FB = np.asarray(FB, dtype=float)
+    if FB.ndim == 0:
+        FBs = np.full(steps, float(FB))
+    else:
+        # bow PRESSURE envelope. FB -> 0 is the honest bow lift:
+        # a stopped bow (vb=0, FB>0) is a damper parked on the
+        # string (measured: it kills the ring 30x faster than
+        # sig0 says) — lifting means removing FORCE, not motion
+        FBs = np.interp(np.linspace(0, 1, steps),
+                np.linspace(0, 1, len(FB)), FB)
+
+    u = np.zeros(N + 1)
+    up = np.zeros(N + 1)
+    out = np.empty(steps)
+    ro = max(int(0.12 * N), 2)
+    nb = min(max(int(xb * N), 2), N - 2)
+    A = 1.0 + sig0 * dt
+    B = 1.0 - sig0 * dt
+    s1c = 2.0 * sig1 * dt / dx ** 2
+    s2a = np.sqrt(2.0 * a)
+    cs = dt * FBs / (2.0 * A)
+    lap = np.zeros(N + 1)
+    lapo = np.zeros(N + 1)
+    bi = np.zeros(N + 1)
+
+    def phi(v):
+        return s2a * v * np.exp(-a * v * v + 0.5)
+
+    def dphi(v):
+        return s2a * np.exp(-a * v * v + 0.5) * (1.0 - 2 * a * v * v)
+
+    for t in range(steps):
+        lap[1:-1] = u[2:] - 2 * u[1:-1] + u[:-2]
+        lapo[1:-1] = up[2:] - 2 * up[1:-1] + up[:-2]
+        bi[2:-2] = u[4:] - 4 * u[3:-1] + 6 * u[2:-2] - 4 * u[1:-3] \
+            + u[:-4]
+        bi[1] = u[3] - 4 * u[2] + 6 * u[1] - 4 * u[0] - u[1]
+        bi[-2] = -u[-2] - 4 * u[-1] + 6 * u[-2] - 4 * u[-3] + u[-4]
+        un = (2 * u - B * up + lam2s[t] * lap - mu2 * bi
+                + s1c * (lap - lapo)) / A
+        # implicit bow point: r + c*phi(r) = rfree
+        c = cs[t]
+        rfree = (un[nb] - up[nb]) / (2 * dt) - vbs[t]
+        r = rfree
+        ok = False
+        for _ in range(12):
+            g = r + c * phi(r) - rfree
+            if abs(g) < 1e-12:
+                ok = True
+                break
+            gp = 1.0 + c * dphi(r)
+            if gp <= 0.2:
+                break
+            r -= g / gp
+        if not ok and abs(r + c * phi(r) - rfree) > 1e-12:
+            lo, hi = rfree - c, rfree + c
+            for _ in range(60):
+                r = 0.5 * (lo + hi)
+                if r + c * phi(r) - rfree > 0.0:
+                    hi = r
+                else:
+                    lo = r
+        un[nb] = up[nb] + 2 * dt * (r + vbs[t])
+        un[0] = un[-1] = 0.0
+        out[t] = (un[ro] - u[ro]) * SR
+        up, u = u, un
+    r_ = int(min(0.05, dur * 0.1) * SR)
+    if r_ > 0:
+        out[-r_:] *= np.linspace(1, 0, r_)
+    if raw:
+        # unnormalized: level claims (minimum bow force, swells)
+        # need the scheme's own scale, not a max of 0.9
+        return out * amp
+    return out * amp / (np.max(np.abs(out)) + 1e-12) * 0.9
+
+
 def fdsym(f0s, drive: np.ndarray, amp: float = 1.0,
         kappa: float = 0.3, sig0: float = 0.12, sig1: float = 1e-4,
         node: float = 0.93, N: int = 0, buses: bool = False,

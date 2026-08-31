@@ -1,5 +1,77 @@
 # loam — log (newest at top)
 
+## 2026-08-30 — session 61: sarangi — the first voice that sustains (e61, fdstring.fdbow)
+
+New instrument CLASS: the bowed string. Everything loam played
+before this decays from its excitation; fdbow feeds the string
+through stick-slip friction at one node (soft curve phi(v) =
+sqrt(2a) v exp(-a v^2 + 1/2), |phi| <= 1 so it brackets its
+own implicit solve: damped Newton, bisection fallback on
+rfree +/- c). f0, bow speed AND bow force all take per-sample
+arrays — meend, swells, and lifts are the voice. 11/11 rulers,
+dev_smoke 88 green.
+
+The modeling lesson of the cycle: A STOPPED BOW IS NOT A
+LIFTED BOW. With vb=0 and force still applied, the friction
+curve is a damper parked on the string — release t60 read
+0.12 s against a designed 3.45. Lifting means FB -> 0; with
+force as an envelope the release reads 3.30 s (4% off design),
+and in the piece 1.72 vs 1.73. Force, not motion, is what
+lifts.
+
+Playability is a MAP with holes, walked before trusting:
+minimum bow force is sharp (FB=50 whispers at 1e-3 of locked;
+locked from ~3e2), an octave pocket (double-slip motion) sits
+at FB=2e3, vb=0.10 INSIDE the locked region, vb=0.4 at
+moderate force never catches (the too-fast airy non-tone), and
+FB crescendos SATURATE — pressure adds grip, not level, so
+swells ride bow SPEED (measured in the piece: windowed rms vs
+designed vb envelope r = 0.997). The locked tone sits -6.9c
+flat: friction flattening, the bowed-string classic, measured
+not assumed.
+
+Ruler lessons:
+  - whole-signal hann chroma weights a MOVING line by where
+    the window bump lands: the single pass crowned F/E (the
+    Ga/Re holds sit at the signal's center), the doubled copy
+    crowned D (the seam does). Same piece, two verdicts,
+    neither honest. Fix: time-uniform chroma (mean of
+    overlapping short windows). Stationary buses never see
+    this; melodies always will — candidate for a ruler
+    function if it recurs.
+  - the two-pole {D, A} mix claim belongs to drone/theka
+    pieces; a SOLO-voice piece redistributes the upper
+    classes (Ga/Re holds outweigh the Pa drone). The honest
+    solo claim: Sa is the tonal center (top class D at x2.3
+    over runner-up, time-uniform).
+  - harmonicity of a bright spectrum: the strongest-5 modes
+    are harmonics 2..6 (bow at xb=0.12), so require the stack
+    CONSECUTIVE, not starting at 1 (misfit 0.4c).
+  - raw=True escape from output normalization: level claims
+    (minimum bow force, swells) need the scheme's own scale.
+
+The piece: jor. One closed phrase orbit over the tanpura —
+Sa swells, meends to komal Ga, falls through Re, returns, and
+the bow lifts at 8.5 s so the ring decays into the seam. Holds
+worst 2.6c; contour vs written line median 2.1c over 8 s;
+voice never drops below 0.69 of its max; seam p34.
+
+Render sent: e61_sarangi.ogg (two passes).
+
+Open threads: sarangi + taraf (drive fdsym from the bowed bus
+— a SUSTAINED coherent driver is what e53 said selectivity
+wants; should be the strongest halo yet); sarangi + tabla (jor
+-> jhala with the e59/e60 vocabulary); vibrato/andolan (f0
+wobble on the bow, ornament_profile the ruler); double stops
+(two bowed strings, dyad ruler); bow position xb as brightness
+knob (measure centroid vs xb); chakradar; tin rim stroke;
+layakari; glide DOWN; jugalbandi. Carried: time-uniform chroma
+-> ruler if it recurs; grid-resolution study; note_evidence;
+jod voices; per-string taraf gain; jhala-bus taraf drive;
+jhala acceleration; (8,15)-family triad misses; passing tones;
+pluck angle; meend on two-pol; canon at the 4th; FD tanpura
+dyad verify; sub-midi-40 window.
+
 ## 2026-08-30 — session 60: tihai — the kaida learns to end (e60)
 
 Refinement of e59: kaida DEVELOPMENT, the rhythmic argument.

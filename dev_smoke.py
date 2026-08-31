@@ -118,6 +118,14 @@ _sdrv = 0.3 * np.sin(2 * np.pi * 220.0 * np.arange(int(0.6 * SR))
 _, _sb = fdsym([220.0, 233.1], _sdrv, N=60, buses=True)
 _sr = [float(np.sqrt(np.mean(b ** 2))) for b in _sb]
 checks.append(("fdsym", _sr[0] > 5.0 * _sr[1]))
+from loam.fdstring import fdbow
+_bw = fdbow(200.0, 0.7, FB=1e3, vb=0.10)
+from loam.ruler import hps_pitch as _hp
+_bp = _hp(_bw[int(0.3 * SR):], fmin=80.0, fmax=800.0)
+_ble = (np.sqrt(np.mean(_bw[int(0.5 * SR):int(0.65 * SR)] ** 2))
+        / np.sqrt(np.mean(_bw[int(0.2 * SR):int(0.35 * SR)] ** 2)))
+checks.append(("fdbow", abs(1200 * np.log2(_bp / 200.0)) < 30.0
+        and _ble > 0.7))
 _, _jb = fdsym([220.0], _sdrv, N=60, buses=True, jawari=True,
         gain=5000.0)
 
