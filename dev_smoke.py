@@ -139,6 +139,27 @@ checks.append(("fdpluck2_click",
         and (_nz[-1] - _nz[0]) <= int(0.008 * SR)
         and abs(_rdb(sosfilt(_sosl, _pc),
                 sosfilt(_sosl, _p0))) <= 0.5))
+# e81 shamisen: sawari lifts HF (the ridge buzz), the don lives
+# in the head-mode band, pitch holds, honchoshi is 1 : 4/3 : 2
+from loam.nihon import shamisen, honchoshi
+from loam.ruler import hps_pitch as _shp
+_sh1 = shamisen(155.6, 0.9, sawari=1.0, snap=0.0, thump=0.0)
+_sh0 = shamisen(155.6, 0.9, sawari=0.0, snap=0.0, thump=0.0)
+_soshi = butter(4, 2000.0, btype="highpass", fs=SR, output="sos")
+_sht = shamisen(311.1, 0.9, thump=0.5, snap=0.0)
+_shn = shamisen(311.1, 0.9, thump=0.0, snap=0.0)
+_sosd = butter(4, [150.0, 250.0], btype="bandpass", fs=SR,
+        output="sos")
+_shf = _shp(_sh0[int(0.05 * SR):int(0.6 * SR)],
+        fmin=80.0, fmax=400.0)
+_hc = honchoshi(100.0)
+checks.append(("nihon_shamisen",
+        _rdb(sosfilt(_soshi, _sh1), sosfilt(_soshi, _sh0)) >= 5.0
+        and _rdb(sosfilt(_sosd, _sht[:int(0.1 * SR)]),
+                sosfilt(_sosd, _shn[:int(0.1 * SR)])) >= 10.0
+        and abs(1200.0 * np.log2(_shf / 155.6)) <= 25.0
+        and abs(_hc[1] / _hc[0] - 4.0 / 3.0) < 1e-9
+        and abs(_hc[2] / _hc[0] - 2.0) < 1e-9))
 _sdrv = 0.3 * np.sin(2 * np.pi * 220.0 * np.arange(int(0.6 * SR))
         / SR)
 _, _sb = fdsym([220.0, 233.1], _sdrv, N=60, buses=True)

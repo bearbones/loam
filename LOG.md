@@ -1,5 +1,51 @@
 # loam — log (newest at top)
 
+## 2026-09-02 — e81: loam.nihon is born — shamisen, demoed on "The Next Episode"
+
+Operator direction: take the strings to Japan, demo with the
+opening tune of Dr. Dre & Snoop Dogg's "The Next Episode"
+(the David McCallum "The Edge" riff), then develop the winds.
+
+The shamisen was already latent in the library: SAWARI is
+jawari physics (the same one-sided barrier fdpluck2 has
+carried since e48 — two traditions, one trick: give the
+string something to slap); the BACHI SNAP is e80's click
+writ large (wider band, 2.5-11 kHz); new is the DON — the
+bachi strikes the hide and the string in one gesture, so a
+two-mode membrane thump lands at the string's speak time
+alongside the click. loam/nihon.py: shamisen(f0, dur, amp,
+sawari, snap, thump, pick), honchoshi tuning helper. Sawari
+maps exponentially to barrier depth (the buzz only wakes
+below gcurve ~0.06: gc 0.03 = +7 dB above 2 kHz, centroid
+600 -> 1957 Hz; the sitar's own 0.2 is barely audible on
+this softer silk string). dev_smoke 105 green.
+
+The demo: Eb minor, 95 BPM, two 4-bar cycles — lead riff on
+clean upper strings, bass on the full-sawari low string
+walking Eb -> Cb under bar four, cycle B adds a low sawari
+echo. 8/8: all 24 melody notes within 10.6 cents (the tune
+IS the tune), all 48 bass strokes within 7.4 cents, sawari
+bass +8.0 dB over its clean counterfactual, don +17.7 dB in
+its band, all 62 bachi strokes mark within 4.6 ms (e80's
+click contract holds cross-instrument), dotted-eighth groove
+line 2.08 Hz at 6.3x, Eb crowns.
+
+RULER LESSONS EARNED:
+  - THE HAND IS PART OF THE MODEL. Letting each bass stroke
+    ring into the next blurred the Eb->Cb walk to 330 measured
+    cents: consecutive strokes share a string, and a fretting
+    hand chokes the old note. Truncate + 20 ms fade at the
+    next stroke's arrival; the walk snapped to 7.4 cents.
+  - PARTIALS ARE NOT BINS, the bass edition: a 0.14 s pitch
+    window quantizes 60-80 Hz to 7.1 Hz bins — the misreads
+    sat exactly on bin multiples (71.4 = 10 bins, 64.3 = 9).
+    And the don's head modes own the first 50 ms. Window
+    0.05-0.25 s, Hann, zero-pad 1.8 s: worst error 7.4 c.
+
+Open threads: shakuhachi next (operator direction — the
+winds); sukui/hajiki stroke variants; kouta phrasing over
+honchoshi; sawari as a per-note dynamic (the tsugaru attack).
+
 ## 2026-09-02 — e80: "The Mizrab Leans In" — click as a written parameter
 
 Refinement cycle: the landings overlay hack is now first-class.
