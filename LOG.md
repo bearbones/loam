@@ -1,5 +1,54 @@
 # loam — log (newest at top)
 
+## 2026-09-02 — e83: Chelonia — the turtle in the light (operator commission)
+
+The green sea turtle piece: feeling the current, enjoying the
+sunlight catching through the ripple crests. 76.8 s, E major
+water. Four layers, each with a written physics and a ruler:
+
+  - THE WATER: dark and bright padsynth draws of E2, crossfaded
+    by the SURGE (4 swells/loop, 19.2 s) — the medium breathes
+    in level and brightens as it pushes.
+  - THE BODY: mono E3 pad that pitch-LEANS ±10 c with the surge
+    via e82's warp resample — born last cycle as a drift
+    CORRECTION, an expressive gesture one cycle later. The
+    turtle is silent; the body is felt, dead center.
+  - THE LIGHT: 179 glass glints (modal GLASS, high E pentatonic)
+    whose density is gated by crest(t)^3 at the ripple rate —
+    1.25 Hz, exactly 96 cycles/loop — under a 2-cycle sun curve.
+    Caustics are a POINT PROCESS: bright lines sweep past at the
+    ripple rate, and clouds pass.
+  - THE EXHALE: rising-chirp bubble runs at each surge crest.
+
+10/10: surge line at exactly 4 cyc/loop (10.2x), centroid-vs-
+crossfade r=0.83, lean r=0.85 at 11.8 c depth, flicker line
+1.250 Hz (15.8x), sun arc r=0.89, caustic side/mid -7.2 dB vs
+body -286 dB with water corr 0.00, register split 10.2x,
+exhale-to-measured-crest 0.10 s, chroma poles {E, B}.
+
+RULER LESSONS EARNED:
+  - EQUAL-POWER OR THE FADE IS THE ENVELOPE: linearly
+    crossfading two decorrelated pads dips ~6 dB mid-fade and
+    stamped a double-humped 8-cyc/loop line on a 4-cycle
+    design. RMS-normalize the pads and divide by
+    sqrt(gd^2+gb^2): the written level curve becomes the
+    measured envelope, same night and day as e79's census fix.
+  - FIT PHASE GLOBALLY, DON'T TRUST A LOCAL ARGMAX: near a
+    sine crest the design is flat, and padsynth's narrowband
+    beating wobbles 0.2 s RMS frames enough that a local
+    envelope argmax wanders ±1 s for free. Projecting the whole
+    loop onto the quadrature pair at the design rate reads the
+    crest phase to 0.07 s.
+  - A claim can tie two buses together: the exhale ruler
+    checks bubbles against the MEASURED water crest, not the
+    written time — verifying the chain, not the intention.
+
+Open threads: more nihon winds ("and so forth" — hichiriki?
+sho cluster chords?); caustic glints as a reusable
+texture.caustics() if a second piece wants them; the turtle
+surfacing (a piece-length arc, not a loop: breath held then
+released); sankyoku duet (shakuhachi + shamisen + bell).
+
 ## 2026-09-02 — e82: shakuhachi — a honkyoku for the temple bell
 
 The winds, per operator direction. loam.nihon.shakuhachi():
