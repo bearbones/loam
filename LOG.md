@@ -1,5 +1,47 @@
 # loam — log (newest at top)
 
+## 2026-09-02 — showcase: "Nine Landings" (songs/landings.py)
+
+Third showcase piece. Spirit: equal in phase, unequal on the
+clock. A chakradar — the tihai of tihais, the oldest open
+rhythm thread — over an e77 breathing grid at double scale:
+38.4 s, 320 strokes, TWO breath cycles, rate 8.333 -
+2.2 cos(4 pi t / 38.4). The mukhda (ma-ga-Sa landing on Sa)
+is stated nine times at STROKE lags of 7 within each tihai
+and 24 between tihais: 254 + 2x24 + 2x7 + 4 = 320 = 0, so
+the ninth landing IS the sam by arithmetic — while the grid
+decelerates from ~10 to 6.1 strokes/s underneath, so the
+countdown audibly slows and still lands on zero. Tabla dha
+marks each landing (the piece's namesake), pressed bayan
+takes sam; tanpura and unbroken da/ra jhala underneath.
+
+Measured (10/10): landing phases (tabla-bus onsets mapped
+through the written phase integral) sit within 0.11 slots of
+254+{4,11,18,28,35,42,52,59,66}; clock gaps stretch 0.70 ->
+1.16 s (x1.66); sam dha at t=12 ms; contour median 0.7%,
+worst 2.9% in statement-clear windows, folded integral 319.9
+vs 320; line readback 1.6c median at the breathing times;
+drums -18.4 dB; chroma crowns Sa; seam p70.3.
+
+RULER LESSONS EARNED:
+  - A STATEMENT WINDOW PINS AT THE BAND FLOOR. One contour
+    window (of 195) read exactly 4.50 Hz = rmin, 0.2 slots
+    from a landing: the mukhda's 2-slot melody spacing owns
+    rate/2, BELOW the analysis band, so the estimator pins at
+    the edge. e77's exclusion idiom applies: statement
+    windows are claimed by the phase-lag ruler, not the
+    contour.
+  - THE DOUBLED SIGNAL SHOWS AN ATTACK TWICE. The sam strike
+    at t=0.012 reappeared at 38.388 — its copy at the
+    doubled-signal boundary, read one detector hop early, too
+    far from its twin for min_sep to merge. Onsets in the
+    last 50 ms (where nothing is written) are wrap images.
+
+Open threads: a chakradar whose statements themselves
+breathe (mukhda on its own local grid); bells tolling ektal
+(from vespers); drums playing the full countdown, not just
+the landings.
+
 ## 2026-09-02 — showcase: "Vespers for the Workshop" (songs/vespers.py)
 
 Second of the operator-requested showcase pieces (first,
