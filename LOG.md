@@ -1,5 +1,48 @@
 # loam — log (newest at top)
 
+## 2026-09-03 — e92: SUIKINKUTSU — the water-echo pot
+
+New texture-instrument pair in nihon.py: suikinkutsu_ir() (the
+buried pot as a stereo modal IR — hollow ~360 Hz body plus
+ceramic rings at 1150/1720/2310 Hz, channels detuned +-0.2%:
+two listening points on one pot) and waterdrop() (Minnaert
+bubble with its rising chirp + a 2 ms impact tick). The tick
+is load-bearing: a 900-2400 Hz bubble has NO energy at 360 Hz,
+so without the impact the pot's hollow stays silent — e84's
+register rule, cavity edition: excitation must reach the
+resonance you claim.
+
+The piece: 34 s loop, 22 written drops (seeded arrivals, min
+gap 0.30 s) into the pot over faint garden air. The
+convolution tail wraps the seam — the pot rings across it by
+construction. 6/6: modes stand at written freqs worst 1.9 c,
+drops mark worst 7.1 ms, chirp ratios worst 1.2% off design,
+pot transfer +27 dB at modes vs between, envelope p99.5 sits
+63 dB over p15, seam p80.4. dev_smoke 116 green.
+
+RULER LESSONS EARNED:
+  - A MODE IS A CLUSTER, NOT A LINE: channel detuning and
+    arrival-pattern sidebands split each resonance into a
+    family of spectral peaks, and mode_freqs' k-strongest cut
+    spent all eight slots inside the loudest family (360/1720/
+    2310 never made the list). merge fuses each family to its
+    power-weighted center FIRST — written for the staircase
+    disc, earned again by a pot.
+  - THE SAME RULER NEEDS DIFFERENT SETTINGS ON DIFFERENT
+    SOURCES: default rel found all modes on the drop-excited
+    render but dropped two on the pure IR (excitation
+    re-weights the peak family); rel=0.001 on the clean IR.
+    A ruler's thresholds are part of the claim, not
+    boilerplate.
+  - `exit ${pipestatus[1]}` bit again — a piped tail read
+    dev_smoke's failure as success until the exit was taken
+    from the right pipe slot.
+
+Open threads: te-utsuri (sho pipes one by one); caustics
+depth-lowpass; komibuki acceleration; hiki-iro; the tegoto
+long arc; suikinkutsu could join a garden scene (shishi-odoshi
+clack + cicadas + the pot — a full niwa soundscape).
+
 ## 2026-09-03 — e91: SANKYOKU — koto, shamisen, shakuhachi (capstone)
 
 The trio assembled the way sankyoku actually works:

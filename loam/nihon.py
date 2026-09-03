@@ -93,6 +93,54 @@ def honchoshi(root_hz: float):
 HIRAJOSHI = (0, 1, 5, 7, 8)
 
 
+# suikinkutsu pot modes: (freq_hz, amp, t60_s) — one hollow
+# Helmholtz-ish body mode plus three ceramic cavity rings
+SUIKIN_MODES = ((360.0, 0.9, 0.50), (1150.0, 1.0, 0.35),
+        (1720.0, 0.8, 0.28), (2310.0, 0.55, 0.20))
+
+
+def suikinkutsu_ir(modes=SUIKIN_MODES, dur: float = 1.4,
+        detune: float = 0.004) -> np.ndarray:
+    """The buried pot as a stereo impulse response: a sum of
+    decaying sinusoids at the cavity modes, each channel's
+    modes detuned +-detune/2 (two listening points on one pot —
+    decorrelation without a second pot). Deterministic."""
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    ir = np.zeros((n, 2))
+    for ch, dt in ((0, -0.5 * detune), (1, 0.5 * detune)):
+        for f, a, t60 in modes:
+            fc = f * (1.0 + dt)
+            ir[:, ch] += a * np.sin(2 * np.pi * fc * t) \
+                * np.exp(-6.91 * t / t60)
+    a_n = max(int(0.001 * SR), 1)
+    ir[:a_n] *= np.linspace(0.0, 1.0, a_n)[:, None]
+    return ir / (np.abs(ir).max() + 1e-12)
+
+
+def waterdrop(f0: float, chirp: float = 1.7, damp: float = 0.75,
+        tick: float = 0.25) -> np.ndarray:
+    """One drop striking the pool: the Minnaert bubble (the
+    pitched, RISING blip) plus a 2 ms broadband tick — the
+    impact itself. The tick matters for the pot: a 900-2400 Hz
+    bubble carries no energy at a ~360 Hz body mode, so without
+    the impact the hollow of the chamber stays silent (e84's
+    register rule: excitation must reach the resonance you
+    claim). Deterministic per f0."""
+    from .texture import bubble
+    b = bubble(f0, chirp=chirp, damp=damp)
+    n = max(len(b), int(0.012 * SR))
+    v = np.zeros(n)
+    v[:len(b)] += b
+    rng = np.random.default_rng(int(f0 * 1000.0) & 0x7FFFFFFF)
+    tk = rng.standard_normal(int(0.002 * SR))
+    tk = sosfilt(butter(2, [200.0, 4500.0], btype="bandpass",
+            fs=SR, output="sos"), tk)
+    tk *= np.linspace(1.0, 0.0, len(tk)) ** 2
+    v[:len(tk)] += tick * tk / (np.abs(tk).max() + 1e-12)
+    return v
+
+
 def koto(f0: float, dur: float = 2.8, amp: float = 1.0,
         tsume: float = 0.6, bend_c: float = 0.0,
         bend_at: float = 0.30, bend_rise: float = 0.22,

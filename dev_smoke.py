@@ -346,6 +346,26 @@ checks.append(("nihon_koto",
         and abs(_kod - 150.0) <= 15.0
         and 20.0 * np.log10(_kbrms(_ko)
                 / _kbrms(koto(220.0, 1.8, body=0.0))) >= 3.0))
+# e92 suikinkutsu: deterministic pot + drop; the IR's modes sit
+# where written (merge: each mode is a detuned-channel cluster);
+# the drop's bubble rises
+from loam.nihon import suikinkutsu_ir, waterdrop, SUIKIN_MODES
+from loam.ruler import mode_freqs as _smf
+_sir = suikinkutsu_ir()
+_smod = _smf(_sir.mean(axis=1), k=6, fmin=280.0, fmax=2600.0,
+        rel=0.001, merge=0.02)
+_sworst = max(abs(1200.0 * np.log2(
+        _smod[np.argmin(np.abs(np.log(_smod / f)))] / f))
+        for f, a, t in SUIKIN_MODES)
+_swd = waterdrop(1500.0)
+_sph = np.unwrap(np.angle(__import__("scipy.signal",
+        fromlist=["hilbert"]).hilbert(_swd[:int(0.006 * SR)])))
+_sif = np.diff(_sph) * SR / (2 * np.pi)
+checks.append(("suikinkutsu",
+        np.array_equal(_sir, suikinkutsu_ir())
+        and np.array_equal(_swd, waterdrop(1500.0))
+        and _sworst <= 25.0
+        and np.median(_sif[-40:]) > np.median(_sif[40:80])))
 # e87 gagaku percussion: deterministic voices, each keeping to its
 # register (taiko low, kakko mid, shoko bright)
 from loam.nihon import shoko, kakko, taiko
