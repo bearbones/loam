@@ -1,5 +1,46 @@
 # loam — log (newest at top)
 
+## 2026-09-02 — showcase: "Avartan" (songs/avartan.py)
+
+First of the three operator-requested showcase pieces (landed
+last — five renders of honest calibration; file arrived with
+the repair commit). Spirit: one full turn of the wheel. The
+whole raga arc in a single 96 s seamless cycle, every era-V
+construct in one ensemble: alap (three bowed sarangi phrases
+through the certified entry shelf, ga hold with written
+andolan), jor (pulse emerges: Sa-Sa-ga-Sa on the 0.48 s
+grid), gat (the e66 sentence x3 with the third raised to ma,
+over twelve tintal avartans of e59 bols), jhala (80-slot
+engine at 8.33/s), and e76's tihai whose third Sa IS the sam:
+86.4 + 62x0.12 + 2x(7x0.12) + 4x0.12 = 96.0 = 0. The piece
+ends by beginning.
+
+Measured (13/13): seam p68.6; section clocks 2.06/3.32/8.35
+Hz at 6/56/6x prominence vs alap's 4.3x (stillness, then
+pulse); nine bow holds worst 4.7c; andolan 1.27 Hz / 33c
+(written 1.25/35); khali bass hole 0.009 over twelve
+avartans; tihai self-similarity at the 0.84 s lag r23 0.80
+vs control 0.28; all 240 jhala ticks within 3.3 ms, 87 time
+marks worst 3.8 ms; sam stroke at 12 ms; taraf halo -20.2 dB;
+theka -13.0 dB beside the voice; Sa crowns the chroma.
+
+RULER LESSONS EARNED (beyond those logged in the repair and
+e78 entries, which this piece forced):
+  - THE TABLA RESTS FOR THE TIHAI. With the theka thundering
+    through the countdown, the melody-band self-correlation
+    read 0.21 (the bayan owns 105.6 Hz inside a naive
+    100-210 band). Banding to the tihai's own notes (135-190)
+    AND the traditional gesture — drums out from 93.8 s,
+    returning as the sam itself — took it to 0.80/0.86.
+  - AN ARRIVAL OUTWEIGHS ITS ECHO: r23 tops near 0.84 because
+    the sam's pressed bayan (141.2 Hz, in-band) lands inside
+    the third window only — by design, so the gate is 0.80
+    with the mechanism, not 0.85 with a wish.
+
+Open threads: the arc at double length (a real vistar in the
+gat); a second gat sentence in counterpoint; meend into the
+tihai notes.
+
 ## 2026-09-02 — the luthier's repair: time marks (landings + avartan)
 
 Operator, on Nine Landings: "where the beat is held by the
