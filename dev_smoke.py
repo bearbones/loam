@@ -212,6 +212,33 @@ checks.append(("nihon_shakuhachi",
         and abs(_skcen) <= 20.0
         and (_sk_early(_ska, _skf) - _sk_early(_skb, _skf)) <= -21.0
         and _sk_gust(_skb) - _sk_gust(_skc) >= 6.0))
+# e89 komibuki: the pulsed breath flickers the envelope at the
+# written rate (measurement-differenced vs a still-breath twin;
+# waveform twin-delta is a clock delta and floods — see e89)
+_skk = shakuhachi(_skf, 3.0, muraiki=0.3, scoop=0.0,
+        komibuki=0.5, komi_hz=6.0, seed=4)
+_skq = shakuhachi(_skf, 3.0, muraiki=0.3, scoop=0.0,
+        komibuki=0.0, seed=4)
+
+
+def _sk_kline(v):
+    e = np.abs(v)
+    kk = int(0.02 * SR)
+    e = np.convolve(e, np.ones(kk) / kk, mode="same")
+    e = e[int(0.9 * SR):int(2.65 * SR)]
+    e = e / e.mean() - 1.0
+    S = np.abs(np.fft.rfft(e * np.hanning(len(e))))
+    fq = np.fft.rfftfreq(len(e), 1.0 / SR)
+    return S[np.argmin(np.abs(fq - 6.0))]
+
+
+# back-compat: komibuki=0 must be bit-identical to the
+# pre-komibuki instrument
+checks.append(("nihon_komibuki",
+        np.array_equal(_skq, shakuhachi(_skf, 3.0,
+                muraiki=0.3, scoop=0.0, seed=4))
+        and 20.0 * np.log10(_sk_kline(_skk)
+                / (_sk_kline(_skq) + 1e-12)) >= 15.0))
 # e84 reedpipe + hichiriki: the valve on the quarter-wave bore is
 # odd-dominant (cylindrical signature); deterministic; on pitch.
 # hichiriki restores even partials (reed asymmetry) and pours the

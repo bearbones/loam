@@ -107,7 +107,9 @@ def _if_track(x: np.ndarray, f0: float) -> np.ndarray:
 def shakuhachi(f0: float, dur: float, amp: float = 1.0,
         muraiki: float = 0.5, scoop: float = 40.0,
         yuri_hz: float = 2.8, yuri_c: float = 18.0,
-        breathiness: float = 0.10, seed: int = 0) -> np.ndarray:
+        breathiness: float = 0.10, komibuki: float = 0.0,
+        komi_hz: float = 5.5, komi_c: float = 5.0,
+        seed: int = 0) -> np.ndarray:
     """One breath on the bamboo. Built on the self-tuning
     waveguide flute plus a GESTURE LAYER, because the gestures
     that make a shakuhachi a shakuhachi are pitch motions the
@@ -123,7 +125,17 @@ def shakuhachi(f0: float, dur: float, amp: float = 1.0,
       - yuri (`yuri_hz`, `yuri_c`): slow deep pitch vibrato,
         entering after ~0.9 s, same warp; a small in-loop
         pressure vibrato keeps amplitude and brightness
-        breathing with it.
+        breathing with it;
+      - KOMIBUKI (`komibuki` 0..1 depth, `komi_hz`, `komi_c`):
+        pulsed breath — rhythmic diaphragm pushes on the held
+        tone (Tsuru no Sugomori's crane voice). Three coupled
+        layers per push, entering after ~0.35 s: an amplitude
+        pulse (floor 1-komibuki between pushes), a burst of
+        direct-radiation hiss riding each push, and a small
+        written pitch flutter (`komi_c` cents, mean-removed so
+        the sustain center holds) — written into the warp, not
+        blown, because jet pressure provably cannot bend this
+        bore's pitch.
 
     The warp also folds in the note's measured residual tuning
     error (the waveguide tuner promises ~12 cents; here the
@@ -168,9 +180,14 @@ def shakuhachi(f0: float, dur: float, amp: float = 1.0,
     n = int(dur * SR)
     t = np.arange(n) / SR
     drift = np.interp(t, kc, kv)
+    # komibuki pulse train: (0.5-0.5cos)^2 peaks once per period
+    # (mean 3/8), gated in after the attack settles
+    kg = np.clip((t - 0.35) / 0.30, 0.0, 1.0) * (komibuki > 0.0)
+    pul = (0.5 - 0.5 * np.cos(2.0 * np.pi * komi_hz * t)) ** 2
     cents = (-scoop * np.exp(-t / 0.45)
              + yuri_c * np.sin(2.0 * np.pi * yuri_hz * t)
              * np.clip((t - 0.9) / 0.7, 0.0, 1.0)
+             + komi_c * (pul - 0.375) * kg
              - drift)
     ratio = 2.0 ** (cents / 1200.0)
     idx = np.cumsum(ratio)
@@ -193,6 +210,17 @@ def shakuhachi(f0: float, dur: float, amp: float = 1.0,
         hiss = hiss / (np.abs(hiss).max() + 1e-12)
         out = out + hiss * np.exp(-t / 0.30) * (0.30 * muraiki
                 * np.abs(out).max())
+    if komibuki > 0.0:
+        ref = np.abs(out).max()
+        # the diaphragm push: tone dips to (1-komibuki) between
+        # pushes, and each push carries its own turbulence
+        # (direct radiation, same stance as the muraiki gust)
+        out = out * (1.0 - komibuki * kg * (1.0 - pul))
+        rngk = np.random.default_rng(seed * 91 + 7)
+        kh = sosfilt(butter(3, [2500.0, 9000.0], btype="bandpass",
+                fs=SR, output="sos"), rngk.standard_normal(n))
+        kh = kh / (np.abs(kh).max() + 1e-12)
+        out = out + kh * (0.10 * komibuki * ref) * kg * pul ** 2
     na = int(0.06 * SR)
     out[:na] *= np.linspace(0.0, 1.0, na) ** 1.5
     r = int(0.03 * SR)

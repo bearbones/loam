@@ -1,5 +1,52 @@
 # loam — log (newest at top)
 
+## 2026-09-03 — e89: komibuki — the pulsed breath (two cranes)
+
+nihon.shakuhachi() learns KOMIBUKI (Tsuru no Sugomori's crane
+voice): rhythmic diaphragm pushes on the held tone, three
+coupled layers gated in after the attack — amplitude pulse
+(floor 1-komibuki between pushes), direct-radiation turbulence
+riding each push, and a small mean-removed pitch flutter
+written into the warp. komibuki=0 stays bit-identical to the
+old instrument (checked).
+
+The piece: 33.6 s loop, D minyo over low wind. Two cranes
+answer at DIFFERENT written pulse rates (5.2 / 6.5 Hz), the
+settling note pulses slow (4.5 Hz). 7/7 first run: rates read
+worst 0.09 Hz off written, selectivity +23 dB (rates don't
+blur), depth worst 0.25 dB off design, twin contrast +32 dB,
+hiss-vs-pulse worst r=0.95, centers worst 8.9 c, seam p21.7.
+dev_smoke 114 green.
+
+RULER LESSONS EARNED:
+  - A WARP DELTA IS A CLOCK DELTA: twin-delta by WAVEFORM
+    differencing fails on pitch-warped twins even when both
+    are deterministic and the warp is mean-removed — the
+    twins' sample clocks oscillate ~12 samples apart, and the
+    difference is noise-slew x clock-offset: 14 c rms of fresh
+    in-band noise (more than either track alone). e82's
+    twin-delta survived because it differenced MEASUREMENTS
+    (FFT peak positions), never waveforms. Difference
+    measurements of twins; never subtract their waveforms
+    across a time warp.
+  - PERIODICITY DOES NOT BEAT THE BT WALL BY ITSELF: a 3 c
+    flutter line at 6 Hz sits under the breathy bore's ~11.5 c
+    per-bin IF noise floor, and the floor shrinks only as
+    sqrt(T) — a ~210 s sustain would be needed. The flutter
+    stays in the sound as physical micro-motion and earns no
+    ruler; the AMPLITUDE layers carry the claims (+32 dB line,
+    depth to 0.25 dB, hiss r 0.95).
+  - Distinct written rates per note make the rate claim
+    falsifiable twice over: match your own rate AND stand
+    >= 10 dB over the other notes' rate bins in your own
+    spectrum (selectivity), so a global tremolo can't fake it.
+
+Open threads: sankyoku duet (shamisen + shakuhachi + bell);
+te-utsuri (sho pipes entering one by one); caustics
+depth-dependent lowpass; komibuki could accelerate within a
+note (the crane agitates — needs a chirped pulse train and a
+rate-track ruler).
+
 ## 2026-09-03 — e88: SURFACING — the turtle rises (arc piece)
 
 The Chelonia sequel, and the first NON-LOOP: a 72 s arc.
