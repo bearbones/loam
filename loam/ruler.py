@@ -896,6 +896,28 @@ def flux_line(x: np.ndarray, lo: float, hi: float,
     return float(fr[bsel][i]), float(sp[bsel][i] / (med + 1e-12))
 
 
+def if_pitch(x: np.ndarray, f0: float,
+        band=(0.93, 1.075)) -> np.ndarray:
+    """Instantaneous-frequency track (Hz, per sample) of a tone
+    near a KNOWN f0 — the pitch ruler for BREATHY voices (e82,
+    the shakuhachi). Spectral-peak detectors scatter +-100 cents
+    on such signals: in any honest search band the breath noise
+    out-competes a wandering tone in short windows, and the
+    misreads look confident. Zero-phase narrowband filtering
+    (sosfiltfilt, so gestures aren't time-shifted) followed by
+    the analytic-signal phase derivative tracks the tone
+    through the hiss. Median a window of the result for a
+    center; spectrum the contour for vibrato rate and depth.
+    Requires knowing what note was WRITTEN — this is a
+    design-vs-measured ruler, not a transcriber."""
+    from scipy.signal import hilbert
+    sos = butter(4, [f0 * band[0], f0 * band[1]],
+            btype="bandpass", fs=SR, output="sos")
+    nbf = sosfiltfilt(sos, _mono(x))
+    ph = np.unwrap(np.angle(hilbert(nbf)))
+    return np.diff(ph) * SR / (2.0 * np.pi)
+
+
 def speak_time(v: np.ndarray, smooth_s: float = 0.004) -> float:
     """Seconds from a voice's first sample to its PERCEIVED
     attack — the point of steepest envelope rise. Born from

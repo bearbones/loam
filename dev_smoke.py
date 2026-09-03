@@ -160,6 +160,58 @@ checks.append(("nihon_shamisen",
         and abs(1200.0 * np.log2(_shf / 155.6)) <= 25.0
         and abs(_hc[1] / _hc[0] - 4.0 / 3.0) < 1e-9
         and abs(_hc[2] / _hc[0] - 2.0) < 1e-9))
+# e82 ruler.if_pitch: reads a known off-pitch tone through noise
+# (spectral-peak detectors scatter +-100c on breathy signals)
+from loam.ruler import if_pitch as _ifp
+_ift = np.arange(int(0.5 * SR)) / SR
+_ifr = np.random.default_rng(9)
+_ifx = (np.sin(2 * np.pi * 330.0 * 2.0 ** (25.0 / 1200.0) * _ift)
+        + 0.5 * _ifr.standard_normal(len(_ift)))
+_ifc = 1200.0 * np.log2(np.median(
+        _ifp(_ifx, 330.0)[int(0.05 * SR):-int(0.05 * SR)]) / 330.0)
+checks.append(("ruler_if_pitch", abs(_ifc - 25.0) <= 5.0))
+# e82 shakuhachi: deterministic per seed; sustain centers on f0;
+# the meri scoop is a real early-pitch drop vs the scoopless twin
+# (twin delta on the strongest early FFT line — no median names
+# "the" pitch of a two-line breathy attack); muraiki is a real
+# gust in the hiss band
+from loam.nihon import shakuhachi
+
+
+def _sk_early(v, f0):
+    seg = v[int(0.05 * SR):int(0.30 * SR)]
+    n4 = 8 * len(seg)
+    sp = np.abs(np.fft.rfft(seg * np.hanning(len(seg)), n4))
+    fq = np.fft.rfftfreq(n4, 1.0 / SR)
+    sel = np.where((fq > f0 * 0.80) & (fq < f0 * 1.15))[0]
+    return 1200.0 * np.log2(
+            fq[sel[int(np.argmax(sp[sel]))]] / f0)
+
+
+_skf = 293.66
+_ska = shakuhachi(_skf, 1.2, muraiki=0.9, scoop=60.0, seed=3)
+_skb = shakuhachi(_skf, 1.2, muraiki=0.9, scoop=0.0, seed=3)
+_skc = shakuhachi(_skf, 1.2, muraiki=0.0, scoop=0.0, seed=3)
+_sosk = butter(4, [1500.0, 6500.0], btype="bandpass", fs=SR,
+        output="sos")
+
+
+def _sk_gust(v):
+    # WITHIN-note attack-vs-sustain contrast in the hiss band:
+    # cross-note level comparison lies (each note is peak-
+    # normalized, and the tone's own harmonics live up there)
+    h = sosfilt(_sosk, v)
+    return _rdb(h[:int(0.25 * SR)], h[int(0.6 * SR):int(0.9 * SR)])
+
+
+_skcen = 1200.0 * np.log2(np.median(
+        _ifp(_skc, _skf)[int(0.5 * SR):int(0.9 * SR)]) / _skf)
+checks.append(("nihon_shakuhachi",
+        np.array_equal(_ska,
+            shakuhachi(_skf, 1.2, muraiki=0.9, scoop=60.0, seed=3))
+        and abs(_skcen) <= 20.0
+        and (_sk_early(_ska, _skf) - _sk_early(_skb, _skf)) <= -21.0
+        and _sk_gust(_skb) - _sk_gust(_skc) >= 6.0))
 _sdrv = 0.3 * np.sin(2 * np.pi * 220.0 * np.arange(int(0.6 * SR))
         / SR)
 _, _sb = fdsym([220.0, 233.1], _sdrv, N=60, buses=True)

@@ -1,5 +1,75 @@
 # loam — log (newest at top)
 
+## 2026-09-02 — e82: shakuhachi — a honkyoku for the temple bell
+
+The winds, per operator direction. loam.nihon.shakuhachi():
+the self-tuning waveguide flute plus a GESTURE LAYER, because
+what makes a shakuhachi is pitch motion the stationary bore
+cannot make. Measured first, built second: jet pressure does
+NOT bend the sustained waveguide pitch (0.70 -> 0.95 pressure,
+sub-cent), so the meri scoop is a time-warp resample of the
+tuned note; muraiki pushed through the bore gains only 1.9 dB
+(the cubic jet SATURATES — more breath in, same hiss out), so
+the gust is a direct-radiation hiss path that never enters the
+bore, same stance as the click and the don. Yuri rides the
+warp too, entering after 0.9 s, with a small in-loop pressure
+vibrato so amplitude breathes with pitch. flute() gained
+scalar-or-envelope `breath` (scalar path bit-identical).
+
+Two instrument-side mechanics that took probing to earn:
+PRE-ROLL THE BORE 0.5 s (the waveguide's first ~0.25-0.5 s is
+mode-settling fog — a gesture written there is neither heard
+nor measurable; discard it and the attack becomes the gesture
+layer's fade plus the gust, which is what a shakuhachi attack
+IS), and DRIFT-CONTOUR CORRECTION (the bore drifts +21c early
+on some seeds — enough to eat a written scoop exactly; the
+instrument measures its own IF at 0.25 s knots and writes the
+inverse into the warp, so slow drift is corrected while the
+±25c fast wander survives — the bamboo's life).
+
+The piece: nine breath-paced phrases in D minyo (D F G A C)
+over the e79 temple bell, D2 at the seam, D3 at the half.
+38.4 s. 7/7: seam p0.91, all 9 sustain centers within 10.8 c,
+deep scoops carry 97/91/96% of their written slide vs
+scoopless twins, muraiki gust 11-12 dB with 5.7 dB separation
+from soft notes, yuri line 2.32 Hz at 2.8x prominence and
+61 c depth, bell hum+prime true and tolls within 30 ms,
+chroma poles {D, G}. dev_smoke 107 green (new: shakuhachi
+contract, ruler_if_pitch).
+
+RULER LESSONS EARNED:
+  - ruler.if_pitch born: spectral-peak detectors scatter
+    ±100 c on breathy tones; the analytic phase of the
+    zero-phase narrowband-filtered signal does not care.
+    Synthetic contract: +25 c tone under 0.5-sigma noise
+    reads 24.8 c.
+  - A BREATHY ATTACK IS NOT ONE CLEAN CHIRP. This piece's C5
+    opens on TWO tonal lines ~90 c apart at comparable power;
+    every median-based read (IF included) scattered from +14 c
+    to 246% of design across attempts — while FFT deltas
+    proved the scoop present all along. No detector can name
+    "the" pitch of a two-line attack. The honest question is
+    not "what pitch is this" but "how far did the warp move
+    what's there": the same-seed scoopless TWIN shares the
+    exact line cluster, and the strongest-early-line FFT delta
+    between note and twin cancels the cluster and isolates the
+    written slide (C5: -26.3 c measured on a -26 c design).
+  - Keep the gust out of the melody register: a broadband
+    hiss floor inside the tone's IF band pulls any median
+    toward the band center — it cost a written -26 c slide
+    its measurement before it cost anything musical (hiss
+    band floor now 2 kHz, steep skirts).
+  - Cross-note level comparisons lie when notes are peak-
+    normalized: measure gusts as WITHIN-note attack-vs-
+    sustain contrast, then compare contrasts.
+
+Open threads: operator's green sea turtle piece is next (the
+current, and sunlight caustics through ripple crests — a
+major composition); more nihon winds/voices ("and so forth");
+ro-tsu-re-chi fingering scale helper; komibuki (pulsed
+breath) as an envelope gesture; shakuhachi + shamisen sankyoku
+duet over the e79 bell tower.
+
 ## 2026-09-02 — e81: loam.nihon is born — shamisen, demoed on "The Next Episode"
 
 Operator direction: take the strings to Japan, demo with the

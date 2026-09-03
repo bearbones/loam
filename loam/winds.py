@@ -55,14 +55,18 @@ def _fpeak(x: np.ndarray) -> float:
 
 
 def flute(f0: float, dur: float, amp: float = 1.0,
-        breath: float = 0.06, pressure: float = 0.9,
+        breath=0.06, pressure: float = 0.9,
         vib_hz: float = 4.8, vib_amt: float = 0.03,
         attack_s: float = 0.06, release_s: float = 0.12,
         damp: float = 0.72, overblow: float = 0.0,
         seed: int = 0) -> np.ndarray:
     """One breath-driven note. `overblow` shortens the jet delay
     (a faster air jet): >=0.75 and the octave speaks. breath =
-    hiss level. Self-verifying: the returned note IS on pitch."""
+    hiss level — scalar, or an (n,) envelope for gestures whose
+    turbulence changes over the note (e82: the shakuhachi's
+    muraiki is a breath BURST decaying into tone). Scalar path
+    bit-identical to before. Self-verifying: the returned note
+    IS on pitch."""
     n = int(dur * SR)
     tt = np.arange(n) / SR
     mode_mult = 2.0 if overblow >= 0.75 else 1.0
