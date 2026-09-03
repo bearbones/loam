@@ -113,6 +113,32 @@ ok("fdpluck", fdpluck(110.0, 0.6, N=140))
 ok("fdpluck_meend", fdpluck(np.linspace(110.0, 123.47, 100), 0.6,
         N=140))
 ok("fdpluck2", fdpluck2(110.0, 0.6, N=140))
+# e80 mizrab click contract, by SUBTRACTION (the fusion is
+# additive, so clicked - bare IS the click): click=0 bit-equal
+# legacy; the difference peaks at exactly click*amp*0.9, lives
+# only in an 8 ms window starting at the string's own speak
+# time, and the low band (the string's tone) is untouched.
+from scipy.signal import butter, sosfilt
+from loam.ruler import speak_time
+_p0 = fdpluck2(146.8, 0.8, N=140)
+_pc = fdpluck2(146.8, 0.8, N=140, click=0.3)
+_d = _pc - _p0
+_nz = np.nonzero(_d)[0]
+_sosl = butter(4, 2000.0, btype="lowpass", fs=SR, output="sos")
+
+
+def _rdb(a, b):
+    return 20.0 * np.log10((np.sqrt(np.mean(a ** 2)) + 1e-30)
+            / (np.sqrt(np.mean(b ** 2)) + 1e-30))
+
+
+checks.append(("fdpluck2_click",
+        np.array_equal(_p0, fdpluck2(146.8, 0.8, N=140, click=0.0))
+        and abs(np.max(np.abs(_d)) - 0.3 * 0.9) <= 1e-9
+        and abs(_nz[0] / SR - speak_time(_p0)) <= 0.003
+        and (_nz[-1] - _nz[0]) <= int(0.008 * SR)
+        and abs(_rdb(sosfilt(_sosl, _pc),
+                sosfilt(_sosl, _p0))) <= 0.5))
 _sdrv = 0.3 * np.sin(2 * np.pi * 220.0 * np.arange(int(0.6 * SR))
         / SR)
 _, _sb = fdsym([220.0, 233.1], _sdrv, N=60, buses=True)

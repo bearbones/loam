@@ -1,5 +1,51 @@
 # loam — log (newest at top)
 
+## 2026-09-02 — e80: "The Mizrab Leans In" — click as a written parameter
+
+Refinement cycle: the landings overlay hack is now first-class.
+fdpluck2 takes `click` (click-to-string peak ratio, default 0 =
+bit-equal legacy), fusing the mizrab's contact transient at the
+string's OWN speak time — so a caller placing the buffer at
+(grid - speak_time) lands the click on the grid regardless of
+click amount. dev_smoke holds the SUBTRACTION contract (clicked
+minus bare is exactly the click: peak = click*amp*0.9 to 1e-9,
+support = 8 ms at the bloom, low band within 0.5 dB). 104
+checks green.
+
+The piece: a 20-note jhala line every 0.3 s under a 0.15 s
+chikari curtain; click depth rides one seamless cosine (bare at
+the seam, 0.35 mid-loop). 7/7: level-median HF attack excess
+tracks the written lean r=0.943; low band uncorrelated (r=+0.06
+— mark, not loudness); in the mix, all 47 clicked strokes mark
+within 2.2 ms while bare strokes scatter to 73 ms worst;
+stroke line 3.335 Hz at 67x; D crowns.
+
+RULER LESSONS EARNED:
+  - On a SOLO string the click barely moves any energy ruler
+    (the FD pluck's own attack is hp-bright: +1.5 dB in its
+    tightest window) and doesn't move the flux peak at all.
+    The click's whole value is ENSEMBLE legibility — it exists
+    to win an argmax under masking. So the library contract is
+    by subtraction (exact, deterministic), and the perceptual
+    claim lives where the phenomenon does: in a mix.
+  - Masking has a density threshold: under a 0.3 s carpet bare
+    blooms still marked within 1.1 ms median — no phenomenon.
+    At landings density (0.15 s tails) bare strokes scatter to
+    73 ms worst while every clicked stroke holds. And the
+    honest contrast gate is WORST-CASE, not median: most bare
+    strokes peek through; the occasional vanished one is what
+    breaks the flow (exactly what the operator heard).
+  - Per-stroke design-vs-measured correlation dilutes under
+    per-note variance (six strings, six bare attacks); e78's
+    aggregate move applies: correlate the level MEDIANS
+    (r=0.943 vs 0.774 per-stroke).
+
+Open threads: half-caught bells; change-ringing peal orders;
+ektal composition over the caught-bell theka; e78 shoulder
+asymmetry. Operator direction received: shamisen next (sawari
+is jawari physics; the bachi snap is `click` writ large), then
+shakuhachi and the winds.
+
 ## 2026-09-02 — e79: "The Bells Learn Ektal" — the caught-bell khali
 
 New idea (78 was tooling): Vespers' church bells take up era

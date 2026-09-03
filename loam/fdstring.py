@@ -132,12 +132,48 @@ def fdpluck(f0: float, dur: float, amp: float = 1.0,
     return out * amp / (np.max(np.abs(out)) + 1e-12) * 0.9
 
 
+_MIZRAB_CACHE = {}
+
+
+def _mizrab(band, dur_s):
+    """The contact transient of the wire plectrum: an 8 ms
+    bandpassed noise burst, peak-normalized. Deterministic (the
+    player's mizrab is the same object every stroke — timbre
+    consistency is physical, and callers scale it per stroke).
+    Born as an overlay hack in the luthier's repair of Nine
+    Landings; promoted here so the click and its string share
+    one amp, one pan, and one placement contract."""
+    key = (band, dur_s)
+    if key not in _MIZRAB_CACHE:
+        from scipy.signal import butter, sosfilt
+        rng = np.random.default_rng(0x5EED)
+        n = int(dur_s * SR)
+        c = rng.standard_normal(n) * np.hanning(n)
+        c = sosfilt(butter(3, [band[0], band[1]], btype="bandpass",
+                fs=SR, output="sos"), c)
+        _MIZRAB_CACHE[key] = c / (np.abs(c).max() + 1e-12)
+    return _MIZRAB_CACHE[key]
+
+
+def _speak(v, smooth_s=0.004):
+    """Inline twin of ruler.speak_time (the instrument may know
+    where its own bloom is without depending on the ruler kit):
+    steepest envelope rise over a smooth_s span."""
+    env = np.abs(v)
+    k = max(1, int(smooth_s * SR))
+    env = np.convolve(env, np.ones(k) / k, mode="same")
+    rise = env[k:] - env[:-k]
+    return (int(np.argmax(rise)) + k // 2) / SR
+
+
 def fdpluck2(f0: float, dur: float, amp: float = 1.0,
         kappa: float = 0.3, sig0: float = 0.9, sig1: float = 1e-4,
         pick: float = 0.28, zone: float = 0.10, gcurve: float = 0.2,
         K: float = 3e9, alpha: float = 1.3, pluck_m: float = 1.6e-3,
         N: int = 0, split: float = 0.006, kc: float = 1e5,
-        angle: float = 0.6, buses: bool = False):
+        angle: float = 0.6, click: float = 0.0,
+        click_band=(3500.0, 9000.0), click_s: float = 0.008,
+        buses: bool = False):
     """Two-POLARIZATION pluck (e48): the string vibrates in two
     transverse planes — vertical u (plucked, and the only one the
     jawari barrier touches) and horizontal v (starts at rest,
@@ -154,7 +190,17 @@ def fdpluck2(f0: float, dur: float, amp: float = 1.0,
     The pickup hears cos(angle)*u + sin(angle)*v. buses=True also
     returns the raw per-polarization velocity buses for own-bus
     measurement. Scalar f0 only (meend stays single-pol for now).
-    ~2x fdpluck's compute."""
+    ~2x fdpluck's compute.
+
+    `click` (e80, from the luthier's repair): the mizrab's
+    contact transient, body-radiated, fused into the output.
+    Value = click-to-string PEAK ratio (0 = legacy, bit-equal).
+    The click is stamped at the string's own speak time inside
+    the buffer, so the composite's perceptual attack is sharp
+    AND sits where the bare string's bloom was: a caller placing
+    the buffer at (grid - speak_time) lands the click on the
+    grid, and the placement no longer depends on click amount.
+    Only `out` carries it; the u/v buses stay physical."""
     dt = 1.0 / SR
     steps = int(dur * SR)
     f0h = f0 * (1.0 + split)
@@ -231,6 +277,11 @@ def fdpluck2(f0: float, dur: float, amp: float = 1.0,
     if r > 0:
         out[-r:] *= np.linspace(1, 0, r)
     out = out * amp / (np.max(np.abs(out)) + 1e-12) * 0.9
+    if click > 0.0:
+        c = _mizrab(click_band, click_s) * (click * amp * 0.9)
+        i0 = int(_speak(out) * SR)
+        n = min(len(c), len(out) - i0)
+        out[i0:i0 + n] += c[:n]
     return (out, ou, ov) if buses else out
 
 
