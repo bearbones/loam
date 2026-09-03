@@ -247,3 +247,74 @@ def hichiriki(f0: float, dur: float, amp: float = 1.0,
     r = int(0.05 * SR)
     out[-r:] *= np.linspace(1.0, 0.0, r)
     return out / (np.abs(out).max() + 1e-12) * (0.9 * amp)
+
+
+# The sho's aitake cluster chords (e85). Verified against the
+# literature: the four Category-1 fundamentals (kotsu A4, ichi B4,
+# bo D5, otsu E5) and their shared two-octave collection
+# A4-B4-D5-E5-A5-B5-D6-E6-F#6, plus gyo and the sojo variant of ju
+# exactly as published (Momii, MTO 26.4). The Category-1 voicings
+# below are COLLECTION-CONSTRAINED REALIZATIONS — fundamental at
+# the bottom, the gyo-like cluster above — because every source
+# keeps its full chord chart inside an image. Named, not guessed:
+# see LOG e85.
+AITAKE = {
+    "kotsu": [69, 76, 81, 83, 86, 88],
+    "ichi":  [71, 76, 81, 83, 86, 90],
+    "bo":    [74, 81, 83, 86, 88, 90],
+    "otsu":  [76, 81, 83, 86, 88, 90],
+    "gyo":   [81, 83, 86, 88, 90],
+    "ju_so": [79, 81, 83, 86, 88],
+}
+
+
+def sho(midis, dur: float, amp: float = 1.0, floor: float = 0.25,
+        bright: float = 0.45, nharm: int = 9, edge_s: float = 0.35,
+        seed: int = 0) -> np.ndarray:
+    """One breath of the mouth organ: an aitake cluster swelling
+    through an arch and subsiding. Free-reed-with-resonator tone
+    by additive recipe (a per-sample reed ODE at 15 pipes is not a
+    price this library pays for a steady tone): harmonics fall
+    h^-2.2, and each harmonic rides env^(1 + bright*(h-1)) — the
+    reed BRIGHTENS as pressure rises, so the swell opens the
+    spectrum, not just the level. The arch never reaches zero
+    (`floor`): the sho breathes in and out without stopping. The
+    first and last `edge_s` are a FIXED-TIME equal-power turn
+    (sin^2/cos^2 from silence), whatever the breath's length —
+    turning the breath takes the same moment on a short chord as
+    a long one, and two overlapped breaths sum to a level floor
+    with the trough centered on the change. Reeds hold within
+    +-2 cents; pipes sit slightly apart in the image. Stereo.
+    Deterministic per seed."""
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    arch = floor + (1.0 - floor) * np.sin(
+            np.pi * np.clip(t / dur, 0.0, 1.0)) ** 0.7
+    e_in = np.sin(0.5 * np.pi * np.clip(t / edge_s, 0.0, 1.0)) ** 2
+    e_out = np.sin(0.5 * np.pi * np.clip((dur - t) / edge_s,
+            0.0, 1.0)) ** 2
+    env = arch * e_in * e_out
+    rng = np.random.default_rng(seed)
+    out = np.zeros((n, 2))
+    for m in midis:
+        f = 440.0 * 2.0 ** ((m - 69) / 12.0)
+        f *= 2.0 ** (rng.uniform(-2.0, 2.0) / 1200.0)
+        pan = float(np.clip((m - 80) * 0.03, -0.22, 0.22)
+                    + rng.uniform(-0.05, 0.05))
+        v = np.zeros(n)
+        for h in range(1, nharm + 1):
+            if f * h >= SR * 0.45:
+                break
+            v += (h ** -1.7) * np.sin(
+                    2.0 * np.pi * f * h * t
+                    + rng.uniform(0, 2 * np.pi)) \
+                * env ** (1.0 + bright * (h - 1))
+        out += np.stack([v * (0.5 - 0.5 * pan),
+                         v * (0.5 + 0.5 * pan)], axis=1)
+    hiss = np.stack([rng.standard_normal(n),
+                     rng.standard_normal(n)], axis=1)
+    sos_h = butter(2, [2000.0, 6000.0], btype="bandpass", fs=SR,
+            output="sos")
+    hiss = sosfilt(sos_h, hiss, axis=0)
+    out += hiss * (0.006 * env[:, None])
+    return out / (np.abs(out).max() + 1e-12) * (0.9 * amp)

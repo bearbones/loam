@@ -1,5 +1,58 @@
 # loam — log (newest at top)
 
+## 2026-09-03 — e85: sho — the aitake breathe through Etenraku's harmony
+
+Second of the gagaku winds. nihon.sho() + nihon.AITAKE: the
+mouth organ's cluster chords, each breath an arch swell whose
+reeds BRIGHTEN as pressure rises (per-harmonic env^(1 +
+bright*(h-1)) — the swell opens the spectrum, not just the
+level), over a level floor (the player inhales AND exhales
+through the reeds: the sound turns, it never stops). The
+first/last 0.35 s are a FIXED-TIME equal-power turn whatever
+the breath's length, so overlapped breaths sum to a floor with
+the trough centered on the chord change.
+
+VOICING STANCE, on the record: fundamentals verified (kotsu
+A4, ichi B4, ku C#5, bo D5, otsu E5), the Category-1 shared
+collection A4-B4-D5-E5-A5-B5-D6-E6-F#6 verified, gyo
+(A5-B5-D6-E6-F#6) and sojo-ju (G5-A5-B5-D6-E6) published
+exactly (Momii, MTO 26.4); the four Category-1 voicings are
+COLLECTION-CONSTRAINED REALIZATIONS (fundamental at the
+bottom, gyo-like cluster above) because every source keeps its
+full chart inside an image. Named, not guessed.
+
+The piece: e84's Etenraku phrase A with the melody removed —
+only its harmonic halo, by the documented rule (the sho sounds
+the aitake whose fundamental IS the melody note): bo, otsu,
+ichi, kotsu, ichi, otsu, bo, otsu. 38.4 s, 8 breaths. 6/6:
+membership both directions (written lines within 2.0 c,
+weakest written pipe +93.5 dB over the loudest out-of-
+collection probe), lowest prominent line is the naming pipe in
+all 4 aitake, breath troughs within 0.20 s of every change,
+swell-brightness r 0.81-0.96 within all 7 long breaths, chroma
+poles {E, B}. dev_smoke 110 green.
+
+RULER LESSONS EARNED:
+  - When a claim fails, suspect the CLAIM'S SCOPE before the
+    sound: pooling all windows, chord identity moves the
+    centroid ~150 Hz uncorrelated with level and
+    swell-brightness read r=-0.08; scoped WITHIN each breath
+    (where the chord is fixed) the same audio reads 0.81-0.96.
+    Same family as e84's register-of-validity lesson.
+  - Duration-coupled envelope edges put the trough where the
+    durations say, not where the music says: a 1.6 s arch
+    meeting a 6.4 s arch drifted the breath turn 0.40 s. Fixed-
+    time equal-power edges (sin^2/cos^2 over 0.35 s) center the
+    trough on the written change for ANY pair of lengths.
+  - Membership rulers want probes chosen for harmonic
+    innocence: C5/F5/G5/G#5 sit on no low harmonic of any
+    written pipe, so "absent" means absent (+93 dB margin).
+
+Open threads: ryuteki completes the trio -> full Etenraku
+(melody + halo + flute doubling, kakko/taiko pulse); te-utsuri
+(pipes entering one by one at chord changes, not as a block);
+sho breath noise as a measured claim; komibuki; sankyoku duet.
+
 ## 2026-09-03 — e84: hichiriki — the OTHER wind circuit, demoed on Etenraku
 
 The winds continue ("and so forth"). winds.reedpipe() is new:

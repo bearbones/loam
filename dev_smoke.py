@@ -246,6 +246,33 @@ _hi0 = hichiriki(_rpf, 1.1, embai=0.0, seed=5)
 checks.append(("nihon_hichiriki",
         (_sk_early(_hi, _rpf) - _sk_early(_hi0, _rpf)) <= -38.0
         and _oe_db(_hi0, _rpf) <= _oe_db(_rp, _rpf) - 10.0))
+# e85 sho: deterministic; the breath arch swells >=10 dB over its
+# fixed-time edges; every written aitake pipe is a line and an
+# out-of-collection probe (C5) is not
+from loam.nihon import sho, AITAKE
+_sv = sho(AITAKE["otsu"], 3.0, seed=4)
+_svm = _sv.mean(axis=1)
+_arch = 20.0 * np.log10(
+        (np.sqrt(np.mean(_svm[int(1.2 * SR):int(1.8 * SR)] ** 2))
+         + 1e-30)
+        / (np.sqrt(np.mean(_svm[:int(0.3 * SR)] ** 2)) + 1e-30))
+_seg = _svm[int(1.0 * SR):int(2.0 * SR)]
+_sn4 = 4 * len(_seg)
+_ssp = np.abs(np.fft.rfft(_seg * np.hanning(len(_seg)), _sn4))
+_sfq = np.fft.rfftfreq(_sn4, 1.0 / SR)
+
+
+def _sline(m):
+    f0 = 440.0 * 2.0 ** ((m - 69) / 12.0)
+    sel = (_sfq > f0 * 0.985) & (_sfq < f0 * 1.015)
+    return 20.0 * np.log10(_ssp[sel].max() + 1e-30)
+
+
+checks.append(("nihon_sho",
+        np.array_equal(_sv, sho(AITAKE["otsu"], 3.0, seed=4))
+        and _arch >= 10.0
+        and min(_sline(m) for m in AITAKE["otsu"])
+            >= _sline(72) + 12.0))
 _sdrv = 0.3 * np.sin(2 * np.pi * 220.0 * np.arange(int(0.6 * SR))
         / SR)
 _, _sb = fdsym([220.0, 233.1], _sdrv, N=60, buses=True)
