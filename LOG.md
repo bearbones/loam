@@ -1,5 +1,76 @@
 # loam — log (newest at top)
 
+## 2026-09-02 — session 76: tihai (e76)
+
+Refinement of e75's jhala, landing the long-carried tihai +
+gat mukhda thread. Same strum engine (0.12 s grid, 80 slots,
+chikari filling every non-melody slot); the last quarter of
+the loop replaces the gat with a TIHAI — the mukhda ga-Re-Sa
+(53-52-50) struck three times at a 7-slot lag (0.84 s),
+arithmetic 62 + 2x7 + 4 = 80: the third phrase's final Sa IS
+the sam, the gat's own first stroke of the next loop, struck
+harder (amp 1.3) under a written 1.0/1.1/1.2 crescendo.
+Tihai arithmetic is a seam-lock in disguise — e75 locked
+rates to integer bins; a tihai locks a countdown to one
+instant. 16/16 rulers, first run. Library: flux_series made
+public (flux_spectrum refactored over it; dev_smoke 99->100).
+
+Measured: gat readback median 1.6c worst 6.8c, tihai 1.9c/
+3.3c; ga-band phrase attacks at spacings 0.82-0.84 vs written
+0.840; crescendo reads x1.17 then x1.08; sam peak 1.11x the
+median gat stroke (the written 1.3 compressed by ringing
+tails); melody-band env self-correlation at the phrase lag
+r23 0.97 vs control max 0.13, and in the MASTERED mix r23
+0.98/control 0.23 — the countdown survives drone, halo and
+master; gat crown still bin 20; flux stroke line 8.36 Hz at
+0.91x crown (sub-mix) and 0.73x (mastered); seam p32.2.
+
+RULER LESSONS EARNED:
+  - SELF-SIMILARITY AT THE LAG is the transient-rhythm ruler:
+    flux_spectrum reads stationary rates as lines, but a
+    tihai is three events, not a rate — its signature is that
+    the melody-band envelope correlates with itself at
+    exactly the phrase lag inside the tihai and nowhere else
+    in the loop. Windowed correlation on ruler.flux_series /
+    band_env, calibrated with in-loop controls.
+  - THE HANDS DECORRELATE THE FLUX: the 7-slot phrase lag is
+    ODD in the 2-slot da/ra alternation — the lag that aligns
+    the melody anti-aligns the chikari hands, and full-band
+    flux correlation pays (r23 0.64 two-handed vs 0.81 with
+    the alternation removed, measured via a one-hand control
+    bus; the melody-band envelope cannot see the chikari and
+    reads 0.97 regardless). Band your self-similarity ruler
+    to the voice whose repetition you claim, or the
+    accompaniment's own pattern algebra leaks in.
+  - DESIGN THE CONFOUND AWAY: e75's drone restrikes at +4.8 s
+    would have dropped a foreign attack inside phrase 2's
+    correlation window. The 12 s plucks ring the whole loop
+    anyway — struck once, early (0.96/2.16/3.36), the tihai's
+    windows stay clean and the seam improved to p32.
+  - Phrase-1's r12 (0.55) is honestly lower than r23 (0.97):
+    its window carries the gat's last stroke still ringing
+    in-band. A correlation window inherits its past.
+
+Open threads: CHAKRADAR (three tihais of three — does the
+self-similarity ruler read the nested lag structure, 3 lines
+at T, 3T+phrase?); tihai without a pitch anchor (drum-like:
+same phrase on ONE pitch — does the envelope ruler still find
+the lag with no ga-band to lean on?); accelerating jhala with
+a closing DT ramp (chakradar of grids); flux stillness on the
+bowed pieces; da/ra asymmetry as its own 40-cycle line;
+breath as tala over the tihai (e74's 2:3:4 under this grid).
+Carried: gamak on the gat line; other just proportions; Pa-
+jitter mechanism; partial-fold-aware chroma; entries as
+music; shimmer as tala; ring sharpening; canon at the 4th;
+oblique organum; bass window floor (midi 40-44); k=5e4 cliff
+law; crack flavors in the bass window; ghost as harmony;
+intermodulation forecast; gamak map; jugalbandi;
+ruler.note_evidence; jod voices; per-string taraf gain;
+passing tones; FD tanpura dyad verify; creep dead-zone edge
+map.
+
+Render sent: e76_tihai.ogg.
+
 ## 2026-08-31 — session 75: jhala (e75)
 
 Brand-new texture — the strummed climax of a sitar raga, and

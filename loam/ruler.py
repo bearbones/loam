@@ -832,6 +832,26 @@ def chroma(x: np.ndarray, lo: float = 60.0, hi: float = 2000.0) -> np.ndarray:
     return out / (out.sum() + 1e-30)
 
 
+def flux_series(x: np.ndarray, frame: int = 1024,
+        hop: int = 256) -> tuple:
+    """(flux, dt_s): the spectral-flux TIME SERIES — half-wave-
+    rectified frame-to-frame magnitude increase, one value per
+    hop. This is the raw material under both flux_spectrum
+    (stationary rhythm: read the rate as a line) and any
+    self-similarity measurement (transient rhythm: a tihai's
+    three phrases correlate at exactly their lag, e76). Public
+    since e76 so experiments can slice and correlate it
+    directly instead of re-deriving the STFT."""
+    m = _mono(x)
+    n_fr = 1 + (len(m) - frame) // hop
+    idx = np.arange(frame)[None, :] \
+        + hop * np.arange(n_fr)[:, None]
+    w = np.hanning(frame)
+    mags = np.abs(np.fft.rfft(m[idx] * w, axis=1))
+    fl = np.sum(np.maximum(mags[1:] - mags[:-1], 0.0), axis=1)
+    return fl, hop / SR
+
+
 def flux_spectrum(x: np.ndarray, frame: int = 1024,
         hop: int = 256) -> tuple:
     """(freqs_hz, magnitude) of the spectral-flux series — the
@@ -846,16 +866,10 @@ def flux_spectrum(x: np.ndarray, frame: int = 1024,
     ~75% of individual strokes are findable. Count events when
     the texture is sparse; read this spectrum when it is dense.
     The mean is removed; window the series before the FFT."""
-    m = _mono(x)
-    n_fr = 1 + (len(m) - frame) // hop
-    idx = np.arange(frame)[None, :] \
-        + hop * np.arange(n_fr)[:, None]
-    w = np.hanning(frame)
-    mags = np.abs(np.fft.rfft(m[idx] * w, axis=1))
-    fl = np.sum(np.maximum(mags[1:] - mags[:-1], 0.0), axis=1)
+    fl, dt = flux_series(x, frame, hop)
     fl = fl - fl.mean()
     sp = np.abs(np.fft.rfft(fl * np.hanning(len(fl))))
-    fr = np.fft.rfftfreq(len(fl), hop / SR)
+    fr = np.fft.rfftfreq(len(fl), dt)
     return fr, sp
 
 

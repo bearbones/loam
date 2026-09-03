@@ -266,6 +266,15 @@ _ffr, _fsp = flux_spectrum(_tf8)
 _fm = (_ffr > 5.0) & (_ffr < 12.0)
 _fpk = _ffr[_fm][int(np.argmax(_fsp[_fm]))]
 checks.append(("ruler_flux_spectrum", abs(_fpk - 8.0) < 0.16))
+from loam.ruler import flux_series
+_fl, _fdt = flux_series(_tf8)             # periodic train: flux
+_lag = int(round(0.125 / _fdt))           # correlates with its
+_fa = _fl[:len(_fl) - _lag] - _fl[:len(_fl) - _lag].mean()
+_fb = _fl[_lag:] - _fl[_lag:].mean()
+_fr_ = float(np.dot(_fa, _fb) / (np.linalg.norm(_fa)
+        * np.linalg.norm(_fb) + 1e-12))   # own-period shift
+checks.append(("ruler_flux_series",
+        abs(_fdt - 256.0 / SR) < 1e-9 and _fr_ > 0.7))
 _tb = np.arange(4 * SR) / SR
 _bloom = np.sin(2 * np.pi * 110.0 * _tb) * np.exp(-_tb * 0.5) \
     + np.sin(2 * np.pi * 2500.0 * _tb) * np.exp(-((_tb - 0.8) / 0.35) ** 2)
