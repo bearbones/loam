@@ -1,5 +1,46 @@
 # loam — log (newest at top)
 
+## 2026-09-03 — e95: GAGAKU — the dragon flute over the moving sho
+
+The court-ensemble capstone, e91's role for the gagaku
+family: three constructs loam already owned, assembled and
+each measured ON ITS OWN BUS. The sho plays e93's te-utsuri
+verbatim (kotsu -> bo -> otsu -> ju_so, drones + rolled
+entrances); the ryuteki (e86) carries a written eight-breath
+hyojo-colored melody above it with its own gestures as
+claims; the e87 percussion keeps the cycle (shoko at chord
+starts, an accelerating kakko roll into the seam, one taiko
+DOU at the loop's center). 24 s loop.
+
+6/6: sho entrances worst 0.3 ms off the analytic sin^2
+crossing, all 9 ryuteki held spans inside e82's 20 c wind
+gate (worst 12.6 c), the written D5 -> D6 register flip
+measures 1214.6 c of a written 1200, all 4 grace flicks notch
+the envelope >= 8.1 dB, 15 percussion strokes mark worst
+9.8 ms under e87's per-voice gates, seam p74.1. No library
+change — assembly only.
+
+RULER LESSONS EARNED:
+  - A VOICE'S BLOOM IS PART OF ITS RULER (e91's onset lesson,
+    membrane edition): the taiko's OWN render puts its flux
+    peak 38.6 ms after the strike — the membrane takes that
+    long to speak. Amplitude-diff flux with a 12 ms gate read
+    physics as a timing miss. e87 already owned the honest
+    ruler: spectral flux_series per voice on the doubled own
+    bus, per-voice gates (25 ms bronze/skin, 30 ms big drum).
+    Check whether an older experiment already paid for the
+    ruler before writing a new one.
+  - REUSED CONSTRUCTS KEEP THEIR NUMBERS: e93's sho bus
+    reproduced its 0.3 ms entrance figure inside a new piece
+    untouched — own-bus measurement makes claims portable
+    across assemblies.
+
+Open threads: the NIWA GARDEN SCENE (suikinkutsu e92 +
+shishi-odoshi e94 + cicadas still unbuilt); caustics
+depth-lowpass; komibuki acceleration; hiki-iro; the tegoto
+long arc; the gagaku set could gain the hichiriki doubling
+the ryuteki line in heterophony (e91's lag ruler is waiting).
+
 ## 2026-09-03 — e94: SHISHI-ODOSHI — the bamboo deer-scarer
 
 New instrument pair in nihon.py: bamboo_tok() (the emptied
