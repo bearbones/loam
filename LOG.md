@@ -1,5 +1,48 @@
 # loam — log (newest at top)
 
+## 2026-09-02 — showcase: "Vespers for the Workshop" (songs/vespers.py)
+
+Second of the operator-requested showcase pieces (first,
+"Avartan", still rendering — its entry will land above when
+it does). Spirit: the first machines learn to breathe. Era
+I's cathedral — PADsynth choir (oh->ah over one loop, the
+breath's own fundamental), church bells, grain shimmer, the
+FDN room — rebuilt around era V's written interference
+(e73/74): a hidden organ of loop-quantized sine pairs split
+by EXACT integer bin counts, so the D chord breathes on a
+harmonic series of breath — drone 12, D3 24, A3 36, D4 48
+cycles/loop = 1:2:3:4. All four rates agree only every
+76.8/12 = 6.4 s, and that is when — and only when — a bell
+tolls: twelve a loop. D aeolian (the workshop's home key,
+which Kafi shares), 76.8 s seamless.
+
+Measured (7/7 rulers): band-envelope spectra crown at bins
+24/36/48 EXACTLY through choir + room + master; drone band
+crowns at 12; 12 tolls at 6.33..6.47 s spacing; organ sits
+-12.8 dB under the rest yet its breath stays legible in the
+band envelopes; chroma crowns D at 0.74; width +0.038 above
+250 Hz; seam p81.0.
+
+RULER LESSONS EARNED:
+  - A WAVEFOLDER BREATHES AT TWICE THE DRIVE RATE. First
+    pass: drive = 1.15 + 0.75 sin(bin-12) crowned the drone
+    band at bin 24 — the folder's fundamental level is
+    non-monotonic in drive, so one drive cycle is two
+    loudness cycles. The level must carry the written breath
+    (bin-12 amplitude envelope); drive only colors it.
+  - SINES ARE LOUDER THAN THEY LOOK. Organ pair amps of
+    0.03 measured -1.7 dB against the whole mix: a bare sine
+    carries far more rms per unit amplitude than a
+    peak-normalized padsynth bed. Scaled x0.33 -> -12.8 dB,
+    and the 2:3:4 crowns still passed — the beat geometry
+    survives at whisper level, which is the piece's real
+    claim.
+
+Open threads: bells tolling a slow theka (12 tolls is a
+tintal-and-a-... no — 12 is its own taal, ektal); breath
+series through the taraf halo; a piece where the common
+period itself drifts.
+
 ## 2026-09-02 — session 77: the breathing grid (e77)
 
 Brand-new rhythm: e75's jhala engine with the GRID itself
