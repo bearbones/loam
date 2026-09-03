@@ -1,5 +1,51 @@
 # loam — log (newest at top)
 
+## 2026-09-03 — e96: SEMISHIGURE — cicada rain
+
+The garden's last missing voice. New in texture.py: cicada()
+— the tymbal as a jittered click train through the abdominal
+resonator (bandpass at f_c, width f_c/q). The click RATE is
+the buzz; the resonator is the species' formant; syllables
+are sung windows with sin^2 edges.
+
+The piece: a 30 s loop. Five aburazemi sizzlers (formants
+5250-5850 Hz, rates 80-93 Hz) swell together on ONE written
+chorus wave — 4 integer cycles, phases staggered but coherent
+— while a minmin-zemi soloist (4300 Hz, 118 Hz, jitter 0.05:
+the more tonal buzz) sings two written phrases: miiin, min
+min min min, miiiin. 5/5: rates worst 0.7%, formants worst
+3.0% with an 943 Hz species gap, 12 syllables mark worst
+24.6 ms, the chorus breathes at the written 0.133 Hz with a
+10.6 dB swell vs 8.7 designed, seam p81.0. dev_smoke 119.
+
+RULER LESSONS EARNED:
+  - THE RULER'S SAMPLE RATE IS PART OF THE CLAIM (e94's
+    bandwidth lesson, rhythm edition): rate_contour's default
+    flux hop (256) gives the flux series an 86 Hz Nyquist —
+    UNDER the 88-118 Hz click rates it was asked to measure;
+    pulse_rate's autocorr pinned at the search edge for the
+    same reason. frame=256/hop=32 gives the flux clock a
+    690 Hz Nyquist and the rates read to 0.7%.
+  - A SHORT WINDOW SAMPLES THE JITTER, NOT THE RATE: one
+    0.5 s window holds ~59 jittered clicks and its sample
+    mean wanders 4% from the written rate with no estimator
+    at fault. Pool windows (and, where the species allows,
+    write less jitter) — integration time is the only honest
+    narrower error bar.
+  - START THE MARK WINDOW INSIDE THE GAP: a -0.10 s pre-roll
+    reached into the previous syllable's plateau (gaps are
+    90 ms) and "first crossing" fired on the window's own
+    first sample — 100.0 ms worst, the window edge exactly, a
+    number that smells of harness, not signal. When the worst
+    error equals a window bound, suspect the window.
+
+Open threads: ASSEMBLE THE NIWA GARDEN (suikinkutsu e92 +
+shishi-odoshi e94 + semishigure e96 + wind, one scene);
+caustics depth-lowpass; komibuki acceleration; hiki-iro; the
+tegoto long arc; hichiriki heterophony over e95's gagaku;
+a higurashi (evening cicada, the falling kana-kana) would
+give the garden a dusk variant.
+
 ## 2026-09-03 — e95: GAGAKU — the dragon flute over the moving sho
 
 The court-ensemble capstone, e91's role for the gagaku

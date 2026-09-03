@@ -378,3 +378,39 @@ def caustics(dur_s: float, ripple_hz: float = 1.25,
         else:
             out[i0:] += ch[:n - i0]
     return out
+
+
+def cicada(dur_s: float, f_c: float = 5600.0, rate: float = 88.0,
+        jitter: float = 0.10, q: float = 12.0, syllables=None,
+        edge_s: float = 0.03, seed: int = 0) -> np.ndarray:
+    """One cicada (e96): the tymbal as a jittered click train
+    driven through the abdominal resonator — a bandpass at f_c,
+    width f_c/q. The click RATE is the buzz the ear hears and
+    the ruler measures (pulse_rate on the formant band); the
+    resonator sets the species' formant. syllables: list of
+    (t_on_s, dur_s) sung windows with sin^2 edges (None = the
+    continuous aburazemi sizzle). Mono, peak-normalized,
+    deterministic per seed."""
+    n = int(dur_s * SR)
+    rng = np.random.default_rng(seed)
+    train = np.zeros(n)
+    t = float(rng.uniform(0.0, 1.0 / rate))
+    while t < dur_s:
+        train[int(t * SR)] += 1.0 + 0.35 * rng.standard_normal()
+        dt = (1.0 / rate) * (1.0 + jitter * rng.standard_normal())
+        t += max(dt, 0.3 / rate)
+    bw = 0.5 * f_c / q
+    sos = butter(2, [f_c - bw, f_c + bw], btype="bandpass",
+            fs=SR, output="sos")
+    v = sosfilt(sos, train)
+    if syllables is not None:
+        env = np.zeros(n)
+        ne = int(edge_s * SR)
+        edge = np.sin(0.5 * np.pi * np.linspace(0.0, 1.0, ne)) ** 2
+        for t_on, sdur in syllables:
+            i0, i1 = int(t_on * SR), int((t_on + sdur) * SR)
+            env[i0:i1] = 1.0
+            env[i0:i0 + ne] = edge
+            env[i1 - ne:i1] = edge[::-1]
+        v *= env
+    return v / (np.abs(v).max() + 1e-12)

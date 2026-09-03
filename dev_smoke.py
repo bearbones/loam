@@ -425,6 +425,30 @@ checks.append(("shishi_odoshi",
         and np.array_equal(_bp, pour(0.7))
         and _bw <= 25.0
         and 900.0 < _cen(_bp) < 5200.0))
+# e96 cicada: deterministic; the tymbal rate measures as written
+# (rate_contour on a FAST flux clock — the default hop's flux
+# Nyquist sits UNDER a cicada's click rate); the resonator peaks
+# at the written formant; syllable windows actually gate
+from loam.texture import cicada
+from loam.ruler import rate_contour as _rc
+_ci = cicada(3.0, f_c=5600.0, rate=88.0, seed=7)
+_, _crs = _rc(_ci, rmin=53.0, rmax=132.0, win_s=0.5, hop_s=0.25,
+        frame=256, hop=32)
+_cp = np.abs(np.fft.rfft(_ci * np.hanning(len(_ci)))) ** 2
+_cf2 = np.fft.rfftfreq(len(_ci), 1.0 / SR)
+_cse = (_cf2 > 2000.0) & (_cf2 < 8000.0)
+_cpk = float(_cf2[_cse][np.argmax(_cp[_cse])])
+_cs2 = cicada(1.0, f_c=5600.0, rate=88.0,
+        syllables=[(0.2, 0.3)], seed=7)
+_in_r = float(np.sqrt(np.mean(
+        _cs2[int(0.25 * SR):int(0.45 * SR)] ** 2)))
+_out_r = float(np.sqrt(np.mean(_cs2[int(0.60 * SR):] ** 2)))
+checks.append(("cicada",
+        np.array_equal(_ci, cicada(3.0, f_c=5600.0, rate=88.0,
+                seed=7))
+        and abs(float(np.median(_crs)) / 88.0 - 1.0) <= 0.04
+        and abs(_cpk / 5600.0 - 1.0) <= 0.05
+        and 20.0 * np.log10(_in_r / (_out_r + 1e-30)) >= 25.0))
 _sdrv = 0.3 * np.sin(2 * np.pi * 220.0 * np.arange(int(0.6 * SR))
         / SR)
 _, _sb = fdsym([220.0, 233.1], _sdrv, N=60, buses=True)
