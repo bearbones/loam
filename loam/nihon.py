@@ -26,7 +26,7 @@ from scipy.signal import butter, sosfilt
 
 from . import SR
 from .fdstring import fdpluck2, _speak
-from .winds import flute, _fpeak
+from .winds import flute, reedpipe, _fpeak
 
 _thump_cache = {}
 
@@ -194,5 +194,56 @@ def shakuhachi(f0: float, dur: float, amp: float = 1.0,
     na = int(0.06 * SR)
     out[:na] *= np.linspace(0.0, 1.0, na) ** 1.5
     r = int(0.03 * SR)
+    out[-r:] *= np.linspace(1.0, 0.0, r)
+    return out / (np.abs(out).max() + 1e-12) * (0.9 * amp)
+
+
+def hichiriki(f0: float, dur: float, amp: float = 1.0,
+        embai: float = 120.0, yuri_hz: float = 3.2,
+        yuri_c: float = 0.0, seed: int = 0) -> np.ndarray:
+    """One cry of the flattened cypress reed. reedpipe() (e84's
+    valve-on-a-quarter-wave-bore) plus the hichiriki's three
+    signatures:
+
+      - EMBAI (`embai`, cents): the famous wide approach glide —
+        the note starts far flat and pours up into pitch over
+        ~0.35 s. Same warp-resample stance as the shakuhachi's
+        meri scoop, but twice the depth: the hichiriki's large
+        soft reed lets the player bend further than any flute
+        embouchure.
+      - The NASAL FORMANT: the short cylindrical bore radiates a
+        strong presence band around 0.9-1.9 kHz; a bandpass
+        emphasis is added to the direct sound.
+      - REED WARMTH: the raw valve model is nearly square-wave
+        odd-pure (+50 dB); a touch of asymmetric waveshaping puts
+        the even partials back (a real reed never closes with
+        perfect symmetry).
+
+    yuri enters after ~0.8 s. Deterministic per seed."""
+    PRE = 0.2                     # the reed speaks fast; a short
+    padf = 1.05                   # pre-roll clears the lock-in
+    base = reedpipe(f0, dur * padf + PRE, amp=1.0, breath=0.02,
+            pressure=0.92, vib_hz=yuri_hz, vib_amt=0.010,
+            attack_s=0.05, release_s=0.15, seed=seed)
+    base = base[int(PRE * SR):]
+    nb = len(base)
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    cents = (-embai * np.exp(-t / 0.35)
+             + yuri_c * np.sin(2.0 * np.pi * yuri_hz * t)
+             * np.clip((t - 0.8) / 0.6, 0.0, 1.0))
+    idx = np.cumsum(2.0 ** (cents / 1200.0))
+    idx -= idx[0]
+    out = np.interp(idx, np.arange(nb, dtype=float), base)
+    out = out + 0.12 * out * out          # reed asymmetry: evens
+    sos_dc = butter(1, max(f0 * 0.4, 40.0), btype="highpass",
+            fs=SR, output="sos")
+    out = sosfilt(sos_dc, out)
+    sos_fm = butter(2, [900.0, 1900.0], btype="bandpass", fs=SR,
+            output="sos")
+    out = out + 1.6 * sosfilt(sos_fm, out)
+    na = int(0.04 * SR)
+    out[:na] *= np.linspace(0.0, 1.0, na) ** 1.5
+    r = int(0.05 * SR)
     out[-r:] *= np.linspace(1.0, 0.0, r)
     return out / (np.abs(out).max() + 1e-12) * (0.9 * amp)

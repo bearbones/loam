@@ -181,3 +181,109 @@ def ney(f0: float, dur: float, amp: float = 1.0,
     return flute(f0, dur, amp=amp, breath=0.16, pressure=0.78,
             vib_hz=3.6, vib_amt=0.05, attack_s=0.15,
             release_s=0.2, damp=0.8, seed=seed)
+
+
+def reedpipe(f0: float, dur: float, amp: float = 1.0,
+        breath=0.015, pressure: float = 0.92,
+        offset: float = 0.7, stiffness: float = -0.3,
+        vib_hz: float = 4.4, vib_amt: float = 0.0,
+        attack_s: float = 0.04, release_s: float = 0.10,
+        damp: float = 0.62, seed: int = 0) -> np.ndarray:
+    """The OTHER wind circuit (e84): a pressure-driven reed valve
+    on a cylindrical quarter-wave bore — the clarinet family,
+    after Cook/Smith (STK). Where the flute's jet ADDS energy at
+    a labium, the reed is a VALVE: mouth pressure minus the
+    returning bore wave sets how open it is (r = offset +
+    stiffness * dp, clipped), and the open-end reflection
+    INVERTS, so only odd harmonics resonate — the signature the
+    ruler can hold. Bore delay is a half period (quarter-wave
+    resonator round trip). `breath` scalar or (n,) envelope.
+    Self-tuning by listening, same practice as flute()."""
+    n = int(dur * SR)
+    tt = np.arange(n) / SR
+    env = np.ones(n)
+    a = max(int(attack_s * SR), 1)
+    env[:a] = np.linspace(0, 1, a) ** 1.5
+    r = min(int(release_s * SR), n - 1)
+    env[-r:] *= np.linspace(1, 0, r) ** 1.2
+    vib = 1.0 + vib_amt * np.sin(2 * np.pi * vib_hz * tt) \
+        * np.clip((tt - 0.25) / 0.4, 0, 1)
+    c = damp
+
+    def synth(f_syn: float, sd: int) -> np.ndarray:
+        rng = np.random.default_rng(sd)
+        w = 2.0 * np.pi * f_syn / SR
+        d_lp = np.arctan2(c * np.sin(w),
+                1.0 - c * np.cos(w)) / w
+        target = SR / (2.0 * f_syn) - d_lp
+        p_bore = max(int(target), 6)
+        fr = max(target - p_bore, 0.0)
+        sos_n = butter(2, [f0 * 0.5, min(f0 * 6.0, SR * 0.45)],
+                btype="band", fs=SR, output="sos")
+        noise = sosfilt(sos_n, rng.standard_normal(n)) * breath
+        drive = pressure * env * vib + noise * env
+        bore = np.zeros(n + p_bore)
+        out = np.zeros(n)
+        zi1 = np.zeros(1)
+        i = 0
+        while i < n:
+            j = min(i + p_bore, n)
+            idx = np.arange(i, j)
+            bo = (1 - fr) * bore[idx] + fr * bore[idx - 1]
+            refl, zi1 = lfilter([1 - c], [1, -c], bo, zi=zi1)
+            refl = -0.95 * refl
+            dp = refl - drive[idx]
+            rr = np.clip(offset + stiffness * dp, -1.0, 1.0)
+            bore[idx + p_bore] = drive[idx] + dp * rr
+            out[idx] = bo
+            i = j
+        return out
+
+    def right_mode(o: np.ndarray) -> bool:
+        return 0.85 < _fpeak(o) / f0 < 1.15
+
+    def seed_hunt(f_syn: float, sd0: int):
+        for t in range(9):
+            sd = sd0 + 101 * t
+            o = synth(f_syn, sd)
+            if right_mode(o):
+                return o, sd
+        return None, sd0
+
+    f_syn = f0
+    out, sd = seed_hunt(f_syn, seed)
+    if out is None:
+        out = synth(f_syn, seed)
+    else:
+        best, best_c = out, abs(1200.0 * np.log2(_fpeak(out) / f0))
+        prev = None
+        for _tune in range(6):
+            cents = 1200.0 * np.log2(_fpeak(out) / f0)
+            if abs(cents) < best_c:
+                best, best_c = out, abs(cents)
+            if abs(cents) <= 10.0:
+                break
+            lx = np.log2(f_syn)
+            if prev is not None and abs(cents - prev[1]) > 1.0:
+                gain = (cents - prev[1]) / ((lx - prev[0]) * 1200.0)
+                step = -cents / (gain * 1200.0)
+            else:
+                step = -cents * 0.45 / 1200.0
+            prev = (lx, cents)
+            f_new = f_syn * 2.0 ** float(np.clip(step, -0.15, 0.15))
+            cand = synth(f_new, sd)
+            if not right_mode(cand):
+                cand, sd2 = seed_hunt(f_new, sd + 37)
+                if cand is None:
+                    break
+                sd = sd2
+            out, f_syn = cand, f_new
+        cents = 1200.0 * np.log2(_fpeak(out) / f0)
+        if abs(cents) < best_c:
+            best, best_c = out, abs(cents)
+        out = best
+
+    sos_hp = butter(1, max(f0 * 0.4, 40.0), btype="high", fs=SR,
+            output="sos")
+    out = sosfilt(sos_hp, out) * env
+    return out * amp / (np.max(np.abs(out)) + 1e-12) * 0.9

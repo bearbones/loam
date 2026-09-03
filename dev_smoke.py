@@ -212,6 +212,40 @@ checks.append(("nihon_shakuhachi",
         and abs(_skcen) <= 20.0
         and (_sk_early(_ska, _skf) - _sk_early(_skb, _skf)) <= -21.0
         and _sk_gust(_skb) - _sk_gust(_skc) >= 6.0))
+# e84 reedpipe + hichiriki: the valve on the quarter-wave bore is
+# odd-dominant (cylindrical signature); deterministic; on pitch.
+# hichiriki restores even partials (reed asymmetry) and pours the
+# embai glide (twin delta, e82's ruler)
+from loam.winds import reedpipe
+from loam.nihon import hichiriki
+
+
+def _oe_db(v, f0):
+    seg = v[int(0.4 * SR):int(1.0 * SR)]
+    n4 = 4 * len(seg)
+    sp = np.abs(np.fft.rfft(seg * np.hanning(len(seg)), n4)) ** 2
+    fq = np.fft.rfftfreq(n4, 1.0 / SR)
+
+    def he(h):
+        sel = (fq > f0 * h * 0.94) & (fq < f0 * h * 1.06)
+        return sp[sel].max() if sel.any() else 1e-30
+    return 10.0 * np.log10((he(1) + he(3) + he(5))
+                           / (he(2) + he(4) + he(6)))
+
+
+_rpf = 440.0
+_rp = reedpipe(_rpf, 1.1, seed=5)
+_rpc = 1200.0 * np.log2(_shp(_rp[int(0.3 * SR):],
+        fmin=200.0, fmax=900.0) / _rpf)
+checks.append(("reedpipe",
+        np.array_equal(_rp, reedpipe(_rpf, 1.1, seed=5))
+        and abs(_rpc) <= 15.0
+        and _oe_db(_rp, _rpf) >= 15.0))
+_hi = hichiriki(_rpf, 1.1, embai=120.0, seed=5)
+_hi0 = hichiriki(_rpf, 1.1, embai=0.0, seed=5)
+checks.append(("nihon_hichiriki",
+        (_sk_early(_hi, _rpf) - _sk_early(_hi0, _rpf)) <= -38.0
+        and _oe_db(_hi0, _rpf) <= _oe_db(_rp, _rpf) - 10.0))
 _sdrv = 0.3 * np.sin(2 * np.pi * 220.0 * np.arange(int(0.6 * SR))
         / SR)
 _, _sb = fdsym([220.0, 233.1], _sdrv, N=60, buses=True)

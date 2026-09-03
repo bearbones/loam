@@ -1,5 +1,55 @@
 # loam — log (newest at top)
 
+## 2026-09-03 — e84: hichiriki — the OTHER wind circuit, demoed on Etenraku
+
+The winds continue ("and so forth"). winds.reedpipe() is new:
+a pressure-driven REED VALVE on a cylindrical quarter-wave
+bore (clarinet family, Cook/Smith stance). Where the flute's
+jet ADDS energy at a labium, the reed is a valve — mouth
+pressure minus the returning wave sets its opening (r =
+offset + stiffness*dp, clipped), and the open end inverts the
+reflection so only odd harmonics resonate. Same block-
+vectorized loop and self-tune-by-listening scaffold as
+flute(); landed within ~1 cent across the register first try,
+odd/even +44 to +59 dB.
+
+nihon.hichiriki() voices it: EMBAI (the famous wide approach
+glide, ~120-140 c pour over 0.35 s — twice the shakuhachi's
+meri, via the same warp resample), the nasal 0.9-1.9 kHz
+presence formant, and REED WARMTH — the raw valve is square-
+pure, so a touch of asymmetric waveshaping (out + 0.12 out^2)
+restores the even partials a real reed's imperfect closure
+provides (25.6 dB of evens put back).
+
+The demo: Etenraku phrase A (hyojo on E, contour
+D-EEBBABEEEDE per the standard transcription), haya yo-hyoshi
+at 1.6 s/beat, over a soft sho-like padsynth drone. 38.4 s.
+7/7: odd bore +48.2 dB, warmth restores 25.6 dB of evens, all
+12 notes land their written midi (worst late-sustain center
+8.8 c), 4 deep embai glides carry 95-98% of design vs
+glideless twins, presence band +8.8 to +9.2 dB over raw in
+the low register, chroma poles {E, B}. dev_smoke 109 green.
+
+RULER LESSONS EARNED:
+  - A ruler's register of validity is part of the ruler: at E5
+    the cylindrical comb (659, 1977 Hz...) SKIPS the 0.9-1.9k
+    formant band entirely, so "formant vs raw" is only a
+    physical claim where an odd harmonic lives in the band —
+    gate the claim on the notes where it means something
+    (A4/B4), don't average it with notes where it can't.
+  - The e82 twin-delta ruler is now proven portable: same
+    gates, third instrument (meri -> embai), zero re-tuning.
+  - A written glide's TAIL is part of the written contour: the
+    center-pitch window must sit past it (late-sustain window
+    dur-0.6..dur-0.15) or the ruler reads the design as error
+    (-7 c systematic at mid-note on a 120 c embai).
+
+Open threads: sho aitake clusters (the real gagaku drone —
+free-reed cluster chords, maybe additive with breath-cycle
+envelopes); ryuteki to complete the gagaku trio; full Etenraku
+(phrases B and C exist); komibuki pulsed breath for the
+shakuhachi; sankyoku duet.
+
 ## 2026-09-02 — e83: Chelonia — the turtle in the light (operator commission)
 
 The green sea turtle piece: feeling the current, enjoying the
