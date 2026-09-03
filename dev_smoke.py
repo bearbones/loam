@@ -394,6 +394,21 @@ checks.append(("caustics",
         and float(np.abs(caustics(6.0, ripple_hz=1.5,
                 intensity=0.0, seed=3)).max()) == 0.0
         and abs(float(_cf[_cm][np.argmax(_cs[_cm])]) - 1.5) < 0.2))
+# e93 line_env: heterodyne single-line envelope stays flat when
+# an equal-amp neighbor 100 c away switches on (the old bandpass
+# skirts rejected that neighbor by only ~3 dB), and wrap=True
+# holds level at the loop ends instead of notching
+from loam.ruler import line_env as _lev
+_lt = np.arange(int(4.0 * SR)) / SR
+_lx = np.sin(2 * np.pi * 1000.0 * _lt)
+_lnb = np.sin(2 * np.pi * 1000.0 * 2 ** (100 / 1200) * _lt)
+_lnb[:int(2.0 * SR)] = 0.0
+_le = _lev(_lx + _lnb, 1000.0, wrap=True)
+_li = _le[int(0.3 * SR):int(3.7 * SR)]
+checks.append(("line_env",
+        abs(float(np.median(_li)) - 1.0) <= 0.02
+        and float(_li.min()) >= 0.95
+        and float(_le.min()) >= 0.90))
 _sdrv = 0.3 * np.sin(2 * np.pi * 220.0 * np.arange(int(0.6 * SR))
         / SR)
 _, _sb = fdsym([220.0, 233.1], _sdrv, N=60, buses=True)

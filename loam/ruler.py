@@ -918,6 +918,38 @@ def if_pitch(x: np.ndarray, f0: float,
     return np.diff(ph) * SR / (2.0 * np.pi)
 
 
+def line_env(x: np.ndarray, f: float, width_c: float = 25.0,
+        order: int = 6, wrap: bool = False) -> np.ndarray:
+    """Amplitude envelope of ONE spectral line (e93): heterodyne
+    x down by f, lowpass at the band half-width, magnitude.
+
+    Why not bandpass-and-rectify: a 4th-order +-25 c bandpass —
+    even filtfilt'd — rejects a neighbor line 100 c away by
+    only ~3 dB (the skirts decide, not the passband), so the
+    'line envelope' quietly tracks the neighbor too (measured:
+    a D5 h2 leaking into a C#6 line faked a -5 dB dip).
+    Heterodyning reframes the problem: after shifting the line
+    to DC the 100 c neighbor sits at ~4x the lowpass cutoff,
+    where a 6th-order butter gives ~70 dB. filtfilt on the
+    complex baseband keeps zero group delay, so onset-time
+    claims stay honest. wrap=True measures a LOOP on its own
+    circular extension (a bare array end notches any filtered
+    envelope). Exact coincidences (another voice's harmonic AT
+    f) remain unfixable by any filter — audit the harmonic
+    table and scope the claim (e88/e90/e93)."""
+    v = _mono(x)
+    n = len(v)
+    pad = min(n, SR) if wrap else 0
+    if wrap:
+        v = np.concatenate([v[-pad:], v, v[:pad]])
+    t = np.arange(len(v)) / SR
+    z = v * np.exp(-2j * np.pi * f * t)
+    bw = f * (2.0 ** (width_c / 1200.0) - 1.0)
+    sos = butter(order, bw, btype="lowpass", fs=SR, output="sos")
+    e = 2.0 * np.abs(sosfiltfilt(sos, z))
+    return e[pad:pad + n] if wrap else e
+
+
 def speak_time(v: np.ndarray, smooth_s: float = 0.004) -> float:
     """Seconds from a voice's first sample to its PERCEIVED
     attack — the point of steepest envelope rise. Born from

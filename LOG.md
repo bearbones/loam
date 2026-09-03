@@ -1,5 +1,58 @@
 # loam — log (newest at top)
 
+## 2026-09-03 — e93: TE-UTSURI — the sho changes chords one pipe at a time
+
+Refinement of the sho: in gagaku the aitake do not switch as
+blocks — common tones HOLD, departing pipes fade with the
+breath, new pipes roll in lowest-first. So the piece's unit is
+the PIPE, not the chord. kotsu -> bo -> otsu -> ju_so (6 s
+each, 24 s loop) compiles into: four continuous drones
+{A5 B5 D6 E6} (each a lapped equal-power pair — two renders,
+1 s sin/cos gain laps mid-chord, e83's rule), one F#6 hold
+across bo -> otsu, and six entrance events at written times
+(chord start + 0.10 + 0.15 per rank, low first).
+
+The headline number: the written sin^2 edge predicts its own
+-20 dB crossing ANALYTICALLY (t = edge * (2/pi) *
+asin(sqrt(0.1)) = 61.5 ms for edge 0.30), so entrances are
+design-vs-measured to the sample. 5/5: entrances worst 0.3 ms
+off the analytic crossing with roll order kept, holds worst
+dip -0.0 dB over 9 clean crossings, departures fall worst
+72.8 dB, membership weakest line 88.5 dB over the probes,
+seam p76.1. New in ruler.py: line_env() (heterodyne
+single-line envelope). dev_smoke 117 green.
+
+RULER LESSONS EARNED:
+  - MEASURE A LOOP ON ITS OWN CIRCULAR EXTENSION: filtfilt and
+    convolve on the bare array notched the envelope ~60 dB at
+    the seam — the audio held; only the ruler dipped. wrap=True
+    pads a second of the loop onto both ends first.
+  - BANDPASS-AND-RECTIFY LEAKS NEIGHBORS THROUGH ITS SKIRTS: a
+    4th-order +-25 c bandpass rejects a 100 c neighbor by only
+    ~3 dB even zero-phased. ruler.line_env was born: heterodyne
+    the line to DC, lowpass at the band half-width — the same
+    100 c gap becomes a 4x cutoff ratio, -73 dB verified.
+  - THE POLLUTION AUDIT MUST COVER EVERY CLAIMED LINE, NOT
+    JUST THE ENTRANTS': the docstring proudly audited entrance
+    lines and then the holds ruler claimed D6 across bo, where
+    D5's h2 sits at 1174.66 Hz — EXACTLY the D6 line. Its beat
+    against the drones' +-2 c detunes (~0.8 s period) faked a
+    -5 dB dip at the departure boundary. Three exact octaves
+    hide in this one progression (A4-A5, E5-E6, D5-D6).
+  - AN EXACT 0 c COINCIDENCE IS UNFIXABLE BY ANY FILTER — no
+    bandwidth separates identical frequencies. The fix is the
+    harmonic table: scope the claim to boundaries where the
+    octave-mate is silent. (And a wrong NOTE NAME poisons the
+    debug: midi 86 got labeled C#6 and two diagnosis rounds
+    surveyed 1080-1140 Hz — a band the real 1174.66 Hz claim
+    never touches. The ruler was honest; the label lied.)
+
+Open threads: caustics depth-lowpass; komibuki acceleration;
+hiki-iro (koto downward bend); the tegoto long arc (2-3 min
+sankyoku movement); niwa garden scene (shishi-odoshi +
+cicadas + suikinkutsu); te-utsuri could gain a second layer —
+a ryuteki or hichiriki melody floating over the moving sho.
+
 ## 2026-09-03 — e92: SUIKINKUTSU — the water-echo pot
 
 New texture-instrument pair in nihon.py: suikinkutsu_ir() (the
