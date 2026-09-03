@@ -1,5 +1,46 @@
 # loam — log (newest at top)
 
+## 2026-09-03 — e91: SANKYOKU — koto, shamisen, shakuhachi (capstone)
+
+The trio assembled the way sankyoku actually works:
+HETEROPHONY — all three voices carry the SAME melody,
+individually ornamented, with small WRITTEN time offsets. The
+shamisen trails the koto by a written 40 ms, the shakuhachi
+floats a written 120 ms behind an octave up, and everyone
+lands on D at the cadence after a shared breath (ma). 32 s
+loop, hirajoshi/honchoshi on D. Koto states the kernel alone,
+trio takes phrases 2-3, cadence D across three octaves.
+
+7/7: string lag median 38 ms of written 40 (worst pair 3 ms
+off), wind lag 141 ms of written 120 (worst 23 ms), strings
+center to 0.8 c / wind to 17.1 c under e82's own 20 c gate,
+cadence agrees +0.4/+1.3/+5.6 c, ma sits 21.6 dB down,
+signatures re-pass inside the ensemble (sawari +8.7, tsume
++14.0, muraiki +9.4 dB), seam p3.2. No library change.
+
+RULER LESSONS EARNED:
+  - HETEROPHONY IS A WRITTEN NUMBER: because every voice plays
+    the same line, ensemble "feel" (who leads, who trails)
+    becomes a design-vs-measured lag claim per matched note
+    pair. Mark strings by pick flux; mark the wind where its
+    own envelope first crosses -12 dB re note peak — a breathy
+    onset is a bloom, and flux has nothing to bite.
+  - ONE GATE PER VOICE, NOT PER PIECE: a shared 15 c centers
+    gate was both too loose for FD strings (sub-cent) and too
+    tight for the breathy bore (e82's own gate is 20 c, and
+    shorter notes average LESS wander, not more). A capstone
+    inherits each component's own gates — pooling them
+    manufactures either false passes or false failures.
+  - e87's composition rule held again: sawari, tsume, and
+    muraiki all re-passed their voice tests inside the mix
+    with zero re-tuning — verified components compose.
+
+Open threads: te-utsuri (sho pipes one by one); caustics
+depth-lowpass; komibuki acceleration; hiki-iro (koto's
+downward bend); a longer sankyoku movement with tegoto
+(instrumental interlude) structure — the 32 s loop wants to
+become a 2-3 minute arc someday.
+
 ## 2026-09-03 — e90: KOTO — the paulownia zither (sankyoku's 3rd voice)
 
 New instrument: nihon.koto(), fdpluck2 as the shamisen's
