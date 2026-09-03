@@ -88,6 +88,68 @@ def honchoshi(root_hz: float):
     return (root_hz, root_hz * 4.0 / 3.0, root_hz * 2.0)
 
 
+# hirajoshi: the koto's home tuning as semitone offsets from the
+# root (D: D Eb G A Bb)
+HIRAJOSHI = (0, 1, 5, 7, 8)
+
+
+def koto(f0: float, dur: float = 2.8, amp: float = 1.0,
+        tsume: float = 0.6, bend_c: float = 0.0,
+        bend_at: float = 0.30, bend_rise: float = 0.22,
+        vib_c: float = 0.0, vib_hz: float = 4.2,
+        body: float = 0.5, N: int = 0) -> np.ndarray:
+    """One tsume pluck on the paulownia zither — the shamisen's
+    clean-string cousin (barrier parked out of reach, no buzz),
+    longer ring, hard pick close to the bridge:
+
+      - `tsume`: the ivory pick's contact click, harder and
+        higher than the bachi snap;
+      - OSHIDE (`bend_c` cents, `bend_at`, `bend_rise`): the
+        left hand presses the string behind the bridge AFTER
+        the pluck and the sounding pitch rises — written as a
+        smoothstep warp of the decaying note, because that is
+        the honest bend (same stance as the shakuhachi scoop);
+      - `vib_c`/`vib_hz`: left-hand vibrato entering ~0.5 s;
+      - `body` 0..1: the hollow paulownia box — two parallel
+        resonant bands (~230 and ~560 Hz) added to the direct
+        string.
+
+    Deterministic (no seed: the FD string and the click are)."""
+    pad = 1.0 + max(bend_c, 0.0) / 1200.0 * 0.8 + 0.06
+    v = fdpluck2(f0, dur * pad, amp=1.0, kappa=0.18, sig0=0.55,
+            sig1=8e-5, pick=0.86, zone=0.10, gcurve=0.9,
+            K=2.5e9, alpha=1.3, split=0.005, kc=8e4, angle=0.55,
+            click=tsume * 1.2, click_band=(3500.0, 10500.0),
+            click_s=0.005, N=N)
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    if bend_c != 0.0 or vib_c > 0.0:
+        x = np.clip((t - bend_at) / bend_rise, 0.0, 1.0)
+        cents = (bend_c * x * x * (3.0 - 2.0 * x)
+                 + vib_c * np.sin(2.0 * np.pi * vib_hz * t)
+                 * np.clip((t - 0.5) / 0.4, 0.0, 1.0))
+        ratio = 2.0 ** (cents / 1200.0)
+        idx = np.cumsum(ratio)
+        idx -= idx[0]
+        idx = np.clip(idx, 0.0, len(v) - 1.0)
+        v = np.interp(idx, np.arange(len(v), dtype=float), v)
+    else:
+        v = v[:n]
+    if body > 0.0:
+        # zero-phase bands: a causal bandpass adds ~90 deg out
+        # of phase and CANCELS instead of boosting (measured
+        # -1.3 dB where the design said +5)
+        from scipy.signal import sosfiltfilt
+        b1 = sosfiltfilt(butter(2, [190.0, 270.0],
+                btype="bandpass", fs=SR, output="sos"), v)
+        b2 = sosfiltfilt(butter(2, [480.0, 640.0],
+                btype="bandpass", fs=SR, output="sos"), v)
+        v = v + body * (1.4 * b1 + 0.9 * b2)
+    r = int(0.02 * SR)
+    v[-r:] *= np.linspace(1.0, 0.0, r)
+    return v / (np.abs(v).max() + 1e-12) * (0.9 * amp)
+
+
 def _if_track(x: np.ndarray, f0: float) -> np.ndarray:
     """Instantaneous-frequency track near a KNOWN f0 (inline
     twin of ruler.if_pitch, same stance as _speak: the

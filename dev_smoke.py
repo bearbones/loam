@@ -319,6 +319,33 @@ checks.append(("nihon_ryuteki",
             graces=(0.5,), seed=2))
         and abs(_ryl) <= 35.0 and abs(_ryh) <= 35.0
         and _rnotch >= 4.0))
+# e90 koto: deterministic; centers; the oshide bend is claimable
+# DIRECTLY on the IF track (plucked SNR, unlike the winds); the
+# paulownia body boosts its band vs a bodyless twin (zero-phase
+# add — causal filters cancel instead)
+from loam.nihon import koto
+_ko = koto(220.0, 1.8)
+_kob = koto(220.0, 1.8, bend_c=150.0, bend_at=0.35)
+_koc = 1200.0 * np.log2(np.median(
+        _ifp(_ko, 220.0)[int(0.25 * SR):int(1.0 * SR)]) / 220.0)
+_kib = _ifp(_kob, 220.0, band=(0.93, 1.075 * 2 ** (150 / 1200)))
+_kod = 1200.0 * np.log2(
+        np.median(_kib[int(0.70 * SR):int(1.30 * SR)])
+        / np.median(_kib[int(0.15 * SR):int(0.31 * SR)]))
+_sokb = butter(2, [190.0, 270.0], btype="bandpass", fs=SR,
+        output="sos")
+
+
+def _kbrms(v):
+    return float(np.sqrt(np.mean(sosfilt(_sokb, v) ** 2)))
+
+
+checks.append(("nihon_koto",
+        np.array_equal(_ko, koto(220.0, 1.8))
+        and abs(_koc) <= 10.0
+        and abs(_kod - 150.0) <= 15.0
+        and 20.0 * np.log10(_kbrms(_ko)
+                / _kbrms(koto(220.0, 1.8, body=0.0))) >= 3.0))
 # e87 gagaku percussion: deterministic voices, each keeping to its
 # register (taiko low, kakko mid, shoko bright)
 from loam.nihon import shoko, kakko, taiko

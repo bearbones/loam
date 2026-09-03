@@ -1,5 +1,48 @@
 # loam — log (newest at top)
 
+## 2026-09-03 — e90: KOTO — the paulownia zither (sankyoku's 3rd voice)
+
+New instrument: nihon.koto(), fdpluck2 as the shamisen's
+clean-string cousin — barrier parked (no sawari), longer ring,
+hard tsume pick near the bridge — plus OSHIDE (the left hand
+presses behind the bridge AFTER the pluck; a smoothstep warp
+of the decaying note, the honest bend) and a paulownia-box
+body (two zero-phase resonant bands ~230/~560 Hz). HIRAJOSHI
+tuning helper. With shamisen + shakuhachi, the sankyoku trio
+is now complete.
+
+The piece: 30 s solo loop, hirajoshi on D3. Ascending kararin
+opens (10 notes, 60 ms), three oshide bends (+180/+100/+200 c),
+descending sweep, low D3 vibrato close. 6/6: centers 0.5 c,
+oshide worst error 0.1 c (!), tsume +12.5 dB / +7.2 over
+pickless twin, body +4.2 dB, kararin 16 marks worst 5.7 ms
+with 10 unpolluted ring lines worst 7.9 c, seam p39.9.
+dev_smoke 115 green.
+
+RULER LESSONS EARNED:
+  - MEASURABILITY IS A PROPERTY OF THE SOURCE, not the ruler:
+    the same warp gesture that hid from every detector on
+    breathy winds (e86 graces, e89 flutter) is claimable to
+    0.1 c on a plucked string, directly, no twins — high early
+    SNR and a clean IF track. Pick claims per voice.
+  - A CAUSAL BANDPASS ADDS ~90 DEGREES OUT OF PHASE: the body
+    resonance design said +5 dB, the ruler said -1.3 — the
+    parallel add was CANCELLING. sosfiltfilt (zero-phase) makes
+    a parallel band add mean what it says. Measure the design
+    before trusting the block diagram.
+  - PENTATONIC LADDERS ARE SELF-POLLUTING (e88's series lesson,
+    sweep edition): every upper sweep note sits on a lower
+    note's h2, and a 45 ms onset window at D3 has a ~44 Hz
+    mainlobe against a 9 Hz neighbor (BT wall, per-onset
+    edition). Mark the onsets by flux; claim ring lines only at
+    fundamentals no octave-mate can fake.
+
+Open threads: SANKYOKU trio piece (koto + shamisen +
+shakuhachi — all three voices now exist); te-utsuri (sho pipes
+one by one); caustics depth-lowpass; komibuki acceleration;
+koto could learn hiki-iro (the pull DOWN behind the bridge —
+oshide's negative twin, needs pad logic for a downward warp).
+
 ## 2026-09-03 — e89: komibuki — the pulsed breath (two cranes)
 
 nihon.shakuhachi() learns KOMIBUKI (Tsuru no Sugomori's crane
