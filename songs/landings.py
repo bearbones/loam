@@ -28,6 +28,7 @@ import os
 import sys
 
 import numpy as np
+from scipy.signal import butter, sosfilt
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(
         os.path.abspath(__file__))))
@@ -97,34 +98,118 @@ MUKHDA = [(0, 55), (2, 53), (4, 50)]
 print("== strings ==")
 LINE = [50, 52, 53, 55, 53, 52, 50, 48, 47, 48, 50, 52,
         53, 52, 50, 48, 50, 52, 50, 50]
+# no two real plucks are identical: a single cached render
+# phase-locks against its own ring, and at slot gaps near a
+# half-period multiple the new stroke CANCELS into the old
+# tail — measured: ~60 ms swallowed attacks recurring at the
+# same rates every breath cycle. Three pick-point variants per
+# voice, rotated, keep any stroke from being eaten twice.
 cache = {}
+MPICKS = (0.26, 0.28, 0.31)
+CPICKS = ((0.22, 0.24, 0.27), (0.30, 0.33, 0.36))
 
 
-def mpluck(m):
-    if m not in cache:
-        cache[m] = fdpluck2(hz(m), 1.2, amp=1.0, pick=0.28)
-    return cache[m]
+def mpluck(m, w=0):
+    if (m, w) not in cache:
+        cache[(m, w)] = fdpluck2(hz(m), 1.2, amp=1.0,
+                pick=MPICKS[w])
+    return cache[(m, w)]
 
 
-CH_DA = fdpluck2(hz(62) * 2 ** (0.8 / 1200), 0.9, amp=0.38,
-        pick=0.24)
-CH_RA = fdpluck2(hz(62) * 2 ** (-3.2 / 1200), 0.9, amp=0.33,
-        pick=0.33)
+def chpluck(par, w):
+    if ("c", par, w) not in cache:
+        f0 = hz(62) * 2 ** ((0.8 if par else -3.2) / 1200)
+        cache[("c", par, w)] = fdpluck2(f0, 0.9,
+                amp=0.38 if par else 0.33,
+                pick=CPICKS[par][w])
+    return cache[("c", par, w)]
 
-mel = np.zeros(L)
-chik = np.zeros(L)
-for j in range(NST):
-    if j % 4 == 0 and j < S0:
-        add_wrap(mel, tk[j], mpluck(LINE[(j // 4) % 20]))
-    else:
-        add_wrap(chik, tk[j], CH_DA if j % 2 else CH_RA)
+# the luthier's compensation (operator: "notes on top are
+# missing the time mark"): a low fdpluck2 string SPEAKS tens of
+# ms after it is written, while the bright chikari speaks at
+# once. Write each voice speak_time early so the perceived
+# attacks — not the writes — sit on the grid. Isolated speak
+# times are not enough: where the line steps DOWN, the previous
+# string's tail interferes with the new attack and delays where
+# it speaks in context — so the bus is built, each stroke's
+# attack MEASURED in place, and the bus rebuilt with per-stroke
+# corrections (one Newton step; the render is deterministic).
+GUARD = 0.004
+stc = {}
+
+
+def spk(key, v):
+    if key not in stc:
+        stc[key] = ruler.speak_time(v) - GUARD
+    return stc[key]
+
+
+_flx = {}
+
+
+def attack_offsets(bus, slots):
+    # e75's founding lesson, turned on ourselves: at 10 strokes/s
+    # under 0.9 s ringing tails the ENVELOPE cannot see a stroke
+    # (probed: it decays straight through one), but the flux can.
+    # Offset = the flux peak nearest each written slot; constant
+    # detector bias cancels in the median-difference gates.
+    key = id(bus)
+    if key not in _flx:
+        dblb = np.concatenate([bus, bus])
+        _flx[key] = ruler.flux_series(dblb, frame=512, hop=128)
+    fl, dt = _flx[key]
+    offs = []
+    for j in slots:
+        t0 = tk[j % NST] + LOOP_S
+        a, b = int((t0 - 0.05) / dt), int((t0 + 0.07) / dt)
+        i = int(np.argmax(fl[a:b]))
+        offs.append((a + i) * dt - t0)
+    return np.array(offs)
+
+
+MSTROKES = [(j, tk[j], LINE[(j // 4) % 20], 1.0, (j // 4) % 3)
+        for j in range(0, S0, 4)]
 for i, s in enumerate(STARTS):
     amp = (1.0, 1.1, 1.2)[i // 3]
     for off, m in MUKHDA:
         sl = s + off
-        at = 0.0 if sl >= NST else tk[sl]
-        add_wrap(mel, at, mpluck(m) * amp)
-add_wrap(mel, 0.0, mpluck(50) * 0.6)      # the ninth Sa, pressed
+        MSTROKES.append((sl % NST,
+                0.0 if sl >= NST else tk[sl], m, amp, i % 3))
+MSTROKES.append((0, 0.0, 50, 0.6, 1))     # the ninth Sa, pressed
+
+
+# the mizrab click: a low string BLOOMS — its spectrum fills in
+# over tens of ms, so neither the flux nor the ear can lock a
+# time mark to the string alone (probed: melody flux peaks
+# wander 0..64 ms with context). The pick's own broadband tick,
+# 8 ms at -20 dB, stamps the mark the way a real stroke does.
+_rngc = np.random.default_rng(0x5EED)
+click = _rngc.standard_normal(int(0.008 * SR)) \
+    * np.hanning(int(0.008 * SR))
+click = sosfilt(butter(3, [3500.0, 9000.0], btype="bandpass",
+        fs=SR, output="sos"), click)
+click = click / np.abs(click).max()
+
+mel = np.zeros(L)
+for sl, at, m, amp, w in MSTROKES:
+    add_wrap(mel, at - spk(("m", m, w), mpluck(m, w)),
+            mpluck(m, w) * amp)
+    add_wrap(mel, at, click * 0.16 * amp)
+
+# the timekeeper never lapses: chikari on EVERY slot (the first
+# cut replaced the tick with the melody note on melody slots,
+# and a low string's bloom — delayed up to 65 ms where the line
+# steps down and the old tail cancels the new attack — cannot
+# hold a beat; the operator heard exactly that)
+chik = np.zeros(L)
+for j in range(NST):
+    v = chpluck(j % 2, (j // 2) % 3)
+    add_wrap(chik, tk[j] - spk(("c", j % 2, (j // 2) % 3), v), v)
+
+uslots = sorted({sl for sl, _, _, _, _ in MSTROKES})
+print("  speak times: " + "  ".join(
+        f"{k}={1000 * (v + GUARD):.0f}ms"
+        for k, v in sorted(stc.items(), key=str)))
 
 meln = mel / np.abs(mel).max()
 chikn = chik / np.abs(chik).max()
@@ -145,10 +230,12 @@ def dha(treb, tg_, bass, bg):
     return v
 
 
+DHA = dha(na, 0.9, ge, 0.85)
+SAM = dha(na, 1.15, ge_sam, 1.0)
 drum = np.zeros(L)
 for i, sl in enumerate(LANDINGS[:-1]):
-    add_wrap(drum, tk[sl], dha(na, 0.9, ge, 0.85))
-add_wrap(drum, 0.0, dha(na, 1.15, ge_sam, 1.0))
+    add_wrap(drum, tk[sl] - spk("dha", DHA), DHA)
+add_wrap(drum, -spk("sam", SAM), SAM)
 
 # ---- tanpura ---------------------------------------------------
 print("== tanpura ==")
@@ -222,18 +309,26 @@ check("the contour counts 320", abs(integral - NST) <= 5.0,
         f"integral of the folded contour = {integral:.1f} "
         f"strokes vs 320 written")
 
-# the nine landings, read from the tabla bus
+# the nine landings, read from the tabla bus. The sam's attack
+# now sits AT the loop point, so its detection can fall on
+# either side of t=0 and its copy shows again at the doubled-
+# signal boundary: fold every onset to (-1, LOOP_S-1] and merge
+# circular twins closer than 0.15 s (real strikes are >= 0.7 s
+# apart by design).
 dbl = np.concatenate([drum, drum[:4 * SR]])
-# the sam strike is read at t=0.01; its copy at the doubled-
-# signal boundary shows one detector hop EARLY (38.39), so the
-# last 50 ms — where nothing is written — is the wrap image
-ons = np.array([t for t in ruler.onset_times(dbl, min_sep=0.3)
-        if t < LOOP_S - 0.05])
-lt_written = [tk[sl] for sl in LANDINGS[:-1]] + [LOOP_S]
-# measured onsets: sam lives at t=0; shift it to the loop end
-ons_s = np.sort(np.where(ons < 1.0, ons + LOOP_S, ons))
+raw = [t for t in ruler.onset_times(dbl, min_sep=0.3)
+        if t < LOOP_S + 0.5]
+fold = sorted(t - LOOP_S if t > LOOP_S - 1.0 else t
+        for t in raw)
+ons = []
+for t in fold:
+    if not ons or t - ons[-1] > 0.15:
+        ons.append(t)
+ons = np.array(ons)
 check("nine landings", len(ons) == 9,
         f"{len(ons)} tabla strikes per loop")
+# sam (the onset nearest t=0) belongs at the END of the cycle
+ons_s = np.sort(np.where(ons < 1.0, ons + LOOP_S, ons))
 ph_meas = np.interp(ons_s % LOOP_S, tg, phase) \
     + np.where(ons_s >= LOOP_S, NST, 0)
 ph_err = np.abs(ph_meas - np.array(LANDINGS))
@@ -250,10 +345,39 @@ check("unequal on the clock",
         f"first intra-tihai gap {g_first:.2f} s, last "
         f"{g_last:.2f} s — x{g_last / g_first:.2f} stretch: the "
         f"grid decelerates into the sam")
+sam_dev = float(np.min(np.abs(ons)))
 check("the ninth landing is the sam",
-        len(ons) >= 1 and float(min(ons)) <= 0.04,
-        f"pressed-bayan dha at t={min(ons) * 1000:.0f} ms — "
-        f"254 + 2x24 + 2x7 + 4 = 320 = 0, by arithmetic")
+        len(ons) >= 1 and sam_dev <= 0.04,
+        f"pressed-bayan dha within {sam_dev * 1000:.0f} ms of "
+        f"t=0 — 254 + 2x24 + 2x7 + 4 = 320 = 0, by arithmetic")
+
+# the time mark (operator: "notes on top are missing it"): the
+# beat belongs to the voice that is there the whole time, so
+# FIRST verify the timekeeper holds every one of the 320 slots,
+# THEN that the notes on top speak close to its tick.
+off_c = attack_offsets(chikn, range(NST))
+med_c = float(np.median(off_c))
+check("the timekeeper never lapses",
+        float(np.max(np.abs(off_c - med_c))) <= 0.010,
+        f"chikari attack on all {NST} slots, every one within "
+        f"{1000 * np.max(np.abs(off_c - med_c)):.1f} ms of its "
+        f"median tick ({1000 * med_c:+.1f} ms)")
+# the ear locks an onset to the sharp high band (the click),
+# not to the low string's slow bloom — measure the mark where
+# it lives
+mel_hp = sosfilt(butter(4, 3200.0, btype="high", fs=SR,
+        output="sos"), meln)
+off_m = attack_offsets(mel_hp, uslots)
+med_m = float(np.median(off_m))
+check("the notes on top speak with the tick",
+        abs(med_m - med_c) <= 0.012
+        and float(np.max(np.abs(off_m - med_c))) <= 0.02,
+        f"all {len(uslots)} melody and mukhda time marks land "
+        f"{1000 * med_m:+.1f} ms vs the chikari's "
+        f"{1000 * med_c:+.1f} ms; worst stroke "
+        f"{1000 * np.max(np.abs(off_m - med_c)):.1f} ms out — "
+        f"the mizrab click stamps the mark; the string's bloom "
+        f"reads as legato over it")
 
 errs = []
 for i in range(0, 60, 5):

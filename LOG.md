@@ -1,5 +1,57 @@
 # loam — log (newest at top)
 
+## 2026-09-02 — the luthier's repair: time marks (landings + avartan)
+
+Operator, on Nine Landings: "where the beat is held by the
+voice that's there the whole time, I feel some of the notes
+that come on top are missing the time mark, so it sounds off
+and breaks the flow." The ear was right three ways, and each
+mechanism got a measurement:
+
+  1. THE TIMEKEEPER WAS LAPSING. Every 4th slot the chikari
+     tick was REPLACED by the melody note. Now chikari strikes
+     every slot; melody rides on top of the tick. Verified:
+     all 320 ticks (240 in avartan's jhala) within 3.5 ms of
+     the median.
+  2. A LOW STRING CANNOT MARK TIME. fdpluck2 at 123-220 Hz
+     blooms — its spectrum fills in over tens of ms, and its
+     flux peak wanders 0..64 ms with context (worst where the
+     line steps down and the old tail cancels into the new
+     attack). Fix: the mizrab click — the pick's own 8 ms
+     3.5-9 kHz tick at -16 dB — stamps every melody-family
+     stroke. All 90 marks (87 in avartan) within ~4 ms.
+  3. SPEAK-TIME COMPENSATION: each voice written speak_time
+     early (ruler.speak_time: steepest 4 ms envelope rise) so
+     perceived attacks, not writes, sit on the grid.
+
+RULER LESSONS EARNED:
+  - THE ENVELOPE CANNOT SEE A STROKE THE FLUX CAN (e75's
+    founding lesson, turned on our own detector). At 10
+    strokes/s under 0.9 s tails, ~9 rings stack and a stroke's
+    envelope contribution vanishes — probed: the envelope
+    DECAYS straight through a written stroke. Every
+    env-crossing/env-slope detector variant read phantom
+    60 ms lapses; the flux-series peak detector reads all 320
+    within 3.5 ms.
+  - MEASURE THE MARK WHERE IT LIVES: full-band flux lets the
+    bloom outvote the click; the ear locks to the sharp high
+    band, so the mark ruler listens above 3.2 kHz.
+  - A NEWTON STEP ON A NONLINEAR DETECTOR DOES NOT CONVERGE:
+    per-stroke write corrections from measured offsets moved
+    the grid audibly and left the outliers in place. When the
+    correction fights the voice's nature, change the voice
+    (add the click), not the schedule.
+
+Both showcase renders re-verified end to end: landings 13/13,
+avartan 13/13 (its tihai control dropped to 0.28 with the
+unbroken tick — cleaner, not just equal).
+
+Open threads: mizrab click as a first-class fdpluck2 option
+(excitation noise burst at the pick, not an overlay); do the
+sarangi's bowed entries want speak-time compensation against
+the theka; a jhala with the click level as a written voice
+(brightness breathing).
+
 ## 2026-09-02 — session 78: the prominence floor (e78)
 
 Refinement/tooling cycle, mid-triptych. The Avartan showcase
