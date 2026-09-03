@@ -570,3 +570,56 @@ def taiko(amp: float = 1.0, small: bool = False) -> np.ndarray:
                 sig0=4.5, sig1=1.5e-4, N=45)
         _gk_cache[key] = v / (np.abs(v).max() + 1e-12)
     return _gk_cache[key] * (amp * (0.45 if small else 1.0))
+
+
+# shishi-odoshi bamboo modes: (freq_hz, amp, t60_s) — the emptied
+# arm's "tok" on its stone: one stone-contact thump plus woody
+# inharmonic tube rings, all fast (bamboo is light and slotted)
+BAMBOO_MODES = ((178.0, 0.45, 0.085), (820.0, 1.0, 0.140),
+        (1390.0, 0.75, 0.090), (2170.0, 0.55, 0.060),
+        (3060.0, 0.35, 0.045))
+
+
+def bamboo_tok(amp: float = 1.0, modes=BAMBOO_MODES,
+        seed: int = 0x0D05) -> np.ndarray:
+    """The shishi-odoshi strike: the emptied bamboo arm swings
+    back and hits its stone — 'tok'. Decaying modal sinusoids at
+    the written table (the ruler's design column) plus a 3 ms
+    broadband contact burst so the strike reaches every mode it
+    claims (e84's register rule). Deterministic per seed."""
+    dur = max(t60 for _, _, t60 in modes) * 1.6
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    rng = np.random.default_rng(seed)
+    v = np.zeros(n)
+    for f, a, t60 in modes:
+        ph = rng.uniform(0.0, 2.0 * np.pi)
+        v += a * np.sin(2 * np.pi * f * t + ph) \
+            * np.exp(-6.91 * t / t60)
+    bur = rng.standard_normal(int(0.003 * SR))
+    bur = sosfilt(butter(2, [350.0, 6500.0], btype="bandpass",
+            fs=SR, output="sos"), bur)
+    bur *= np.linspace(1.0, 0.0, len(bur)) ** 2
+    v[:len(bur)] += 0.9 * bur / (np.abs(bur).max() + 1e-12)
+    a_n = max(int(0.0004 * SR), 1)
+    v[:a_n] *= np.linspace(0.0, 1.0, a_n)
+    return amp * v / (np.abs(v).max() + 1e-12)
+
+
+def pour(dur: float = 1.1, amp: float = 1.0,
+        seed: int = 0x9042) -> np.ndarray:
+    """The tipping arm dumps its water: bandpassed splash noise
+    under a slow seeded gurgle wobble — fast attack, long fall
+    to silence. Deterministic per (dur, seed)."""
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    rng = np.random.default_rng(seed)
+    w = rng.standard_normal(n)
+    w = sosfilt(butter(2, [900.0, 5200.0], btype="bandpass",
+            fs=SR, output="sos"), w)
+    gur = sosfilt(butter(2, 14.0, btype="lowpass", fs=SR,
+            output="sos"), rng.standard_normal(n))
+    gur = 1.0 + 0.8 * gur / (np.abs(gur).max() + 1e-12)
+    env = np.clip(t / 0.04, 0.0, 1.0) * (1.0 - t / dur) ** 1.5
+    v = w * gur * env
+    return amp * v / (np.abs(v).max() + 1e-12)

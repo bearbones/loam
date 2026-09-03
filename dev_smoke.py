@@ -409,6 +409,22 @@ checks.append(("line_env",
         abs(float(np.median(_li)) - 1.0) <= 0.02
         and float(_li.min()) >= 0.95
         and float(_le.min()) >= 0.90))
+# e94 shishi-odoshi: deterministic strike + pour; the tok's
+# modes stand where written (rel=1e-4: the fast 3060 Hz mode
+# sits -36 dB in the whole-file FFT), pour is watery
+from loam.nihon import bamboo_tok, pour, BAMBOO_MODES
+_bt = bamboo_tok()
+_bmf = _smf(_bt, k=12, fmin=140.0, fmax=3400.0, rel=1e-4,
+        merge=0.02)
+_bw = max(abs(1200.0 * np.log2(
+        _bmf[np.argmin(np.abs(np.log(_bmf / f)))] / f))
+        for f, a, t in BAMBOO_MODES)
+_bp = pour(0.7)
+checks.append(("shishi_odoshi",
+        np.array_equal(_bt, bamboo_tok())
+        and np.array_equal(_bp, pour(0.7))
+        and _bw <= 25.0
+        and 900.0 < _cen(_bp) < 5200.0))
 _sdrv = 0.3 * np.sin(2 * np.pi * 220.0 * np.arange(int(0.6 * SR))
         / SR)
 _, _sb = fdsym([220.0, 233.1], _sdrv, N=60, buses=True)

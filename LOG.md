@@ -1,5 +1,47 @@
 # loam — log (newest at top)
 
+## 2026-09-03 — e94: SHISHI-ODOSHI — the bamboo deer-scarer
+
+New instrument pair in nihon.py: bamboo_tok() (the emptied
+arm's strike on its stone — five written inharmonic modes,
+BAMBOO_MODES, plus a 3 ms contact burst per e84's register
+rule) and pour() (the tipping arm's water: gurgle-wobbled
+bandpassed splash). The piece is the MECHANISM: fill (thin
+trickle), tip (pour), swing back (written 0.55 s), tok —
+period 9 s, three cycles in a 27 s loop over faint garden air.
+
+A water clock is a ruler's dream because the mechanism IS the
+design column. 7/7: toks mark worst 0.9 ms, pours mark worst
+20.0 ms, measured tok-pour gaps within 20.9 ms of the written
+arm-return, modes stand worst 0.2 c, the 820 Hz line's t60
+measures 140 ms vs written 140 (+0.2%), envelope p99.5 sits
+28.3 dB over p20, seam p72.8. dev_smoke 118 green.
+
+RULER LESSONS EARNED:
+  - THE RULER'S BANDWIDTH IS PART OF THE CLAIM (time-domain
+    edition of e92's threshold lesson): line_env's default
+    +-25 c lowpass at 820 Hz has a ~30 ms step response — the
+    same order as the 47 ms/20 dB decay it would measure.
+    width_c=150 makes the filter fast enough to watch the
+    decay it is grading. Every ruler smooths; know by how much
+    before trusting a slope.
+  - rel=1e-4 FOR FAST MODES: a t60=45 ms mode leaves only
+    -36 dB of energy in the whole-file FFT (peak power goes as
+    (amp * tau)^2), so mode_freqs' -30 dB bar silently dropped
+    a written mode. The quietest ROW of the design table sets
+    the threshold, not a default.
+  - A POUR IS A BLOOM, NOT A STRIKE (e91's onset lesson,
+    re-earned on water): flux argmax landed 76 ms late on
+    whichever gurgle swell rose fastest; first crossing of
+    -12 dB re the window peak marks the water's arrival at
+    20 ms.
+
+Open threads: the NIWA GARDEN SCENE is now fully stocked —
+suikinkutsu (e92) + shishi-odoshi (e94) need only cicadas
+(semishigure) to assemble; caustics depth-lowpass; komibuki
+acceleration; hiki-iro; the tegoto long arc; a ryuteki or
+hichiriki line over e93's moving sho.
+
 ## 2026-09-03 — e93: TE-UTSURI — the sho changes chords one pipe at a time
 
 Refinement of the sho: in gagaku the aitake do not switch as
