@@ -325,3 +325,56 @@ def bubbles(loop_s: float, rate: float = 16.0, size: float = 0.5,
         idx = (int(at * SR) + np.arange(len(ch))) % n
         np.add.at(out, idx, ch)
     return out
+
+
+def caustics(dur_s: float, ripple_hz: float = 1.25,
+        intensity=1.0, midis=(88, 90, 92, 95, 97, 100),
+        weights=(0.30, 0.12, 0.16, 0.26, 0.10, 0.06),
+        lam_max: float = 12.0, t60_lo: float = 0.25,
+        t60_hi: float = 0.85, wrap: bool = True,
+        seed: int = 0) -> np.ndarray:
+    """Sunlight through ripple crests (born e83, promoted e88).
+    Glass glints as a POINT PROCESS: density gated by crest(t)^3
+    at the ripple rate — bright caustic lines sweep past a fixed
+    point at the water's own speed — scaled by `intensity`
+    (scalar, or an (n,)-array light curve: clouds, depth, dusk).
+    Pick ripple_hz with integer cycles over dur_s if the piece
+    loops. wrap=True places tail spill circularly (loops);
+    wrap=False truncates at the end (arc pieces). Stereo,
+    glints panned wide, deterministic per seed."""
+    from .modal import strike, GLASS
+    n = int(dur_s * SR)
+    t = np.arange(n) / SR
+    inten = np.broadcast_to(np.asarray(intensity, float), (n,)) \
+        if np.ndim(intensity) else np.full(n, float(intensity))
+    crest = (0.5 + 0.5 * np.cos(2 * np.pi * ripple_hz * t)) ** 3
+    rng = np.random.default_rng(seed)
+    step = 0.005
+    tg = np.arange(0.0, dur_s, step)
+    lam = lam_max * np.interp(tg, t, inten) * np.interp(tg, t,
+            crest)
+    hits = tg[rng.random(len(tg)) < lam * step]
+    out = np.zeros((n, 2))
+    for t0 in hits:
+        m = rng.choice(midis, p=weights)
+        g = strike(440.0 * 2.0 ** ((m - 69) / 12.0),
+                t60_lo + (t60_hi - t60_lo) * rng.random(), GLASS,
+                amp=1.0, detune=1.5,
+                rng=np.random.default_rng(int(rng.integers(1 << 31))),
+                knock=0.02)
+        g = g / (np.abs(g).max() + 1e-12)
+        s_here = float(np.interp(t0, t, inten))
+        c_here = float(np.interp(t0, t, crest))
+        a = (0.35 + 0.65 * rng.random()) * s_here \
+            * (0.5 + 0.5 * c_here)
+        ch = stereo(g * a, float(rng.uniform(-0.95, 0.95)))
+        i0 = int((t0 + rng.uniform(0, step)) * SR) % n
+        k = len(ch)
+        if i0 + k <= n:
+            out[i0:i0 + k] += ch
+        elif wrap:
+            out[i0:] += ch[:n - i0]
+            out[:k - (n - i0)] += ch[n - i0:]
+        else:
+            out[i0:] += ch[:n - i0]
+    return out

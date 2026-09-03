@@ -1,5 +1,55 @@
 # loam — log (newest at top)
 
+## 2026-09-03 — e88: SURFACING — the turtle rises (arc piece)
+
+The Chelonia sequel, and the first NON-LOOP: a 72 s arc.
+Twenty seconds in the deep dark, a 32 s smoothstep ascent
+(water pads crossfade dark -> bright, exhale bubbles
+accelerate 1.9 s -> 0.35 s gaps, the caustic light grows), the
+BREAK at 52.0 s (bandpassed splash + sub thump + seven
+droplets falling back), the FIRST BREATH at 52.6 s (the 4k+
+hiss climax of the whole piece), then floating: an E-major air
+pad whose G#6 IS the sunlight — the major third exists only
+above the water. texture.caustics() promoted to the library
+this cycle (crest-gated GLASS glints, scalar-or-array
+intensity, wrap flag for loop vs arc).
+
+7/7: edges -55/-126 dB, water centroid tracks written u at
+r=0.94 (96 -> 205 Hz), light r=0.96, bubble IOI Spearman
+-0.99, splash marks -7.6 ms with 33 dB sub drop, breath argmax
+52.69 s, G#6 line +3.1 dB under -> +40.5 dB above.
+dev_smoke 113 green (new caustics check: determinism, silence
+at zero intensity, flicker line at the written ripple rate).
+
+RULER LESSONS EARNED:
+  - THE HARMONIC SERIES CONTAINS THE THIRD: E's series has G#
+    at h5/h10/h20, so "the major third arrives" can never be a
+    chroma-class claim — the class is never empty. Claim a
+    WRITTEN LINE instead (G#6 = 1648 Hz prominence over local
+    floor). The line ruler then found two leaks chroma had
+    averaged invisible: the deep caustics' default palette
+    included midi 92, and the body pad's h10 (E3 x 10) IS 1648.
+    You cannot forbid a note you are quietly playing.
+  - ESTIMATOR VARIANCE MUST FIT UNDER THE DESIGN SWING (e86's
+    BT budget, centroid edition): each 45-cent padsynth line is
+    ~2 Hz of noise bandwidth (~0.5 s coherence), and the whole
+    written brightening is one octave of centroid — 2 s windows
+    scatter +-40 Hz against a 100 Hz swing and rank-vs-index
+    reads noise. 6 s windows, correlated against the written u
+    (not the index: rank-of-monotone-u equals rank-of-index,
+    but Pearson stops the flat start from voting).
+  - AN ARC RETIRES THE SEAM and replaces it with SHAPE claims:
+    silence at both edges, and events that must own their
+    moment — the splash and the breath are 600 ms apart, so
+    each gets a BAND it owns (splash written < 3800, breath
+    measured 4000-9000). Overlapping measurement bands let the
+    louder event win both argmaxes.
+
+Open threads: sankyoku duet (shamisen + shakuhachi + bell);
+komibuki pulsed breath; te-utsuri (sho pipes entering one by
+one); caustics could learn depth-dependent lowpass (deep
+glints should be duller, not just sparser).
+
 ## 2026-09-03 — e87: ETENRAKU — the full ensemble (capstone)
 
 Four cycles converge: e84's hichiriki melody, e85's sho halo,

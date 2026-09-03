@@ -303,6 +303,23 @@ checks.append(("nihon_gagaku_perc",
         and 300.0 < _cen(kakko()) < 1500.0
         and _cen(shoko()) > 1200.0
         and np.isfinite(taiko(small=True)).all()))
+# e88 caustics: deterministic, silent at zero intensity, and the
+# glint density flickers at the written ripple rate
+from loam.texture import caustics
+_ca = caustics(6.0, ripple_hz=1.5, intensity=1.0, seed=3)
+_ce = np.abs(_ca.mean(axis=1))
+_ck = int(0.03 * SR)
+_ce = np.convolve(_ce, np.ones(_ck) / _ck, mode="same")
+_ce -= _ce.mean()
+_cs = np.abs(np.fft.rfft(_ce * np.hanning(len(_ce))))
+_cf = np.fft.rfftfreq(len(_ce), 1.0 / SR)
+_cm = (_cf >= 0.5) & (_cf <= 4.0)
+checks.append(("caustics",
+        np.array_equal(_ca, caustics(6.0, ripple_hz=1.5,
+                intensity=1.0, seed=3))
+        and float(np.abs(caustics(6.0, ripple_hz=1.5,
+                intensity=0.0, seed=3)).max()) == 0.0
+        and abs(float(_cf[_cm][np.argmax(_cs[_cm])]) - 1.5) < 0.2))
 _sdrv = 0.3 * np.sin(2 * np.pi * 220.0 * np.arange(int(0.6 * SR))
         / SR)
 _, _sb = fdsym([220.0, 233.1], _sdrv, N=60, buses=True)
