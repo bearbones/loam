@@ -873,6 +873,51 @@ def flux_spectrum(x: np.ndarray, frame: int = 1024,
     return fr, sp
 
 
+def rate_contour(x: np.ndarray, rmin: float = 4.0,
+        rmax: float = 14.0, win_s: float = 1.2,
+        hop_s: float = 0.2, frame: int = 1024,
+        hop: int = 256) -> tuple:
+    """(times_s, rates_hz): the stroke rate tracked over time —
+    pitch_contour's rhythmic twin. Short windows of the flux
+    series, zero-padded FFT, strongest line in [rmin, rmax]
+    refined by parabolic interpolation. Born e77: flux_spectrum
+    is a claim of STATIONARITY — a grid whose rate breathes on
+    a cosine (5.8 to 10.8 strokes/s and back) piles its flux
+    energy at the TURNING rates where the chirp lingers and
+    shows no line at all at its mean; the contour is the honest
+    ruler for chirped rhythm (0.7% median tracking on the e77
+    grid, integral 80.3 strokes vs 80 written). Window width is
+    a claim too: below ~7 periods of the slowest rate the
+    strongest line is often the 2nd harmonic (measured 100%
+    octave errors at 0.6-1.0 s windows where 1.2 s tracks
+    clean). The caller wraps a loop (concatenate) if windows
+    must cross the seam."""
+    fl, dt = flux_series(x, frame, hop)
+    wn = int(round(win_s / dt))
+    hn = max(int(round(hop_s / dt)), 1)
+    nfft = 1
+    while nfft < wn * 8:
+        nfft *= 2
+    frq = np.fft.rfftfreq(nfft, dt)
+    bsel = np.flatnonzero((frq >= rmin) & (frq <= rmax))
+    times, rates = [], []
+    for a in range(0, len(fl) - wn + 1, hn):
+        seg = fl[a:a + wn]
+        seg = (seg - seg.mean()) * np.hanning(len(seg))
+        sp = np.abs(np.fft.rfft(seg, nfft))
+        jj = bsel[int(np.argmax(sp[bsel]))]
+        d = 0.0
+        if 0 < jj < len(sp) - 1:
+            lm = np.log(sp[jj - 1:jj + 2] + 1e-12)
+            den = lm[0] - 2 * lm[1] + lm[2]
+            if abs(den) > 1e-12:
+                d = float(np.clip(0.5 * (lm[0] - lm[2]) / den,
+                        -0.5, 0.5))
+        times.append((a + wn / 2) * dt)
+        rates.append((jj + d) / (nfft * dt))
+    return np.asarray(times), np.asarray(rates)
+
+
 def onset_times(x: np.ndarray, frame: int = 1024, hop: int = 256,
         k: float = 3.0, min_sep: float = 0.08,
         floor_frac: float = 0.15) -> np.ndarray:

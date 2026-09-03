@@ -275,6 +275,19 @@ _fr_ = float(np.dot(_fa, _fb) / (np.linalg.norm(_fa)
         * np.linalg.norm(_fb) + 1e-12))   # own-period shift
 checks.append(("ruler_flux_series",
         abs(_fdt - 256.0 / SR) < 1e-9 and _fr_ > 0.7))
+from loam.ruler import rate_contour
+_tg = np.linspace(0.0, 4.0, 80001)       # linear 6->10 Hz chirp
+_ph = 6.0 * _tg + 0.5 * _tg ** 2         # of clicks: the contour
+_tc = np.interp(np.arange(int(_ph[-1])), _ph, _tg)
+_xc = np.zeros(4 * SR)
+for _i, _t in enumerate(_tc):
+    _a = int(_t * SR)
+    _xc[_a:_a + 200] += np.random.default_rng(
+            _i).standard_normal(200) * np.hanning(200)
+_rt, _rr = rate_contour(_xc, 4.0, 14.0)
+_rw = 6.0 + _rt                          # must track the ramp
+checks.append(("ruler_rate_contour",
+        float(np.median(np.abs(_rr / _rw - 1))) < 0.03))
 _tb = np.arange(4 * SR) / SR
 _bloom = np.sin(2 * np.pi * 110.0 * _tb) * np.exp(-_tb * 0.5) \
     + np.sin(2 * np.pi * 2500.0 * _tb) * np.exp(-((_tb - 0.8) / 0.35) ** 2)

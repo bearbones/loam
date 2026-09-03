@@ -1,5 +1,74 @@
 # loam — log (newest at top)
 
+## 2026-09-02 — session 77: the breathing grid (e77)
+
+Brand-new rhythm: e75's jhala engine with the GRID itself
+breathing. rate(t) = 8.333 - 2.5 cos(2 pi t/9.6) strokes/s —
+the strum eases 5.8 -> 10.8 -> 5.8 across the loop, stroke
+times from inverting the phase integral, mean rate chosen so
+phi(9.6) = 80.000000 exactly: the seam-lock survives a tempo
+that never stops changing (the accelerating-jhala thread,
+closed by making the ramp itself close the loop; e73/74's
+breath lineage married to e75/76's strum lineage). 13/13
+rulers. Library: ruler.rate_contour (dev_smoke 100 -> 101).
+
+Measured: contour tracks the written rate at median 0.7%,
+worst 3.6%; integral of the measured contour = 79.8 strokes
+vs 80 written (the census counting could not take, taken by
+integration); extremes 5.81/10.79 vs written 5.83/10.83;
+uniform-grid control contour flat (x1.027 spread around
+8.35); melody readback at the breathing times 1.6c/3.0c;
+mastered mix: 23 of 30 drone-clear windows read the stroke
+rate directly, all within 5.4% after folding; seam p53.9.
+
+RULER LESSONS EARNED:
+  - FLUX_SPECTRUM IS A CLAIM OF STATIONARITY. The breathing
+    grid's strongest stroke-band line is at 10.66 Hz — the
+    TURNING rate, where the cosine lingers (FM-style edge
+    pileup) — 2.3 Hz from the 8.33 mean, which shows no line
+    at all. rate_contour (pitch_contour's rhythmic twin:
+    short flux windows, zero-padded FFT, parabolic refine) is
+    the honest ruler for chirped rhythm.
+  - WINDOW WIDTH IS A CLAIM: below ~7 periods of the slowest
+    rate the strongest windowed line is often the octave
+    (100% errors at 0.6-1.0 s windows; 1.2 s tracks clean).
+  - EVERY OUTLIER EARNS A MECHANISM OR THE GATE IS A FUDGE:
+    the mastered mix's contour outliers decompose exactly
+    into (a) windows holding a written drone strike
+    (excluded by design), (b) the da/ra alternation's OWN
+    rate/2 sub-line — a 2-stroke-period hand pattern owns
+    its subharmonic (e76's hands-decorrelate lesson from the
+    other side), and (c) the octave at the slow end. Folded
+    and excluded BY MECHANISM, worst residual 5.4%. Also:
+    listen above 400 Hz — the master's lowpass tilts flux
+    weight toward sung fundamentals; the strum's clock lives
+    in the stroke transients.
+  - Free regression test: the uniform control re-derived
+    e75's construction and read 0.62x crown — the exact e75
+    number. Determinism makes old sessions latent controls.
+
+Open threads: BREATH DEPTH as a voice (vary RDEP per cycle —
+a slow crescendo of tempo swing; can two simultaneous strums
+breathe in counter-phase and read as two contours?); the
+melody-rate contour (rate/4 band — does the gat's own
+contour read in the melody band?); tihai on the breathing
+grid (countdown in breathing time: equal PHASE lags, unequal
+clock lags — does the self-similarity ruler need warped
+windows?); rate_contour on tabla-like material (real
+recordings?); chakradar; one-pitch tihai; flux stillness on
+bowed pieces; da/ra sub-line as a deliberate 40-cycle voice.
+Carried: gamak on the gat line; other just proportions; Pa-
+jitter mechanism; partial-fold-aware chroma; entries as
+music; shimmer as tala; ring sharpening; canon at the 4th;
+oblique organum; bass window floor (midi 40-44); k=5e4 cliff
+law; crack flavors in the bass window; ghost as harmony;
+intermodulation forecast; gamak map; jugalbandi;
+ruler.note_evidence; jod voices; per-string taraf gain;
+passing tones; FD tanpura dyad verify; creep dead-zone edge
+map.
+
+Render sent: e77_breathing_grid.ogg.
+
 ## 2026-09-02 — session 76: tihai (e76)
 
 Refinement of e75's jhala, landing the long-carried tihai +
