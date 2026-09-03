@@ -1,5 +1,50 @@
 # loam — log (newest at top)
 
+## 2026-09-02 — session 78: the prominence floor (e78)
+
+Refinement/tooling cycle, mid-triptych. The Avartan showcase
+forced a ruler change — crown ratios fail wherever a carpet
+voice owns the flux spectrum — so PROMINENCE (line magnitude
+over the mask-band median) is now library: ruler.flux_line
+(freq, prominence). e78 calibrates it with one variable: a
+3.333 Hz tabla tick sinking into a constant tanpura carpet,
+level(t) = -18 + 12 cos(2 pi t/19.2) dB, -6 at the seam to
+-30 mid-loop and back. 6/6 rulers; dev_smoke 101 -> 103
+(flux_line + speak_time; see the repair entry above).
+
+Measured: corr(written dB, log prom) 0.909 over 24 windows;
+loud (>= -11 dB) windows read 4.6..8.4x, sunken (<= -26 dB)
+2.3..2.6x — x1.79 separation, no overlap; every window with
+prom >= 6 reads the line within 2% of 3.333 Hz; THE FLOOR:
+prominence crosses 2.0x at -28.6 dB written depth — below
+that, in this carpet, no flux ruler can testify. Avartan's
+jor (6x) and jhala (6x) gates now stand on this curve.
+
+RULER LESSONS EARNED:
+  - PROMINENCE IS RELATIVE TO THE LOCAL FLOOR. First cut used
+    the 4-strikes-then-silence tanpura cycle: the same written
+    tick depth read 2.4x in a strike-rich window and 31x in a
+    strike-free one (the median collapses when the carpet
+    rests). The carpet must be flux-stationary before depth
+    means anything — struck every 1.2 s, uniformly.
+  - THE CARPET'S OWN COMB CAN SIT ON YOUR LINE. A 1.2 s
+    strike cycle puts its 4th harmonic at exactly 3.333 Hz;
+    quiet-window prominence (2.2-2.6x) is partly the carpet
+    testifying at the tick's own frequency — which is why the
+    sunken gate is a MEASURED ceiling, not an assumed zero.
+  - FLUX_SPECTRUM IS A CLAIM OF STATIONARITY IN LEVEL TOO
+    (e77's lesson, in amplitude): windows holding the steep
+    +/-12 dB shoulders of the breath read lower prominence
+    (6.2/6.3 vs 6.9/8.4 flat), and the two rising-side crest
+    windows smear a bin low (3.27/3.15 Hz) — AM sidebands.
+    The rising/falling asymmetry has no earned mechanism yet:
+    open thread.
+
+Open threads: why do rising-shoulder windows smear worse than
+their falling mirrors; a flux_line variant with a level-ramp
+correction; the floor curve vs carpet density (one number per
+carpet — a family of calibration curves).
+
 ## 2026-09-02 — showcase: "Nine Landings" (songs/landings.py)
 
 Third showcase piece. Spirit: equal in phase, unequal on the

@@ -873,6 +873,54 @@ def flux_spectrum(x: np.ndarray, frame: int = 1024,
     return fr, sp
 
 
+def flux_line(x: np.ndarray, lo: float, hi: float,
+        mask: tuple = (1.2, 20.0), frame: int = 1024,
+        hop: int = 256) -> tuple:
+    """(freq_hz, prominence) of the strongest rhythm line in
+    [lo, hi] — prominence is the line's flux-spectrum magnitude
+    over the MEDIAN magnitude across the mask band. Born from
+    the Avartan showcase: crown ratios (line over the window's
+    own max) fail wherever a carpet voice owns the spectrum —
+    the tanpura's strike comb crowned every quiet section, so a
+    real 2.08 Hz jor tick read 0.44x crown while sitting 6x
+    above the median. Prominence is the absolute ruler: a
+    clock's line stands some multiple above the spectrum's
+    noise floor no matter who else is playing. Calibrate the
+    gate per piece (e78 maps prominence vs mix depth: the line
+    fades smoothly into the floor as the voice sinks)."""
+    fr, sp = flux_spectrum(x, frame, hop)
+    m = (fr > mask[0]) & (fr < mask[1])
+    med = float(np.median(sp[m]))
+    bsel = (fr >= lo) & (fr <= hi)
+    i = int(np.argmax(sp[bsel]))
+    return float(fr[bsel][i]), float(sp[bsel][i] / (med + 1e-12))
+
+
+def speak_time(v: np.ndarray, smooth_s: float = 0.004) -> float:
+    """Seconds from a voice's first sample to its PERCEIVED
+    attack — the point of steepest envelope rise. Born from
+    operator feedback on the Nine Landings showcase ("notes on
+    top are missing the time mark"): a bright 294 Hz chikari
+    pluck speaks almost at once, while a low fdpluck2 string
+    blooms over several cycles and its perceived attack lands
+    10-30 ms after it is written. On an 8-10 stroke/s grid that
+    lag reads as bad time. Write each voice at (grid_time -
+    speak_time(voice)) so the attacks, not the writes, sit on
+    the grid — the luthier's compensation. Steepest rise, not
+    a half-peak crossing: the crossing point of a slow bloom
+    sits far from where the ear locks, and on a bus under
+    stacked ringing tails only the rise survives as a
+    landmark."""
+    env = np.abs(np.asarray(v, dtype=float))
+    k = max(1, int(smooth_s * SR))
+    env = np.convolve(env, np.ones(k) / k, mode="same")
+    # slope over a smooth_s span, not per-sample: partial-beat
+    # ripple in a ringing tail outslopes the attack sample-to-
+    # sample, but nothing outruns the attack over 4 ms
+    rise = env[k:] - env[:-k]
+    return (int(np.argmax(rise)) + k // 2) / SR
+
+
 def rate_contour(x: np.ndarray, rmin: float = 4.0,
         rmax: float = 14.0, win_s: float = 1.2,
         hop_s: float = 0.2, frame: int = 1024,

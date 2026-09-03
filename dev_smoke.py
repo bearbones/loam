@@ -275,6 +275,26 @@ _fr_ = float(np.dot(_fa, _fb) / (np.linalg.norm(_fa)
         * np.linalg.norm(_fb) + 1e-12))   # own-period shift
 checks.append(("ruler_flux_series",
         abs(_fdt - 256.0 / SR) < 1e-9 and _fr_ > 0.7))
+from loam.ruler import flux_line
+_fq, _fp = flux_line(_tf8, 7.0, 9.0)      # the 8 Hz train stands
+_nz = np.random.default_rng(7).standard_normal(
+        4 * SR) * 0.1                     # tall over the median;
+_nq, _np_ = flux_line(_nz, 7.0, 9.0)      # bare noise does not
+checks.append(("ruler_flux_line",
+        abs(_fq - 8.0) < 0.16 and _fp > 10.0 and _np_ < 4.0))
+from loam.ruler import speak_time
+_ts = np.arange(int(0.5 * SR)) / SR       # fast pluck vs slow
+_fastv = np.sin(2 * np.pi * 200.0 * _ts) \
+    * np.minimum(_ts / 0.004, 1.0) * np.exp(-_ts * 3.0)
+_swell = np.sin(2 * np.pi * 200.0 * _ts) \
+    * np.sin(np.pi * np.minimum(_ts / 0.12, 1.0) / 2) ** 2 \
+    * np.exp(-_ts * 2.0)                  # steepest rise of the
+_stf = speak_time(_fastv)                 # sin^2 bloom is at its
+_sts = speak_time(_swell)                 # inflection, ~60 ms in
+checks.append(("ruler_speak_time",
+        _stf <= 0.012 and 0.03 <= _sts <= 0.10
+        and speak_time(np.concatenate([np.zeros(2205),
+            _fastv])) >= 0.045))
 from loam.ruler import rate_contour
 _tg = np.linspace(0.0, 4.0, 80001)       # linear 6->10 Hz chirp
 _ph = 6.0 * _tg + 0.5 * _tg ** 2         # of clicks: the contour
