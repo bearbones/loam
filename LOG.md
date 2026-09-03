@@ -1,5 +1,41 @@
 # loam — log (newest at top)
 
+## 2026-09-03 — e87: ETENRAKU — the full ensemble (capstone)
+
+Four cycles converge: e84's hichiriki melody, e85's sho halo,
+e86's ryuteki dragon line an octave above, and NEW — the
+time-keepers: nihon.shoko() (flat-bronze-plate modal 'chin',
+every other beat), nihon.kakko() (tight fddrum 'ka': katarai
+answer-taps plus the MORORAI accelerating roll pouring into
+each 8-beat cycle head, IOIs 0.25 s -> 0.09 s geometric), and
+nihon.taiko() (fddrum at 60 Hz: the soft zun pickup and the
+big DOU). Percussion pattern is gagaku-style simplified — the
+exact Etenraku drum score is figure-locked, like the aitake
+charts were.
+
+38.4 s, haya yo-hyoshi. 8/8: every strike marks (12 shoko + 3
+DOU + 6 katarai worst 9.2 ms), all 3 rolls accelerate
+monotonically to 0.37 final/first IOI, melody worst 8.8 c,
+flips hold both registers, halo troughs on every change,
+taiko/kakko/shoko sit 111/892/1932 Hz, poles {E, B}.
+dev_smoke 112 green.
+
+RULER LESSONS EARNED:
+  - A mark window must stay under HALF THE SMALLEST WRITTEN
+    GAP: the mororai's 75-110 ms tap spacing under a +-0.2 s
+    flux window let neighboring marks lock onto one loud tap
+    and every IOI read zero. The window is now a parameter of
+    the marks helper, chosen per claim.
+  - Wrap for PLACEMENT, never for ARITHMETIC: %-ing the roll
+    tap list before IOI math read one interval as -38.3 s when
+    the third roll crossed the seam. Keep unwrapped times for
+    ordering claims; wrap only at lookup.
+
+Open threads: gagaku done for now — the trio + kit stand as a
+reusable ensemble. Elsewhere: sankyoku duet (shamisen +
+shakuhachi + bell); the turtle surfacing arc piece;
+texture.caustics() promotion; komibuki pulsed breath.
+
 ## 2026-09-03 — e86: ryuteki — the dragon flute completes the trio
 
 Third gagaku wind. nihon.ryuteki(): the waveguide flute voiced

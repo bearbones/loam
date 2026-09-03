@@ -292,6 +292,17 @@ checks.append(("nihon_ryuteki",
             graces=(0.5,), seed=2))
         and abs(_ryl) <= 35.0 and abs(_ryh) <= 35.0
         and _rnotch >= 4.0))
+# e87 gagaku percussion: deterministic voices, each keeping to its
+# register (taiko low, kakko mid, shoko bright)
+from loam.nihon import shoko, kakko, taiko
+from loam.ruler import centroid_hz as _cen
+checks.append(("nihon_gagaku_perc",
+        np.array_equal(shoko(), shoko())
+        and np.array_equal(taiko(), taiko())
+        and _cen(taiko()) < 300.0
+        and 300.0 < _cen(kakko()) < 1500.0
+        and _cen(shoko()) > 1200.0
+        and np.isfinite(taiko(small=True)).all()))
 _sdrv = 0.3 * np.sin(2 * np.pi * 220.0 * np.arange(int(0.6 * SR))
         / SR)
 _, _sb = fdsym([220.0, 233.1], _sdrv, N=60, buses=True)

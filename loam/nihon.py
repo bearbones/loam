@@ -27,6 +27,8 @@ from scipy.signal import butter, sosfilt
 from . import SR
 from .fdstring import fdpluck2, _speak
 from .winds import flute, reedpipe, _fpeak
+from .membrane import fddrum
+from .modal import strike as _mstrike
 
 _thump_cache = {}
 
@@ -387,3 +389,46 @@ def ryuteki(f0: float, dur: float, amp: float = 1.0,
     r = int(0.03 * SR)
     out[-r:] *= np.linspace(1.0, 0.0, r)
     return out / (np.abs(out).max() + 1e-12) * (0.9 * amp)
+
+
+# ---- the gagaku percussion (e87) ---------------------------------
+# Three time-keepers, deterministic and cached: the pattern is the
+# music, so the voices are single renders reused.
+SHOKO = [(1.0, 1.0, 1.0), (1.83, 0.60, 0.75), (2.66, 0.75, 0.60),
+         (3.56, 0.50, 0.50), (4.51, 0.35, 0.40),
+         (5.42, 0.25, 0.32)]                    # flat bronze plate
+
+_gk_cache = {}
+
+
+def shoko(amp: float = 1.0) -> np.ndarray:
+    """The small bronze gong: 'chin'. Flat-plate mode ratios,
+    struck hard, ~1.3 s ring."""
+    if "shoko" not in _gk_cache:
+        v = _mstrike(1150.0, 1.3, SHOKO, amp=1.0, detune=2.0,
+                rng=np.random.default_rng(0x5C), knock=0.04)
+        _gk_cache["shoko"] = v / (np.abs(v).max() + 1e-12)
+    return _gk_cache["shoko"] * amp
+
+
+def kakko(amp: float = 1.0) -> np.ndarray:
+    """The small tight drum: 'ka'. High-tension membrane, fast
+    decay, struck off-center."""
+    if "kakko" not in _gk_cache:
+        v = fddrum(295.0, 0.30, amp=1.0, strike=(0.62, 0.0),
+                width=0.12, sig0=24.0, sig1=3e-4, N=41)
+        _gk_cache["kakko"] = v / (np.abs(v).max() + 1e-12)
+    return _gk_cache["kakko"] * amp
+
+
+def taiko(amp: float = 1.0, small: bool = False) -> np.ndarray:
+    """The big hanging drum: 'DOU' (or the soft 'zun' pickup with
+    small=True — same skin, lighter arm)."""
+    key = "taiko_s" if small else "taiko"
+    if key not in _gk_cache:
+        v = fddrum(60.0, 1.5, amp=1.0,
+                strike=(0.30 if small else 0.42, 0.0),
+                width=0.30 if small else 0.22,
+                sig0=4.5, sig1=1.5e-4, N=45)
+        _gk_cache[key] = v / (np.abs(v).max() + 1e-12)
+    return _gk_cache[key] * (amp * (0.45 if small else 1.0))
