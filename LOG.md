@@ -1,5 +1,57 @@
 # loam — log (newest at top)
 
+## 2026-09-02 — e79: "The Bells Learn Ektal" — the caught-bell khali
+
+New idea (78 was tooling): Vespers' church bells take up era
+V's 12-matra clock. Ektal's theka rung by a fixed belfry (one
+bell per bol family, one pan per bell — a real tower), the
+tirakita flourish as a downward four-bell peal at matra/4,
+and the khali translated into campanology: the CAUGHT BELL.
+Matras 3 and 7 (and matra 7's bol is literally *kat*, hands
+closed) are struck normally, then a hand closes on the rim at
+100 ms and the ring dies (exp catch, -60 dB in 0.35 s). Same
+bell rings open on matra 9 — emptiness as a bell that dies
+young, and the same bronze proves it both ways. Quiet oh-choir
+(D2+A2 padsynth) 14 dB under the tower; Vespers' FDN room.
+38.4 s seamless, 4 avartans, D aeolian.
+
+Measured (11/11): seam p32; all 72 written strikes marked,
+worst |dev-med| 1.4 ms, weakest mark 154x its local flux
+floor; caught A3 prime-band drop min 43.5 dB vs open A3 max
+7.4 dB (separation 36 dB); tirakita spacing worst 2.6 ms;
+matra line 1.251 Hz at 63x (tirakita sub-line 5.003 Hz at
+42x, info); dhin bell's hum+prime within 1.2% of written;
+choir -14.0 dB; D crowns the chroma.
+
+RULER LESSONS EARNED:
+  - A BELL IS NEVER SILENT BETWEEN STRIKES. Detuned mode
+    pairs beat, and the swells fire any global onset census:
+    onset_times read 130 "onsets" for 72 strikes, and ghosts
+    survived even k=16 / floor 0.5. High-passing made it
+    WORSE (119-134): in the near-empty HF band the local MAD
+    collapses and the threshold chases the knock's noise tail
+    — e39's rest lesson, met again from the other side.
+  - So the landings mark ruler is the instrument for ringing
+    textures too: per-written-time flux argmax on the band
+    the mark owns (the contact knock above the tower's top
+    ring mode), PLUS a per-mark prominence floor (>=3x local
+    flux median; measured min 154x) so a missing strike
+    cannot hide behind a lucky argmax landing near the
+    median. Count events only when the texture actually
+    goes quiet between them.
+  - The caught/open claim wants LEVEL DROP, not decay_t60:
+    two banded RMS windows (110 ms and 500 ms post-strike)
+    give a 36 dB separation with no envelope fitting, and the
+    open-bell gate doubles as a t60 check (4.2 s ring predicts
+    ~5.6 dB across the window gap; measured max 7.4).
+
+Open threads: a full ektal composition over this theka (the
+tower as timekeeper under a melodic voice); change-ringing
+permutations of the peal order (e39's rounds meet the taal);
+caught-bell ratio as a dynamic variable (half-caught strikes);
+the mizrab click as a first-class fdpluck2 excitation; e78's
+rising-shoulder asymmetry still unexplained.
+
 ## 2026-09-02 — showcase: "Avartan" (songs/avartan.py)
 
 First of the three operator-requested showcase pieces (landed
