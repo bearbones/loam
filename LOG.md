@@ -1,5 +1,52 @@
 # loam — log (newest at top)
 
+## 2026-09-03 — e86: ryuteki — the dragon flute completes the trio
+
+Third gagaku wind. nihon.ryuteki(): the waveguide flute voiced
+breathy, plus the REGISTER FLIP (fukura -> seme, the mid-breath
+jump to the overblown octave on the same fingering — two
+renders of the same bore, flute()'s `overblow` IS the
+jet-speed jump, crossfaded in ~80 ms) and FINGER FLICKS (~90 c
+warp pits + ~6 dB amplitude notches: the striking finger
+briefly kills the resonance — e81's hand lesson, wind
+edition). Notes self-center by constant correction (e82's
+stance without the knots).
+
+The piece: Etenraku phrase A a third time — e84 the melody,
+e85 the harmony, e86 the ryuteki way: an octave up, the long
+E's starting fukura and flipping to seme mid-breath. 38.4 s.
+6/6: flips land fukura within 25.8 c / seme within 9.7 c of
+the octave, held centers 19.9 c worst, strike notches >= 6.4
+dB with false notches <= 2.8 dB, gust 3.5-9.1 dB, E crowns the
+fundamental band. dev_smoke 111 green.
+
+RULER LESSONS EARNED (a whole saga this cycle):
+  - A 50 ms pitch dip on a BREATHY voice sits below honest
+    measurability, fundamentally: to see a 90 c dip you need a
+    band ~90 c wide, and that band's noise envelope fluctuates
+    on exactly the gesture's timescale (bandwidth x time ~ 1).
+    Four detectors tried and failed honestly: widened IF band
+    (admits the hiss, phase slips everywhere), band-energy
+    handoff (narrowband noise swings 13 dB at gesture speed),
+    twin-difference (each dip's cumulative resample shift
+    misaligns the tracks after the first grace), bare IF dips
+    (graceless notes self-dip to -300 c). The resolution was to
+    LISTEN TO THE PHYSICS: a striking finger also kills the
+    resonance, so the gesture carries an amplitude notch — and
+    broadband envelope marks don't fight narrowband noise
+    (6.4 dB notches vs 2.8 dB false floor). When a gesture
+    can't be measured, ask whether the gesture is missing part
+    of its own physics.
+  - Chroma on a solo breathy instrument is a coin flip: the
+    hiss votes uniformly (full-band top-2 read E 0.12 F 0.10).
+    Restrict the band to where the fundamentals live and claim
+    only the crown.
+
+Open threads: THE CAPSTONE — full Etenraku, all three winds
+plus kakko/shoko/taiko percussion (needs a kakko roll and a
+shoko clang, small); te-utsuri; sankyoku duet; the turtle
+surfacing arc.
+
 ## 2026-09-03 — e85: sho — the aitake breathe through Etenraku's harmony
 
 Second of the gagaku winds. nihon.sho() + nihon.AITAKE: the

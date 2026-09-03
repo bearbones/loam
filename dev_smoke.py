@@ -273,6 +273,25 @@ checks.append(("nihon_sho",
         and _arch >= 10.0
         and min(_sline(m) for m in AITAKE["otsu"])
             >= _sline(72) + 12.0))
+# e86 ryuteki: deterministic; the register flip lands fukura on f0
+# and seme on the octave; the finger strike notches the envelope
+from loam.nihon import ryuteki
+from loam.ruler import if_pitch as _rif
+_ry = ryuteki(440.0, 2.0, flip_at=1.2, graces=(0.5,), seed=2)
+_ryl = 1200.0 * np.log2(np.median(_rif(_ry, 440.0)[
+        int(0.25 * SR):int(1.05 * SR)]) / 440.0)
+_ryh = 1200.0 * np.log2(np.median(_rif(_ry, 880.0)[
+        int(1.35 * SR):int(1.8 * SR)]) / 880.0)
+_rke = np.convolve(np.abs(_ry), np.ones(int(0.01 * SR))
+        / int(0.01 * SR), mode="same")
+_rdb = 20.0 * np.log10(_rke + 1e-12)
+_rnotch = np.median(_rdb[int(0.25 * SR):int(0.75 * SR)]) \
+    - _rdb[int(0.46 * SR):int(0.54 * SR)].min()
+checks.append(("nihon_ryuteki",
+        np.array_equal(_ry, ryuteki(440.0, 2.0, flip_at=1.2,
+            graces=(0.5,), seed=2))
+        and abs(_ryl) <= 35.0 and abs(_ryh) <= 35.0
+        and _rnotch >= 4.0))
 _sdrv = 0.3 * np.sin(2 * np.pi * 220.0 * np.arange(int(0.6 * SR))
         / SR)
 _, _sb = fdsym([220.0, 233.1], _sdrv, N=60, buses=True)

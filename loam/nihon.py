@@ -318,3 +318,72 @@ def sho(midis, dur: float, amp: float = 1.0, floor: float = 0.25,
     hiss = sosfilt(sos_h, hiss, axis=0)
     out += hiss * (0.006 * env[:, None])
     return out / (np.abs(out).max() + 1e-12) * (0.9 * amp)
+
+
+def ryuteki(f0: float, dur: float, amp: float = 1.0,
+        flip_at: float = -1.0, graces=(),
+        breath: float = 0.13, seed: int = 0) -> np.ndarray:
+    """One breath of the dragon flute (e86). The waveguide flute
+    voiced breathy, plus the ryuteki's gestures:
+
+      - REGISTER FLIP (`flip_at`, seconds): the signature move —
+        the note starts fukura (the fundamental) and flips to
+        seme (the overblown OCTAVE, same fingering) mid-breath.
+        Two full renders of the same bore, low mode and
+        overblown, crossfaded in ~80 ms: the physical gesture is
+        a jet-speed jump, and flute()'s `overblow` IS that jet.
+        Negative = no flip.
+      - FINGER FLICKS (`graces`, seconds): the finger re-strikes
+        a hole in ~50 ms — a ~90-cent gaussian pit in the warp
+        AND a ~6 dB amplitude notch, because the strike briefly
+        kills the resonance. The finger is part of the model
+        (e81's hand lesson, wind edition) — and the notch is
+        what a ruler can hold: at this voice's breathiness a
+        bare 50 ms pitch dip is below honest measurability
+        (narrowband noise fluctuates on exactly that timescale).
+      - The breath is high and stays audible: the in-bore noise
+        is pitched by the resonator (the ryuteki's hiss sings
+        the note), and the attack carries a mild gust.
+
+    Deterministic per seed. Mono."""
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    tb = np.arange(int(dur * SR)) / SR
+    gust = breath + 0.30 * np.exp(-tb / 0.18)
+
+    def _center(v, f_want):
+        # constant self-correction, e82's stance without the
+        # knots: the bore is stable, only the residual offset
+        # needs folding back
+        c = float(np.clip(1200.0 * np.log2(np.median(
+                _if_track(v, f_want)[int(0.4 * SR):
+                                     int((dur - 0.25) * SR)])
+                / f_want), -45.0, 45.0))
+        ii = np.arange(n) * 2.0 ** (-c / 1200.0)
+        return np.interp(ii, np.arange(len(v), dtype=float), v)
+
+    lo = _center(flute(f0, dur, amp=1.0, breath=gust,
+            pressure=0.88, vib_hz=4.0, vib_amt=0.010,
+            attack_s=0.10, release_s=0.18, damp=0.78,
+            seed=seed), f0)
+    if flip_at > 0.0:
+        hi = _center(flute(f0, dur, amp=1.0, breath=gust,
+                pressure=0.90, vib_hz=4.0, vib_amt=0.010,
+                attack_s=0.06, release_s=0.18, damp=0.78,
+                overblow=0.9, seed=seed + 1), 2.0 * f0)
+        xf = 1.0 / (1.0 + np.exp(-(t - flip_at) / 0.020))
+        out = lo * (1.0 - xf) + hi * xf
+    else:
+        out = lo
+    cents = np.zeros(n)
+    for tg in graces:
+        cents -= 90.0 * np.exp(-((t - tg) / 0.025) ** 2)
+    if graces:
+        idx = np.cumsum(2.0 ** (cents / 1200.0))
+        idx -= idx[0]
+        out = np.interp(idx, np.arange(n, dtype=float), out)
+        for tg in graces:
+            out *= 1.0 - 0.6 * np.exp(-((t - tg) / 0.020) ** 2)
+    r = int(0.03 * SR)
+    out[-r:] *= np.linspace(1.0, 0.0, r)
+    return out / (np.abs(out).max() + 1e-12) * (0.9 * amp)
