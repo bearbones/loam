@@ -46,10 +46,15 @@ class Loop:
         oscillators must land at the seam phase-exact."""
         return round(f * self.loop_s) / self.loop_s
 
+    def place(self, start_s: float, length: int) -> np.ndarray:
+        """Buffer indices for a chunk of `length` starting at start_s
+        — wrapped modulo the loop. Shared with the Score recorder so
+        stems index exactly as the canvas does."""
+        return (int(start_s * SR) + np.arange(length)) % self.n
+
     def add(self, start_s: float, chunk: np.ndarray) -> None:
         """Mix a stereo chunk in at start_s, wrapping past the end."""
-        idx = (int(start_s * SR) + np.arange(len(chunk))) % self.n
-        np.add.at(self.buf, idx, chunk)
+        np.add.at(self.buf, self.place(start_s, len(chunk)), chunk)
 
     def filt_circular(self, sos, x: np.ndarray) -> np.ndarray:
         """IIR-filter a LOOP: warm the filter with the signal's own
@@ -62,6 +67,45 @@ class Loop:
             ceil: float = 0.90) -> np.ndarray:
         sos = butter(2, lp_hz, btype="low", fs=SR, output="sos")
         y = self.filt_circular(sos, self.buf)
+        y = np.tanh(y * drive) / np.tanh(drive)
+        return y * (ceil / np.max(np.abs(y)))
+
+
+class Take:
+    """The one-shot canvas: Loop without the wrap. A through-composed
+    piece needs event tails to RUN PAST the end, not fold into bar 1
+    — so the buffer is dur_s plus tail_s of room, `add` clips instead
+    of wrapping, and `master` filters from silence (sample 0 really
+    is the first sample). Same signatures as Loop, so a Score works
+    over either."""
+
+    def __init__(self, dur_s: float, seed: int, tail_s: float = 4.0):
+        self.dur_s = dur_s
+        self.tail_s = tail_s
+        self.n = int(round(SR * (dur_s + tail_s)))
+        self.buf = np.zeros((self.n, 2))
+        self.t = np.arange(self.n) / SR
+        self.rng = np.random.default_rng(seed)
+
+    def place(self, start_s: float, length: int) -> np.ndarray:
+        """Buffer indices for a chunk at start_s, clipped to the take
+        (a tail past the end is dropped, never wrapped)."""
+        i = int(start_s * SR)
+        return np.arange(max(i, 0), min(i + length, self.n))
+
+    def add(self, start_s: float, chunk: np.ndarray) -> None:
+        """Mix a stereo chunk in at start_s; whatever runs past the
+        take's tail room is dropped."""
+        idx = self.place(start_s, len(chunk))
+        if len(idx) == 0:
+            return
+        lead = idx[0] - int(start_s * SR)
+        self.buf[idx] += chunk[lead:lead + len(idx)]
+
+    def master(self, lp_hz: float = 7500.0, drive: float = 1.35,
+            ceil: float = 0.90) -> np.ndarray:
+        sos = butter(2, lp_hz, btype="low", fs=SR, output="sos")
+        y = sosfilt(sos, self.buf, axis=0)
         y = np.tanh(y * drive) / np.tanh(drive)
         return y * (ceil / np.max(np.abs(y)))
 
