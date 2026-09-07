@@ -1,5 +1,113 @@
 # loam — log (newest at top)
 
+## 2026-09-06 — THE CHAMBER: a score for a machine (e97-e99, the piece, the Godot harness)
+
+The question that started it: what would it take to recreate
+Animusic's Resonant Chamber in Godot? The answer, once loam is
+the composer: the same thing MIDIMotion did, but in the right
+order — the machine is a CONSTRAINT THE COMPOSER ASKS BEFORE
+WRITING, not a choreographer that reacts to notes. Five stages,
+one day, each with a ruler. docs/chamber-spec.md is the spec.
+
+e97 SCORE RECORDER. loam/score.py: Score wraps a canvas (Loop,
+or the new Take — the one-shot canvas whose event tails run
+PAST the end instead of folding into bar 1) and records every
+pluck / rake / strike as an event with per-mechanism stems, so
+the mixdown is provably the sum of the stems (max residual
+< 1e-9). Export is loam-score/1: score.json + stems/*.wav +
+shapes.f32. 5/5.
+
+e98 STRING SHAPES. fdstring._fdrun grows a capture hook:
+displacement sampled at N nodes every SR/rate_hz steps, at the
+loop top, so the frame IS the state that produced the sample.
+fdshape() bakes one pluck; shape_library() a bank by pick point
+with an npz cache. The license to reuse one clip across the
+whole harp: the bridge-free stiff string is LINEAR (superpose
+two picks: cos > 0.9999) and f0-INVARIANT in normalized
+coordinates (220 vs 440 Hz: cos > 0.99, t60 dev < 8%, envelope
+mean < 1 dB) — the residual is partial beating from kappa fixed
+in normalized units, not a modelling error. Clip size is
+frames x nodes x 4 bytes; the export header carries offsets.
+
+e99 PLAYABILITY. Mechanism.build lays strings along an axis and
+arms over overlapping reach windows; the solver plans each note
+as [t_move, t, t_free] for the nearest free arm (least travel,
+ties -> earliest free) and REFUSES a note no arm can reach in
+time (t - approach - travel >= free_at) or a restrike inside
+restrike_s. can_play() lets the composer ask before writing;
+finalize() re-solves globally sorted by (t, mech, string index)
+with simultaneous groups ordered most-constrained-first, so the
+plan is independent of the order the piece was written in
+(112/112 orders identical). Two closed forms for capacity: one
+arm on one string is bounded by restrike_s; alternating strings
+by approach + travel + recover.
+
+THE CHAMBER (songs/chamber.py). 64 bars, 84 bpm, D dorian, ~86 s
+through-composed on a Take: a steel harp (16 strings, 3 arms), a
+bronze rake (5 strings, 1 arm: the whole arm sweeps), rosewood
+bars (8, 2 arms) — every note asked first with can_play; a
+voice that cannot be played on time is dropped, and the piece
+reports dropped/intended (0 after most-constrained-first and
+asking the constrained voice first). 247 events, 15 cues, four
+stems, four shape clips. Rulers: score_recall (every written
+onset lands within 30 ms), plan_consistent (no arm overlaps,
+t_move < t <= t_free), onset_pitch on >= 99% of isolated notes,
+relative chroma {D, A}, bars mode ratio 1:4:10 in a 0.15 s
+window. ALL RULERS PASS.
+
+HARNESS (harness/, Godot 4.7, GL Compatibility). Reads the
+export at runtime — JSON, AudioStreamWAV.load_from_file,
+PackedByteArray.to_float32_array on shapes.f32 — and draws the
+annotated track (lanes per stem, pitch/amp/actuator ticks,
+motion and recover spans, cues, envelopes, playhead on the
+audio clock) over the strings from the exported geometry
+vibrating with the baked clips, arms sliding along their
+plans, bars flashing with t60, the chamber glowing with its
+stem envelope. dev/test_load.gd headless -> HARNESS: PASS.
+The point of the exercise: everything on screen came from the
+score, and the score came from the thing that decided every
+note. The game gets to inherit that, not reconstruct it.
+
+RULER LESSONS EARNED:
+  - PITCH AT AN ONSET IS A DIFFERENCE, NOT A SPECTRUM: hps_pitch
+    on the mixture read the ringing bass under every harp note.
+    onset_pitch takes the after-window spectrum MINUS the
+    before-window spectrum decayed by the expected t60, so what
+    is left is what the onset added. Then the before-window must
+    not straddle another attack (isolation >= 0.35 s, exclude
+    simultaneous notes) or the "before" is already the "after".
+  - AN ABSOLUTE LOCK METRIC DIVIDES BY AN EMPTY FLOOR: comb
+    energy over off-comb energy hit 6e8 in a quiet window and
+    called it a perfect lock. onset_lock is bounded (comb
+    fraction x populated share) and the CLAIM is relative — the
+    written f0's lock over its octave, sub-octave and fifth —
+    because the question was "did it play THIS note", not "is
+    this window harmonic".
+  - RESCUE ONLY AGAINST THE CORRECTED SPECTRUM: an octave rescue
+    checked against the raw after-spectrum fired 34 times on
+    bass harmonics; against the expected-decay difference, 7.
+    The rescue is part of the estimator and inherits its
+    conditioning.
+  - CHROMA CLAIMS ARE RELATIVE TOO: the crown went to A (every
+    D string's third partial is an A). Top-2 = {D, A} is what a
+    dorian piece on D actually proves.
+  - A SHORT MODE NEEDS A SHORT WINDOW: the bars' 10x mode is
+    gone in 0.5 s; 0.15 s with rel=0.003 sees 1:4:10.
+  - SOLVER CLAIMS NEED THEIR OWN CLOSED FORM: my first capacity
+    prediction assumed the greedy would alternate strings; it
+    stays on string 0 (least travel = zero). The ruler was right
+    and the prediction was wrong — write the arithmetic for the
+    policy actually implemented.
+
+Open threads: the game proper (arms with IK along the plans,
+cameras on the cue track, materials); a soundboard / body
+coupling so string stems are not the whole voice; shape clips
+for the rake (bronze, higher kappa) and per-amp clips if the
+linearity license ever breaks (a bridge=True string is NOT
+linear); a second machine (Pipe Dream's marble drums — struck,
+every hit a projectile with a launch time: same solver, one
+more term); the Niwa garden assembly.
+
 ## 2026-09-03 — e96: SEMISHIGURE — cicada rain
 
 The garden's last missing voice. New in texture.py: cicada()

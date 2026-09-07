@@ -12,8 +12,9 @@ then grown sixteen modules in one night of play.
 
 The engine (`loam/__init__.py`): `Loop` (the seamless canvas —
 cycle-quantized oscillators, tail-warmed IIR filters, wrapped event
-tails, seeded determinism), `stereo`, `ad_env`, `write_wav`,
-`seam_report`.
+tails, seeded determinism), `Take` (the one-shot canvas: tails run
+past the end instead of folding into bar 1), `stereo`, `ad_env`,
+`write_wav`, `seam_report`.
 
 Instruments:
 
@@ -58,12 +59,33 @@ Transformations & effects:
 - `ruler` — the consolidated measurement kit: every earned rule
   below as a callable default (HPS pitch, power-weighted centroid,
   band power DENSITY, crest, width >250 Hz, pulse rate read in the
-  fast-decaying band, seam rank, RMS contour, `report()`).
+  fast-decaying band, seam rank, RMS contour, `report()`; for
+  scores: `score_recall`, `plan_consistent`, `onset_pitch`,
+  `onset_lock`).
+- `score` — the piece as a machine's score: `Instrument` /
+  `Mechanism` / `Actuator` geometry, a `Score` that records every
+  pluck, rake and strike into per-mechanism stems, plans each note
+  for an arm ([t_move, t, t_free]) and REFUSES what no arm can
+  reach — `can_play` is the question the composer asks before
+  writing. Exports `loam-score/1` (score.json + stems + shapes).
+- `fdstring.fdshape` / `shape_library` — the finite-difference
+  string's displacement captured as frames (nodes x rate_hz), the
+  vertex data a game animates strings with; licensed for reuse by
+  linearity and f0-invariance in normalized coordinates.
 
 `songs/` — finished pieces (The Bore, Reel Home, the hermit suite,
-Reliquary, The Long Stair, The Alembic). `experiments/` — one idea per script,
-rendered and measured. `render/` — output audio (gitignored).
-`LOG.md` — what was tried, what it sounded like, what was learned.
+Reliquary, The Long Stair, The Alembic, The Chamber). `experiments/` —
+one idea per script, rendered and measured. `render/` — output audio
+(gitignored). `LOG.md` — what was tried, what it sounded like, what
+was learned.
+
+`docs/chamber-spec.md` — the Resonant-Chamber programme: a machine
+(strings, bars, arms) as a constraint the composer asks before
+writing, and the export a game engine animates from. `harness/` —
+a Godot 4.7 project that reads that export and draws the annotated
+track over the strings vibrating with their baked shapes
+(`godot --path harness`; `godot --headless --path harness -s
+dev/test_load.gd` prints `HARNESS: PASS`).
 
 ## The seam-craft rules
 
