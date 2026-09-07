@@ -501,9 +501,11 @@ class Score:
         return getattr(self.canvas, "dur_s",
                 getattr(self.canvas, "loop_s", self.canvas.n / SR))
 
-    def export(self, outdir: str, stem_gain=None) -> dict:
+    def export(self, outdir: str, stem_gain=None,
+            env_hz: int = 50) -> dict:
         """score.json + stems/<mech>.wav (+ shapes.f32). Stems share
-        ONE gain (recorded) so their sum is still the mix."""
+        ONE gain (recorded) so their sum is still the mix. Per-stem
+        peak envelopes at env_hz ride along for the engine."""
         os.makedirs(os.path.join(outdir, "stems"), exist_ok=True)
         stats = self.finalize()
         mix = self.mixdown()
@@ -514,6 +516,13 @@ class Score:
             rel = os.path.join("stems", f"{mid}.wav")
             write_wav(os.path.join(outdir, rel), buf * stem_gain)
             stems[mid] = rel
+        # coarse |x| envelopes per stem, for the engine to breathe by
+        hop = SR // env_hz
+        envs = {}
+        for mid, buf in self.stems.items():
+            e = np.abs(buf * stem_gain).max(axis=1)
+            e = e[:len(e) // hop * hop].reshape(-1, hop).max(axis=1)
+            envs[mid] = [round(float(v), 4) for v in e]
         doc = dict(format=FORMAT, name=self.name, bpm=self.bpm,
                 seed=self.seed, sr=SR, duration_s=self.duration_s(),
                 total_s=self.canvas.n / SR,
@@ -521,7 +530,8 @@ class Score:
                 instrument=self.instrument.to_dict(),
                 events=self.events, cues=self.cues, stems=stems,
                 stems_gain=float(stem_gain), stats=stats,
-                conflicts=self.conflicts)
+                conflicts=self.conflicts,
+                envelopes=dict(rate_hz=env_hz, stems=envs))
         if self.shapes is not None:
             doc["shapes"] = self._write_shapes(outdir)
         with open(os.path.join(outdir, "score.json"), "w") as f:

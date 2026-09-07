@@ -3,3 +3,4 @@ render/
 *.ogg
 *.mp3
 __pycache__/
+harness/.godot/
