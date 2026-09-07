@@ -1410,3 +1410,70 @@ def report(x: np.ndarray, name: str = "bus") -> dict:
           f"seam=p{100 * d['seam_rank']:.1f}"
           + (f" width={d['width_corr']:+.3f}" if x.ndim == 2 else ""))
     return d
+
+
+# -- score rulers (the chamber, e97-e99) ---------------------------------
+
+def score_recall(x: np.ndarray, times, tol_s: float = 0.03,
+        min_sep: float = 0.12, **onset_kw) -> dict:
+    """Did the render strike when the score says? For written
+    event times isolated by >= min_sep from their neighbours (the
+    FINDABLE ones — onset_times merges closer hits by design), the
+    fraction with a detected onset within tol_s. Onset detection
+    carries ~frame/2 of latency (see onset_times): the median offset
+    of matched pairs is measured and removed before judging —
+    that is the ruler's clock, reported, not the claim. Returns
+    {recall, findable, hit, latency_s, extra} where extra counts
+    detected onsets more than tol_s from ANY written time."""
+    ts = np.sort(np.asarray(times, dtype=float))
+    det = onset_times(x, **onset_kw)
+    if len(ts) == 0 or len(det) == 0:
+        return dict(recall=0.0, findable=0, hit=0, latency_s=0.0,
+                extra=int(len(det)))
+    gaps = np.diff(ts)
+    iso = np.ones(len(ts), dtype=bool)
+    iso[1:] &= gaps >= min_sep
+    iso[:-1] &= gaps >= min_sep
+    # latency: median of (nearest detected - written) within 50 ms
+    near = det[np.argmin(np.abs(det[None, :] - ts[:, None]), axis=1)]
+    off = near - ts
+    close = np.abs(off) < 0.05
+    lat = float(np.median(off[close])) if close.any() else 0.0
+    d2 = det - lat
+    near2 = d2[np.argmin(np.abs(d2[None, :] - ts[:, None]), axis=1)]
+    hit = np.abs(near2 - ts) <= tol_s
+    nf = int(iso.sum())
+    nh = int((hit & iso).sum())
+    extra = int((np.min(np.abs(ts[None, :] - d2[:, None]), axis=1)
+                 > tol_s).sum())
+    return dict(recall=nh / max(nf, 1), findable=nf, hit=nh,
+            latency_s=lat, extra=extra)
+
+
+def plan_consistent(events) -> dict:
+    """The engine's precondition on an exported plan: for every
+    actuator, events in time order never overlap — each t_move is
+    at or after the previous t_free — and t_move < t <= t_free for
+    every assigned event. Returns {ok, overlaps, bad_span,
+    unassigned, assigned}; overlaps/bad_span list event indices."""
+    by_act = {}
+    unassigned, bad = [], []
+    for e in events:
+        if not e.get("strings"):
+            continue
+        a = e.get("actuator")
+        if a is None:
+            unassigned.append(e["i"])
+            continue
+        if not (e["t_move"] < e["t"] <= e["t_free"]):
+            bad.append(e["i"])
+        by_act.setdefault((e["mech"], a), []).append(e)
+    overlaps = []
+    for evs in by_act.values():
+        evs.sort(key=lambda e: e["t"])
+        for p, q in zip(evs, evs[1:]):
+            if q["t_move"] < p["t_free"] - 1e-9:
+                overlaps.append(q["i"])
+    return dict(ok=not overlaps and not bad, overlaps=overlaps,
+            bad_span=bad, unassigned=unassigned,
+            assigned=sum(len(v) for v in by_act.values()))

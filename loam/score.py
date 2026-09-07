@@ -414,8 +414,15 @@ class Score:
         self.conflicts = []
         fresh = {mid: _Solver(self.instrument.mech(mid))
                  for mid in self.solvers}
-        order = sorted(range(len(self.events)),
-                key=lambda i: (self.events[i]["t"], i))
+        # ties (simultaneous notes) resolve by string index, low first
+        # — the plan depends on the score's content, never on the order
+        # a composer happened to write it in (e99 claim 3)
+        def key(i):
+            ev = self.events[i]
+            si = self.instrument.mech(ev["mech"]).index(ev["strings"][0]) \
+                if ev["strings"] and ev["mech"] in fresh else -1
+            return (ev["t"], ev["mech"], si, i)
+        order = sorted(range(len(self.events)), key=key)
         for i in order:
             ev = self.events[i]
             if not ev["strings"] or ev["mech"] not in fresh:
