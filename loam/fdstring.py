@@ -29,13 +29,16 @@ import numpy as np
 from . import SR
 
 
-def fdpluck(f0: float, dur: float, amp: float = 1.0,
+def _fdrun(f0: float, dur: float, amp: float = 1.0,
         kappa: float = 0.3, sig0: float = 0.9, sig1: float = 1e-4,
         pick: float = 0.28, bridge: bool = True, zone: float = 0.10,
         gcurve: float = 0.2, K: float = 3e9, alpha: float = 1.3,
         pluck_m: float = 1.6e-3, N: int = 0,
-        contact: str = "sav") -> np.ndarray:
-    """One plucked note on the simulated string. bridge=True adds
+        contact: str = "sav", capture=None) -> tuple:
+    """The integrator behind fdpluck and fdshape: returns (audio,
+    frames). capture=(nodes, rate_hz) samples the displacement field
+    onto `nodes` even positions every SR/rate_hz steps (frames is
+    None otherwise). One plucked note on the simulated string. bridge=True adds
     the jawari barrier (gcurve = parabola curvature, K/alpha the
     contact spring). pluck_m is the physical pluck displacement —
     the contact nonlinearity is amplitude-dependent, so pluck_m vs
@@ -96,7 +99,14 @@ def fdpluck(f0: float, dur: float, amp: float = 1.0,
     lap = np.zeros(N + 1)
     lapo = np.zeros(N + 1)
     bi = np.zeros(N + 1)
+    frames = None
+    if capture:
+        cap_x = np.linspace(0.0, 1.0, int(capture[0]))
+        cap_every = max(int(round(SR / capture[1])), 1)
+        frames = []
     for t in range(steps):
+        if frames is not None and t % cap_every == 0:
+            frames.append(np.interp(cap_x, x, u))
         lap[1:-1] = u[2:] - 2 * u[1:-1] + u[:-2]
         lapo[1:-1] = up[2:] - 2 * up[1:-1] + up[:-2]
         bi[2:-2] = u[4:] - 4 * u[3:-1] + 6 * u[2:-2] - 4 * u[1:-3] \
@@ -129,7 +139,91 @@ def fdpluck(f0: float, dur: float, amp: float = 1.0,
     r = int(min(0.05, dur * 0.1) * SR)
     if r > 0:
         out[-r:] *= np.linspace(1, 0, r)
-    return out * amp / (np.max(np.abs(out)) + 1e-12) * 0.9
+    out = out * amp / (np.max(np.abs(out)) + 1e-12) * 0.9
+    return out, (np.asarray(frames) if frames is not None else None)
+
+
+def fdpluck(f0: float, dur: float, amp: float = 1.0,
+        kappa: float = 0.3, sig0: float = 0.9, sig1: float = 1e-4,
+        pick: float = 0.28, bridge: bool = True, zone: float = 0.10,
+        gcurve: float = 0.2, K: float = 3e9, alpha: float = 1.3,
+        pluck_m: float = 1.6e-3, N: int = 0,
+        contact: str = "sav") -> np.ndarray:
+    """One plucked note on the simulated string (see _fdrun for the
+    parameters). Audio only — the readout node's velocity."""
+    return _fdrun(f0, dur, amp, kappa, sig0, sig1, pick, bridge, zone,
+            gcurve, K, alpha, pluck_m, N, contact)[0]
+
+
+def fdshape(f0: float, dur: float, nodes: int = 24,
+        rate_hz: float = 120.0, pick: float = 0.28, t60=None,
+        bridge: bool = False, **kw) -> tuple:
+    """The same pluck, and the string's SHAPE while it rings: the
+    displacement field decimated to `nodes` positions at `rate_hz`.
+    Returns (audio, frames[F, nodes] float32 normalized to max|u|=1,
+    scale_m). fdpluck integrates this field every step and reads one
+    node into audio; this keeps what the engine wants to draw — the
+    same simulation that made the sound.
+
+    t60 (seconds) sets sig0 = ln(1000)/t60 so the visual decay
+    matches a material's audible one. bridge defaults OFF: without
+    the jawari the system is linear, amplitude is a scalar, and the
+    normalized movie depends only on pick (and weakly kappa/sig1) —
+    which is what licenses a small library instead of a per-note
+    bake (e98)."""
+    if t60 is not None:
+        kw["sig0"] = float(np.log(1000.0) / t60)
+    out, fr = _fdrun(f0, dur, pick=pick, bridge=bridge,
+            capture=(nodes, rate_hz), **kw)
+    scale = float(np.max(np.abs(fr)) + 1e-30)
+    return out, (fr / scale).astype(np.float32), scale
+
+
+def shape_t60(frames: np.ndarray, rate_hz: float,
+        drop: float = 25.0) -> float:
+    """Decay time of a frame sequence: running-max envelope of
+    max|u| per frame (the field oscillates under the envelope; a
+    0.1 s running max rides on top), linear dB fit over the top
+    `drop` dB from the peak, -60/slope. nan if too short."""
+    env = np.max(np.abs(frames), axis=1)
+    w = max(int(0.1 * rate_hz), 1)
+    env = np.array([env[i:i + w].max() for i in range(len(env))])
+    db = 20 * np.log10(env + 1e-15)
+    tt = np.arange(len(db)) / rate_hz
+    ip = int(np.argmax(db))
+    s = np.arange(ip, len(db))[db[ip:] > db[ip] - drop]
+    if len(s) < 4:
+        return float("nan")
+    return float(-60.0 / np.polyfit(tt[s], db[s], 1)[0])
+
+
+def shape_library(picks=(0.10, 0.18, 0.28, 0.40), f0: float = 220.0,
+        t60: float = 3.2, dur=None, nodes: int = 24,
+        rate_hz: float = 120.0, cache_dir=None, **kw) -> list:
+    """Bake one clip per pick position: [{id, pick, frames, rate_hz,
+    scale_m, t60_s, f0_bake}]. dur defaults to t60 (the clip runs to
+    -60 dB). cache_dir: np.savez per clip keyed by the parameters —
+    ~1 s of compute per second of clip, worth keeping."""
+    import os
+    dur = float(t60 if dur is None else dur)
+    clips = []
+    for pk in picks:
+        cid = f"pick{int(round(pk * 100)):02d}"
+        key = f"{cid}_f{f0:g}_t{t60:g}_d{dur:g}_n{nodes}_r{rate_hz:g}"
+        path = os.path.join(cache_dir, key + ".npz") if cache_dir else None
+        if path and os.path.exists(path):
+            z = np.load(path)
+            fr, scale = z["frames"], float(z["scale"])
+        else:
+            _, fr, scale = fdshape(f0, dur, nodes=nodes, rate_hz=rate_hz,
+                    pick=pk, t60=t60, **kw)
+            if path:
+                os.makedirs(cache_dir, exist_ok=True)
+                np.savez(path, frames=fr, scale=scale)
+        clips.append(dict(id=cid, pick=float(pk), frames=fr,
+                rate_hz=float(rate_hz), scale_m=scale,
+                t60_s=shape_t60(fr, rate_hz), f0_bake=float(f0)))
+    return clips
 
 
 _MIZRAB_CACHE = {}
