@@ -1477,3 +1477,111 @@ def plan_consistent(events) -> dict:
     return dict(ok=not overlaps and not bad, overlaps=overlaps,
             bad_span=bad, unassigned=unassigned,
             assigned=sum(len(v) for v in by_act.values()))
+
+
+def onset_pitch(x: np.ndarray, t: float, fmin: float = 40.0,
+        fmax: float = 2500.0, win_s: float = 0.2, lead_s: float = 0.02,
+        t60: float = None, nharm: int = 5, tol_bins: int = 3) -> float:
+    """Pitch of what a strike ADDED: hps_pitch's contest run over
+    the onset's spectral increase — |X(after)| minus what |X(before)|
+    was EXPECTED to have decayed to, on equal windows either side of
+    t, floored at 0. Born in the chamber (songs/chamber.py): a D4
+    written a beat after a D3 whose t60 is 3.2 s reads as D3 on the
+    stem — honestly, the bass IS the loudest fundamental there, and
+    its 2nd partial IS D4, so no pitch ruler on the mixture can
+    tell. What the new string added, can.
+
+    Three lessons, each a measured failure:
+    - subtract the EXPECTED DECAY, not the before-spectrum: t60
+      scales |X(before)| by 10^(-3 dt / t60) (dt = window offset).
+      A plain difference cancels every partial the new note SHARES
+      with a still-ringing older one (a ringing D4 is partial 2 of a
+      fresh D3): the comb loses members and junk wins the contest.
+    - octave rescue against the corrected difference with
+      hps_pitch's calibrated pair (>= 6% of the winner AND >= 8x the
+      dilated median): a re-plucked string that was still ringing
+      differences its fundamental small and the contest names the
+      octave. NOT against the after-spectrum: there, every old note
+      an octave below "rescues" a fresh one downward.
+    - the contest names the ridge; the partials of the AFTER
+      spectrum name the frequency (_partial_refine, median over
+      partials): a near-bridge pluck's fundamental can be buried
+      under its own attack leakage, and an in-ridge argmax slides
+      a bin or two off — partials 2 and 3 still sit where f0 says."""
+    from scipy.ndimage import maximum_filter1d
+    m = _mono(x)
+    w = int(win_s * SR)
+    a = int((t + lead_s) * SR)
+    b = int(t * SR)
+    after = m[a:a + w]
+    before = m[max(b - w, 0):b]
+    if len(after) < w:
+        after = np.concatenate([after, np.zeros(w - len(after))])
+    if len(before) < w:
+        before = np.concatenate([np.zeros(w - len(before)), before])
+    hann = np.hanning(w)
+    A = np.abs(np.fft.rfft(after * hann))
+    B = np.abs(np.fft.rfft(before * hann))
+    expect = 10.0 ** (-3.0 * (win_s + lead_s) / t60) if t60 else 1.0
+    diff = np.maximum(A - B * expect, 0.0)
+    mag = maximum_filter1d(diff, 2 * tol_bins + 1)
+    f = np.fft.rfftfreq(w, 1.0 / SR)
+    i0 = _hps_core(mag, f, fmin, fmax, nharm)
+    floor = 8.0 * float(np.median(mag))
+    for d in (2, 3, 4):
+        isub = int(round(i0 / d))
+        if isub < 1 or f[isub] < fmin:
+            continue
+        if mag[isub] >= 0.06 * mag[i0] and mag[isub] >= floor:
+            i0 = isub
+            break
+    return _partial_refine(A, f[i0], f[1], tol_bins)
+
+
+def onset_lock(x: np.ndarray, t: float, f0: float, win_s: float = 0.2,
+        lead_s: float = 0.02, t60: float = None, ceiling_hz: float = 5000.0,
+        tol_bins: int = 1, populated_db: float = -40.0) -> float:
+    """How well the strike's ADDED spectrum (see onset_pitch: after
+    minus expected-decayed before) is the comb of f0: the FRACTION
+    of added energy (up to ceiling_hz) sitting on f0's partials,
+    times the share of those partials that are POPULATED (within
+    populated_db of the strongest). Both terms bounded — the first
+    draft was comb-over-between-partials and read 6e8 on a dry
+    synthetic stem whose between-partial floor is exactly zero.
+    A VERIFICATION ruler — it takes f0 rather than finding it — and
+    therefore honest only as a COMPARISON: claim lock(f0) beats
+    lock(2 f0) (whose comb misses the odd partials), lock(f0 / 2)
+    (half of whose partials are empty) and lock(1.5 f0). The octave
+    test holds even when f0's own fundamental bin was cancelled by
+    a decaying partial of an earlier note — partials 3 and 5 still
+    vote — the case onset_pitch cannot decide. Born in the chamber,
+    where 7 of 115 isolated strikes defeated every blind detector
+    for reasons that were all the mixture's, not the string's."""
+    from scipy.ndimage import maximum_filter1d
+    m = _mono(x)
+    w = int(win_s * SR)
+    a = int((t + lead_s) * SR)
+    b = int(t * SR)
+    after = m[a:a + w]
+    before = m[max(b - w, 0):b]
+    if len(after) < w:
+        after = np.concatenate([after, np.zeros(w - len(after))])
+    if len(before) < w:
+        before = np.concatenate([np.zeros(w - len(before)), before])
+    hann = np.hanning(w)
+    A = np.abs(np.fft.rfft(after * hann))
+    B = np.abs(np.fft.rfft(before * hann))
+    expect = 10.0 ** (-3.0 * (win_s + lead_s) / t60) if t60 else 1.0
+    diff = np.maximum(A - B * expect, 0.0)
+    mag = maximum_filter1d(diff, 2 * tol_bins + 1)
+    df = SR / w
+    top = min(int(ceiling_hz / df), len(mag) - 1)
+    total = float((diff[:top + 1] ** 2).sum()) + 1e-30
+    ks = [int(round(k * f0 / df)) for k in range(1, int(ceiling_hz / f0) + 1)]
+    ks = [k for k in ks if 0 < k <= top]
+    if not ks:
+        return 0.0
+    p = np.array([mag[k] ** 2 for k in ks])
+    frac = float(p.sum() / total)
+    populated = float((p >= p.max() * 10 ** (populated_db / 10)).mean())
+    return frac * populated

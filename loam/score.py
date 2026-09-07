@@ -225,6 +225,18 @@ class _Solver:
                 t_free=float(t_last + a.recover_s),
                 travel_s=float(tr), from_string=self.at[a.id])
 
+    def options(self, t: float, sids) -> int:
+        """How many actuators could take this contact now — the
+        constraint count for tie-breaking."""
+        n = 0
+        for a in self.mech.actuators:
+            if any(s not in a.reach for s in sids):
+                continue
+            tr = self.travel(a, self.at[a.id], sids[0])
+            if t - a.approach_s - tr >= self.free_at[a.id]:
+                n += 1
+        return n
+
     def commit(self, t: float, sids, act: Actuator, p: dict) -> None:
         self.free_at[act.id] = p["t_free"]
         self.at[act.id] = sids[-1]
@@ -414,15 +426,34 @@ class Score:
         self.conflicts = []
         fresh = {mid: _Solver(self.instrument.mech(mid))
                  for mid in self.solvers}
-        # ties (simultaneous notes) resolve by string index, low first
-        # — the plan depends on the score's content, never on the order
-        # a composer happened to write it in (e99 claim 3)
+        # ties (simultaneous notes on one mechanism) resolve MOST
+        # CONSTRAINED FIRST — the event with the fewest arms able to
+        # take it — then by string index, low first. Content-only:
+        # the plan never depends on the order a composer wrote in
+        # (e99 claim 3). Least-travel alone is myopic: The Chamber's
+        # arm2, resting one string from an answer note arm1 could
+        # also play, took it and blocked the run only arm2 reaches.
         def key(i):
             ev = self.events[i]
             si = self.instrument.mech(ev["mech"]).index(ev["strings"][0]) \
                 if ev["strings"] and ev["mech"] in fresh else -1
             return (ev["t"], ev["mech"], si, i)
         order = sorted(range(len(self.events)), key=key)
+        k = 0
+        while k < len(order):
+            ev0 = self.events[order[k]]
+            grp = [order[k]]
+            while (k + len(grp) < len(order)
+                   and self.events[order[k + len(grp)]]["t"] == ev0["t"]
+                   and self.events[order[k + len(grp)]]["mech"]
+                   == ev0["mech"]):
+                grp.append(order[k + len(grp)])
+            if len(grp) > 1 and ev0["mech"] in fresh:
+                sv = fresh[ev0["mech"]]
+                grp.sort(key=lambda i: (sv.options(self.events[i]["t"],
+                        self.events[i]["strings"]), key(i)))
+                order[k:k + len(grp)] = grp
+            k += len(grp)
         for i in order:
             ev = self.events[i]
             if not ev["strings"] or ev["mech"] not in fresh:
