@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Soundgarden · Loam</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+<header><a class="brand" href="/">loam <span>/ soundgarden</span></a><span class="local"><i></i> Local instrument</span></header>
+<main>
+  <div class="intro"><div><h1>Follow your ear.</h1><p>Explore struck wood, glass, and metal.<br>Keep a sound. Turn the field. Find something new.</p></div><div class="transport"><button id="play" class="primary" disabled>Play loop</button><label>Volume <input id="volume" type="range" min="0" max="0.9" step="0.01" value="0.45"></label><span id="status" role="status">Preparing your instrument…</span></div></div>
+  <div class="workspace">
+    <section class="explorer" aria-label="Sound exploration">
+      <div class="section-head"><h2>The sound field</h2><span id="round">Exploration 1</span></div>
+      <div id="pad" tabindex="0" role="group" aria-label="Sound field. Use arrow keys to explore; Shift for fine movement.">
+        <svg id="field" viewBox="0 0 600 390" preserveAspectRatio="none" aria-hidden="true"><defs><pattern id="dots" width="30" height="30" patternUnits="userSpaceOnUse"><circle cx="15" cy="15" r="1" fill="#91adc4" opacity=".42"/></pattern></defs><rect width="600" height="390" fill="url(#dots)"/><path class="contour" d="M-60 240 Q80 30 240 190 T650 140 M-60 270 Q80 60 240 220 T650 170 M-60 300 Q80 90 240 250 T650 200 M-60 330 Q80 120 240 280 T650 230"/><line id="cross-x" x1="300" x2="300" y1="0" y2="390"/><line id="cross-y" x1="0" x2="600" y1="195" y2="195"/><polyline id="trail" points=""/><ellipse id="origin" cx="300" cy="195" rx="4" ry="4"/><ellipse id="cursor-halo" cx="300" cy="195" rx="23" ry="23"/><ellipse id="cursor" cx="300" cy="195" rx="8" ry="8"/></svg>
+        <span class="pad-note">Drag to listen</span><span id="coordinates">0.00 / 0.00</span>
+      </div>
+      <div class="axis-labels"><span id="axis-x"></span><span id="axis-y"></span></div>
+      <div class="field-controls"><button id="keep" class="primary">Keep & turn field</button><button id="undo" title="Return to the previous sound field" disabled>Undo</button><button id="compare" aria-pressed="false">Hear starting sound</button></div>
+      <div class="range-row"><label for="radius">Exploration range</label><input id="radius" type="range" min="0.15" max="2" step="0.05" value="1"><output id="radius-value">1.00×</output></div>
+      <div class="metrics" aria-label="Sound measurements"><span><b id="brightness">—</b> brightness (Hz)</span><span><b id="decay">—</b> energy decay (s)</span><span><b id="peak">—</b> sample peak (dBFS)</span></div>
+    </section>
+    <aside>
+      <div class="section-head"><h2>Starting points</h2><button id="refresh" class="text-button">Refresh</button></div>
+      <p class="hint">A different place to begin. Offline discoveries appear here, too.</p><div id="seeds" class="seed-list"></div>
+      <div class="section-head favorites-head"><h2>Your collection</h2><button id="favorite" class="text-button">+ Save sound</button></div><div id="favorites"></div>
+      <details><summary>The recipe <span>10 dimensions</span></summary><div id="recipe"></div><button id="export">Export session</button><button id="import">Import session</button><input id="import-file" type="file" accept="application/json,.json" hidden></details>
+    </aside>
+  </div>
+  <section class="sequencer" aria-label="Editable note loop">
+    <div class="section-head"><div><h2>A phrase to try it on</h2><p class="hint">Click to set a note. Click it again for a rest. One bar, sixteen steps.</p></div><div class="tempo"><label for="bpm">Tempo</label><input id="bpm" type="number" min="40" max="200" step="1" value="96"><span>BPM</span><button id="clear">Clear</button><button id="reset-notes">Reset phrase</button></div></div>
+    <div class="piano-scroll"><div id="piano" role="group" aria-label="One-bar piano roll"></div><div id="steps" aria-hidden="true"></div></div>
+    <p class="footnote">Notes ring across the loop boundary. Sound changes arrive on the next notes. <span id="note-count"></span></p>
+  </section>
+  <footer><span>Struck resonators / Loam synthesis</span><span>Saved on this browser · Export a session to keep a portable copy</span></footer>
+</main><script type="module" src="/app.js"></script>
+</body></html>
