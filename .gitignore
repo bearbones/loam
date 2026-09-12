@@ -4,3 +4,4 @@ render/
 *.mp3
 __pycache__/
 harness/.godot/
+*.blend1

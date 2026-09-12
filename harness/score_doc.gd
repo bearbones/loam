@@ -143,5 +143,5 @@ func plan_consistent() -> Dictionary:
 		for i in range(1, evs.size()):
 			if float(evs[i]["t_move"]) < float(evs[i - 1]["t_free"]) - 1e-9:
 				overlaps += 1
-	return {"ok": overlaps == 0 and bad == 0, "overlaps": overlaps,
+	return {"ok": overlaps == 0 and bad == 0 and unassigned == 0, "overlaps": overlaps,
 			"bad_span": bad, "unassigned": unassigned, "actuators": by_act.size()}

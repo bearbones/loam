@@ -121,3 +121,12 @@ hard. Standing rules, each earned by a wrong measurement:
   not unit-gain corrections.
 
 [MARROW]: ../marrow
+
+## Clockwork performance
+
+The harness now opens a modeled 3D performance with score-driven mechanical
+rigs. `godot --path harness -- --expanded` adds glass bells and temple blocks
+(after `python3 songs/clockwork.py`). The original diagnostic is available as
+`godot --path harness res://main.tscn`. See [the build guide](docs/clockwork-build.md)
+for editable Blender models, captures and validation, and [the sound-suite
+backlog](docs/clockwork-todos.md) for scoped follow-up work.
