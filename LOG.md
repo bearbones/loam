@@ -1,5 +1,44 @@
 # loam — log (newest at top)
 
+## 2026-09-17 — CLOCKWORK rail gantries; rails become obstacles in the rail search
+
+The wide view showed the weakest construction left: every rail hung from
+bare brass posts (up to four metres of rod on a disc), and neighbouring
+rails simply ran through them. The shoulder pin's head (0.119 m off the
+carriage plane) also passed through a post whenever a carriage parked at
+its rail end (posts stood 0.12 m out with a 35 mm radius).
+
+formlab/gantry.py builds what a linear guide needs, every dimension from
+a rule: a brass rail head at each end capturing both bars (inner face
+0.16 m past the reach window, 40 mm clear of the pin heads); a tapered
+steel mast, constant across the pin axis, deep along the swing direction
+and growing toward the base as a cantilever's bending moment does; a
+stepped plinth with anchor bolts on the stage or on a furniture lid; and
+where the mast cannot stand straight under the head, an L-bracket (out
+along X, then along Z, behind or in front) with a knee brace under each
+leg. The bracket is searched per rail end, cheapest first, against every
+arm's swept capsules (slid to the pin tips' planes), every other rail's
+bars, the instrument forms, the furniture boxes and the gantries already
+placed; each piece is judged by its own bounding box, braces as capsules.
+The stage now reaches back to z −4.7 so the bell rails' masts stand on it.
+
+Building the gantries exposed a flaw no ruler had measured: the high harp
+arm's upper link swept 52 mm through the middle harp rail's bars at 9.3 s
+and 41.8 s. Arms were kept from arms, strings, stage and cabinet — never
+from each other's rails. formlab/layout_search.evaluate_arm now adds each
+candidate rail (bars and heads) to that arm's capsules, so cross_gap
+measures every arm of a mechanism against its neighbours' rails. The
+re-plan moved the middle harp rail from (3.15, −1.8) to (4.1, −1.4) and
+the second bars rail up to 2.75 m; harp arm-to-rail margin 139 mm.
+
+Gantries on the expanded rig: six masts straight under their heads, the
+high harp rail's low mast 0.4 m behind, the middle harp rail's two masts
+0.35 m out and 0.4 m forward on the floor in front of the cabinet, the
+second bars rail's low mast 0.4 m behind. Ruler: tools/test_gantry.py
+(pin heads vs head, every arm vs every rail at 120 Hz, recorded brackets
+match the search, masts on stage or lid, heads capture the bar ends,
+closed meshes). Docs: docs/articulated-arms.md "Rail gantries".
+
 ## 2026-09-17 — CLOCKWORK tools built to their mounts: plectrum, ferrule, swan neck, socket
 
 Reading the tool recipe for the "pick looks small" note found a

@@ -7,8 +7,8 @@ its neighbour, the strings and the furniture.
 
 Modules: `formlab/linkage.py` (joint and link recipes), `formlab/rig.py`
 (the Godot IK mirrored in numpy), `formlab/clearance.py` (capsule ruler),
-`formlab/layout_search.py` (rail placement), `loam/score.py` (`arm_clearance`
-in the planner). `tools/build_forms.py` assembles an arm per actuator and
+`formlab/layout_search.py` (rail placement), `formlab/gantry.py` (what
+holds the rails up), `loam/score.py` (`arm_clearance` in the planner). `tools/build_forms.py` assembles an arm per actuator and
 `tools/build_clockwork.py` places it; `harness/performance.gd` poses it.
 
 ## The linkage
@@ -95,6 +95,65 @@ neck's apex, `shank` from the apex into the socket; the shank is judged
 against the strings like every bar, and the lower bar is measured against
 the tool rather than excused. `tools/test_linkage_tools.py` is the ruler.
 
+## Rail gantries
+
+The rails were first hung from bare brass posts — up to four metres of rod
+on a disc, standing at the ends of the bars, and where a neighbouring rail
+ran through a post it simply did. `formlab/gantry.py` replaces them with what
+a linear guide actually needs, every dimension from a rule:
+
+- **Rail head** (brass): a block at each end that captures both guide bars
+  (the bars run 0.26 m past the reach window, 0.10 m into the head). Its
+  inner face is 0.16 m past the window because the shoulder pin's head
+  reaches 0.119 m from the carriage plane — a carriage parked at the end
+  clears it by 40 mm. (The old posts stood 0.12 m out with a 35 mm radius;
+  the pin passed through them.)
+- **Mast** (steel): a tapered box column, constant 90 mm across the pin
+  axis, deep along Z — the swing direction, the load that racks it — and
+  growing toward the base the way a cantilever's bending moment does
+  (50 mm half-depth at the top, +25 mm per metre, capped at 110 mm). It
+  stands on a stepped **plinth** with four anchor bolts, on the stage or on
+  a furniture lid, and its top is bolted to the head.
+- **Bracket and knee brace**: where the mast cannot stand straight under the
+  head — another rail's bars run there, or a neighbouring arm swings
+  through — the head is carried on an L-bracket to the mast: out along X
+  first (*outreach*, clear of the neighbouring carriage that rides at the
+  same height), then along Z (*setback*: behind the rail, or in front when
+  behind is taken), with a diagonal brace under each leg, as a signal
+  gantry or a wall jib does.
+
+The bracket is **searched per rail end**, cheapest first (straight down,
+then back, then out, then both; behind before in front —
+`gantry.CANDIDATES`), and the first placement whose pieces keep 20 mm from
+every arm's swept capsules over the whole piece, every other rail's bars,
+the instrument forms, the furniture boxes and the gantries already placed
+(every rail's heads are reserved before any bracket is chosen) is kept.
+An arm is a plane of capsules with knuckle pins across it, so each capsule
+is slid along the pin axis until the arm as a whole reaches the pin tips'
+planes (±0.119 m) before it is measured. Each piece is judged by its own
+bounding box; the diagonal braces as capsules, since the union box of
+bracket, brace and mast would fill the corner an elbow legitimately swings
+through. Candidates are screened at 30 Hz and the winner confirmed at
+120 Hz. The two ends of one rail may differ: the high harp rail's low mast
+stands 0.4 m behind its head, its high mast straight under; the middle harp
+rail, wedged between the other two, carries both heads 0.35 m out and
+0.4 m *forward* to masts on the floor in front of the cabinet.
+
+### Rails are obstacles too
+
+Building the gantries exposed a flaw the earlier rulers could not see: the
+high harp arm's upper link swept 52 mm through the middle harp rail's bars
+twice in the piece. Arms had been kept from arms, strings, stage and
+cabinet — never from each other's rails. `layout_search.evaluate_arm` now
+adds each candidate rail (bars and both heads) to that arm's capsule set,
+so `cross_gap` measures every arm of a mechanism against its neighbours'
+rails as well as their links. The rail search then moved the middle harp
+rail from (3.15 m, −1.8 m) to (4.1 m, −1.4 m) — level with the high harp
+rail and in front of it, so neither high arm's link crosses the other's
+rail — and the second bars rail up to 2.75 m; worst arm-to-rail margin in
+the harp is now 139 mm. `tools/test_gantry.py` re-measures every arm
+against every rail of the whole rig at 120 Hz.
+
 ## The space an arm needs
 
 Three rulers, all run at build time and all fatal when negative:
@@ -142,6 +201,7 @@ python3 tools/test_score_plan.py          # planner clearance rule, neck fan
 python3 tools/test_formlab.py             # sweeps, frames, layout
 python3 tools/test_form_joints.py         # seamless frame joints
 python3 tools/test_linkage_tools.py       # plectrum, ferrule, swan neck, socket, mallet
+python3 tools/test_gantry.py              # rail heads, masts, brackets; arms vs every rail
 blender -b -t 2 -P tools/test_form_joint_seats.py
 godot --headless --path harness -s dev/test_clockwork.gd
 godot --headless --path harness -s dev/test_performance.gd

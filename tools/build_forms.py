@@ -17,6 +17,7 @@ from formlab.recipes import harp_frame,soundboard,action_plate,branching_stand,p
 from formlab.linkage import parallelogram_arm,pick_tool,mallet_tool,tool_mount
 from formlab.rig import Rig
 from formlab.clearance import choose_offset,report,cross_arm_clearance
+from formlab.gantry import plan_gantries
 ROOT=Path(__file__).resolve().parents[1]
 layout_path=Path(sys.argv[1] if len(sys.argv)>1 else ROOT/'harness/assets/clockwork.json')
 out=Path(sys.argv[2] if len(sys.argv)>2 else ROOT/'render/form-study/recipe.json')
@@ -38,7 +39,7 @@ m=layout['mechanisms']['bars']; xs=[s['a'][0] for s in layout['strings'].values(
 objects.append(pack('form_bars_stand',branching_stand(m['center'],max(xs)-min(xs)),'wood','load-collection heuristic'))
 
 # Articulated arms: a double parallelogram per actuator, offsets from the motion.
-arms={}; reports={}
+arms={}; reports={}; all_poses={}
 if score_path.exists() and layout.get('arms'):
     rig=Rig(json.loads(score_path.read_text()),layout); times=rig.sample_times()
     probe=parallelogram_arm(1.0,1.0,[0,-.11,0],[0,0,-.11]); layers,spec=probe['layers'],probe['spec']
@@ -67,12 +68,21 @@ if score_path.exists() and layout.get('arms'):
             upper_pair_separation_m=float(sep1),lower_pair_separation_m=float(sep2),
             self_clearance_m=rep['worst_gap_m'],self_worst=rep['worst_pair'],self_worst_time_s=rep['worst_time_s'],
             string_clearance_m=rep['string_gap_m'],string_worst=list(rep['string_worst']))
+        all_poses[aid]=poses; layout['arms'][aid].update(o1=arms[aid]['o1'],o2=arms[aid]['o2'],layers=layers)
+    # Rail gantries: heads, masts, plinths and (where needed) brackets, placed clear of everything above.
+    form_boxes=[(o['name'],(V.min(0),V.max(0))) for o in objects if not o.get('local')
+                for V in [np.concatenate([np.array(p['vertices']) for p in o['pieces']])]]
+    for aid,g in plan_gantries(layout,all_poses,form_boxes).items():
+        objects.append(pack(f'form_{aid}_railhead',g['brass'],'brass','rail head and bracket capturing the guide bars')); objects[-1]['finish']='profiled'
+        objects.append(pack(f'form_{aid}_gantry',g['steel'],'steel','tapered mast, plinth, knee brace, bolts')); objects[-1]['finish']='profiled'
+        arms[aid]['gantry']=dict(ends=g['ends'],margin_m=g['margin'],worst=g['worst'])
     cross={f'{a}/{b}':dict(gap_m=g,parts=list(pair),time_s=float(times[k])) for (a,b),(g,pair,k) in cross_arm_clearance(reports).items()}
     worst_cross=min(cross.values(),key=lambda c:c['gap_m']) if cross else None
     arms['_cross_arm']=cross
     for aid,a in arms.items():
         if aid.startswith('_'): continue
         if min(a['self_clearance_m'],a['string_clearance_m'])<0: raise SystemExit(f'ARM CLEARANCE FAIL {aid}: {a}')
+        if a['gantry']['margin_m']<0: raise SystemExit(f'GANTRY CLEARANCE FAIL {aid}: {a["gantry"]}')
     if worst_cross and worst_cross['gap_m']<0: raise SystemExit(f'CROSS-ARM CLEARANCE FAIL {worst_cross}')
 out.parent.mkdir(exist_ok=True,parents=True)
 out.write_text(json.dumps(dict(format='formlab/1',source_layout=str(layout_path),objects=objects,arms=arms),separators=(',',':')))

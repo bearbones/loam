@@ -89,10 +89,11 @@ def bell(n,p):
     for poly in mesh.polygons: poly.use_smooth=True
     return o
 manifest={'harp_display_length_scale':1.7,'pedal_animation':'static reference hardware','model':name+'.glb','strings':{},'arms':{},'mechanisms':{},'gears':[]}
-box('Stage',(0,-.18,-.4),(13,.32,7.5),black,.12)
+# The stage reaches back to z -4.7 so the bell rails' gantries stand on it, not over its edge.
+box('Stage',(0,-.18,-.675),(13,.32,8.05),black,.12)
 for x in (-5.8,5.8):
-    for z in (-3.5,2.8): cyl('Stage foot',(x,-.4,z),.22,.3,brass)
-for x in range(-6,7): box('Floor inlay',(x,-.008,-.4),(.008,.004,7.1),brass,.001)
+    for z in (-4.05,2.8): cyl('Stage foot',(x,-.4,z),.22,.3,brass)
+for x in range(-6,7): box('Floor inlay',(x,-.008,-.675),(.008,.004,7.65),brass,.001)
 for m in score['instrument']['mechanisms']:
     mid=m['id']; struck=m['kind']=='struck'; mp=m['pos']; x=mp[0]*3; z=mp[2]*3
     base_y=1.35 if struck else 2.05+mp[1]*3
@@ -174,11 +175,10 @@ manifest['score']=str(Path(args[0]).resolve() if args else (ROOT/'render/chamber
 layout_search.plan_arms(score,manifest,cache=str(ROOT/'render/form-study/rails-cache.json'))
 for aid,cfg in manifest['arms'].items():
     ry=cfg['root_y']; rz=cfg['root_z']; x0,x1=cfg['reach_x']
-    # Independent rails explain overlap in the score's reach windows.
-    for dy in (-.075,.075): beam(aid+' rail',(x0-.12,ry+dy,rz),(x1+.12,ry+dy,rz),.024,steel)
-    for xx in (x0-.12,x1+.12):
-        beam(aid+' post',(xx,0,rz),(xx,ry+.14,rz),.035,brass)
-        cyl(aid+' post foot',(xx,.03,rz),.09,.06,brass)
+    # Independent rails explain overlap in the score's reach windows. The bars run
+    # 0.26 m past the window into the rail heads; heads, masts and plinths are
+    # formlab.gantry objects placed by build_forms.py (see docs/articulated-arms.md).
+    for dy in (-.075,.075): beam(aid+' rail',(x0-.26,ry+dy,rz),(x1+.26,ry+dy,rz),.024,steel)
     g=gear(aid+'__gear',(0,0,0),.13); manifest['gears'].append(g.name)
 recipe.parent.mkdir(parents=True,exist_ok=True)
 form_layout=recipe.parent/'layout.json'

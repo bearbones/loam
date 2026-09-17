@@ -527,7 +527,35 @@
         "harp00",
         "shank",
         0.0
-      ]
+      ],
+      "gantry": {
+        "ends": [
+          {
+            "side": -1,
+            "outreach": 0.0,
+            "setback": 0.0,
+            "mast_z": -2.25,
+            "x_col": -1.106,
+            "foot_y": -0.02,
+            "height": 0.35000000000000003,
+            "gap": 0.040999999999999946,
+            "worst": "arm harp_arm0 carriage_web"
+          },
+          {
+            "side": 1,
+            "outreach": 0.0,
+            "setback": 0.0,
+            "mast_z": -2.25,
+            "x_col": 0.2356,
+            "foot_y": -0.02,
+            "height": 0.35000000000000003,
+            "gap": 0.1698942685907915,
+            "worst": "box obstacle0"
+          }
+        ],
+        "margin_m": 0.040999999999999946,
+        "worst": "arm harp_arm0 carriage_web"
+      }
     },
     "harp_arm1": {
       "mid": "harp",
@@ -537,10 +565,10 @@
         -0.3808,
         0.3808
       ],
-      "root_y": 3.15,
-      "root_z": -1.8,
-      "l1": 1.15,
-      "l2": 1.15,
+      "root_y": 4.1,
+      "root_z": -1.4,
+      "l1": 1.45,
+      "l2": 1.45,
       "bend": "back",
       "wrist_offset": [
         0,
@@ -549,20 +577,20 @@
       ],
       "o1": [
         0.0,
-        0.04649,
-        0.09969
+        0.0,
+        0.11
       ],
       "o2": [
         0.0,
-        0.10833,
-        0.0191
+        0.09526,
+        0.055
       ],
       "margins": {
-        "self": 0.0186,
-        "pair": 0.0411,
-        "behind": 1.0677,
-        "scene": 0.985,
-        "strings": 0.028,
+        "self": 0.0195,
+        "pair": 0.0447,
+        "behind": 1.1152,
+        "scene": 1.1426,
+        "strings": 0.018,
         "cross": {
           "harp_arm0": 0.2716,
           "harp_arm2": 0.1388
@@ -573,21 +601,49 @@
         "gap": 0.036,
         "span": 0.16920000000000002
       },
-      "link_extent_y": 1.2555999999999998,
-      "upper_pair_separation_m": 0.10736079918495282,
-      "lower_pair_separation_m": 0.1028848814743596,
-      "self_clearance_m": 0.018342602389118404,
+      "link_extent_y": 1.5555999999999999,
+      "upper_pair_separation_m": 0.10693632967628502,
+      "lower_pair_separation_m": 0.10665141380036762,
+      "self_clearance_m": 0.019439460403757103,
       "self_worst": [
         "lower",
         "upper2"
       ],
-      "self_worst_time_s": 24.216666666666665,
-      "string_clearance_m": 0.028000000000000004,
+      "self_worst_time_s": 24.285714285714285,
+      "string_clearance_m": 0.01800000000000001,
       "string_worst": [
         "harp04",
-        "shank",
+        "wristhead_web",
         1.4285714285714286
-      ]
+      ],
+      "gantry": {
+        "ends": [
+          {
+            "side": -1,
+            "outreach": 0.35,
+            "setback": -0.4,
+            "mast_z": -0.9999999999999999,
+            "x_col": -1.0208,
+            "foot_y": -0.02,
+            "height": 4.18,
+            "gap": 0.040799999999999864,
+            "worst": "arm harp_arm0 lower"
+          },
+          {
+            "side": 1,
+            "outreach": 0.35,
+            "setback": -0.4,
+            "mast_z": -0.9999999999999999,
+            "x_col": 1.0208,
+            "foot_y": -0.02,
+            "height": 4.18,
+            "gap": 0.04079999999999977,
+            "worst": "arm harp_arm2 lower2"
+          }
+        ],
+        "margin_m": 0.04079999999999977,
+        "worst": "arm harp_arm2 lower2"
+      }
     },
     "harp_arm2": {
       "mid": "harp",
@@ -647,7 +703,35 @@
         "harp08",
         "shank",
         6.428571428571429
-      ]
+      ],
+      "gantry": {
+        "ends": [
+          {
+            "side": -1,
+            "outreach": 0.0,
+            "setback": 0.4,
+            "mast_z": -2.65,
+            "x_col": -0.2356,
+            "foot_y": -0.02,
+            "height": 4.18,
+            "gap": 0.040999999999999974,
+            "worst": "arm harp_arm2 carriage_web"
+          },
+          {
+            "side": 1,
+            "outreach": 0.0,
+            "setback": 0.0,
+            "mast_z": -2.25,
+            "x_col": 1.106,
+            "foot_y": -0.02,
+            "height": 3.8999999999999995,
+            "gap": 0.040999999999999946,
+            "worst": "arm harp_arm2 carriage_web"
+          }
+        ],
+        "margin_m": 0.040999999999999946,
+        "worst": "arm harp_arm2 carriage_web"
+      }
     },
     "rake_arm0": {
       "mid": "rake",
@@ -704,7 +788,35 @@
         "rake00",
         "shank",
         21.42857142857143
-      ]
+      ],
+      "gantry": {
+        "ends": [
+          {
+            "side": -1,
+            "outreach": 0.0,
+            "setback": 0.0,
+            "mast_z": -0.4999999999999999,
+            "x_col": -5.015,
+            "foot_y": -0.02,
+            "height": 0.35000000000000003,
+            "gap": 0.040999999999999835,
+            "worst": "arm rake_arm0 carriage_web"
+          },
+          {
+            "side": 1,
+            "outreach": 0.0,
+            "setback": 0.0,
+            "mast_z": -0.4999999999999999,
+            "x_col": -3.385,
+            "foot_y": -0.02,
+            "height": 0.35000000000000003,
+            "gap": 0.04099999999999962,
+            "worst": "arm rake_arm0 upper"
+          }
+        ],
+        "margin_m": 0.04099999999999962,
+        "worst": "arm rake_arm0 upper"
+      }
     },
     "bars_arm0": {
       "mid": "bars",
@@ -740,7 +852,7 @@
         "scene": 1.549,
         "strings": 0.1155,
         "cross": {
-          "bars_arm1": 0.2669
+          "bars_arm1": 0.0983
         }
       },
       "layers": {
@@ -762,7 +874,35 @@
         "bars00",
         "shank",
         45.714285714285715
-      ]
+      ],
+      "gantry": {
+        "ends": [
+          {
+            "side": -1,
+            "outreach": 0.0,
+            "setback": 0.0,
+            "mast_z": -0.48090083372513304,
+            "x_col": 2.8600000000000003,
+            "foot_y": -0.02,
+            "height": 2.05,
+            "gap": 0.040999999999999835,
+            "worst": "arm bars_arm0 carriage_web"
+          },
+          {
+            "side": 1,
+            "outreach": 0.0,
+            "setback": 0.0,
+            "mast_z": -0.48090083372513304,
+            "x_col": 4.982857142857143,
+            "foot_y": -0.02,
+            "height": 2.05,
+            "gap": 0.04099999999999895,
+            "worst": "arm bars_arm0 carriage_web"
+          }
+        ],
+        "margin_m": 0.04099999999999895,
+        "worst": "arm bars_arm0 carriage_web"
+      }
     },
     "bars_arm1": {
       "mid": "bars",
@@ -772,10 +912,10 @@
         4.307142857142857,
         5.85
       ],
-      "root_y": 2.25,
-      "root_z": -0.180900833725133,
-      "l1": 1.45,
-      "l2": 1.45,
+      "root_y": 2.75,
+      "root_z": -0.48090083372513304,
+      "l1": 1.3,
+      "l2": 1.3,
       "bend": "up",
       "wrist_offset": [
         0,
@@ -784,21 +924,21 @@
       ],
       "o1": [
         0.0,
-        0.08426,
-        -0.07071
+        0.10833,
+        -0.0191
       ],
       "o2": [
         0.0,
-        0.0191,
-        0.10833
+        0.03762,
+        0.10337
       ],
       "margins": {
-        "self": 0.0736,
-        "pair": 0.0475,
+        "self": 0.0735,
+        "pair": 0.0474,
         "scene": 1.549,
         "strings": 0.1155,
         "cross": {
-          "bars_arm0": 0.2669
+          "bars_arm0": 0.0983
         }
       },
       "layers": {
@@ -806,10 +946,10 @@
         "gap": 0.036,
         "span": 0.16920000000000002
       },
-      "link_extent_y": 1.5555999999999999,
-      "upper_pair_separation_m": 0.10945083311858776,
-      "lower_pair_separation_m": 0.10962527640896504,
-      "self_clearance_m": 0.07358502568053592,
+      "link_extent_y": 1.4056,
+      "upper_pair_separation_m": 0.10936390338854933,
+      "lower_pair_separation_m": 0.10987778313395119,
+      "self_clearance_m": 0.07351149741759218,
       "self_worst": [
         "lower",
         "upper2"
@@ -820,7 +960,35 @@
         "bars03",
         "shank",
         48.214285714285715
-      ]
+      ],
+      "gantry": {
+        "ends": [
+          {
+            "side": -1,
+            "outreach": 0.0,
+            "setback": 0.4,
+            "mast_z": -0.8809008337251331,
+            "x_col": 4.017142857142857,
+            "foot_y": -0.02,
+            "height": 2.83,
+            "gap": 0.040999999999999835,
+            "worst": "arm bars_arm1 carriage_web"
+          },
+          {
+            "side": 1,
+            "outreach": 0.0,
+            "setback": 0.0,
+            "mast_z": -0.48090083372513304,
+            "x_col": 6.14,
+            "foot_y": -0.02,
+            "height": 2.55,
+            "gap": 0.040999999999999835,
+            "worst": "arm bars_arm1 carriage_web"
+          }
+        ],
+        "margin_m": 0.040999999999999835,
+        "worst": "arm bars_arm1 carriage_web"
+      }
     }
   },
   "mechanisms": {
@@ -925,31 +1093,31 @@
         "time_s": 62.15
       },
       "harp_arm0/bars_arm1": {
-        "gap_m": 4.668785824943157,
+        "gap_m": 4.756590197251074,
         "parts": [
-          "wristhead_web",
+          "lower",
           "upper"
         ],
         "time_s": 48.141666666666666
       },
       "harp_arm1/harp_arm2": {
-        "gap_m": 0.13879999999999998,
+        "gap_m": 0.13880000000000003,
         "parts": [
           "upper2",
           "lower2"
         ],
-        "time_s": 45.275
+        "time_s": 28.208333333333332
       },
       "harp_arm1/rake_arm0": {
-        "gap_m": 3.10810604868331,
+        "gap_m": 3.1080126133091603,
         "parts": [
           "lower2",
           "upper2"
         ],
-        "time_s": 21.558333333333334
+        "time_s": 21.55
       },
       "harp_arm1/bars_arm0": {
-        "gap_m": 3.043949313422036,
+        "gap_m": 3.037573985133497,
         "parts": [
           "lower",
           "upper"
@@ -957,7 +1125,7 @@
         "time_s": 45.641666666666666
       },
       "harp_arm1/bars_arm1": {
-        "gap_m": 4.201091853565017,
+        "gap_m": 4.232742289526661,
         "parts": [
           "lower",
           "upper"
@@ -981,12 +1149,12 @@
         "time_s": 72.13333333333334
       },
       "harp_arm2/bars_arm1": {
-        "gap_m": 3.864342857142857,
+        "gap_m": 3.8835390612504983,
         "parts": [
           "lower",
           "upper"
         ],
-        "time_s": 51.775
+        "time_s": 51.785714285714285
       },
       "rake_arm0/bars_arm0": {
         "gap_m": 6.706519916837584,
@@ -997,7 +1165,7 @@
         "time_s": 55.714285714285715
       },
       "rake_arm0/bars_arm1": {
-        "gap_m": 7.864895588822919,
+        "gap_m": 7.863420575141057,
         "parts": [
           "tool",
           "lower2"
@@ -1005,10 +1173,10 @@
         "time_s": 48.64342857142857
       },
       "bars_arm0/bars_arm1": {
-        "gap_m": 0.26691428571428527,
+        "gap_m": 0.2609142857142853,
         "parts": [
-          "wristhead_web",
-          "lower2"
+          "upper2",
+          "upper"
         ],
         "time_s": 48.85
       }
@@ -1101,6 +1269,18 @@
     "bars_arm1__elbow",
     "bars_arm1__wrist",
     "bars_arm1__tool",
-    "bars_arm1__shank"
+    "bars_arm1__shank",
+    "form_harp_arm0_railhead",
+    "form_harp_arm0_gantry",
+    "form_harp_arm1_railhead",
+    "form_harp_arm1_gantry",
+    "form_harp_arm2_railhead",
+    "form_harp_arm2_gantry",
+    "form_rake_arm0_railhead",
+    "form_rake_arm0_gantry",
+    "form_bars_arm0_railhead",
+    "form_bars_arm0_gantry",
+    "form_bars_arm1_railhead",
+    "form_bars_arm1_gantry"
   ]
 }

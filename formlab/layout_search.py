@@ -79,14 +79,29 @@ def evaluate_arm(rig, aid, cfg, times, spec=DEFAULT_SPEC, layers=None, boxes=(),
         for name in ('upper', 'upper2', 'lower', 'lower2', 'wristhead_web', 'elbowhead_web1', 'elbowhead_web2', 'shank'):
             P, Q, r = caps[name]; sg = min(sg, float((segment_distance(P, Q, A, B)-r-.002).min()))
     margins['strings'] = sg
+    # The rail itself — two guide bars and a head at each end (formlab.gantry) —
+    # is an obstacle to the OTHER arms of the mechanism: cross_gap measures every
+    # arm against its neighbours' rails, not only their links. (The first layout
+    # had an upper link sweeping 52 mm through a neighbouring rail.)
+    caps = dict(caps); T = len(poses['root']); x0, x1 = rig.geometry['arms'][aid]['reach_x']; ry = cfg['root_y']; rz = cfg['root_z']
+    def fixed(a, b, r): return (np.broadcast_to(np.array(a, float), (T, 3)), np.broadcast_to(np.array(b, float), (T, 3)), r)
+    for dy in (-.075, .075): caps[f'rail{dy:+.3f}'] = fixed([x0-.26, ry+dy, rz], [x1+.26, ry+dy, rz], .024)
+    for dy in (-.07, .07):
+        caps[f'head_lo{dy:+.2f}'] = fixed([x0-.36, ry+dy, rz], [x0-.16, ry+dy, rz], .07)
+        caps[f'head_hi{dy:+.2f}'] = fixed([x1+.16, ry+dy, rz], [x1+.36, ry+dy, rz], .07)
     return dict(cfg=dict(cfg, o1=o1.tolist(), o2=o2.tolist()), poses=poses, caps=caps, margins=margins, worst=min(margins.values()))
 
 def cross_gap(ca, cb):
+    """Worst gap between two arms' capsules, each arm's rail included as an
+    obstacle to the other's links; rail-vs-rail is `rails_compatible`'s job."""
     best = 1e9
-    for P1, Q1, r1 in ca.values():
-        for P2, Q2, r2 in cb.values():
+    for na, (P1, Q1, r1) in ca.items():
+        for nb, (P2, Q2, r2) in cb.items():
+            if _is_rail(na) and _is_rail(nb): continue
             best = min(best, float((segment_distance(P1, Q1, P2, Q2)-r1-r2).min()))
     return best
+
+def _is_rail(name): return name.startswith(('rail', 'head_'))
 
 def rails_compatible(a, b):
     return abs(a['root_y']-b['root_y']) > .22 or abs(a['root_z']-b['root_z']) > .16
