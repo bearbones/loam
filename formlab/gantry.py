@@ -34,13 +34,13 @@ try:
     from .linkage import rounded_rect, revolve
     from .clearance import (arm_capsules, default_layers, DEFAULT_SPEC, segment_distance, PINION, MOUNTS, pinion_centre, rack_direction,
                             GANTRY, gantry_candidates, foot_level)
-    from .layout_search import box_gap, scene_boxes
+    from .layout_search import box_gap, scene_boxes, pin_shifts, stack_caps, solids_gap
 except ImportError:   # bare import (formlab/ on sys.path)
     from sweep import sweep, validate_mesh
     from linkage import rounded_rect, revolve
     from clearance import (arm_capsules, default_layers, DEFAULT_SPEC, segment_distance, PINION, MOUNTS, pinion_centre, rack_direction,
                            GANTRY, gantry_candidates, foot_level)
-    from layout_search import box_gap, scene_boxes
+    from layout_search import box_gap, scene_boxes, pin_shifts, stack_caps, solids_gap
 
 # The space model lives in formlab.clearance.GANTRY (the rail search screens
 # a mast column at every candidate rail end with the same numbers).
@@ -215,59 +215,50 @@ def rail_racks(cfg):
     return [(P, Q, max((R['s_top']-R['s_tip'])/2, R['h']))]
 
 
-def _pin_span(arm, P, Q, r):
-    """How far a capsule may be slid along X either way so that the arm, as a
-    whole, reaches the pin tips' planes at ±PIN_X from its carriage plane:
-    the capsules sit at fixed offsets from that plane (the parallel bars a
-    layer outboard) and the knuckle pins are the widest thing on it."""
-    root = arm['upper'][0][:, 0]
-    lo = float(np.mean(np.minimum(P[:, 0], Q[:, 0])-root)); hi = float(np.mean(np.maximum(P[:, 0], Q[:, 0])-root))
-    return (min(-PIN_X-lo+r, 0.), max(PIN_X-hi-r, 0.))
-
-
-def _gap_box(lo, hi, caps, bars, boxes, others, exempt):
+def _gap_fixed(sol, bars, boxes, others, exempt):
+    """A solid against the rail bars, the scene/form boxes and the gantries
+    already placed (the arms are `_gap_arms`)."""
     worst = (1e9, 'nothing')
-    for aid, arm in caps.items():
-        for name, (P, Q, r) in arm.items():
-            d_lo, d_hi = _pin_span(arm, P, Q, r)
-            g = box_gap(P, Q, r, lo-[d_hi, 0, 0], hi-[d_lo, 0, 0], 24)
-            if g < worst[0]: worst = (g, f'arm {aid} {name}')
-    for name, (P, Q, r) in bars:
-        g = box_gap(P[None], Q[None], r, lo, hi, 48)
-        if g < worst[0]: worst = (g, f'rail {name}')
-    for name, (blo, bhi) in boxes:
-        if any(blo is e[0] for e in exempt): continue
-        d = np.maximum(np.maximum(blo-hi, lo-bhi), 0); g = float(np.linalg.norm(d))
-        if g < worst[0]: worst = (g, f'box {name}')
-    for name, (olo, ohi) in others:
-        d = np.maximum(np.maximum(olo-hi, lo-ohi), 0); g = float(np.linalg.norm(d))
-        if g < worst[0]: worst = (g, f'gantry {name}')
+    if sol[0] == 'box':
+        lo, hi = sol[1:]
+        for name, (P, Q, r) in bars:
+            g = box_gap(P[None], Q[None], r, lo, hi, 48)
+            if g < worst[0]: worst = (g, f'rail {name}')
+        for kind, group in (('box', boxes), ('gantry', others)):
+            for name, (blo, bhi) in group:
+                if any(blo is e[0] for e in exempt): continue
+                d = np.maximum(np.maximum(blo-hi, lo-bhi), 0); g = float(np.linalg.norm(d))
+                if g < worst[0]: worst = (g, f'{kind} {name}')
+    else:
+        P, Q, r = sol[1:]
+        for name, (A, B, rb) in bars:
+            g = float(segment_distance(A[None], B[None], P[None], Q[None]).min())-r-rb
+            if g < worst[0]: worst = (g, f'rail {name}')
+        for name, (blo, bhi) in list(boxes)+list(others):
+            if any(blo is e[0] for e in exempt): continue
+            g = box_gap(P[None], Q[None], r, blo, bhi, 48)
+            if g < worst[0]: worst = (g, f'box {name}')
     return worst
 
 
-def _gap_capsule(P, Q, r, caps, bars, boxes, others, exempt):
+def _gap_arms(sol, stacks):
+    """A solid against every arm's swept capsules (layout_search.solids_gap:
+    each part slid across the pin span, parts whose sweep box stays far
+    from the solid scored by that bound)."""
     worst = (1e9, 'nothing')
-    for aid, arm in caps.items():
-        for name, (A, B, ra) in arm.items():
-            for dx in _pin_span(arm, A, B, ra)+(0.,):
-                g = float(segment_distance(A+[dx, 0, 0], B+[dx, 0, 0], P[None], Q[None]).min())-r-ra
-                if g < worst[0]: worst = (g, f'arm {aid} {name}')
-    for name, (A, B, rb) in bars:
-        g = float(segment_distance(A[None], B[None], P[None], Q[None]).min())-r-rb
-        if g < worst[0]: worst = (g, f'rail {name}')
-    for name, (blo, bhi) in list(boxes)+list(others):
-        if any(blo is e[0] for e in exempt): continue
-        g = box_gap(P[None], Q[None], r, blo, bhi, 48)
-        if g < worst[0]: worst = (g, f'box {name}')
+    for aid, st in stacks.items():
+        g, name = solids_gap([sol], st, margin=0., who=True)
+        if g < worst[0]: worst = (g, f'arm {aid} {name}')
     return worst
 
 
-def clearance(end, caps, bars, boxes, others, exempt=()):
+def clearance(end, stacks, bars, boxes, others, exempt=()):
     """Worst gap between the end's solids and everything else."""
     worst = (1e9, 'nothing')
     for kind, geo in solids(end):
-        g = _gap_box(*geo, caps, bars, boxes, others, exempt) if kind == 'box' else _gap_capsule(*geo, caps, bars, boxes, others, exempt)
-        if g[0] < worst[0]: worst = g
+        sol = (kind,)+tuple(geo)
+        for g in (_gap_arms(sol, stacks), _gap_fixed(sol, bars, boxes, others, exempt)):
+            if g[0] < worst[0]: worst = g
     return worst
 
 
@@ -277,6 +268,11 @@ def _caps(layout, poses, step=1):
         p = {k: v[::step] for k, v in poses[aid].items()}
         out[aid] = arm_capsules(p, cfg['o1'], cfg['o2'], cfg.get('layers', layers), DEFAULT_SPEC, cfg.get('pinion', 'back'))[0]
     return out
+
+
+def _stacks(layout, poses, step=1):
+    """aid -> layout_search.stack_caps of the arm's capsules (every step-th pose)."""
+    return {aid: stack_caps(caps, pin_shifts(caps, PIN_X)) for aid, caps in _caps(layout, poses, step).items()}
 
 
 def plan_end(aid, cfg, side, x_end, behind, quick, full, other_bars, boxes, placed, verbose=print):
@@ -306,7 +302,7 @@ def plan_gantries(layout, poses, form_boxes=(), verbose=print):
     over the sampled piece (formlab.rig.Rig.poses, 120 Hz). `form_boxes`:
     (name, (lo, hi)) of the instrument forms. Returns aid -> dict(ends,
     brass, steel, margin, worst, ...)."""
-    quick = _caps(layout, poses, 4); full = _caps(layout, poses, 1)
+    quick = _stacks(layout, poses, 4); full = _stacks(layout, poses, 1)
     boxes = [(f'obstacle{i}', b) for i, b in enumerate(scene_boxes(layout)[1:])]+list(form_boxes)
     bars = [(aid, b) for aid, cfg in layout['arms'].items() for b in rail_bars(cfg)]
     out = {}
@@ -323,8 +319,9 @@ def plan_gantries(layout, poses, form_boxes=(), verbose=print):
         # The rack has no placement to search; it must simply clear the OTHER
         # arms (the rail search keeps them off it), rails, forms and gantries.
         others = [pl for pl in placed if not pl[0].startswith(f'{aid} ')]
-        rack_gap = min((_gap_box(*geo, {a: c for a, c in full.items() if a != aid}, other_bars, boxes, others, ())
-                        for _, geo in rack_boxes(cfg)), key=lambda g: g[0])
+        rack_gap = min((g for _, geo in rack_boxes(cfg)
+                        for g in (_gap_arms(('box',)+tuple(geo), {a: st for a, st in full.items() if a != aid}), _gap_fixed(('box',)+tuple(geo), other_bars, boxes, others, ()))),
+                       key=lambda g: g[0])
         if rack_gap[0] < MARGIN:
             raise ValueError(f'rack of {aid} blocked by {rack_gap[1]} ({rack_gap[0]:+.3f} m)')
         for side, x_end in ((-1, x0-RAIL_OVER), (1, x1+RAIL_OVER)):

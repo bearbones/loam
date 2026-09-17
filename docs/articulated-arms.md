@@ -175,7 +175,12 @@ comfortable gap). The screen stays affordable because each part carries
 its whole sweep box: a part whose box keeps 150 mm from a solid is scored
 by that bound and never measured, and most of an arm never comes near a
 bracket (`solids_gap`); a coarse pass over every fourth pose, an upper
-bound on the gap, rules blocked brackets out before the fine pass. Two
+bound on the gap, rules blocked brackets out before the fine pass. The
+gantry planner itself now measures through the same `solids_gap`
+(`gantry._stacks`, `_gap_arms`), so the two rulers share one arm model
+and one arithmetic: it reproduces every recorded bracket and gap to the
+millimetre and plans a rig in seconds rather than tens of minutes, which
+is what makes `tools/test_gantry.py` a ruler that actually gets run. Two
 more differences between the rulers closed at the
 same time: the rail search slides every capsule across the pin span the
 way the planner does (`pin_shifts`, from the same `pin_x`), and measures

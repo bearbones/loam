@@ -1,5 +1,21 @@
 # loam — log (newest at top)
 
+## 2026-09-17 — CLOCKWORK the gantry planner measures with the rail search's ruler (25 min → 44 s)
+
+tools/test_gantry.py had become a ruler nobody could afford: it re-runs the
+gantry planner for both assets, and the planner measured every part of
+every arm against every candidate solid at 120 Hz — over 25 minutes, so it
+was never green or red, just killed. formlab.gantry now builds one
+layout_search.stack_caps per arm (gantry._stacks, pin slides from
+pin_shifts) and measures each solid through solids_gap (_gap_arms), so a
+part whose sweep box stays 150 mm from the solid is scored by that bound
+and never sampled; bars, boxes and placed gantries keep their own check
+(_gap_fixed). Same arithmetic for the parts that are measured (24 samples
+per box, the span's ends and middle per capsule): every recorded bracket
+and gap in both manifests is reproduced to the millimetre, the chamber
+plans in 8 s, the expanded rig in 13 s, and the ruler passes in 44 s. The
+rail search and the planner now share one arm model and one ruler.
+
 ## 2026-09-17 — CLOCKWORK an honest knuckle stack: two-plate crossheads, stub pins, forked yokes
 
 The joints looked right from a metre away and were a lie up close. At

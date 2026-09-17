@@ -127,8 +127,8 @@ def pin_shifts(caps, pin_x):
     """How far each moving capsule may be slid along X either way so that the
     arm as a whole reaches the pin tips' planes at ±pin_x from its carriage
     plane (the parts sit at fixed offsets from that plane; the pins are the
-    widest thing on it). The same rule as formlab.gantry._pin_span, so the
-    rail search and the gantry planner see one arm width. Rail parts: (0,)."""
+    widest thing on it). The gantry planner slides by the same rule
+    (formlab.gantry._stacks), so both rulers see one arm width. Rail parts: (0,)."""
     root = caps['upper'][0][:, 0]; out = {}
     for name, (P, Q, r) in caps.items():
         if _is_rail(name): out[name] = (0.,); continue
@@ -161,38 +161,38 @@ def stack_view(stack, mov=False, step=1):
     keep = np.flatnonzero(stack['mov']) if mov else np.arange(len(stack['r'])); new = {int(i): k for k, i in enumerate(keep)}
     rows = [(new[i], dx) for i, dx in stack['rows'] if i in new]
     return dict(stack, A=stack['A'][keep, ::step], B=stack['B'][keep, ::step], r=stack['r'][keep], d_lo=stack['d_lo'][keep], d_hi=stack['d_hi'][keep],
-                rows=rows, row_lo=stack['row_lo'][keep], row_hi=stack['row_hi'][keep])
+                rows=rows, row_lo=stack['row_lo'][keep], row_hi=stack['row_hi'][keep], names=[stack['names'][i] for i in keep])
 
-def solids_gap(solids, stack, margin=GANTRY['margin'], samples=24, chunk=12, far_enough=.15):
+def solids_gap(solids, stack, margin=GANTRY['margin'], samples=24, chunk=12, far_enough=.15, who=False):
     """Worst gap between fixed solids — ('box', lo, hi) or ('capsule', a, b,
     r) — and an arm (stack_caps) over all poses, each capsule slid across
     its pin span as the gantry planner does (a box widened by the span, a
     capsule tried at the span's ends and the middle), less the planner's
     margin so that 0 here is its pass. A part whose whole sweep box keeps
     `far_enough` from a solid is scored by that bound, not measured — most
-    of an arm never comes near a bracket."""
-    best = 1e9; u = np.linspace(0, 1, samples)[None, None, :, None]
+    of an arm never comes near a bracket. `who`: return (gap, part name)."""
+    best = (1e9, None); u = np.linspace(0, 1, samples)[None, None, :, None]
     for sol in solids:
         if sol[0] == 'box': slo, shi = sol[1], sol[2]
         else: slo, shi = np.minimum(sol[1], sol[2])-sol[3], np.maximum(sol[1], sol[2])+sol[3]
-        bound = np.linalg.norm(np.maximum(np.maximum(stack['row_lo']-shi, slo-stack['row_hi']), 0), axis=1)     # (N,) lower bounds on each part's gap
-        near = np.flatnonzero(bound < far_enough)
-        if len(near) < len(bound): best = min(best, float(bound[bound >= far_enough].min()))
-        if not len(near): continue
+        row = np.linalg.norm(np.maximum(np.maximum(stack['row_lo']-shi, slo-stack['row_hi']), 0), axis=1)     # (N,) lower bounds on each part's gap
+        near = np.flatnonzero(row < far_enough)
         if sol[0] == 'box':
             lo = sol[1]-stack['d_hi'][near, None]*[1, 0, 0]; hi = sol[2]-stack['d_lo'][near, None]*[1, 0, 0]     # (n, 3)
             for i in range(0, len(near), chunk):
                 rows = near[i:i+chunk]; A = stack['A'][rows]; B = stack['B'][rows]
                 pts = A[:, :, None, :]*(1-u)+B[:, :, None, :]*u                                       # (n, T, S, 3)
                 d = np.maximum(np.maximum(lo[i:i+chunk, None, None, :]-pts, pts-hi[i:i+chunk, None, None, :]), 0)
-                best = min(best, float((np.linalg.norm(d, axis=-1).min(axis=(1, 2))-stack['r'][rows]).min()))
+                row[rows] = np.linalg.norm(d, axis=-1).min(axis=(1, 2))-stack['r'][rows]
         else:
-            P, Q, r = sol[1:]; near = set(near.tolist())
+            P, Q, r = sol[1:]; keep = set(near.tolist())
             for i, dx in stack['rows']:
-                if i not in near: continue
+                if i not in keep: continue
                 d = segment_distance(P[None], Q[None], stack['A'][i]+[dx, 0, 0], stack['B'][i]+[dx, 0, 0])   # (T,)
-                best = min(best, float(d.min()-r-stack['r'][i]))
-    return best-margin
+                row[i] = min(row[i], float(d.min()-r-stack['r'][i]))
+        k = int(np.argmin(row))
+        if row[k] < best[0]: best = (float(row[k]), stack['names'][k])
+    return (best[0]-margin, best[1]) if who else best[0]-margin
 
 def mast_gaps(P, Q, r, caps, shifts=None):
     """Per column c (P[c] to Q[c], radius r): the worst gap against every
