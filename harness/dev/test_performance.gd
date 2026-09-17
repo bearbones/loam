@@ -64,6 +64,16 @@ func check_scene() -> void:
 			var colour: Color=mat.get_shader_parameter("albedo")
 			if s["mid"]=="harp" and int(midi)%12==0 and not (colour.r>.6 and colour.g<.4): failures.append("harp C string not red "+sid)
 			if s["mid"]=="harp" and int(midi)%12==5 and colour.r>.35: failures.append("harp F string not dark "+sid)
+			# A harp or rake string runs on past its speaking length: two straight dead
+			# lengths (b to the bridge pin, bridge pin to the tuning pin) beside the string.
+			if s["mid"]=="harp" or s["mid"]=="rake":
+				var dead: Node3D=scene.find_child(sid+" dead",true,false)
+				if dead==null or dead.get_child_count()!=2: failures.append("string has no dead length "+sid)
+				else:
+					var first: MeshInstance3D=dead.get_child(0)
+					if first.global_position.distance_to(scene.motion.v(s["b"]))>.00001: failures.append("dead length does not start at b "+sid)
+					var top: MeshInstance3D=dead.get_child(1)
+					if top.global_position.y<=scene.motion.v(s["b"]).y+.1: failures.append("dead length does not climb to the neck "+sid)
 	print("  integrated GLB: %d tool contacts; %d rigs" % [contacts,scene.parts.size()])
 	print("PERFORMANCE: PASS" if failures.is_empty() else str(failures))
 	quit(0 if failures.is_empty() else 1)

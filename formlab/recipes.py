@@ -3,7 +3,7 @@ import numpy as np
 from scipy.interpolate import PchipInterpolator
 from .sweep import sample_curve,sweep,validate_mesh
 from .joints import rounded_loop,section_field,smoothstep
-from .layout import RAIL,END,BOARD
+from .layout import RAIL,END,BOARD,NECK
 
 STYLES=('carved','ribbed','shell')
 def handrail_profile():
@@ -56,11 +56,12 @@ def harp_frame(elements,style='carved',section=None):
     meshes=[backbone]
     # Functional ferrules terminate inside the receiving frame. They are not
     # decorative moulding ends and remain individually closed components.
+    # Only at the string's foot: its upper end runs on past the neck's action to
+    # a bridge pin and its tuning pin (layout.neck_plan), as a harp's does.
     for s in elements:
-        for key,sign in (('a',-1),('b',1)):
-            ep=np.array(s[key]); dest=ep+np.array([.035 if sign<0 else 0,sign*.13,.20])
-            path=sample_curve([ep,ep+(dest-ep)*.5,dest],10)
-            meshes.append(sweep(path,np.linspace(.024,.04,len(path)),.027,sides=12))
+        ep=np.array(s['a']); dest=ep+np.array([.035,-.13,.20])
+        path=sample_curve([ep,ep+(dest-ep)*.5,dest],10)
+        meshes.append(sweep(path,np.linspace(.024,.04,len(path)),.027,sides=12))
     return meshes
 
 def soundboard(elements):
@@ -82,13 +83,35 @@ def soundboard(elements):
     panel.path[:,2]+=face_offset
     return [panel]
 
-def action_plate(elements):
+def _neck(elements):
+    """The backbone's neck samples: path, half-widths, and the world z of the
+    string-side face (the bead crests, at profile depth 1) and the far face."""
     frame,info,_=harp_backbone(elements)
     indices=np.flatnonzero(np.array(info['labels'])==1)[3:-3]
-    # A constant-gauge plate cut in a plane, rather than a swelling 3D sweep.
-    path=frame.path[indices].copy();path[:,1]-=.065;path[:,2]=.318+elements[0]['a'][2]
+    c=elements[0]['a'][2]+.20; d=frame.depths[indices]
+    return frame.path[indices].copy(),frame.widths[indices],c-d,c+d
+
+def action_plate(elements):
+    """A pedal harp's neck is plated on both faces. Two constant-gauge brass
+    plates seated on the bead crests, spanning the neck's height and standing
+    NECK['plate'] proud: the first on the string-side face, where the discs,
+    fork pins and bridge pins mount; the second on the far face, which the
+    tuning pins pass through to their square heads."""
+    path,w,face,back=_neck(elements)
     profile=np.array([[-1,-.7],[-.96,-1],[.96,-1],[1,-.7],[1,.7],[.96,1],[-.96,1],[-1,.7]])
-    return [sweep(path,.078,.004,profile=profile)]
+    plates=[]
+    for z in (face-NECK['plate']/2,back+NECK['plate']/2):
+        p=path.copy(); p[:,2]=z; plates.append(sweep(p,.9*w,NECK['plate']/2,profile=profile))
+    return plates
+
+def neck_faces(elements):
+    """Per string id: the world z of the neck's string-side face and far face at
+    that string (the sample nearest its upper end), for layout.neck_plan."""
+    path,_,face,back=_neck(elements); out={}
+    for s in elements:
+        b=np.array(s['b']); i=int(np.argmin(np.hypot(path[:,0]-b[0],path[:,1]-(b[1]+.16))))
+        out[s['id']]=dict(face=float(face[i]),back=float(back[i]),y=float(path[i,1]))
+    return out
 
 TIMBER=np.array([[-1,-.8],[-.9,-1],[.9,-1],[1,-.8],[1,.8],[.9,1],[-.9,1],[-1,.8]])   # chamfered rectangle
 def _timber(points,width,depth,count=None):

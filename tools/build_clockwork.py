@@ -14,7 +14,7 @@ out = ROOT/'harness/assets'
 sys.path.insert(0,str(ROOT/'tools'))
 from blender_forms import make_form
 sys.path.insert(0,str(ROOT/'formlab'))
-from layout import string_endpoints,bar_frame_plan,board_z,harp_base_plan,bench_plan,bench_elements,BAR,BENCH,BELL,BOARD
+from layout import string_endpoints,bar_frame_plan,board_z,harp_base_plan,bench_plan,bench_elements,BAR,BENCH,BELL,BOARD,NECK
 # formlab.rig / clearance / layout_search are numpy-only (no SciPy) so they run here too.
 import rig as arm_rig, clearance as arm_clearance, layout_search
 # Pure Python preparation keeps SciPy and structural logic out of Blender's runtime.
@@ -118,9 +118,10 @@ for m in score['instrument']['mechanisms']:
                 if m['material']=='wood':
                     box(s['id']+' slit',(sx,sy+.001,sz+.07),(.19,.006,.018),black,.002)
         else:
-            for ep in (a,b):
-                ball(s['id']+' anchor',ep,.035,brass)
-                beam(s['id']+' pin',ep,[ep[0],ep[1],ep[2]-.1],.022,steel)
+            # Anchored at the foot only: the top runs on to the neck's action, bridge
+            # pin and tuning pin (formlab.layout.neck_plan), placed once the forms are built.
+            ball(s['id']+' anchor',a,.035,brass)
+            beam(s['id']+' pin',a,[a[0],a[1],a[2]-.1],.022,steel)
         ends.append((a,b))
         manifest['strings'][s['id']]={'a':a,'b':b,'mid':mid,'struck':struck,'midi':s['midi'],'pick':s['pick_default']}
     if framed:
@@ -181,19 +182,6 @@ for m in score['instrument']['mechanisms']:
             beam('Harp pedal '+p['note']+' lever',p['lever'][0],p['lever'][1],.016,steel)
             box('Harp pedal '+p['note']+' tread',p['tread'],(.17,.036,.07),black,.01)
             pv=Vector(p['pivot']); beam('Harp pedal '+p['note']+' pivot',pv-Vector((0,0,.03)),pv+Vector((0,0,.03)),.022,brass)
-    if mid=='harp':
-        for sid,spec in manifest['strings'].items():
-            if spec['mid']!=mid:continue
-            b=Vector(spec['b'])
-            for row,dy in enumerate((.135,.045)):
-                centre=b+Vector((0,dy,.34))
-                beam(sid+' action disc '+str(row),centre-Vector((0,0,.013)),centre+Vector((0,0,.013)),.025,wire)
-                for sign in (-1,1):
-                    pin=centre+Vector((sign*.016,sign*.009,0))
-                    beam(sid+' fork pin',pin,pin+Vector((0,0,.042)),.007,steel)
-            tuning=b+Vector((0,.22,.35))
-            beam(sid+' tuning pin',tuning-Vector((0,0,.1)),tuning+Vector((0,0,.055)),.015,wire)
-            box(sid+' tuning key',tuning+Vector((0,0,.059)),(.025,.025,.025),steel,.003)
     for k,act in enumerate(m['actuators']):
         aid=act['id']
         # Rail height/depth and link lengths are decided by the clearance search
@@ -246,6 +234,20 @@ forms=json.loads(recipe.read_text())
 for aid,extra in forms.get('arms',{}).items():
     if aid in manifest['arms']: manifest['arms'][aid].update(extra)
     else: manifest.setdefault('arm_checks',{})[aid]=extra
+# The harp's and the rake's neck hardware, on the neck's string-side face where
+# build_forms found it (formlab.layout.neck_plan): the action discs with their
+# fork pins straddling the string, the bridge pin, and the tuning pin through
+# the neck with its square head on the far side. Godot draws the string's dead
+# length from b over the bridge pin to the tuning pin (`neck` on the string).
+for sid,n in forms.get('neck',{}).items():
+    for row,disc in enumerate(n['discs']):
+        c=Vector(disc['centre']); h=disc['half']
+        beam(sid+' action disc '+str(row),c-Vector((0,0,h)),c+Vector((0,0,h)),disc['r'],wire)
+        for p in disc['pins']: beam(sid+' fork pin',p,[p[0],p[1],disc['pin_tip']],NECK['fork_r'],steel)
+    bx,by=n['bridge']['centre']; beam(sid+' bridge pin',[bx,by,n['bridge']['z'][0]],[bx,by,n['bridge']['z'][1]],n['bridge']['r'],brass)
+    px,py=n['pin']['centre']; beam(sid+' tuning pin',[px,py,n['pin']['z'][0]],[px,py,n['pin']['z'][1]],n['pin']['r'],wire)
+    box(sid+' tuning key',n['pin']['key'],(NECK['key'],)*3,steel,.003)
+    manifest['strings'][sid]['neck']=dict(bridge=n['bridge']['contact'],pin=n['pin']['contact'])
 # Geometry variants share anchors and are selected in Godot with --form or F.
 form_colliders=[]
 for entry in forms['objects']:
@@ -268,7 +270,7 @@ for aid,cfg in manifest['arms'].items():
 # Include the added reference hardware in the offline clearance mesh.
 hardware_vertices=[];hardware_faces=[]
 for obj in list(bpy.data.objects):
-    if obj.type!='MESH' or not (obj.name.startswith(('Harp ','Rake ')) or any(tag in obj.name for tag in (' action disc',' fork pin',' tuning pin',' tuning key',' post',' pad '))): continue
+    if obj.type!='MESH' or not (obj.name.startswith(('Harp ','Rake ')) or any(tag in obj.name for tag in (' action disc',' fork pin',' bridge pin',' tuning pin',' tuning key',' post',' pad '))): continue
     obj.data.calc_loop_triangles();offset=len(hardware_vertices)
     for v in obj.data.vertices:
         p=obj.matrix_world@v.co;hardware_vertices.append([p.x,p.z,-p.y])

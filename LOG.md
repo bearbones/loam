@@ -1,3 +1,33 @@
+## 2026-09-17 — CLOCKWORK the harp's neck carries its strings: plate on the string side, bridge and tuning pins, dead lengths
+
+The harp's action sat on the wrong side of the neck. The plate and the two
+rows of discs were on the neck's far face, 34 cm from the strings; the tuning
+pins stood in front of that; and every string stopped in the air under the
+neck with a ferrule buried in the wood above it. A harp's strings run close to
+one face of the neck and that face carries the action, so the plate is now
+seated on the bead crests of the neck's string-side face (6 cm from the string
+plane, 2 cm at real scale) and follows the neck's real taper
+(`recipes.action_plate` sweeps it along the carved neck's own samples, 8 mm
+proud, 90 % of the local width tall); the discs sit on the plate with their
+fork pins reaching 12 mm past the string plane either side of each string;
+above them a brass bridge pin stands at the plate on the +x side of the string,
+and the string leans from it to a tuning pin on the −x side that passes
+through the neck to its square head on the far face. A pedal harp's neck is
+plated on both faces, so the far face keeps a plate too — the one the house
+sees, with the sixteen pin heads standing proud of it — while the action faces
+the strings; `--view=12` looks at the action from the string side. `layout.neck_plan`
+(numpy-free) lays all of that out per string from its upper end and the two
+face heights `recipes.neck_faces` reads off the backbone; `build_forms.py`
+hands the plans to the Blender builder in the recipe's `neck` block. The
+string itself runs on: the manifest records the dead length's turning points
+(`strings[sid].neck`, written after the rail search so no cache key changed)
+and `performance.gd` draws the two straight dead lengths in the string's own
+wire, never excited. The rake, a lever harp, gets bridge and tuning pins
+without discs. The recipe now puts a ferrule at a string's foot only. No base,
+obstacle or planner changed, so every rail stayed where it was.
+`tools/test_neck.py` pins the construction; `dev/test_performance.gd` checks
+every harp and rake string has its dead length.
+
 ## 2026-09-17 — CLOCKWORK trestle benches under the bells and blocks; every frame is now a promise
 
 The expanded rig's glass bells and temple blocks sat on plank beds with two

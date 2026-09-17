@@ -402,3 +402,11 @@ keeps a little diffuse body, and a sounding string lights itself —
 albedo so a red C sings red. `performance.gd` sets it per frame beside
 `disp`/`envelope`. `--view=10` frames the most recently plucked string
 from 45° off its pluck axis to judge all of this; it latches for 1.5 s.
+
+A harp or rake string does not stop at the top of its speaking length. The
+manifest carries the two turning points of its dead length (`neck.bridge`,
+`neck.pin`, from `formlab.layout.neck_plan`), and `_make_dead_length` draws
+two straight tubes of the same wire — up the string line to the bridge pin,
+then leaning to the tuning pin — as a node beside the string, so the
+per-frame shape updates never reach it. See [instrument
+frames](instrument-frames.md#the-neck-carries-the-strings-the-way-a-harps-does).

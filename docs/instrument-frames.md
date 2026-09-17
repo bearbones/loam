@@ -96,6 +96,47 @@ rail cache key for every mechanism, so the rails re-plan once; the rake's rail
 is 1.4 m in front of its string plane and the plinth stays 0.3 m below the
 lowest string foot, so nothing moves. `test_harp_base.py` checks both bases.
 
+## The neck carries the strings the way a harp's does
+
+A harp's strings do not end in the air under the neck, and its action is not on
+the far side of the neck from them. The strings run close to *one* face of the
+neck (the string plane sits 6 cm off the neck's lower bead crests here, 2 cm at
+real scale), and that face carries the action: a brass plate seated on the bead
+crests, the two rows of discs on the plate with their fork pins reaching past
+the string plane on either side of each string, and above them a bridge pin
+the string bears on before it leans over to its tuning pin. The tuning pin
+passes through the neck and its square head comes out the far face, where the
+tuning key goes — and a pedal harp's neck is plated on that face too, so the
+far plate is what the house sees, with the sixteen square pin heads standing
+proud of it, while the action faces the strings. The wire from the top of the
+speaking length over the bridge pin to the tuning pin is the string's dead
+length: it is strung, it is seen, and it never sounds. `--view=12` looks at
+the action from the string side.
+
+`layout.neck_plan` (numpy-free, so the Blender builder and the ruler share it)
+lays that out for one string from its upper end and the world z of the neck's
+two faces at that string; `recipes.neck_faces` reads those faces off the carved
+backbone (its section field's depth at the sample nearest the string), and
+`recipes.action_plate` sweeps both plates along the same samples, `NECK['plate']`
+proud of the crests and 90 % of the neck's local width tall, so the plates,
+discs and pins follow the neck's real taper rather than one plane. The recipe
+puts a ferrule at a string's foot only — its top no longer terminates in the
+frame. `build_forms.py` writes every string's plan into the recipe's `neck`
+block; `build_clockwork.py` builds the discs, fork pins, bridge pins (brass),
+tuning pins and keys from it, adds the bridge pins to the tool-clearance
+hardware, and records the dead length's turning points on the string
+(`strings[sid].neck`, written after the rail search so the rail cache key is
+untouched); `performance.gd` `_make_dead_length` draws the two straight dead
+lengths in the string's own wire material beside the vibrating string, never
+excited. The rake, strung like a lever harp, gets bridge and tuning pins and no
+discs. The harp's and rake's bases and obstacles are unchanged, so no rail
+moved. `tools/test_neck.py` pins both plates on their crests, the fork pins
+straddling every string past its plane, the bridge pin +x and the tuning pin −x
+of the string and clear of its neighbours, the pin within the neck's height, the
+manifest's turning points, and the single foot ferrule;
+`dev/test_performance.gd` checks every harp and rake string has its dead length
+starting at `b` and climbing to the neck.
+
 ## Space accounting
 
 The frames are built after the rail search fixes the rails and before the
@@ -119,6 +160,9 @@ against the frame meshes.
 
 ```sh
 python3 tools/test_bar_frame.py        # construction rules and closed pieces
+python3 tools/test_bench.py            # the benches and their promise
+python3 tools/test_harp_base.py        # the harp's pedal base and the rake's plinth
+python3 tools/test_neck.py             # the necks' plates, discs, bridge and tuning pins, dead lengths
 python3 tools/build_forms.py           # packs the frame; gantries measured against it
 blender -b -t 2 -P tools/check_form_clearance.py   # tools vs frames and stand
 ```

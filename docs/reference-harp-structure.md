@@ -14,6 +14,11 @@ than copying the photograph's black finish or its full string count.
   and four right — see [instrument frames](instrument-frames.md#the-harps-pedal-base).)
 - A deeper neck with a metal mounting plate, tuning pins, square key ends and
   two rows of disc/fork hardware aligned with the sixteen scored strings.
+  (2026-09-17: the neck is plated on both faces; the discs are on the
+  string-side plate with their fork pins straddling the strings, the tuning
+  pins pass through to the far plate, and each string runs on over a bridge pin
+  to its tuning pin — see [instrument
+  frames](instrument-frames.md#the-neck-carries-the-strings-the-way-a-harps-does).)
 - A deeper, wider soundbox with an expanded pale soundboard face. Its inset
   uses the receiving frame's cross-section orientation to keep the edge clean.
 - Red C strings and dark F strings for visual orientation.
@@ -73,6 +78,8 @@ The pale inset has a narrower, nearly linear taper with a wider walnut border;
 its ends sink into the face without shrinking into teardrop tips. The action
 plate is planar, has constant width and half its former thickness, and sits
 lower on the neck to contain the two disc rows. String geometry is unchanged.
+(Since 2026-09-17 the plate is seated on the string-side face's bead crests and
+follows the neck's taper; `formlab.layout.NECK` holds its gauge.)
 
 The Blender adapter also removes sub-micron bevel slivers before mesh validation;
 it preserves the authored profiles and UVs. Updated close-ups are

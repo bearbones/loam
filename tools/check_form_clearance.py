@@ -11,6 +11,8 @@ from mathutils.bvhtree import BVHTree
 ROOT=Path(__file__).resolve().parents[1]; folder=ROOT/'render/form-study'
 sys.path.insert(0,str(ROOT/'tools'))
 from mesh_distance import ClosedSurface
+sys.path.insert(0,str(ROOT/'formlab'))
+from layout import NECK
 objects=json.loads((folder/'collision_meshes.json').read_text())
 motion=json.loads((folder/'motion.json').read_text())
 layout=json.loads((ROOT/'harness/assets/clockwork.json').read_text())
@@ -46,18 +48,22 @@ for style in ('carved','ribbed','shell'):
             evaluated+=1
             if clearance<best:
                 best=clearance;worst=dict(arm=aid,time=t,object=name)
-    # Existing .035 m anchor spheres must overlap their new support bosses.
-    seats=[]
+    # The .035 m anchor sphere at each string's foot must overlap its support boss;
+    # the string's top runs on to a tuning pin whose shank passes through the neck
+    # (formlab.layout.neck_plan): the pin's axis at the neck's mid-depth is inside wood.
+    seats=[]; through=[]
     for name,tree in trees:
         if ('_harp_' in name or '_rake_' in name) and not name.endswith(('_soundboard','_actionplate')):
             mid='harp' if '_harp_' in name else 'rake'
             for sid,s in layout['strings'].items():
                 if s['mid']==mid:
-                    for end in ('a','b'): seats.append(abs(signed(tree,Vector(s[end]))))
+                    seats.append(abs(signed(tree,Vector(s['a']))))
+                    p=s['neck']['pin']; through.append(signed(tree,Vector((p[0]-NECK['pin_r'],p[1],s['a'][2]+.20))))
     results[style]=dict(min_tool_clearance_m=best,worst=worst,refined_queries=evaluated,
-       max_anchor_seat_distance_m=max(seats),time_hz=motion['hz'],samples=len(motion['rows']),spatial_error_bound_m=spatial_error)
+       max_anchor_seat_distance_m=max(seats),tuning_pin_depth_m=-max(through),time_hz=motion['hz'],samples=len(motion['rows']),spatial_error_bound_m=spatial_error)
     if best<0:failures.append(style+' tool overlap under conservative envelope')
     if max(seats)>.035:failures.append(style+' anchor gap')
+    if max(through)>-.03:failures.append(style+' tuning pin outside the neck')
     print(style,results[style],flush=True)
 (folder/'clearance.json').write_text(json.dumps(dict(results=results,failures=failures,
   mesh_sha256=hashlib.sha256((folder/'collision_meshes.json').read_bytes()).hexdigest(),

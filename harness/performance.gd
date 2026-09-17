@@ -143,7 +143,29 @@ func _make_string(sid: String) -> Node3D:
 		if sheath: node.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		holder.add_child(node)
 	add_child(holder)
+	if s.has("neck"): _make_dead_length(sid,s,radius,colour,family)
 	return holder
+
+## Past its speaking length a harp string runs on over the bridge pin to its
+## tuning pin (formlab.layout.neck_plan, `neck` on the string): the same wire,
+## drawn straight and never excited — a node beside the string, not under it,
+## so the per-frame shape updates never touch it.
+func _make_dead_length(sid: String, s: Dictionary, radius: float, colour: Color, family: int) -> void:
+	var dead := Node3D.new(); dead.name=sid+" dead"
+	var points: Array=[motion.v(s["b"]),motion.v(s["neck"]["bridge"]),motion.v(s["neck"]["pin"])]
+	for i in range(points.size()-1):
+		var p: Vector3=points[i]; var q: Vector3=points[i+1]; var length: float=p.distance_to(q)
+		var node := MeshInstance3D.new(); node.mesh=_wire_mesh(length,radius,4,10)
+		node.transform=Transform3D(ClockworkMotion.link_basis(p,q),p)
+		var mat := ShaderMaterial.new(); mat.shader=WIRE
+		mat.set_shader_parameter("radius",radius); mat.set_shader_parameter("length_m",length)
+		mat.set_shader_parameter("albedo",colour); mat.set_shader_parameter("family",family)
+		mat.set_shader_parameter("sheath",false)
+		var zero := PackedFloat32Array(); zero.resize(STRING_NODES)
+		mat.set_shader_parameter("disp",zero); mat.set_shader_parameter("envelope",zero)
+		node.material_override=mat
+		dead.add_child(node)
+	add_child(dead)
 
 ## A harp is strung by register: wound wire below C4, gut through the middle,
 ## nylon from C5 up (the wire shader's `family`: 0 steel, 1 wound, 2 gut, 3 nylon).
@@ -347,6 +369,12 @@ func _camera_at(t: float) -> void:
 		# Bar frame close-up: the treble end's rails, cord posts and resonator mouths, from low in front.
 		var c := motion.v(layout["mechanisms"]["bars"]["center"]) if layout["mechanisms"].has("bars") else Vector3(4.5,1.35,1.2)
 		target=c+Vector3(.8,-.17,0); pos=c+Vector3(-.6,-.3,1.7)
+	elif chosen==12:
+		# The harp's action from the string side: the plate on the neck's string-side
+		# face, the discs and fork pins straddling the strings, bridge and tuning pins
+		# and the dead lengths, seen from behind the string plane where the arms work.
+		var c := motion.v(layout["mechanisms"]["harp"]["center"]) if layout["mechanisms"].has("harp") else Vector3(0,3.3,0)
+		target=Vector3(c.x-.1,3.35,c.z); pos=target+Vector3(1.05,.15,-1.45)
 	camera.position=pos; camera.look_at(target)
 
 func _process(dt: float) -> void:

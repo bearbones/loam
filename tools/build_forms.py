@@ -13,8 +13,8 @@ import json,sys
 from pathlib import Path
 import numpy as np
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from formlab.recipes import harp_frame,soundboard,action_plate,bar_frame,bench_frame,pack,STYLES
-from formlab.layout import bar_frame_plan,bench_plan,bench_elements
+from formlab.recipes import harp_frame,soundboard,action_plate,neck_faces,bar_frame,bench_frame,pack,STYLES
+from formlab.layout import bar_frame_plan,bench_plan,bench_elements,neck_plan
 from formlab.linkage import parallelogram_arm,pick_tool,mallet_tool,tool_mount
 from formlab.rig import Rig
 from formlab.clearance import choose_offset,report,cross_arm_clearance,pinion_mount,rail_keep_clear,bar_pair_separation
@@ -22,10 +22,15 @@ from formlab.gantry import plan_gantries
 ROOT=Path(__file__).resolve().parents[1]
 layout_path=Path(sys.argv[1] if len(sys.argv)>1 else ROOT/'harness/assets/clockwork.json')
 out=Path(sys.argv[2] if len(sys.argv)>2 else ROOT/'render/form-study/recipe.json')
-layout=json.loads(layout_path.read_text()); objects=[]
+layout=json.loads(layout_path.read_text()); objects=[]; neck={}
 score_path=Path(sys.argv[3]) if len(sys.argv)>3 else Path(layout.get('score',ROOT/'render/chamber/score.json'))
 for mid in ('harp','rake'):
-    elements=[s for s in layout['strings'].values() if s['mid']==mid]
+    elements=[dict(s,id=sid) for sid,s in layout['strings'].items() if s['mid']==mid]
+    if not elements: continue
+    # The neck's hardware follows the carved neck's real faces (recipes.neck_faces);
+    # the builder places it and the strings' dead lengths from this block.
+    for sid,f in neck_faces(elements).items():
+        neck[sid]=neck_plan(layout['strings'][sid]['b'],f['face'],f['back'],discs=mid=='harp')
     for style in STYLES:
         pieces=harp_frame(elements,style)
         objects.append(pack(f'form_{mid}_{style}',pieces,'brass' if style=='ribbed' else 'wood',
@@ -101,7 +106,7 @@ if score_path.exists() and layout.get('arms'):
         if a['gantry']['margin_m']<0: raise SystemExit(f'GANTRY CLEARANCE FAIL {aid}: {a["gantry"]}')
     if worst_cross and worst_cross['gap_m']<0: raise SystemExit(f'CROSS-ARM CLEARANCE FAIL {worst_cross}')
 out.parent.mkdir(exist_ok=True,parents=True)
-out.write_text(json.dumps(dict(format='formlab/1',source_layout=str(layout_path),objects=objects,arms=arms),separators=(',',':')))
+out.write_text(json.dumps(dict(format='formlab/1',source_layout=str(layout_path),objects=objects,arms=arms,neck=neck),separators=(',',':')))
 print('FORMS: PASS;',len(objects),'assemblies;',sum(len(o['pieces']) for o in objects),'closed analytic components;',out)
 for aid,a in arms.items():
     if aid.startswith('_'): continue

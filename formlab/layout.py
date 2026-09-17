@@ -109,6 +109,36 @@ def board_z(plan,x):
     b=plan['board']; return b['z'][0]+(b['z'][1]-b['z'][0])*(x-b['x'][0])/(b['x'][1]-b['x'][0])
 
 
+# The neck's hardware (numpy-free: Blender's builder and the ruler read it).
+# A harp's strings run close to ONE side of the neck, and that side carries
+# the action: the brass plate seated on the neck's bead crests, and for each
+# string two discs whose fork pins straddle the string. Above the discs the
+# string bears on a bridge pin at the plate and then leans to its tuning pin,
+# which passes through the neck and the plate on its far face so its square
+# head stands proud there, where the tuning key goes. The string's speaking
+# length ends at `b`; the dead length from there to the tuning pin is drawn
+# but never sounds.
+NECK=dict(plate=.008, disc_r=.022, disc_half=.013, rows=(.06,.125), fork=(.016,.009), fork_r=.007, straddle=.012,
+          bridge_y=.175, bridge_r=.006, pin_y=.225, pin_r=.015, pin_lean=.035, pin_through=.04, key=.025)
+def neck_plan(b,face_z,back_z,discs=True):
+    """Every point of one string's neck hardware, from its upper end `b`, the
+    world z of the neck's string-side face (its bead crests at the string) and
+    of its far face. The plate stands `plate` proud of the crests toward the
+    string; the discs sit on the plate; every pin on the string side reaches
+    `straddle` past the string plane. The bridge pin stands on the +x side of
+    the string so the dead length above it leans -x to the tuning pin."""
+    x,y,z0=b; d=NECK; plate_out=face_z-d['plate']
+    rows=[]
+    for dy in (d['rows'] if discs else ()):
+        centre=[x,y+dy,plate_out-d['disc_half']]
+        rows.append(dict(centre=centre,r=d['disc_r'],half=d['disc_half'],
+                         pins=[[x+s*d['fork'][0],y+dy+s*d['fork'][1],plate_out-2*d['disc_half']] for s in (-1,1)],pin_tip=z0-d['straddle']))
+    bridge=dict(centre=[x+d['bridge_r'],y+d['bridge_y']],z=[z0-d['straddle'],plate_out],r=d['bridge_r'],contact=[x,y+d['bridge_y'],z0])
+    tx=x-d['pin_lean']; ty=y+d['pin_y']; head_z=back_z+d['pin_through']
+    pin=dict(centre=[tx-d['pin_r'],ty],z=[z0-d['straddle'],head_z],r=d['pin_r'],contact=[tx,ty,z0],key=[tx-d['pin_r'],ty,head_z+d['key']/2])
+    return dict(plate_out=float(plate_out),discs=rows,bridge=bridge,pin=pin,dead=[[x,y,z0],bridge['contact'],pin['contact']])
+
+
 # A trestle bench for the struck elements that sit on it (the glass bells, the
 # temple blocks): two straight rails along the row on a splayed-leg trestle at
 # each end, a bearer across the rails under every element, and the element's
