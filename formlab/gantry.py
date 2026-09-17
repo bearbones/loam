@@ -32,12 +32,12 @@ import numpy as np
 try:
     from .sweep import sweep, validate_mesh
     from .linkage import rounded_rect, revolve
-    from .clearance import arm_capsules, default_layers, DEFAULT_SPEC, segment_distance
+    from .clearance import arm_capsules, default_layers, DEFAULT_SPEC, segment_distance, PINION, MOUNTS, pinion_centre, rack_direction
     from .layout_search import box_gap, scene_boxes
 except ImportError:   # bare import (formlab/ on sys.path)
     from sweep import sweep, validate_mesh
     from linkage import rounded_rect, revolve
-    from clearance import arm_capsules, default_layers, DEFAULT_SPEC, segment_distance
+    from clearance import arm_capsules, default_layers, DEFAULT_SPEC, segment_distance, PINION, MOUNTS, pinion_centre, rack_direction
     from layout_search import box_gap, scene_boxes
 
 RAIL_OVER = .12        # the bars run this far beyond the reach window (build_clockwork)
@@ -151,20 +151,92 @@ def rail_bars(cfg):
     return [(np.array([xa, ry+dy, rz]), np.array([xb, ry+dy, rz]), BAR_R) for dy in (-BAR_DY, BAR_DY)]
 
 
-def _pin_span(arm, P, r):
+RACK_GAP = .004        # tooth tip to hub, tooth root to the pinion's tips, tooth flank to tooth flank
+
+
+def rack_geometry(cfg):
+    """A rail's rack: a toothed strip the pinion rolls on, as long as the
+    bars, in the disc's plane on the side rack_direction points — above a
+    front/back disc, behind an up/down one. Radial distances from the axle:
+    s_tip (tooth tips, just off the hub), s_root (tooth roots, just past the
+    pinion's tips), s_top (the strip's back). Tooth k is centred at
+    x = (k + 1/2) * pitch, so the pinion's tooth pointing at the rack when
+    its carriage is at x = 0 rolls into the gaps (harness/performance.gd
+    turns it by x / r_pitch)."""
+    G = PINION; x0, x1 = cfg['reach_x']; mount = cfg.get('pinion', 'back')
+    centre = np.array([0., cfg['root_y'], cfg['root_z']])+pinion_centre(mount)
+    return dict(mount=mount, normal=MOUNTS[mount], centre=centre, u=rack_direction(mount), h=G['thickness']/2,
+                x_a=x0-RAIL_OVER-.14, x_b=x1+RAIL_OVER+.14, s_tip=G['r_hub']+RACK_GAP,
+                s_root=G['r_tip']+RACK_GAP+.001, s_top=G['r_tip']+RACK_GAP+.031, pitch=2*np.pi*G['r_pitch']/G['teeth'])
+
+
+def _rack_stub_x(R): return (R['x_a']+.03, R['x_b']-.03)
+
+
+def rack(cfg):
+    """Rack pieces (brass): the strip, its teeth, and a stub from each rail
+    head carrying it — off the head's face for a front/back disc, an L up
+    (or down) from the head's top (bottom) and back for an up/down disc.
+    Pitched to formlab.clearance.PINION."""
+    R = rack_geometry(cfg); G = PINION; ny, nz = R['normal']; c = R['centre']; u = R['u']; h = R['h']
+    s_mid = (R['s_root']+R['s_top'])/2; w_strip = (R['s_top']-R['s_root'])/2
+    tooth_w = R['pitch']-G['r_tip']*.22-2*RACK_GAP        # the pinion's tooth is .22 r_tip wide
+    radial = nz != 0                                       # radial axis is Y (front/back) or Z (up/down)
+    a = c+u*s_mid; b = c+u*s_mid; a[0] = R['x_a']; b[0] = R['x_b']
+    pieces = [prism(a, b, w_strip if radial else h, h if radial else w_strip, .3, 3)]
+    k0 = int(np.ceil((R['x_a']+.02)/R['pitch']-.5)); k1 = int(np.floor((R['x_b']-.02)/R['pitch']-.5))
+    for k in range(k0, k1+1):
+        x = (k+.5)*R['pitch']; a = c+u*(R['s_root']+.006); b = c+u*R['s_tip']; a[0] = b[0] = x
+        pieces.append(prism(a, b, tooth_w/2 if radial else h-.006, h-.006 if radial else tooth_w/2, .3, 3))
+    ry = cfg['root_y']; rz = cfg['root_z']
+    for x in _rack_stub_x(R):
+        if radial:
+            pieces.append(prism((x, ry+s_mid, rz+nz*.05), (x, ry+s_mid, c[2]), w_strip-.002, .03, .3, 3))
+        else:
+            y_arm = ny*(PINION['up']+.005)
+            pieces.append(prism((x, ry+ny*(HEAD_H-.02), rz-.05), (x, ry+y_arm+ny*.015, rz-.05), .03, .02, .3, 3))
+            pieces.append(prism((x, ry+y_arm, rz-.05), (x, ry+y_arm, c[2]-R['s_top']-.01), .015, .03, .3, 3))
+    return pieces
+
+
+def rack_boxes(cfg):
+    """AABBs of a rail's rack (strip with teeth) and its stubs."""
+    R = rack_geometry(cfg); ny, nz = R['normal']; c = R['centre']; h = R['h']; ry = cfg['root_y']; rz = cfg['root_z']
+    lo = c+R['u']*R['s_tip']; hi = c+R['u']*R['s_top']; lo[0] = R['x_a']; hi[0] = R['x_b']
+    n = np.array([0., ny, nz])*h; boxes = [('rack', (np.minimum(lo, hi)-abs(n), np.maximum(lo, hi)+abs(n)))]
+    for i, x in enumerate(_rack_stub_x(R)):
+        if nz:
+            z_lo, z_hi = sorted((rz+nz*.05, c[2]))
+            boxes.append((f'rack stub {i}', (np.array([x-.03, ry+R['s_root'], z_lo]), np.array([x+.03, ry+R['s_top'], z_hi]))))
+        else:
+            y_arm = ny*(PINION['up']+.005); y0, y1 = sorted((ry+ny*(HEAD_H-.02), ry+y_arm+ny*.015))
+            boxes.append((f'rack stub {i} post', (np.array([x-.03, y0, rz-.07]), np.array([x+.03, y1, rz-.03]))))
+            boxes.append((f'rack stub {i} arm', (np.array([x-.03, ry+y_arm-.015, c[2]-R['s_top']-.01]), np.array([x+.03, ry+y_arm+.015, rz-.03]))))
+    return boxes
+
+
+def rail_racks(cfg):
+    """The rack as one capsule (P, Q, r) for the arm rulers."""
+    R = rack_geometry(cfg); m = R['centre']+R['u']*(R['s_tip']+R['s_top'])/2
+    P = m.copy(); Q = m.copy(); P[0] = R['x_a']; Q[0] = R['x_b']
+    return [(P, Q, max((R['s_top']-R['s_tip'])/2, R['h']))]
+
+
+def _pin_span(arm, P, Q, r):
     """How far a capsule may be slid along X either way so that the arm, as a
     whole, reaches the pin tips' planes at ±PIN_X from its carriage plane:
     the capsules sit at fixed offsets from that plane (the parallel bars a
     layer outboard) and the knuckle pins are the widest thing on it."""
-    ox = float(np.mean(P[:, 0]-arm['upper'][0][:, 0]))
-    return (min(-PIN_X-ox+r, 0.), max(PIN_X-ox-r, 0.))
+    root = arm['upper'][0][:, 0]
+    lo = float(np.mean(np.minimum(P[:, 0], Q[:, 0])-root)); hi = float(np.mean(np.maximum(P[:, 0], Q[:, 0])-root))
+    return (min(-PIN_X-lo+r, 0.), max(PIN_X-hi-r, 0.))
 
 
 def _gap_box(lo, hi, caps, bars, boxes, others, exempt):
     worst = (1e9, 'nothing')
     for aid, arm in caps.items():
         for name, (P, Q, r) in arm.items():
-            d_lo, d_hi = _pin_span(arm, P, r)
+            d_lo, d_hi = _pin_span(arm, P, Q, r)
             g = box_gap(P, Q, r, lo-[d_hi, 0, 0], hi-[d_lo, 0, 0], 24)
             if g < worst[0]: worst = (g, f'arm {aid} {name}')
     for name, (P, Q, r) in bars:
@@ -184,7 +256,7 @@ def _gap_capsule(P, Q, r, caps, bars, boxes, others, exempt):
     worst = (1e9, 'nothing')
     for aid, arm in caps.items():
         for name, (A, B, ra) in arm.items():
-            for dx in _pin_span(arm, A, ra)+(0.,):
+            for dx in _pin_span(arm, A, B, ra)+(0.,):
                 g = float(segment_distance(A+[dx, 0, 0], B+[dx, 0, 0], P[None], Q[None]).min())-r-ra
                 if g < worst[0]: worst = (g, f'arm {aid} {name}')
     for name, (A, B, rb) in bars:
@@ -210,7 +282,7 @@ def _caps(layout, poses, step=1):
     layers = default_layers(DEFAULT_SPEC); out = {}
     for aid, cfg in layout['arms'].items():
         p = {k: v[::step] for k, v in poses[aid].items()}
-        out[aid] = arm_capsules(p, cfg['o1'], cfg['o2'], cfg.get('layers', layers), DEFAULT_SPEC)[0]
+        out[aid] = arm_capsules(p, cfg['o1'], cfg['o2'], cfg.get('layers', layers), DEFAULT_SPEC, cfg.get('pinion', 'back'))[0]
     return out
 
 
@@ -224,7 +296,8 @@ def plan_end(aid, cfg, side, x_end, behind, quick, full, other_bars, boxes, plac
             tried.append((outreach, sb, -1, 'off the stage')); continue
         foot, on = foot_level(x_col, z_m, [b for _, b in boxes])
         end = rail_end(x_end, side, ry, rz, behind, sb, foot, outreach); exempt = [on] if on else ()
-        others = [pl for pl in placed if pl[0] != f'{aid} head']
+        # not its own head (the bracket carries it) or its rack's stubs (they are built into the head); its rack strip counts
+        others = [pl for pl in placed if pl[0] != f'{aid} head' and not pl[0].startswith(f'{aid} rack stub')]
         gap, what = clearance(end, quick, other_bars, boxes, others, exempt)
         if gap >= MARGIN: gap, what = clearance(end, full, other_bars, boxes, others, exempt)
         if gap >= MARGIN:
@@ -249,14 +322,24 @@ def plan_gantries(layout, poses, form_boxes=(), verbose=print):
               for aid, cfg in layout['arms'].items()
               for xa, xb in ((cfg['reach_x'][0]-RAIL_OVER-HEAD_INSET-HEAD_LEN, cfg['reach_x'][0]-RAIL_OVER-HEAD_INSET),
                              (cfg['reach_x'][1]+RAIL_OVER+HEAD_INSET, cfg['reach_x'][1]+RAIL_OVER+HEAD_INSET+HEAD_LEN))]
+    # so are the racks: fixed by their rails, so every bracket avoids them
+    placed += [(f'{aid} {name}', geo) for aid, cfg in layout['arms'].items() for name, geo in rack_boxes(cfg)]
     for aid, cfg in layout['arms'].items():
         x0, x1 = cfg['reach_x']; behind = behind_sign(cfg, layout['strings'])
         other_bars = [b for b in bars if b[0] != aid]; ends = []
+        # The rack has no placement to search; it must simply clear the OTHER
+        # arms (the rail search keeps them off it), rails, forms and gantries.
+        others = [pl for pl in placed if not pl[0].startswith(f'{aid} ')]
+        rack_gap = min((_gap_box(*geo, {a: c for a, c in full.items() if a != aid}, other_bars, boxes, others, ())
+                        for _, geo in rack_boxes(cfg)), key=lambda g: g[0])
+        if rack_gap[0] < MARGIN:
+            raise ValueError(f'rack of {aid} blocked by {rack_gap[1]} ({rack_gap[0]:+.3f} m)')
         for side, x_end in ((-1, x0-RAIL_OVER), (1, x1+RAIL_OVER)):
             end = plan_end(aid, cfg, side, x_end, behind, quick, full, other_bars, boxes, placed, verbose)
             placed += [(aid, geo) for kind, geo in solids(end) if kind == 'box']; ends.append(end)
-        out[aid] = dict(behind=behind, brass=sum((e['brass'] for e in ends), []), steel=sum((e['steel'] for e in ends), []),
-                        margin=min(e['gap'] for e in ends), worst=min(ends, key=lambda e: e['gap'])['worst'],
+        out[aid] = dict(behind=behind, brass=sum((e['brass'] for e in ends), rack(cfg)), steel=sum((e['steel'] for e in ends), []),
+                        rack=dict(gap=rack_gap[0], worst=rack_gap[1], mount=cfg.get('pinion', 'back')),
+                        margin=min([e['gap'] for e in ends]+[rack_gap[0]]), worst=min(ends, key=lambda e: e['gap'])['worst'],
                         ends=[dict(side=e['side'], outreach=e['outreach'], setback=e['setback'], mast_z=e['mast_z'],
                                    x_col=e['x_col'], foot_y=e['foot_y'], height=e['height'], gap=e['gap'], worst=e['worst'])
                               for e in ends])

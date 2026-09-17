@@ -13,6 +13,84 @@ import numpy as np
 # Section dimensions shared with formlab.linkage (kept here so the space
 # rulers import without SciPy, e.g. inside Blender's Python).
 DEFAULT_SPEC = dict(width=.034, depth=.062, ear_r=.055, pin_r=.018, ear_t=.028, head_t=.03, boss_r=.05, web=.05)
+# The linear carriage (formlab.linkage.carriage_body): a split bushing riding
+# each guide bar, a cheek plate on the -X side joining them (the +X side is
+# taken by the second bar's boss), and the pinion's axle out of the carriage
+# plane — or, for a pinion above or below the carriage, a bridge back from
+# the bushing carrying a vertical axle clear of the bars (bridge_y is the
+# block's extent along the mount direction, bridge_z how far back it
+# reaches; the axle stands at axle_z). bar_dy / bar_r are the rail's
+# (tools/build_clockwork.py).
+CARRIAGE = dict(bar_dy=.075, bar_r=.024, bush_r=.045, bush_len=.16, cheek_x=-.062, cheek_t=.02,
+                cheek_y=.12, cheek_z=.045, axle_r=.02, bridge_y=(.085, .125), bridge_z=-.13, bridge_x=.03, axle_z=-.10)
+# The drive pinion (build_clockwork.gear) on its axle, and the rack it rolls
+# on (formlab.gantry.rack). The disc sits on one of four MOUNTS off the
+# carriage — in front, behind, above or below — whichever the arm's links
+# never swing through (pinion_mount): `out` from the carriage plane for
+# front/back (axle along Z, rack above the disc), `up` above the rail axis
+# for up/down (vertical axle at CARRIAGE.axle_z, rack behind the disc).
+PINION = dict(out=.195, up=.17, r_pitch=.12, teeth=16, thickness=.07, r_tip=.13, r_hub=.1014)
+# mount -> disc-plane normal (y, z); preference order for ties
+MOUNTS = dict(back=(0., -1.), up=(1., 0.), down=(-1., 0.), front=(0., 1.))
+
+def pinion_centre(mount):
+    """Disc centre relative to the carriage's shoulder pin."""
+    ny, nz = MOUNTS[mount]
+    if nz: return np.array([0., 0., nz*PINION['out']])
+    return np.array([0., ny*PINION['up'], CARRIAGE['axle_z']])
+
+def rack_direction(mount):
+    """Unit vector in the disc's plane from its axle toward the rack: up for
+    a front/back disc, back for an up/down one (nothing swings behind the
+    rail above or below its bars)."""
+    return np.array([0., 1., 0.]) if MOUNTS[mount][1] else np.array([0., 0., -1.])
+
+def drive_capsules(root, mount):
+    """The pinion (a stack of chords in its plane, shortened by their radius
+    so the disc's rim is not overstated toward the rail heads), its axle
+    and — for an up/down mount — the bridge the axle stands on. World
+    capsules per pose, name -> (P, Q, r)."""
+    C = CARRIAGE; G = PINION; X = np.array([1., 0, 0]); ny, nz = MOUNTS[mount]
+    n = np.array([0., ny, nz]); centre = root+pinion_centre(mount); h = G['thickness']/2
+    u = rack_direction(mount)          # in-plane axis the chords are stacked along
+    caps = {}
+    if nz:
+        caps['carriage_axle'] = (root+n*.03, centre-n*h, C['axle_r'])
+    else:
+        b0, b1 = C['bridge_y']; by = np.array([0., ny*(b0+b1)/2, 0.])
+        caps['carriage_bridge'] = (root+by, root+by+[0, 0, C['bridge_z']], (b1-b0)/2+.01)
+        caps['carriage_axle'] = (root+[0, ny*b1-ny*.01, C['axle_z']], centre-n*h, C['axle_r'])
+    for k, s in enumerate((-.11, -.07, 0., .07, .11)):
+        half = max(np.sqrt(G['r_tip']**2-s*s)-h, .02)
+        caps[f'pinion{k}'] = (centre-X*half+u*s, centre+X*half+u*s, h)
+    return caps
+
+MOUNT_COMFORT = .05    # a mount this clear of the links is taken in preference order
+
+def pinion_mount(poses, o1, o2, layers, spec, mounts=None):
+    """Which mount keeps the drive clear of the arm's own links over the
+    motion. The minimum gap between the pinion, axle and bridge and the
+    links, webs and bars is measured for each mount; the first in MOUNTS
+    order (behind the rail — away from the strings — then above, below, in
+    front) with MOUNT_COMFORT to spare is taken, else the clearest.
+    Returns (mount, gap)."""
+    best = None
+    for m in (mounts or MOUNTS):
+        caps, adjacent = arm_capsules(poses, o1, o2, layers, spec, m)
+        drive = [k for k in caps if k.startswith('pinion') or k in ('carriage_axle', 'carriage_bridge')]
+        gap = 1e9
+        for a in drive:
+            for b in ('upper', 'upper2', 'lower', 'lower2', 'carriage_web', 'elbowhead_web1', 'elbowhead_web2'):
+                if frozenset((a, b)) in adjacent: continue
+                P1, Q1, r1 = caps[a]; P2, Q2, r2 = caps[b]
+                gap = min(gap, float((segment_distance(P1, Q1, P2, Q2)-r1-r2).min()))
+        if gap >= MOUNT_COMFORT: return m, gap
+        if best is None or gap > best[1]+1e-9: best = (m, gap)
+    return best
+
+def rail_keep_clear():
+    """The two guide bars in the carriage's swing plane, for choose_offset."""
+    return [((s*CARRIAGE['bar_dy'], 0.), CARRIAGE['bar_r']) for s in (-1, 1)]
 def bezier(points, count=24):
     """Cubic (or quadratic) Bezier samples, (count, 3)."""
     P = np.asarray(points, float); u = np.linspace(0, 1, count)[:, None]
@@ -69,18 +147,19 @@ def link_basis(a, b, pin_axis=(1, 0, 0)):
     x = x/np.linalg.norm(x, axis=-1, keepdims=True)
     return x, y, np.cross(x, y)
 
-def arm_capsules(poses, o1, o2, layers, spec):
+def arm_capsules(poses, o1, o2, layers, spec, mount='back'):
     """World capsules per pose for a parallelogram arm. Returns dict name ->
     (P, Q, r) arrays of shape (T,3),(T,3),scalar, plus the adjacency set
-    (pairs that legitimately touch at a shared pin)."""
+    (pairs that legitimately touch at a shared pin). `mount`: the pinion's
+    (MOUNTS; pinion_mount chooses it)."""
     root, elbow, wrist = poses['root'], poses['elbow'], poses['wrist']
     o1 = np.asarray(o1, float); o2 = np.asarray(o2, float); X = np.array([1., 0, 0])
     r_bar = max(spec['width'], spec['depth'])/2; r_bar2 = r_bar*.8; outer = layers['outer']
     # The tool: contact point up to the swan neck's apex, then the shank into
     # its socket under the crosshead's lower boss (formlab.linkage.tool_mount).
-    tip = poses['tip']; mount = tool_mount(wrist[0]-tip[0], o2)
-    neck = shank_path([0, .07, 0], mount, count=25)
-    apex = tip+neck[12]; socket_end = tip+mount-[0, .03, 0]
+    tip = poses['tip']; socket = tool_mount(wrist[0]-tip[0], o2)
+    neck = shank_path([0, .07, 0], socket, count=25)
+    apex = tip+neck[12]; socket_end = tip+socket-[0, .03, 0]
     caps = {
         'upper':  (root, elbow, r_bar),
         'lower':  (elbow, wrist, r_bar),
@@ -93,7 +172,21 @@ def arm_capsules(poses, o1, o2, layers, spec):
         'tool': (tip, apex, .03),
         'shank': (apex, socket_end, .02),
     }
+    # The carriage on its guide: bushings along the bars, the cheek plate, the
+    # pinion's axle (and bridge); the pinion itself as a stack of chords.
+    C = CARRIAGE; bx = X*C['bush_len']/2
+    for s, tag in ((-1, '-'), (1, '+')):
+        c = root+[0, s*C['bar_dy'], 0]; caps['carriage_bush'+tag] = (c-bx, c+bx, C['bush_r'])
+    cx = X*C['cheek_x']; cy = np.array([0., C['cheek_y'], 0])
+    caps['carriage_cheek'] = (root+cx-cy, root+cx+cy, C['cheek_z'])
+    caps.update(drive_capsules(root, mount))
+    carriage = [k for k in caps if k.startswith('carriage_') and k != 'carriage_web']
+    pinion = [f'pinion{k}' for k in range(5)]
     adjacent = {frozenset(p) for p in [
+        # the carriage's parts meet the links at the shoulder pin; the pinion
+        # touches only its axle — a link swinging into the disc is a real hit
+        *[(a, b) for a in carriage for b in carriage+pinion+['carriage_web', 'upper', 'upper2'] if a != b],
+        *[(a, b) for a in pinion for b in pinion if a != b],
         ('upper', 'lower'), ('upper', 'elbowhead_web1'), ('upper', 'elbowhead_web2'), ('upper', 'carriage_web'),
         ('lower', 'elbowhead_web1'), ('lower', 'elbowhead_web2'), ('lower', 'wristhead_web'), ('lower', 'shank'),
         ('upper2', 'elbowhead_web1'), ('upper2', 'carriage_web'), ('upper2', 'elbowhead_web2'),
@@ -122,26 +215,39 @@ def bar_pair_separation(poses, o, which='upper'):
     perp = o-d*(d@o)[:, None]
     return np.linalg.norm(perp, axis=-1)
 
-def choose_offset(poses, which, magnitude, candidates=72, half_plane=True):
+def offset_hits(o, centre, r, spec=DEFAULT_SPEC, margin=.004):
+    """Would a crosshead's boss at offset `o`, or its web from the pin to `o`,
+    come within `margin` of a bar of radius r at `centre` = (y, z) in the
+    swing plane? (The carriage's second-bar boss used to pass straight
+    through the upper guide bar whenever the offset pointed up.)"""
+    o = np.asarray(o, float); c = np.array([0., centre[0], centre[1]])
+    if np.linalg.norm(o-c) < spec['boss_r']+r+margin: return True
+    t = float(np.clip((c@o)/(o@o), 0, 1))
+    return bool(np.linalg.norm(c-t*o) < spec['web']/2+r+margin)
+
+def choose_offset(poses, which, magnitude, candidates=72, half_plane=True, keep_clear=()):
     """Pick the in-plane direction (yz) for the parallel bar's offset that
     maximises the worst-case bar separation over the motion. Returns
     (offset, worst_separation, all candidates). o and -o separate the bars
     identically, so `half_plane` keeps the offset pointing up or level: the
     second bar's pin then never hangs below the wrist, where the tool's
-    shank needs its socket (tool_mount)."""
+    shank needs its socket (tool_mount). `keep_clear`: [((y, z), r), ...]
+    bars in the crosshead's plane its boss and web must not touch
+    (rail_keep_clear for the carriage)."""
     best = None; table = []
     for k in range(candidates):
         ang = 2*np.pi*k/candidates
         o = np.array([0, magnitude*np.cos(ang), magnitude*np.sin(ang)])
         if half_plane and o[1] < -1e-12: continue
+        if any(offset_hits(o, c, r) for c, r in keep_clear): continue
         worst = float(bar_pair_separation(poses, o, which).min())
         table.append((ang, worst))
         if best is None or worst > best[1]: best = (o, worst)
     return best[0], best[1], table
 
-def report(rig, aid, o1, o2, layers, spec, strings=None, string_r=.002, poses=None):
+def report(rig, aid, o1, o2, layers, spec, strings=None, string_r=.002, poses=None, mount='back'):
     poses = rig.poses(aid) if poses is None else poses
-    caps, adjacent = arm_capsules(poses, o1, o2, layers, spec)
+    caps, adjacent = arm_capsules(poses, o1, o2, layers, spec, mount)
     gaps = pairwise_clearance(caps, adjacent)
     worst = min(gaps.items(), key=lambda kv: kv[1][0])
     result = dict(arm=aid, samples=len(poses['t']),

@@ -29,7 +29,8 @@ along the link, the pin axis +X) and never scaled afterwards:
 | --- | --- | --- |
 | upper, lower | `link()` | flat fish-belly bar (`bar()` with `belly`, `taper`), eye end at A, fork end at B |
 | upper2, lower2 | `link(layer=...)` | the parallel bar, one layer outboard |
-| carriage, elbowhead, wristhead | `crosshead()` | two bosses joined by a web; the pins live here |
+| elbowhead, wristhead | `crosshead()` | two bosses joined by a web; the pins live here |
+| carriage | `carriage_body()` | the shoulder crosshead plus bushings on the guide bars, a cheek plate and the pinion's axle — on a bridge behind the bushing when the pinion lies above or below the carriage (see The carriage and its drive) |
 | shoulder, elbow, wrist | `knuckle_pin()` | domed head one side, nut the other |
 | tool + shank | `pick_tool(mount)` / `mallet_tool(mount)` | tool origin = contact point; the shank is built to reach its socket under the wrist boss (see Tools) |
 
@@ -154,6 +155,80 @@ rail — and the second bars rail up to 2.75 m; worst arm-to-rail margin in
 the harp is now 139 mm. `tools/test_gantry.py` re-measures every arm
 against every rail of the whole rig at 120 Hz.
 
+## The carriage and its drive
+
+The first carriage was the shoulder crosshead alone: two bosses and a web
+floating at the rail's axis, with a toothed disc in front of it turning as
+the arm travelled. Nothing held it on the bars and nothing turned the disc.
+Measured, it was worse than that: the mallet arms' second-bar offset points
+up, and the boss for that bar (radius 50 mm) sat 38 mm from the top guide
+bar's axis — the bar ran straight through it.
+
+`linkage.carriage_body()` builds the carriage a linear guide actually has,
+dimensions in `clearance.CARRIAGE` and `clearance.PINION`:
+
+- a **split bushing** around each guide bar (bore 2 mm over the bar, 45 mm
+  outer radius, 160 mm long — inside the knuckle pin's span, so a carriage
+  parked at the rail end still clears the head);
+- a **cheek plate** on the −X side tying the two bushings together, 20 mm
+  thick, standing just outside the upper link's fork ears; the +X side is
+  where the second bar's boss lives, so it gets none. The shoulder pin runs
+  through the crosshead and the cheek — that is its bearing;
+- the **pinion's axle**: out of the carriage plane for a pinion in front
+  of or behind the carriage; for one above or below it, a **bridge** back
+  from the bushing (the bars are in the way of a vertical axle at the
+  carriage's centre) carrying the axle 100 mm behind the bars.
+
+The **pinion** (build_clockwork's 16-tooth disc, tip radius 130 mm, pitch
+radius 120 mm) now rolls on a **rack**: a toothed brass strip as long as
+the rail's bars, in the disc's plane — above an upright disc, behind a flat
+one — carried on a stub from each rail head (`gantry.rack`; a stub off the
+head's face for an upright disc, an L from the head's top or bottom for a
+flat one). Tooth k is centred at x = (k + ½)·pitch; the pinion's tooth
+facing the rack points straight at it when its carriage is at x = 0 and
+`performance.gd` turns it by x / r_pitch about its axle, so the teeth roll
+into the gaps along the whole rail (4 mm tip and flank clearances,
+`gantry.RACK_GAP`).
+
+Where the pinion goes is **measured, not ruled** — `clearance.pinion_mount`.
+The first rule was "in front for pick arms (they bend back), behind for
+mallet arms (they bend up)", and it was wrong: a pick arm's elbow is behind
+its *chord*, not behind the carriage, so reaching a far string its upper
+link leans forward almost flat and swept 25 mm through a pinion in front
+(harp_arm2); two other pick arms reach *up* from low rails, so their links
+leave the carriage upward. There are four **mounts** (`clearance.MOUNTS`):
+behind, above, below, in front. For each, the pinion (a stack of chords in
+its plane, `pinion0..4`), its axle and its bridge are measured as capsules
+against the arm's own links, webs and bars over the whole piece; the first
+mount in that order with 50 mm to spare (`MOUNT_COMFORT`) is taken, else
+the clearest. Measured on the current layouts: behind for the mallet arms
+and the third harp arm (65–129 mm), below for the two arms that reach up
+(104 mm). The rail planner records the mount with the offsets (`pinion` in
+the manifest), and `build_forms.py` builds what the planner chose — its
+120 Hz pass and the planner's 30 Hz screen can break an offset tie
+differently, which is how a bar once ended up 5 mm inside the disc. The
+bushings, cheek, bridge and axle are capsules too, so a neighbour's link is
+kept off the carriage, not only off the crosshead.
+
+Two more rules fell out of measuring:
+
+- `choose_offset(keep_clear=rail_keep_clear())` refuses any second-bar
+  direction whose boss or web comes within 4 mm of a guide bar
+  (`clearance.offset_hits`). Of the 37 up-or-level directions, 18 survive —
+  those within ±44° of the swing axis, forward or back.
+- The rack is fixed by its rail, so it is reserved in the gantry search
+  like the heads; each rail's rack is also an obstacle to the *other* arms
+  in the rail search (`caps['rack']` in `evaluate_arm`), and
+  `plan_gantries` refuses a layout whose rack another arm or rail crosses.
+
+`tools/test_gantry.py` measures all of it on the built rigs: every arm's
+capsules (pinion included) against every other rail's rack, each carriage
+and its second-bar boss against its own rack, the recorded mount against a
+fresh measurement of the drive's clearance, the offset rule, the rack's
+pitch against the pinion's teeth and the disc's radius against the rail
+heads. `tools/test_linkage_tools.py` checks the carriage pieces themselves
+for all four mounts and the mount chooser on synthetic swings.
+
 ## The space an arm needs
 
 Three rulers, all run at build time and all fatal when negative:
@@ -200,8 +275,8 @@ whole piece.
 python3 tools/test_score_plan.py          # planner clearance rule, neck fan
 python3 tools/test_formlab.py             # sweeps, frames, layout
 python3 tools/test_form_joints.py         # seamless frame joints
-python3 tools/test_linkage_tools.py       # plectrum, ferrule, swan neck, socket, mallet
-python3 tools/test_gantry.py              # rail heads, masts, brackets; arms vs every rail
+python3 tools/test_linkage_tools.py       # plectrum, ferrule, swan neck, socket, mallet; the carriage
+python3 tools/test_gantry.py              # rail heads, masts, brackets, racks; arms vs every rail
 blender -b -t 2 -P tools/test_form_joint_seats.py
 godot --headless --path harness -s dev/test_clockwork.gd
 godot --headless --path harness -s dev/test_performance.gd

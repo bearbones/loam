@@ -19,11 +19,11 @@ import numpy as np
 try:
     from .rig import Rig
     from .clearance import (DEFAULT_SPEC, default_layers, arm_capsules, pairwise_clearance,
-                            choose_offset, segment_distance)
+                            choose_offset, segment_distance, pinion_mount, pinion_centre, rack_direction, rail_keep_clear, PINION)
 except ImportError:   # imported bare from Blender's Python (formlab/ on sys.path, no SciPy)
     from rig import Rig
     from clearance import (DEFAULT_SPEC, default_layers, arm_capsules, pairwise_clearance,
-                           choose_offset, segment_distance)
+                           choose_offset, segment_distance, pinion_mount, pinion_centre, rack_direction, rail_keep_clear, PINION)
 
 def box_gap(P, Q, r, lo, hi, samples=16):
     """Conservative gap between capsule PQ (radius r) and an axis-aligned box."""
@@ -63,8 +63,11 @@ def evaluate_arm(rig, aid, cfg, times, spec=DEFAULT_SPEC, layers=None, boxes=(),
     dist = np.linalg.norm(poses['wrist']-poses['root'], axis=1)
     l = float(cfg['l1'])+float(cfg['l2'])
     if dist.max() > l*.985 or dist.min() < .30: return None
-    o1, sep1, _ = choose_offset(poses, 'upper', .11); o2, sep2, _ = choose_offset(poses, 'lower', .11)
-    caps, adjacent = arm_capsules(poses, o1, o2, layers, spec)
+    # the carriage's second-bar boss must miss the guide bars; the pinion sits
+    # on whichever mount the links never swing through
+    o1, sep1, _ = choose_offset(poses, 'upper', .11, keep_clear=rail_keep_clear()); o2, sep2, _ = choose_offset(poses, 'lower', .11)
+    mount, _ = pinion_mount(poses, o1, o2, layers, spec)
+    caps, adjacent = arm_capsules(poses, o1, o2, layers, spec, mount)
     gaps = pairwise_clearance(caps, adjacent); self_gap = min(v[0] for v in gaps.values())
     margins = dict(self=self_gap, pair=min(sep1, sep2)-spec['depth'])
     if string_plane_z is not None and cfg['bend'] == 'back':
@@ -89,7 +92,10 @@ def evaluate_arm(rig, aid, cfg, times, spec=DEFAULT_SPEC, layers=None, boxes=(),
     for dy in (-.07, .07):
         caps[f'head_lo{dy:+.2f}'] = fixed([x0-.36, ry+dy, rz], [x0-.16, ry+dy, rz], .07)
         caps[f'head_hi{dy:+.2f}'] = fixed([x1+.16, ry+dy, rz], [x1+.36, ry+dy, rz], .07)
-    return dict(cfg=dict(cfg, o1=o1.tolist(), o2=o2.tolist()), poses=poses, caps=caps, margins=margins, worst=min(margins.values()))
+    # and the rack the pinion rolls on, in the disc's plane off its mount (formlab.gantry.rack)
+    rm = np.array([0., ry, rz])+pinion_centre(mount)+rack_direction(mount)*(PINION['r_hub']+PINION['r_tip']+.039)/2
+    caps['rack'] = fixed([x0-.26, rm[1], rm[2]], [x1+.26, rm[1], rm[2]], .04)
+    return dict(cfg=dict(cfg, o1=o1.tolist(), o2=o2.tolist(), pinion=mount), poses=poses, caps=caps, margins=margins, worst=min(margins.values()))
 
 def cross_gap(ca, cb):
     """Worst gap between two arms' capsules, each arm's rail included as an
@@ -101,7 +107,7 @@ def cross_gap(ca, cb):
             best = min(best, float((segment_distance(P1, Q1, P2, Q2)-r1-r2).min()))
     return best
 
-def _is_rail(name): return name.startswith(('rail', 'head_'))
+def _is_rail(name): return name.startswith(('rail', 'head_', 'rack'))
 
 def rails_compatible(a, b):
     return abs(a['root_y']-b['root_y']) > .22 or abs(a['root_z']-b['root_z']) > .16
@@ -109,15 +115,16 @@ def rails_compatible(a, b):
 def _mech_key(score, layout, mech, hz, enough):
     """Everything the search for one mechanism depends on, hashed: its
     events (times, strings, picks), its string geometry, the obstacles,
-    the sampling and the candidate grid (the source text of candidates)."""
-    import hashlib, inspect
+    the sampling, the candidate grid and the space model (the source text of
+    candidates, evaluate_arm and the whole clearance module)."""
+    import hashlib, inspect, sys
     ev = [{k: e.get(k) for k in ('t', 't_move', 't_free', 'strings', 'pick', 'spread_s', 'actuator')}
           for e in score['events'] if e.get('mech') == mech['id']]
     strings = {k: v for k, v in layout['strings'].items() if v['mid'] == mech['id']}
     blob = json.dumps([mech, ev, strings, layout.get('obstacles', []), layout['mechanisms'][mech['id']],
                        {a: layout['arms'][a] for a in (x['id'] for x in mech['actuators'])},
                        score['total_s'], hz, enough, inspect.getsource(candidates), inspect.getsource(evaluate_arm),
-                       DEFAULT_SPEC], sort_keys=True, default=str)
+                       inspect.getsource(sys.modules[arm_capsules.__module__]), DEFAULT_SPEC], sort_keys=True, default=str)
     return hashlib.sha1(blob.encode()).hexdigest()
 
 def plan_arms(score, layout, hz=30, enough=.08, verbose=print, cache=None):

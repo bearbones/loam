@@ -211,12 +211,42 @@ def mallet_tool(mount, head_r=.06):
     head = revolve(pr, Y, (0, 0, 0), 28)
     return [[head], swan_shank((0, head_r*1.4, 0), mount, .012, .013)]
 
-def parallelogram_arm(l1, l2, o1, o2, spec=None):
+def carriage_body(o1, spec, outer, mount='back'):
+    """The carriage that rides the rail: the shoulder crosshead (pins 0 and
+    o1), a split bushing around each guide bar, a cheek plate on the -X side
+    tying the bushings together (the +X side carries the second bar's boss),
+    and the pinion's axle: out of the carriage plane for a front/back mount,
+    or standing on a bridge back from a bushing for a pinion above or below
+    the carriage (formlab.clearance.CARRIAGE / PINION / MOUNTS). One
+    casting; pieces overlap."""
+    from .clearance import CARRIAGE as C, PINION as G, MOUNTS
+    pieces = crosshead([[0, 0, 0], o1], spec['head_t'], spec['boss_r'], spec['pin_r'], spec['web'])
+    pieces += [ring(np.asarray(o1, float)+[outer, 0, 0], spec['pin_r']*1.15, spec['boss_r']*.9, spec['width']*.8, X),
+               revolve([(0, 0), (spec['pin_r']*1.6, 0), (spec['pin_r']*1.6, outer), (0, outer)], X, o1, 16)]
+    for s in (-1, 1):
+        pieces.append(ring((0, s*C['bar_dy'], 0), C['bar_r']+.002, C['bush_r'], C['bush_len'], X, 48, .3))
+    u = np.linspace(0, 1, 3)[:, None]
+    a = np.array([C['cheek_x'], -C['cheek_y'], 0.]); b = np.array([C['cheek_x'], C['cheek_y'], 0.])
+    pieces.append(sweep(a+(b-a)*u, C['cheek_t']/2, C['cheek_z'], profile=rounded_rect(.35, 16)))
+    ny, nz = MOUNTS[mount]; h = G['thickness']/2
+    if nz:
+        z0, z1 = sorted((.03*nz, (G['out']-h+.02)*nz))
+        pieces.append(revolve([(0, z0), (C['axle_r'], z0), (C['axle_r'], z1), (0, z1)], Z, (0, 0, 0), 20))
+    else:
+        b0, b1 = C['bridge_y']; yc = ny*(b0+b1)/2
+        a = np.array([0., yc, 0.]); b = np.array([0., yc, C['bridge_z']])
+        pieces.append(sweep(a+(b-a)*u, (b1-b0)/2, C['bridge_x'], profile=rounded_rect(.3, 16)))
+        y0, y1 = sorted((ny*(b1-.01), ny*(G['up']-h+.02)))
+        pieces.append(revolve([(0, y0), (C['axle_r'], y0), (C['axle_r'], y1), (0, y1)], Y, (0, 0, C['axle_z']), 20))
+    return pieces
+
+def parallelogram_arm(l1, l2, o1, o2, spec=None, mount='back'):
     """Double-parallelogram arm parts in their own local frames.
 
     o1, o2: constant world offsets (in the swing plane, x = 0) of the second
-    bar of the upper / lower segment. Returns dict name -> dict(pieces, pins)
-    with these local frames:
+    bar of the upper / lower segment; `mount`: where the pinion sits off the
+    carriage (clearance.MOUNTS / pinion_mount). Returns dict name ->
+    dict(pieces, pins) with these local frames:
       carriage   at the shoulder pin, fixed orientation (holds pins 0 and o1)
       upper      link frame from shoulder pin to elbow pin      (fork at B)
       upper2     link frame from shoulder+o1 to elbow+o1        (eye both ends)
@@ -252,9 +282,7 @@ def parallelogram_arm(l1, l2, o1, o2, spec=None):
     wrist = crosshead([[0, 0, 0], o2], s['head_t'], s['boss_r'], s['pin_r'], s['web'])
     wrist += [ring(o2-[outer, 0, 0], s['pin_r']*1.15, s['boss_r']*.9, s['width']*.8, X),
               revolve([(0, -outer), (s['pin_r']*1.6, -outer), (s['pin_r']*1.6, 0), (0, 0)], X, o2, 16)]
-    carriage = crosshead([[0, 0, 0], o1], s['head_t'], s['boss_r'], s['pin_r'], s['web'])
-    carriage += [ring(o1+[outer, 0, 0], s['pin_r']*1.15, s['boss_r']*.9, s['width']*.8, X),
-                 revolve([(0, 0), (s['pin_r']*1.6, 0), (s['pin_r']*1.6, outer), (0, outer)], X, o1, 16)]
+    carriage = carriage_body(o1, s, outer, mount)
     span = 2*outer+s['width']*.8+.004
     pins = dict(shoulder=[knuckle_pin(s['pin_r'], span)], elbow=[knuckle_pin(s['pin_r'], span)],
                 wrist=[knuckle_pin(s['pin_r'], span)])

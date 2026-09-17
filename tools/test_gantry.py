@@ -7,8 +7,10 @@ Re-derives each rail end's bracket from the manifest and the score's motion
 (formlab.gantry.plan_gantries) and checks:
   - a carriage parked at the end of its rail clears the rail head (the pin
     heads are the widest thing on the carriage plane);
-  - every arm's swept capsules clear every OTHER rail's bars — the planner
-    rule that makes this true lives in formlab.layout_search.evaluate_arm;
+  - every arm's swept capsules (pinion included) clear every OTHER rail's
+    bars and rack — the planner rule that makes this true lives in
+    formlab.layout_search.evaluate_arm; each carriage clears its own rack,
+    and its second-bar boss and web miss its own guide bars;
   - the placement the build recorded is the one the search finds now, with
     the promised margin against arms, bars, forms, furniture and other
     gantries; every mast stands on the stage or a furniture lid, under its
@@ -19,6 +21,7 @@ from pathlib import Path
 import numpy as np
 ROOT = Path(__file__).resolve().parents[1]; sys.path.insert(0, str(ROOT))
 from formlab import gantry as G
+from formlab import clearance as C
 from formlab.rig import Rig
 from formlab.linkage import parallelogram_arm, check_pieces
 from formlab.clearance import segment_distance
@@ -50,6 +53,32 @@ def run(layout_path, score_path):
                     g = segment_distance(P, Q, A[None], B[None])-r-ra; k = int(np.argmin(g))
                     if g[k] < worst[0]: worst = (float(g[k]), f'{other} {name} vs rail {aid} at t={times[k]:.2f} s')
     check(worst[0] >= G.MARGIN, f'arms clear other rails\' bars by {worst[0]:.3f} m ({worst[1]})')
+    # 2b. every arm (its pinion included) vs every other rail's rack; each
+    #     carriage vs its own rack — only the pinion may touch the rack
+    worst = (1e9, ''); own = (1e9, '')
+    for aid, cfg in layout['arms'].items():
+        (A, B, r), = G.rail_racks(cfg)
+        for other, arm in caps.items():
+            for name, (P, Q, ra) in arm.items():
+                if other == aid and not name.startswith('carriage'): continue
+                g = segment_distance(P, Q, A[None], B[None])-r-ra; k = int(np.argmin(g))
+                if other == aid and g[k] < own[0]: own = (float(g[k]), f'{aid} {name} vs its rack at t={times[k]:.2f} s')
+                if other != aid and g[k] < worst[0]: worst = (float(g[k]), f'{other} {name} vs rack {aid} at t={times[k]:.2f} s')
+        boss = poses[aid]['root']+np.asarray(cfg['o1'])
+        g = np.linalg.norm(boss-np.clip(boss, A, B), axis=1)-r-G.DEFAULT_SPEC['boss_r']
+        if g.min() < own[0]: own = (float(g.min()), f'{aid} second-bar boss vs its rack')
+        mount = cfg.get('pinion'); best, drive_gap = C.pinion_mount(poses[aid], cfg['o1'], cfg['o2'], cfg['layers'], C.DEFAULT_SPEC)
+        check(mount in C.MOUNTS and layout['arms'][aid]['gantry']['rack']['mount'] == mount and drive_gap >= 0
+              and C.pinion_mount(poses[aid], cfg['o1'], cfg['o2'], cfg['layers'], C.DEFAULT_SPEC, [mount])[1] >= min(drive_gap, G.MARGIN)-1e-9,
+              f'{aid}: pinion mounted {mount} (drive {drive_gap*1000:.0f} mm from the links; best {best}), rack recorded with it')
+        check(not any(C.offset_hits(cfg['o1'], c, rr) for c, rr in C.rail_keep_clear()),
+              f'{aid}: the carriage\'s second-bar boss and web miss the guide bars (o1 {np.round(cfg["o1"], 3).tolist()})')
+    check(worst[0] >= G.MARGIN, f'arms clear other rails\' racks by {worst[0]:.3f} m ({worst[1]})')
+    check(own[0] >= G.MARGIN, f'carriages clear their own racks by {own[0]:.3f} m ({own[1]})')
+    cfg0 = next(iter(layout['arms'].values())); R = G.rack_geometry(cfg0); P = C.PINION
+    check(R['s_tip'] > P['r_hub'] and R['s_root'] > P['r_tip'] and R['pitch']-P['r_tip']*.22-2*G.RACK_GAP > .008
+          and P['r_tip']+G.MARGIN <= G.RAIL_OVER+G.HEAD_INSET,
+          f'rack teeth pitched to the pinion: pitch {R["pitch"]*1000:.1f} mm, clearances {G.RACK_GAP*1000:.0f} mm; the disc clears the heads')
     # 3. the recorded placement is what the search finds, with its margins
     recipe = json.loads((ROOT/'render/form-study/recipe.json').read_text())
     form_boxes = [(o['name'], (V.min(0), V.max(0))) for o in recipe['objects']

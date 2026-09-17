@@ -180,6 +180,9 @@ for aid,cfg in manifest['arms'].items():
     # formlab.gantry objects placed by build_forms.py (see docs/articulated-arms.md).
     for dy in (-.075,.075): beam(aid+' rail',(x0-.26,ry+dy,rz),(x1+.26,ry+dy,rz),.024,steel)
     g=gear(aid+'__gear',(0,0,0),.13); manifest['gears'].append(g.name)
+    # A pinion above or below the carriage lies flat (its axle vertical): the disc is built
+    # upright in the Godot x-y plane, so undo the cylinder's tilt for those mounts.
+    if cfg.get('pinion','back') in ('up','down'): g.rotation_euler=(0,0,0)
 recipe.parent.mkdir(parents=True,exist_ok=True)
 form_layout=recipe.parent/'layout.json'
 form_layout.write_text(json.dumps(manifest))
@@ -200,7 +203,8 @@ R=arm_rig.Rig(score,manifest)
 for aid,cfg in manifest['arms'].items():
     p=R.pose(aid,-10.0); o1=Vector(cfg['o1']); o2=Vector(cfg['o2'])
     root,elbow,wrist,tip=(Vector(p[k]) for k in ('root','elbow','wrist','tip'))
-    for part,pos in [('carriage',root),('shoulder',root),('elbowhead',elbow),('elbow',elbow),('wristhead',wrist),('wrist',wrist),('tool',tip),('shank',tip),('gear',root+Vector((0,0,.12)))]:
+    pinion=root+Vector(arm_clearance.pinion_centre(cfg.get('pinion','back')).tolist())    # on its axle, against the rack (formlab.gantry.rack)
+    for part,pos in [('carriage',root),('shoulder',root),('elbowhead',elbow),('elbow',elbow),('wristhead',wrist),('wrist',wrist),('tool',tip),('shank',tip),('gear',pinion)]:
         bpy.data.objects[aid+'__'+part].location=vec(pos)
     for part,a,b,o in [('upper',root,elbow,Vector((0,0,0))),('upper2',root,elbow,o1),('lower',elbow,wrist,Vector((0,0,0))),('lower2',elbow,wrist,o2)]:
         x,y,z=arm_clearance.link_basis(np.array([a]),np.array([b]))

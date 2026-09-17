@@ -35,6 +35,23 @@ func check_scene() -> void:
 			if elbow_node.global_position.distance_to(pose["elbow"])>.00001: failures.append("elbow pin off its pose "+aid)
 			var upper2: Node3D=scene.parts[aid]["upper2"]
 			if upper2.global_position.distance_to(pose["root"]+scene.motion.v(cfg["o1"]))>.00001: failures.append("parallel bar off its pin "+aid)
+			# The pinion sits on its recorded mount (formlab.clearance.MOUNTS) and lies in
+			# the plane that mount implies: upright (thin along z) in front of or behind
+			# the carriage, flat (thin along y) above or below it.
+			var gear: MeshInstance3D=scene.parts[aid]["gear"]
+			var mount: String=str(cfg.get("pinion","back"))
+			var offsets := {"front": Vector3(0,0,.195), "back": Vector3(0,0,-.195), "up": Vector3(0,.17,-.10), "down": Vector3(0,-.17,-.10)}
+			if not offsets.has(mount): failures.append("unknown pinion mount "+mount+" "+aid)
+			elif gear.global_position.distance_to(pose["root"]+offsets[mount])>.00001: failures.append("pinion off its mount "+aid)
+			else:
+				var box: AABB=gear.global_transform*gear.mesh.get_aabb()
+				var thin: float=box.size.y if (mount=="up" or mount=="down") else box.size.z
+				var wide: float=box.size.x
+				if thin>.08 or wide<.25: failures.append("pinion not lying in its mount's plane %s (%.3f thin, %.3f wide)" % [aid,thin,wide])
+			# Rail gantries, heads and racks are forms that are not frame variants: visible.
+			for suffix in ["_gantry","_railhead"]:
+				var node: Node3D=scene.model.find_child("form_"+aid+suffix,true,false)
+				if node==null or not node.visible: failures.append("rail "+suffix.substr(1)+" missing or hidden "+aid)
 	print("  integrated GLB: %d tool contacts; %d rigs" % [contacts,scene.parts.size()])
 	print("PERFORMANCE: PASS" if failures.is_empty() else str(failures))
 	quit(0 if failures.is_empty() else 1)

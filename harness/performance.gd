@@ -10,6 +10,7 @@ var look := ClockworkLook.new()
 var layout: Dictionary
 var model: Node3D
 var parts: Dictionary = {}
+var gear_home: Dictionary = {}   # each pinion's imported basis: the disc in its mount's plane, unspun
 var strings: Dictionary = {}
 var hits: Dictionary = {}
 var camera: Camera3D
@@ -77,6 +78,7 @@ func _ready() -> void:
 			parts[aid][part]=model.find_child(aid+"__"+part,true,false)
 			if parts[aid][part]==null:
 				push_error("Missing GLB pivot "+aid+"__"+part); get_tree().quit(1); return
+		gear_home[aid]=parts[aid]["gear"].basis
 	for sid in layout["strings"]:
 		hits[sid]=[]
 		if not layout["strings"][sid]["struck"]:
@@ -169,8 +171,12 @@ static func _wire_mesh(length: float, radius: float, rings: int, sides: int) -> 
 func _set_form(style: String) -> void:
 	if not style in ["carved","ribbed","shell"]: style="carved"
 	form_style=style
+	# Frame variants share a name stem and are switched here; everything else
+	# built by build_forms.py (the stand, soundboards, action plates, the rail
+	# gantries and heads with their racks) is not a variant and stays visible.
 	for node in model.find_children("form_*","Node3D",true,false):
-		node.visible=String(node.name).ends_with("_"+style) or String(node.name)=="form_bars_stand" or String(node.name).ends_with("_soundboard") or String(node.name).ends_with("_actionplate")
+		var n := String(node.name)
+		node.visible=n.ends_with("_"+style) or n=="form_bars_stand" or n.ends_with("_soundboard") or n.ends_with("_actionplate") or n.ends_with("_gantry") or n.ends_with("_railhead")
 
 func _environment() -> void:
 	look.light_rig(self)
@@ -229,8 +235,17 @@ func evaluate(t: float) -> void:
 		p["upper2"].transform=Transform3D(upper,root+o1)
 		p["lower"].transform=Transform3D(lower,elbow)
 		p["lower2"].transform=Transform3D(lower,elbow+o2)
-		p["gear"].position=root+Vector3(0,0,.12)
-		p["gear"].rotation.z=-root.x/.13
+		# The pinion rides its axle on the carriage and rolls on the rack
+		# (formlab.clearance.PINION / MOUNTS, formlab.gantry.rack): in front of
+		# or behind the carriage it is upright under a rack above it; above or
+		# below the carriage it lies flat against a rack behind the rail. Either
+		# way +x travel turns it by x / pitch radius (.12) about its axle.
+		# The spin composes on the imported basis: setting one Euler component of
+		# a basis that is a quarter turn about X hits gimbal lock and tilted the disc.
+		var mount: String=str(cfg.get("pinion","back"))
+		var flat := mount=="up" or mount=="down"
+		p["gear"].position=root+(Vector3(0,(.17 if mount=="up" else -.17),-.10) if flat else Vector3(0,0,(.195 if mount=="front" else -.195)))
+		p["gear"].basis=Basis(Vector3.UP if flat else Vector3(0,0,1),root.x/.12)*gear_home[aid]
 	for sid in strings:
 		var displacement := PackedFloat32Array(); displacement.resize(STRING_NODES)
 		var envelope := PackedFloat32Array(); envelope.resize(STRING_NODES)

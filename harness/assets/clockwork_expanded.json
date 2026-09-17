@@ -609,6 +609,7 @@
         0.10625,
         0.02847
       ],
+      "pinion": "down",
       "margins": {
         "self": 0.053,
         "pair": 0.046,
@@ -650,8 +651,8 @@
             "x_col": -1.106,
             "foot_y": -0.02,
             "height": 0.35000000000000003,
-            "gap": 0.040999999999999946,
-            "worst": "arm harp_arm0 carriage_web"
+            "gap": 0.03500000000000007,
+            "worst": "arm harp_arm0 carriage_bush-"
           },
           {
             "side": 1,
@@ -661,12 +662,17 @@
             "x_col": 0.2356,
             "foot_y": -0.02,
             "height": 0.35000000000000003,
-            "gap": 0.1698942685907915,
-            "worst": "box obstacle0"
+            "gap": 0.1354000000000002,
+            "worst": "gantry harp_arm0 rack"
           }
         ],
-        "margin_m": 0.040999999999999946,
-        "worst": "arm harp_arm0 carriage_web"
+        "margin_m": 0.03500000000000007,
+        "worst": "arm harp_arm0 carriage_bush-",
+        "rack": {
+          "gap": 0.35499999999999976,
+          "worst": "box obstacle0",
+          "mount": "down"
+        }
       }
     },
     "harp_arm1": {
@@ -697,6 +703,7 @@
         0.09526,
         0.055
       ],
+      "pinion": "back",
       "margins": {
         "self": 0.0195,
         "pair": 0.0447,
@@ -738,8 +745,8 @@
             "x_col": -1.0208,
             "foot_y": -0.02,
             "height": 4.18,
-            "gap": 0.040799999999999864,
-            "worst": "arm harp_arm0 lower"
+            "gap": 0.03500000000000002,
+            "worst": "arm harp_arm1 carriage_bush-"
           },
           {
             "side": 1,
@@ -749,12 +756,17 @@
             "x_col": 1.0208,
             "foot_y": -0.02,
             "height": 4.18,
-            "gap": 0.04079999999999977,
-            "worst": "arm harp_arm2 lower2"
+            "gap": 0.03500000000000002,
+            "worst": "arm harp_arm1 carriage_bush-"
           }
         ],
-        "margin_m": 0.04079999999999977,
-        "worst": "arm harp_arm2 lower2"
+        "margin_m": 0.03500000000000002,
+        "worst": "arm harp_arm1 carriage_bush-",
+        "rack": {
+          "gap": 0.469739393195758,
+          "worst": "arm harp_arm2 upper2",
+          "mount": "back"
+        }
       }
     },
     "harp_arm2": {
@@ -785,6 +797,7 @@
         0.10833,
         0.0191
       ],
+      "pinion": "back",
       "margins": {
         "self": 0.0193,
         "pair": 0.0445,
@@ -826,8 +839,8 @@
             "x_col": -0.2356,
             "foot_y": -0.02,
             "height": 4.18,
-            "gap": 0.040999999999999974,
-            "worst": "arm harp_arm2 carriage_web"
+            "gap": 0.02499999999999991,
+            "worst": "gantry harp_arm0 rack"
           },
           {
             "side": 1,
@@ -837,12 +850,17 @@
             "x_col": 1.106,
             "foot_y": -0.02,
             "height": 3.8999999999999995,
-            "gap": 0.040999999999999946,
-            "worst": "arm harp_arm2 carriage_web"
+            "gap": 0.03500000000000007,
+            "worst": "arm harp_arm2 carriage_bush-"
           }
         ],
-        "margin_m": 0.040999999999999946,
-        "worst": "arm harp_arm2 carriage_web"
+        "margin_m": 0.02499999999999991,
+        "worst": "gantry harp_arm0 rack",
+        "rack": {
+          "gap": 0.6699999999999999,
+          "worst": "gantry harp_arm1 rack",
+          "mount": "back"
+        }
       }
     },
     "rake_arm0": {
@@ -873,6 +891,7 @@
         0.10625,
         -0.02847
       ],
+      "pinion": "down",
       "margins": {
         "self": 0.0481,
         "pair": 0.0313,
@@ -911,8 +930,8 @@
             "x_col": -5.015,
             "foot_y": -0.02,
             "height": 0.35000000000000003,
-            "gap": 0.040999999999999835,
-            "worst": "arm rake_arm0 carriage_web"
+            "gap": 0.03500000000000007,
+            "worst": "arm rake_arm0 carriage_bush-"
           },
           {
             "side": 1,
@@ -922,12 +941,17 @@
             "x_col": -3.385,
             "foot_y": -0.02,
             "height": 0.35000000000000003,
-            "gap": 0.04099999999999962,
-            "worst": "arm rake_arm0 upper"
+            "gap": 0.03500000000000007,
+            "worst": "arm rake_arm0 carriage_bush-"
           }
         ],
-        "margin_m": 0.04099999999999962,
-        "worst": "arm rake_arm0 upper"
+        "margin_m": 0.03500000000000007,
+        "worst": "arm rake_arm0 carriage_bush-",
+        "rack": {
+          "gap": 1.3211700729965177,
+          "worst": "box form_rake_carved",
+          "mount": "down"
+        }
       }
     },
     "bars_arm0": {
@@ -939,7 +963,7 @@
         4.692857142857143
       ],
       "root_y": 2.25,
-      "root_z": -0.48090083372513304,
+      "root_z": -0.180900833725133,
       "l1": 1.6,
       "l2": 1.6,
       "bend": "up",
@@ -950,21 +974,22 @@
       ],
       "o1": [
         0.0,
-        0.08426,
-        -0.07071
+        0.07071,
+        -0.08426
       ],
       "o2": [
         0.0,
-        0.02847,
-        0.10625
+        0.0191,
+        0.10833
       ],
+      "pinion": "back",
       "margins": {
-        "self": 0.0737,
-        "pair": 0.0475,
+        "self": 0.0507,
+        "pair": 0.0454,
         "scene": 1.549,
         "strings": 0.1155,
         "cross": {
-          "bars_arm1": 0.0983
+          "bars_arm1": 0.1814
         }
       },
       "layers": {
@@ -973,14 +998,14 @@
         "span": 0.16920000000000002
       },
       "link_extent_y": 1.7056,
-      "upper_pair_separation_m": 0.10953556830498407,
-      "lower_pair_separation_m": 0.10953164140273379,
-      "self_clearance_m": 0.07365671370730777,
+      "upper_pair_separation_m": 0.10742963102791817,
+      "lower_pair_separation_m": 0.10940779942206204,
+      "self_clearance_m": 0.05073736587540423,
       "self_worst": [
-        "lower",
-        "upper2"
+        "carriage_web",
+        "pinion3"
       ],
-      "self_worst_time_s": 67.61666666666666,
+      "self_worst_time_s": -1.0,
       "string_clearance_m": 0.11549999999999995,
       "string_worst": [
         "bars00",
@@ -993,27 +1018,32 @@
             "side": -1,
             "outreach": 0.0,
             "setback": 0.0,
-            "mast_z": -0.48090083372513304,
+            "mast_z": -0.180900833725133,
             "x_col": 2.8600000000000003,
             "foot_y": -0.02,
             "height": 2.05,
-            "gap": 0.040999999999999835,
-            "worst": "arm bars_arm0 carriage_web"
+            "gap": 0.03500000000000007,
+            "worst": "arm bars_arm0 carriage_bush-"
           },
           {
             "side": 1,
             "outreach": 0.0,
             "setback": 0.0,
-            "mast_z": -0.48090083372513304,
+            "mast_z": -0.180900833725133,
             "x_col": 4.982857142857143,
             "foot_y": -0.02,
             "height": 2.05,
-            "gap": 0.04099999999999895,
-            "worst": "arm bars_arm0 carriage_web"
+            "gap": 0.03500000000000007,
+            "worst": "arm bars_arm0 carriage_bush-"
           }
         ],
-        "margin_m": 0.04099999999999895,
-        "worst": "arm bars_arm0 carriage_web"
+        "margin_m": 0.03500000000000007,
+        "worst": "arm bars_arm0 carriage_bush-",
+        "rack": {
+          "gap": 0.18110838109190014,
+          "worst": "arm bars_arm1 carriage_cheek",
+          "mount": "back"
+        }
       }
     },
     "bars_arm1": {
@@ -1026,8 +1056,8 @@
       ],
       "root_y": 2.75,
       "root_z": -0.48090083372513304,
-      "l1": 1.3,
-      "l2": 1.3,
+      "l1": 1.6,
+      "l2": 1.6,
       "bend": "up",
       "wrist_offset": [
         0,
@@ -1036,21 +1066,22 @@
       ],
       "o1": [
         0.0,
-        0.10833,
-        -0.0191
+        0.07071,
+        -0.08426
       ],
       "o2": [
         0.0,
-        0.03762,
-        0.10337
+        0.00959,
+        0.10958
       ],
+      "pinion": "back",
       "margins": {
-        "self": 0.0735,
-        "pair": 0.0474,
+        "self": 0.0507,
+        "pair": 0.0304,
         "scene": 1.549,
         "strings": 0.1155,
         "cross": {
-          "bars_arm0": 0.0983
+          "bars_arm0": 0.1814
         }
       },
       "layers": {
@@ -1058,15 +1089,15 @@
         "gap": 0.036,
         "span": 0.16920000000000002
       },
-      "link_extent_y": 1.4056,
-      "upper_pair_separation_m": 0.10936390338854933,
-      "lower_pair_separation_m": 0.10987778313395119,
-      "self_clearance_m": 0.07351149741759218,
+      "link_extent_y": 1.7056,
+      "upper_pair_separation_m": 0.0924466941358746,
+      "lower_pair_separation_m": 0.10973270727137245,
+      "self_clearance_m": 0.05073736587540428,
       "self_worst": [
-        "lower",
-        "upper2"
+        "carriage_web",
+        "pinion3"
       ],
-      "self_worst_time_s": 46.36666666666667,
+      "self_worst_time_s": -1.0,
       "string_clearance_m": 0.11549999999999995,
       "string_worst": [
         "bars03",
@@ -1083,8 +1114,8 @@
             "x_col": 4.017142857142857,
             "foot_y": -0.02,
             "height": 2.83,
-            "gap": 0.040999999999999835,
-            "worst": "arm bars_arm1 carriage_web"
+            "gap": 0.025399999999999867,
+            "worst": "gantry bars_arm1 rack"
           },
           {
             "side": 1,
@@ -1094,12 +1125,17 @@
             "x_col": 6.14,
             "foot_y": -0.02,
             "height": 2.55,
-            "gap": 0.040999999999999835,
-            "worst": "arm bars_arm1 carriage_web"
+            "gap": 0.03500000000000007,
+            "worst": "arm bars_arm1 carriage_bush-"
           }
         ],
-        "margin_m": 0.040999999999999835,
-        "worst": "arm bars_arm1 carriage_web"
+        "margin_m": 0.025399999999999867,
+        "worst": "gantry bars_arm1 rack",
+        "rack": {
+          "gap": 0.4850773134253959,
+          "worst": "gantry bars_arm0 rack",
+          "mount": "back"
+        }
       }
     },
     "bells_arm0": {
@@ -1111,7 +1147,7 @@
         -1.475
       ],
       "root_y": 2.25,
-      "root_z": -4.210997961080648,
+      "root_z": -3.910997961080648,
       "l1": 1.6,
       "l2": 1.6,
       "bend": "up",
@@ -1122,21 +1158,22 @@
       ],
       "o1": [
         0.0,
-        0.08426,
-        -0.07071
+        0.07071,
+        -0.08426
       ],
       "o2": [
         0.0,
-        0.02847,
-        0.10625
+        0.00959,
+        0.10958
       ],
+      "pinion": "back",
       "margins": {
-        "self": 0.0736,
-        "pair": 0.0475,
-        "scene": 0.9599,
+        "self": 0.0507,
+        "pair": 0.0455,
+        "scene": 0.9441,
         "strings": 0.1155,
         "cross": {
-          "bells_arm1": 0.1347
+          "bells_arm1": 0.1814
         }
       },
       "layers": {
@@ -1145,14 +1182,14 @@
         "span": 0.16920000000000002
       },
       "link_extent_y": 1.7056,
-      "upper_pair_separation_m": 0.10948677195378002,
-      "lower_pair_separation_m": 0.10962455283208887,
-      "self_clearance_m": 0.07361542888256796,
+      "upper_pair_separation_m": 0.10745251896462439,
+      "lower_pair_separation_m": 0.109368211217225,
+      "self_clearance_m": 0.050737365875404394,
       "self_worst": [
-        "lower",
-        "upper2"
+        "carriage_web",
+        "pinion3"
       ],
-      "self_worst_time_s": 24.891666666666666,
+      "self_worst_time_s": -1.0,
       "string_clearance_m": 0.11549999999999995,
       "string_worst": [
         "bells00",
@@ -1165,27 +1202,32 @@
             "side": -1,
             "outreach": 0.0,
             "setback": 0.0,
-            "mast_z": -4.210997961080648,
+            "mast_z": -3.910997961080648,
             "x_col": -3.0650000000000004,
             "foot_y": -0.02,
             "height": 2.05,
-            "gap": 0.041000000000000064,
-            "worst": "arm bells_arm0 upper"
+            "gap": 0.03500000000000007,
+            "worst": "arm bells_arm0 carriage_bush-"
           },
           {
             "side": 1,
             "outreach": 0.0,
             "setback": 0.0,
-            "mast_z": -4.210997961080648,
+            "mast_z": -3.910997961080648,
             "x_col": -1.185,
             "foot_y": -0.02,
             "height": 2.05,
-            "gap": 0.1342899999999995,
-            "worst": "arm bells_arm1 carriage_web"
+            "gap": 0.0900000000000003,
+            "worst": "gantry bells_arm0 rack"
           }
         ],
-        "margin_m": 0.041000000000000064,
-        "worst": "arm bells_arm0 upper"
+        "margin_m": 0.03500000000000007,
+        "worst": "arm bells_arm0 carriage_bush-",
+        "rack": {
+          "gap": 0.18110838109189997,
+          "worst": "arm bells_arm1 carriage_cheek",
+          "mount": "back"
+        }
       }
     },
     "bells_arm1": {
@@ -1196,10 +1238,10 @@
         -1.475,
         -0.825
       ],
-      "root_y": 2.25,
-      "root_z": -3.910997961080648,
-      "l1": 1.45,
-      "l2": 1.45,
+      "root_y": 2.75,
+      "root_z": -4.210997961080648,
+      "l1": 1.6,
+      "l2": 1.6,
       "bend": "up",
       "wrist_offset": [
         0,
@@ -1208,21 +1250,22 @@
       ],
       "o1": [
         0.0,
-        0.08426,
-        -0.07071
+        0.07071,
+        -0.08426
       ],
       "o2": [
         0.0,
-        0.0191,
-        0.10833
+        0.00959,
+        0.10958
       ],
+      "pinion": "back",
       "margins": {
-        "self": 0.0735,
-        "pair": 0.0474,
-        "scene": 0.8688,
+        "self": 0.0507,
+        "pair": 0.0305,
+        "scene": 0.8603,
         "strings": 0.1155,
         "cross": {
-          "bells_arm0": 0.1347
+          "bells_arm0": 0.1814
         }
       },
       "layers": {
@@ -1230,15 +1273,15 @@
         "gap": 0.036,
         "span": 0.16920000000000002
       },
-      "link_extent_y": 1.5555999999999999,
-      "upper_pair_separation_m": 0.10940600891359185,
-      "lower_pair_separation_m": 0.10972005612008857,
-      "self_clearance_m": 0.07354710969480914,
+      "link_extent_y": 1.7056,
+      "upper_pair_separation_m": 0.09251425031337814,
+      "lower_pair_separation_m": 0.10981479259844112,
+      "self_clearance_m": 0.05073736587540484,
       "self_worst": [
-        "lower",
-        "upper2"
+        "carriage_web",
+        "pinion3"
       ],
-      "self_worst_time_s": 34.891666666666666,
+      "self_worst_time_s": -1.0,
       "string_clearance_m": 0.11549999999999995,
       "string_worst": [
         "bells02",
@@ -1250,28 +1293,33 @@
           {
             "side": -1,
             "outreach": 0.0,
-            "setback": 0.0,
-            "mast_z": -3.910997961080648,
+            "setback": -1.2,
+            "mast_z": -3.0109979610806477,
             "x_col": -1.7650000000000001,
             "foot_y": -0.02,
-            "height": 2.05,
-            "gap": 0.040999999999999835,
-            "worst": "arm bells_arm1 carriage_web"
+            "height": 2.83,
+            "gap": 0.0221316960400932,
+            "worst": "rail bells_arm0"
           },
           {
             "side": 1,
             "outreach": 0.0,
             "setback": 0.0,
-            "mast_z": -3.910997961080648,
+            "mast_z": -4.210997961080648,
             "x_col": -0.5349999999999999,
             "foot_y": -0.02,
-            "height": 2.05,
-            "gap": 0.04100000000000006,
-            "worst": "arm bells_arm1 carriage_web"
+            "height": 2.55,
+            "gap": 0.03500000000000007,
+            "worst": "arm bells_arm1 carriage_bush-"
           }
         ],
-        "margin_m": 0.040999999999999835,
-        "worst": "arm bells_arm1 carriage_web"
+        "margin_m": 0.0221316960400932,
+        "worst": "rail bells_arm0",
+        "rack": {
+          "gap": 0.4850773134253957,
+          "worst": "gantry bells_arm0 rack",
+          "mount": "back"
+        }
       }
     },
     "blocks_arm0": {
@@ -1282,10 +1330,10 @@
         1.275,
         2.925
       ],
-      "root_y": 2.5,
+      "root_y": 2.25,
       "root_z": -3.7884161919793518,
-      "l1": 1.3,
-      "l2": 1.3,
+      "l1": 1.6,
+      "l2": 1.6,
       "bend": "up",
       "wrist_offset": [
         0,
@@ -1294,17 +1342,18 @@
       ],
       "o1": [
         0.0,
-        0.09969,
-        -0.04649
+        0.07071,
+        -0.08426
       ],
       "o2": [
         0.0,
         0.00959,
         0.10958
       ],
+      "pinion": "back",
       "margins": {
-        "self": 0.0735,
-        "pair": 0.0473,
+        "self": 0.0507,
+        "pair": 0.0455,
         "scene": 0.8603,
         "strings": 0.1155,
         "cross": {}
@@ -1314,15 +1363,15 @@
         "gap": 0.036,
         "span": 0.16920000000000002
       },
-      "link_extent_y": 1.4056,
-      "upper_pair_separation_m": 0.10929143829391892,
-      "lower_pair_separation_m": 0.10966242185707262,
-      "self_clearance_m": 0.07345021657371965,
+      "link_extent_y": 1.7056,
+      "upper_pair_separation_m": 0.10749971450849084,
+      "lower_pair_separation_m": 0.10940754999818961,
+      "self_clearance_m": 0.05073736587540395,
       "self_worst": [
-        "lower",
-        "upper2"
+        "carriage_web",
+        "pinion3"
       ],
-      "self_worst_time_s": 28.866666666666667,
+      "self_worst_time_s": -1.0,
       "string_clearance_m": 0.11549999999999995,
       "string_worst": [
         "blocks00",
@@ -1338,9 +1387,9 @@
             "mast_z": -3.7884161919793518,
             "x_col": 0.9849999999999998,
             "foot_y": -0.02,
-            "height": 2.3,
-            "gap": 0.04100000000000006,
-            "worst": "arm blocks_arm0 carriage_web"
+            "height": 2.05,
+            "gap": 0.03500000000000007,
+            "worst": "arm blocks_arm0 carriage_bush-"
           },
           {
             "side": 1,
@@ -1349,13 +1398,18 @@
             "mast_z": -3.7884161919793518,
             "x_col": 3.215,
             "foot_y": -0.02,
-            "height": 2.3,
-            "gap": 0.041000000000000064,
-            "worst": "arm blocks_arm0 upper"
+            "height": 2.05,
+            "gap": 0.03500000000000007,
+            "worst": "arm blocks_arm0 carriage_bush-"
           }
         ],
-        "margin_m": 0.04100000000000006,
-        "worst": "arm blocks_arm0 carriage_web"
+        "margin_m": 0.03500000000000007,
+        "worst": "arm blocks_arm0 carriage_bush-",
+        "rack": {
+          "gap": 1.4784161919793517,
+          "worst": "gantry harp_arm2",
+          "mount": "back"
+        }
       }
     }
   },
@@ -1476,28 +1530,28 @@
         "time_s": 21.525
       },
       "harp_arm0/bars_arm0": {
-        "gap_m": 3.521289802494249,
+        "gap_m": 3.4173259075814513,
         "parts": [
-          "lower",
-          "upper"
+          "wristhead_web",
+          "carriage_bush-"
         ],
-        "time_s": 62.15
+        "time_s": 47.833333333333336
       },
       "harp_arm0/bars_arm1": {
-        "gap_m": 4.756590197251074,
+        "gap_m": 4.64818276374492,
         "parts": [
           "lower",
-          "upper"
+          "carriage_bush-"
         ],
         "time_s": 48.141666666666666
       },
       "harp_arm0/bells_arm0": {
-        "gap_m": 1.3810291732477118,
+        "gap_m": 1.3766917716926,
         "parts": [
-          "upper",
+          "carriage_cheek",
           "tool"
         ],
-        "time_s": 74.28571428571429
+        "time_s": 29.285714285714285
       },
       "harp_arm0/bells_arm1": {
         "gap_m": 0.4513847018892797,
@@ -1532,31 +1586,31 @@
         "time_s": 21.55
       },
       "harp_arm1/bars_arm0": {
-        "gap_m": 3.037573985133497,
+        "gap_m": 2.9416555684695056,
         "parts": [
           "lower",
-          "upper"
+          "pinion2"
         ],
         "time_s": 45.641666666666666
       },
       "harp_arm1/bars_arm1": {
-        "gap_m": 4.232742289526661,
+        "gap_m": 4.1058277099022495,
         "parts": [
-          "lower",
-          "upper"
+          "upper2",
+          "pinion2"
         ],
         "time_s": 48.141666666666666
       },
       "harp_arm1/bells_arm0": {
-        "gap_m": 2.1072724086350627,
+        "gap_m": 2.037345529548099,
         "parts": [
-          "upper",
-          "wristhead_web"
+          "pinion1",
+          "elbowhead_web2"
         ],
-        "time_s": 4.216666666666667
+        "time_s": 1.3416666666666666
       },
       "harp_arm1/bells_arm1": {
-        "gap_m": 1.2194489193567966,
+        "gap_m": 1.1712338195230774,
         "parts": [
           "upper",
           "lower2"
@@ -1564,12 +1618,12 @@
         "time_s": 4.216666666666667
       },
       "harp_arm1/blocks_arm0": {
-        "gap_m": 1.076469145085812,
+        "gap_m": 1.0846846602628304,
         "parts": [
           "upper",
           "lower2"
         ],
-        "time_s": 24.216666666666665
+        "time_s": 24.333333333333332
       },
       "harp_arm2/rake_arm0": {
         "gap_m": 3.923933109210451,
@@ -1580,39 +1634,39 @@
         "time_s": 34.93333333333333
       },
       "harp_arm2/bars_arm0": {
-        "gap_m": 2.3808,
+        "gap_m": 2.2880862888270506,
         "parts": [
-          "lower",
-          "upper"
+          "tool",
+          "carriage_bush+"
         ],
-        "time_s": 72.13333333333334
+        "time_s": 72.10833333333333
       },
       "harp_arm2/bars_arm1": {
-        "gap_m": 3.8835390612504983,
+        "gap_m": 3.781013631157011,
         "parts": [
           "lower",
-          "upper"
+          "pinion2"
         ],
         "time_s": 51.785714285714285
       },
       "harp_arm2/bells_arm0": {
-        "gap_m": 2.251885130591068,
+        "gap_m": 2.0948126963384386,
         "parts": [
-          "lower2",
-          "lower"
+          "pinion2",
+          "upper2"
         ],
-        "time_s": 6.358333333333333
+        "time_s": 6.341666666666667
       },
       "harp_arm2/bells_arm1": {
-        "gap_m": 1.0683372469884078,
+        "gap_m": 0.9299137421433471,
         "parts": [
-          "upper",
-          "elbowhead_web2"
+          "pinion1",
+          "upper2"
         ],
-        "time_s": 6.358333333333333
+        "time_s": 6.341666666666667
       },
       "harp_arm2/blocks_arm0": {
-        "gap_m": 0.5321153974871424,
+        "gap_m": 0.46164160003737736,
         "parts": [
           "upper",
           "lower2"
@@ -1620,23 +1674,23 @@
         "time_s": 24.285714285714285
       },
       "rake_arm0/bars_arm0": {
-        "gap_m": 6.706519916837584,
+        "gap_m": 6.623625557331697,
         "parts": [
-          "tool",
-          "lower2"
+          "upper2",
+          "pinion2"
         ],
-        "time_s": 55.714285714285715
+        "time_s": 45.891666666666666
       },
       "rake_arm0/bars_arm1": {
-        "gap_m": 7.863420575141057,
+        "gap_m": 7.823060726258216,
         "parts": [
-          "tool",
-          "lower2"
+          "upper2",
+          "carriage_bush-"
         ],
-        "time_s": 48.64342857142857
+        "time_s": 48.75
       },
       "rake_arm0/bells_arm0": {
-        "gap_m": 2.0626775471463032,
+        "gap_m": 2.057627597931774,
         "parts": [
           "upper2",
           "lower2"
@@ -1644,7 +1698,7 @@
         "time_s": 67.025
       },
       "rake_arm0/bells_arm1": {
-        "gap_m": 2.7999992846228845,
+        "gap_m": 2.798408691815877,
         "parts": [
           "upper2",
           "lower2"
@@ -1660,63 +1714,63 @@
         "time_s": 52.74166666666667
       },
       "bars_arm0/bars_arm1": {
-        "gap_m": 0.2609142857142853,
+        "gap_m": 0.21517506552979038,
         "parts": [
           "upper2",
-          "upper"
+          "lower2"
         ],
-        "time_s": 48.85
+        "time_s": 48.92857142857143
       },
       "bars_arm0/bells_arm0": {
-        "gap_m": 5.569818911541651,
+        "gap_m": 5.527531515888313,
         "parts": [
-          "carriage_web",
+          "pinion2",
           "wristhead_web"
         ],
         "time_s": 74.175
       },
       "bars_arm0/bells_arm1": {
-        "gap_m": 4.375464480160906,
+        "gap_m": 4.351937563357003,
         "parts": [
-          "carriage_web",
+          "pinion2",
           "wristhead_web"
         ],
         "time_s": 59.208333333333336
       },
       "bars_arm0/blocks_arm0": {
-        "gap_m": 1.867792146169466,
+        "gap_m": 2.003938723908123,
         "parts": [
-          "carriage_web",
+          "pinion2",
           "lower2"
         ],
         "time_s": 55.714285714285715
       },
       "bars_arm1/bells_arm0": {
-        "gap_m": 6.723784821966155,
+        "gap_m": 6.576716274330701,
         "parts": [
-          "upper",
+          "pinion2",
           "wristhead_web"
         ],
         "time_s": 52.00833333333333
       },
       "bars_arm1/bells_arm1": {
-        "gap_m": 5.505168386489118,
+        "gap_m": 5.345641761972952,
         "parts": [
-          "upper",
-          "wristhead_web"
+          "pinion2",
+          "lower"
         ],
-        "time_s": 63.44166666666667
+        "time_s": 48.141666666666666
       },
       "bars_arm1/blocks_arm0": {
-        "gap_m": 2.343151917251792,
+        "gap_m": 2.150905560646634,
         "parts": [
-          "carriage_web",
-          "elbowhead_web2"
+          "pinion2",
+          "lower2"
         ],
         "time_s": 48.92857142857143
       },
       "bells_arm0/bells_arm1": {
-        "gap_m": 0.5077009196214691,
+        "gap_m": 0.4705679239611472,
         "parts": [
           "upper2",
           "lower2"
@@ -1724,20 +1778,20 @@
         "time_s": 74.28571428571429
       },
       "bells_arm0/blocks_arm0": {
-        "gap_m": 3.2433742792314812,
+        "gap_m": 3.1423396909598464,
         "parts": [
-          "upper2",
-          "lower2"
+          "pinion2",
+          "pinion2"
         ],
-        "time_s": 25.0
+        "time_s": 24.866666666666667
       },
       "bells_arm1/blocks_arm0": {
-        "gap_m": 1.9265271595218894,
+        "gap_m": 1.904450418031974,
         "parts": [
-          "upper2",
-          "lower2"
+          "carriage_bush-",
+          "pinion2"
         ],
-        "time_s": 59.285714285714285
+        "time_s": 24.208333333333332
       }
     }
   },

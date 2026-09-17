@@ -1,5 +1,60 @@
 # loam — log (newest at top)
 
+## 2026-09-17 — CLOCKWORK the carriage rides its bars; the pinion rolls on a rack
+
+The carriage was the shoulder crosshead alone, floating at the rail axis,
+with a toothed disc turning in front of it on nothing. Measured, the
+mallet arms' second-bar boss (offset pointing up) sat 38 mm from the top
+guide bar's axis — the bar ran through it — and the disc itself ran
+through that boss's stub on the arms whose offset points forward.
+
+formlab/linkage.carriage_body builds what a linear guide has: a split
+bushing around each bar, a cheek plate on the −X side tying them (the +X
+side is the second bar's boss), the shoulder pin through crosshead and
+cheek, and an axle for the pinion. The pinion now rolls on a rack
+(formlab/gantry.rack: teeth at (k+½)·pitch, 4 mm clearances, carried on
+stubs from the rail heads; performance.gd turns the disc by x / r_pitch
+about its axle, so the tooth facing the rack rolls into the gaps).
+
+Where the pinion goes is measured, not ruled (clearance.pinion_mount).
+The first rule — in front for pick arms, behind for mallets — put a
+pick arm's bar 25 mm through the disc: a pick arm's elbow is behind its
+chord, not behind the carriage, so reaching a far string its upper link
+leans forward nearly flat; two other pick arms reach up from low rails.
+There are four mounts (clearance.MOUNTS): behind, above, below, in
+front — upright discs on an axle out of the carriage plane with the
+rack above; flat discs on a vertical axle standing on a bridge back
+from the bushing, with the rack behind the rail on an L from the head.
+The drive's capsules are measured against the arm's own links for each
+mount and the first in that order with 50 mm to spare is taken (else the
+clearest); the planner records it and build_forms builds what the
+planner chose (its 120 Hz pass once broke an offset tie the other way).
+Measured: behind for the mallet arms and the third harp arm, below for
+the two arms that reach up.
+
+Rules that came out of the measuring: choose_offset now refuses any
+second-bar direction whose boss or web would touch a guide bar
+(offset_hits; 18 of 37 directions survive); the pinion is in every arm's
+capsule set as five chords and is judged against the arm's own links
+and every neighbour; bushings, cheek, bridge and axle are capsules too; racks
+are reserved in the gantry search and are obstacles to the other arms
+in the rail search. The rail cache key now covers the whole clearance
+module, so a space-model change re-plans. Rulers: tools/test_gantry.py
+(arms vs racks, carriages vs own rack, the recorded mount re-measured,
+offset rule, pitch) and tools/test_linkage_tools.py (the carriage pieces
+for all four mounts, the mount chooser on synthetic swings). Docs:
+docs/articulated-arms.md "The carriage and its drive".
+
+Two harness faults the first renders of this exposed: the rail gantries,
+heads and racks had never been visible — performance.gd's frame-variant
+switch hides every form_* node whose name is not the active style, and
+the gantry objects were caught by it (now whitelisted, and
+dev/test_performance.gd checks they are visible); and the pinions on
+several arms were tilted — setting one Euler component of an imported
+basis that is a quarter turn about X hits gimbal lock, so the spin now
+composes on the imported basis (test_performance measures each disc's
+thickness along its mount's normal).
+
 ## 2026-09-17 — CLOCKWORK rail gantries; rails become obstacles in the rail search
 
 The wide view showed the weakest construction left: every rail hung from
