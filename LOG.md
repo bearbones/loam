@@ -1,3 +1,22 @@
+## 2026-09-17 — CLOCKWORK strings strung by register: wound wire, gut, nylon
+
+Every plain string was the same grey metal tube; only the bass strings told
+apart, by a faint bronze helix. A harp is strung by register — wound wire in
+the bass, gut through the middle, nylon at the top — and each looks different:
+wire is a mirror with a winding that catches the light, gut is a twisted,
+translucent solid, nylon is near clear and glossy. The wire shader now takes a
+`family` (steel, wound, gut, nylon): gut gets a warm ivory albedo, a slow
+helical grain from its strands, no metallic term, and light through it from
+behind (Godot's BACKLIGHT) with a rim so a string against the light glows at
+its edges; nylon is glossier and clearer still; wound wire keeps its ridge,
+silver-plated on the harp and bronze on the rake. The colour code follows the
+makers: every C red, every F black on gut and wire and blue on nylon.
+`performance.gd` `string_family`/`string_colour` decide per string, and
+`dev/test_performance.gd` pins the register rule and the C/F colours on the
+built scene. No asset rebuild — the strings are made in Godot — so the rails,
+gantries and manifests are untouched; rulers all green. Documented in
+docs/articulated-arms.md (Strings) and docs/clockwork-build.md.
+
 # loam — log (newest at top)
 
 ## 2026-09-17 — CLOCKWORK the harp's pedal base: a box with the pedals through its front face

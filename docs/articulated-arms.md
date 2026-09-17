@@ -345,7 +345,18 @@ shape frame (Catmull-Rom between nodes, normals tilted by the local slope)
 and a second translucent copy is a sheath widened to the peak excursion of
 the last 1/30 s — the blur a vibrating wire presents to the eye, denser at
 the turning points. Gauge follows pitch (a display gauge; real wire would be
-sub-pixel) and strings below C4 are wound bronze with a helical ridge.
+sub-pixel).
+
+The strings are strung by register, as a harp is (`performance.gd`
+`string_family`, the shader's `family`): wound wire below C4, gut through the
+middle, nylon from C5 up. A wound string carries a helical ridge that catches
+the light as the wire turns — silver-plated on the harp, bronze on the rake. Gut
+is a twisted, translucent solid: warm ivory, matte, with a slow helical grain
+from its strands, and light from behind comes through it (`BACKLIGHT`) so a
+string against the light glows at its edges (`RIM`). Nylon is near clear and
+glossy. The colour code follows the makers: every C red, every F black on gut
+and wire and blue on nylon. `dev/test_performance.gd` pins the register rule
+and the C/F colours on the built scene.
 
 Two things a still from the front never showed. The pluck axis is world Z,
 straight at a frontal camera, so the bend and the sheath (a lens flat in

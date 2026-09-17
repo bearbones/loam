@@ -12,8 +12,13 @@ uniform bool sheath = false;
 uniform vec4 albedo : source_color = vec4(.78,.8,.82,1);
 uniform float metallic = .75;
 uniform float roughness = .28;
-uniform float wound = 0.0;        // 1 = bronze-wound bass string
-uniform float wind_pitch = 900.0; // turns per metre of the winding
+// A harp is strung by register: wound wire in the bass, gut through the middle,
+// nylon at the top. 0 = plain steel wire, 1 = wound wire (a helical winding that
+// catches the light as the wire turns), 2 = gut (twisted strands, a translucent
+// solid that lets light through from behind), 3 = nylon (clear, glossy).
+uniform int family = 0;
+uniform float wind_pitch = 900.0;  // turns per metre of the winding
+uniform float strand_pitch = 45.0; // turns per metre of the gut's twist
 uniform float length_m = 3.0;
 uniform float excitation = 0.0;   // 0 silent .. 1 full pluck: the wire glows with its energy
 uniform vec4 glow : source_color = vec4(1.0, .86, .62, 1.0);
@@ -70,19 +75,37 @@ void fragment() {
     } else {
         float tone = 1.0;
         float rough = roughness;
-        if (wound > 0.5) {
+        float metal = metallic;
+        float spec = .7;
+        vec3 back = vec3(0.0);
+        float rim = 0.0;
+        if (family == 1) {
             // helical winding: fine periodic ridges catch the light as the wire turns
             float turns = UV.x * length_m * wind_pitch + UV.y;
             float ridge = .5 + .5 * cos(turns * 6.2831853);
             tone = .82 + .18 * ridge;
             rough = roughness + .08 * (1.0 - ridge);
+        } else if (family == 2) {
+            // gut: a slow helical grain from the twisted strands, matte, and
+            // translucent enough that a string against the light glows at its edges
+            float grain = .5 + .5 * cos((UV.x * length_m * strand_pitch + 2.0 * UV.y) * 6.2831853);
+            tone = .92 + .08 * grain;
+            rough = .52 + .06 * grain;
+            metal = 0.0; spec = .35;
+            back = albedo.rgb * .45; rim = .35;
+        } else if (family == 3) {
+            // nylon: clear and glossy, most of the light passes through
+            rough = .20; metal = 0.0; spec = .5;
+            back = albedo.rgb * .65; rim = .55;
         }
         // A thin wire in a dark studio would vanish as pure metal: keep a little
         // diffuse body so it reads, and let a sounding string light itself.
         ALBEDO = albedo.rgb * tone;
-        METALLIC = metallic * (1.0 - .35 * excitation);
+        METALLIC = metal * (1.0 - .35 * excitation);
         ROUGHNESS = rough;
-        SPECULAR = .7;
+        SPECULAR = spec;
+        BACKLIGHT = back;
+        RIM = rim; RIM_TINT = .7;
         // tinted by the wire's own colour so a red C stays red when it sings
         EMISSION = glow.rgb * mix(vec3(1.0), albedo.rgb, .65) * (excitation * excitation) * 1.1 + albedo.rgb * .06;
     }

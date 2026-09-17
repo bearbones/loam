@@ -52,6 +52,18 @@ func check_scene() -> void:
 			for suffix in ["_gantry","_railhead"]:
 				var node: Node3D=scene.model.find_child("form_"+aid+suffix,true,false)
 				if node==null or not node.visible: failures.append("rail "+suffix.substr(1)+" missing or hidden "+aid)
+		# Strings are strung by register like a harp: wound wire below C4, gut in the
+		# middle, nylon from C5; every harp C is red and every harp F dark.
+		for sid in scene.strings:
+			var s: Dictionary=scene.layout["strings"][sid]
+			var midi: float=float(s["midi"])
+			var mat: ShaderMaterial=scene.strings[sid].get_child(0).material_override
+			var family: int=int(mat.get_shader_parameter("family"))
+			var expected: int=1 if midi<60.0 else (3 if midi>=72.0 else 2)
+			if family!=expected: failures.append("string family off its register "+sid)
+			var colour: Color=mat.get_shader_parameter("albedo")
+			if s["mid"]=="harp" and int(midi)%12==0 and not (colour.r>.6 and colour.g<.4): failures.append("harp C string not red "+sid)
+			if s["mid"]=="harp" and int(midi)%12==5 and colour.r>.35: failures.append("harp F string not dark "+sid)
 	print("  integrated GLB: %d tool contacts; %d rigs" % [contacts,scene.parts.size()])
 	print("PERFORMANCE: PASS" if failures.is_empty() else str(failures))
 	quit(0 if failures.is_empty() else 1)

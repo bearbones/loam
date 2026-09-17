@@ -118,27 +118,24 @@ const STRING_NODES := 24
 ## world Z). The wire shader bends it each frame from the baked shape frames;
 ## a second, translucent copy is a sheath widened to the recent peak excursion —
 ## the blur a vibrating wire actually presents to the eye. Gauge follows pitch
-## (a display gauge: true wire would be sub-pixel) and bass strings are wound.
+## (a display gauge: true wire would be sub-pixel) and the strings are strung by
+## register as a harp is (string_family), C strings red and F strings dark.
 func _make_string(sid: String) -> Node3D:
 	var s: Dictionary=layout["strings"][sid]
 	var a := motion.v(s["a"]); var b := motion.v(s["b"])
 	var length := a.distance_to(b)
 	var midi := float(s["midi"])
 	var radius := .0035*pow(2.0,(64.0-midi)/18.0)
-	var wound := midi<60.0
+	var family := string_family(midi)
 	var holder := Node3D.new(); holder.name=sid+" string"
 	holder.transform=Transform3D(ClockworkMotion.link_basis(a,b),a)
-	var colour := Color(.72,.56,.40) if wound else Color(.80,.82,.84)
-	if s["mid"]=="harp":
-		var pitch_class := int(midi)%12
-		if pitch_class==0: colour=Color("c8483a")
-		elif pitch_class==5: colour=Color("2c3540")
+	var colour := string_colour(s["mid"],midi,family)
 	var mesh := _wire_mesh(length,radius,48,10)
 	for sheath in [false,true]:
 		var node := MeshInstance3D.new(); node.mesh=mesh
 		var mat := ShaderMaterial.new(); mat.shader=WIRE
 		mat.set_shader_parameter("radius",radius); mat.set_shader_parameter("length_m",length)
-		mat.set_shader_parameter("albedo",colour); mat.set_shader_parameter("wound",1.0 if wound else 0.0)
+		mat.set_shader_parameter("albedo",colour); mat.set_shader_parameter("family",family)
 		mat.set_shader_parameter("sheath",sheath)
 		var zero := PackedFloat32Array(); zero.resize(STRING_NODES)
 		mat.set_shader_parameter("disp",zero); mat.set_shader_parameter("envelope",zero)
@@ -147,6 +144,27 @@ func _make_string(sid: String) -> Node3D:
 		holder.add_child(node)
 	add_child(holder)
 	return holder
+
+## A harp is strung by register: wound wire below C4, gut through the middle,
+## nylon from C5 up (the wire shader's `family`: 0 steel, 1 wound, 2 gut, 3 nylon).
+static func string_family(midi: float) -> int:
+	if midi<60.0: return 1
+	if midi>=72.0: return 3
+	return 2
+
+## Wound strings are silver-plated on the harp and bronze on the rake; gut is
+## warm ivory, nylon near clear. Every C is red; F is black on gut and wire,
+## blue on nylon, as harp makers colour them.
+static func string_colour(mid: String, midi: float, family: int) -> Color:
+	var colour := Color(.80,.82,.84)
+	if family==1: colour=Color(.84,.83,.80) if mid=="harp" else Color(.72,.56,.40)
+	elif family==2: colour=Color(.87,.78,.60)
+	elif family==3: colour=Color(.94,.93,.90)
+	if mid=="harp":
+		var pitch_class := int(midi)%12
+		if pitch_class==0: colour=Color("c8483a")
+		elif pitch_class==5: colour=Color("2f4f9a") if family==3 else Color("2c3540")
+	return colour
 
 ## Tube along +Y from 0 to `length`: `rings` samples along it (UV.x = fraction,
 ## so the shader can interpolate the 24 shape nodes smoothly), `sides` around.
