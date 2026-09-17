@@ -87,5 +87,21 @@ def bar_frame_plan(elements,floor=-.01):
     bank=dict(y=bottom-RESONATOR['top_gap']-.06,z=float(zc.mean()),x=[ends[0]['x'],ends[1]['x']])
     return dict(rails=rails,rail_y=float(rail_y),rail_top=float(rail_top),bar_bottom=bottom,cord_y=cord_y,ends=ends,
                 board=board,posts=posts,resonators=res,stretcher=stretch,bank=bank,nodes=nodes)
+PEDALS=('D','C','B','E','F','G','A')            # left foot: D C B (outside in); right foot: E F G A
+def harp_base_plan(left,zz,floor=-.01):
+    """A pedal harp's base: a box the column and body foot seat in, seven pedals
+    through slots in its front face (toward the soundbox, +x), three on the
+    left of the string plane and four on the right, treads on the floor.
+
+    Kept inside the obstacle the rail search is promised (x left-.82..+.46,
+    y to .36, z ±.58) so changing the base never moves a rail."""
+    box=dict(x=[left-.72,left+.30],y=[floor+.05,.29],z=[zz-.46,zz+.46])
+    crown=dict(y=[.29,.335],inset=-.02); sole=dict(y=[floor,floor+.05],inset=.04)   # inset: per side, negative grows
+    zs=[-.36,-.24,-.12,.09,.20,.31,.42]
+    pedals=[]
+    for note,dz in zip(PEDALS,zs):
+        z=zz+dz; x0=box['x'][1]
+        pedals.append(dict(note=note,z=z,slot=[x0,.06,.19],lever=[[x0-.10,.125,z],[x0+.30,.055,z]],tread=[x0+.30,.045,z],pivot=[x0-.10,.125,z]))
+    return dict(box=box,crown=crown,sole=sole,pedals=pedals,front_x=box['x'][1])
 def board_z(plan,x):
     b=plan['board']; return b['z'][0]+(b['z'][1]-b['z'][0])*(x-b['x'][0])/(b['x'][1]-b['x'][0])

@@ -14,7 +14,7 @@ out = ROOT/'harness/assets'
 sys.path.insert(0,str(ROOT/'tools'))
 from blender_forms import make_form
 sys.path.insert(0,str(ROOT/'formlab'))
-from layout import string_endpoints,bar_frame_plan,board_z,BAR
+from layout import string_endpoints,bar_frame_plan,board_z,harp_base_plan,BAR
 # formlab.rig / clearance / layout_search are numpy-only (no SciPy) so they run here too.
 import rig as arm_rig, clearance as arm_clearance, layout_search
 # Pure Python preparation keeps SciPy and structural logic out of Blender's runtime.
@@ -157,18 +157,21 @@ for m in score['instrument']['mechanisms']:
             sx=manifest['strings'][s['id']]['a'][0]; fx,fz=face(sx); text(s['id']+' note',str(int(s['midi'])),(fx,.735,fz),.06,yaw)
     if mid=='harp':
         left=min(v['a'][0] for v in manifest['strings'].values() if v['mid']==mid)
-        # A solid pedal box receives the continuous lower frame. Small edge
-        # breaks and separate metal fittings describe intentional assembly seams.
-        for label,yy,radius,height in [('pedal box',.16,.46,.28),('base crown',.315,.48,.06),('base sole',.045,.47,.045)]:
-            base=cyl('Harp '+label,(left-.18,yy,z+.20),radius,height,wood if label!='base sole' else black)
-            base.scale.x=1.35;base.scale.y=1.20
-        for i,note in enumerate(('D','C','B','E','F','G','A')):
-            angle=-1.05+i*.35; direction=Vector((math.cos(angle),0,math.sin(angle)))
-            centre=Vector((left-.18,.12,z+.20));pivot=centre+direction*.42;toe=centre+direction*.78;toe.y=.075
-            beam('Harp pedal '+note+' lever',pivot,toe,.018,steel)
-            pad=box('Harp pedal '+note+' tread',toe,(.17,.042,.075),black,.012)
-            pad.rotation_euler.z=-angle
-            beam('Harp pedal '+note+' pivot',pivot-Vector((0,0,.035)),pivot+Vector((0,0,.035)),.025,brass)
+        # A pedal harp's base (formlab.layout.harp_base_plan): a box the column and body
+        # foot seat in, with a crown and a sole; seven pedals leave slots in its front
+        # face toward the soundbox, three left of the string plane and four right.
+        hb=harp_base_plan(left,z+.20)
+        def slab(label,xs,ys,zs,mat,bevel):
+            return box('Harp '+label,((xs[0]+xs[1])/2,(ys[0]+ys[1])/2,(zs[0]+zs[1])/2),(xs[1]-xs[0],ys[1]-ys[0],zs[1]-zs[0]),mat,bevel)
+        bx,by,bz=hb['box']['x'],hb['box']['y'],hb['box']['z']
+        slab('pedal box',bx,by,bz,wood,.03)
+        for label,part,mat,bev in (('base crown',hb['crown'],wood,.014),('base sole',hb['sole'],black,.008)):
+            i=part['inset']; slab(label,[bx[0]+i,bx[1]-i],part['y'],[bz[0]+i,bz[1]-i],mat,bev)
+        for p in hb['pedals']:
+            sx,sy,sh=p['slot']; box('Harp pedal '+p['note']+' slot',(sx,sy+sh/2,p['z']),(.012,sh,.034),black,.002)
+            beam('Harp pedal '+p['note']+' lever',p['lever'][0],p['lever'][1],.016,steel)
+            box('Harp pedal '+p['note']+' tread',p['tread'],(.17,.036,.07),black,.01)
+            pv=Vector(p['pivot']); beam('Harp pedal '+p['note']+' pivot',pv-Vector((0,0,.03)),pv+Vector((0,0,.03)),.022,brass)
         for sid,spec in manifest['strings'].items():
             if spec['mid']!=mid:continue
             b=Vector(spec['b'])

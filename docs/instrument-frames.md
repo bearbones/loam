@@ -44,6 +44,23 @@ name the Godot form toggle and the tool-clearance ruler already key on. Metal
 hardware is built in Blender from the same plan, so the tubes, posts, cord and
 text agree with the timber to the millimetre.
 
+## The harp's pedal base
+
+A pedal harp's base is a box, not a drum: the column and the body's lower
+return seat in it, and the seven pedals leave the face toward the player
+(toward the soundbox, +x here) through vertical slots, three on the left of
+the string plane (D C B, outside in) and four on the right (E F G A), each a
+steel lever on a brass pivot inside the box falling to a tread on the floor.
+`layout.harp_base_plan` lays that out from the column's x and the string
+plane's z alone — box, crown, sole, slots, levers, treads — and
+`build_clockwork.py` builds it. The base is one of the two static obstacles
+the rail search is promised (x left−.82…+.46, y to .36, z ±.58); the plan
+keeps the box inside that promise so a base change never moves a rail.
+`tools/test_harp_base.py` pins that, the 3|4 split, tread spacing and the
+levers leaving the front face. (The obstacle box is part of the rail cache
+key; the treads reach 30 cm past its x limit at floor level, below anything
+an arm can reach, and the tool-clearance ruler measures them anyway.)
+
 ## Space accounting
 
 The frame is built after the rail search fixes the rails and before the gantry

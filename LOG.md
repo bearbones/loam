@@ -1,5 +1,22 @@
 # loam — log (newest at top)
 
+## 2026-09-17 — CLOCKWORK the harp's pedal base: a box with the pedals through its front face
+
+The harp stood on an oval drum with seven pedals radiating from it like
+spokes — from the front, round the side, to the back. A pedal harp's base
+is a box: the column and the body's lower return seat in it, and the seven
+pedals leave the face toward the player through vertical slots, three on
+the left of the string plane (D C B) and four on the right (E F G A), each
+a steel lever on a pivot inside the box falling to a tread on the floor.
+formlab.layout.harp_base_plan lays that out from the column's x and the
+string plane's z — box, crown, sole, slots, levers, treads — and the Blender
+builder makes it. The base is one of the two obstacles the rail search is
+promised, and that promise is part of the rail cache key, so the plan keeps
+the box inside it and nothing re-plans; tools/test_harp_base.py pins the
+envelope, the 3|4 split, tread spacing and the levers leaving the front
+face. docs/instrument-frames.md gains the section. Rulers all green; the
+tool-clearance ruler measures the new hardware (harp_reference_hardware).
+
 ## 2026-09-17 — CLOCKWORK the bars hang on a marimba frame: node-line rails, end frames, quarter-wave resonators
 
 The bar instrument was a plank on branching roots, each bar on a bare

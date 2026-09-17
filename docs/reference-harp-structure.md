@@ -8,7 +8,10 @@ than copying the photograph's black finish or its full string count.
 ## Delivered
 
 - Taller bass end and a straight column, with the lower return seated in a solid
-  oval base. The base has a crown, sole and seven separate pedal levers/treads.
+  base. The base has a crown, sole and seven separate pedal levers/treads.
+  (2026-09-17: the oval drum with radial pedals became a pedal box with the
+  seven levers through slots in its front face, three left of the string plane
+  and four right — see [instrument frames](instrument-frames.md#the-harps-pedal-base).)
 - A deeper neck with a metal mounting plate, tuning pins, square key ends and
   two rows of disc/fork hardware aligned with the sixteen scored strings.
 - A deeper, wider soundbox with an expanded pale soundboard face. Its inset
