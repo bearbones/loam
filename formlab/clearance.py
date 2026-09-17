@@ -12,7 +12,27 @@ import numpy as np
 
 # Section dimensions shared with formlab.linkage (kept here so the space
 # rulers import without SciPy, e.g. inside Blender's Python).
-DEFAULT_SPEC = dict(width=.034, depth=.062, ear_r=.055, pin_r=.018, ear_t=.028, head_t=.03, boss_r=.05, web=.05)
+DEFAULT_SPEC = dict(width=.034, depth=.062, ear_r=.055, pin_r=.018, ear_t=.022, head_t=.012, boss_r=.05, web=.05)
+
+def default_layers(spec=DEFAULT_SPEC):
+    """The knuckle stack along the pin axis, half-widths from the crosshead's
+    mid-plane outward, every layer with its own room: a primary link's eye
+    at the centre (`width` thick); the crosshead's two plates (`head_t`
+    each) sandwiching it 2 mm clear, inner faces at ±plate; the primary
+    link's fork ears (`ear_t`) straddling the plates 3 mm clear (fork gap);
+    the secondary bar outboard of the ears 6 mm clear, centred at ±outer.
+    The primary knuckle pin spans the ears 2 mm over (pin_span); a
+    secondary bar's stub pin reaches 2 mm past its eye (span) and its nut
+    to pin_x, the widest thing on the arm."""
+    plate = spec['width']/2+.002
+    plate_out = plate+spec['head_t']
+    gap = 2*plate_out+.006
+    ear_out = gap/2+spec['ear_t']
+    outer = ear_out+.006+spec['width']*.8/2
+    span = 2*outer+spec['width']*.8+.004
+    return dict(plate=plate, plate_out=plate_out, gap=gap, ear_out=ear_out, pin_span=2*ear_out+.004,
+                outer=outer, span=span, pin_x=span/2+spec['pin_r']*1.9)
+
 # The linear carriage (formlab.linkage.carriage_body): a split bushing riding
 # each guide bar, a cheek plate on the -X side joining them (the +X side is
 # taken by the second bar's boss), and the pinion's axle out of the carriage
@@ -20,8 +40,10 @@ DEFAULT_SPEC = dict(width=.034, depth=.062, ear_r=.055, pin_r=.018, ear_t=.028, 
 # the bushing carrying a vertical axle clear of the bars (bridge_y is the
 # block's extent along the mount direction, bridge_z how far back it
 # reaches; the axle stands at axle_z). bar_dy / bar_r are the rail's
-# (tools/build_clockwork.py).
-CARRIAGE = dict(bar_dy=.075, bar_r=.024, bush_r=.045, bush_len=.16, cheek_x=-.062, cheek_t=.02,
+# (tools/build_clockwork.py). The cheek stands 6 mm outside the crosshead's
+# -X plate, inside the pin span.
+CARRIAGE = dict(bar_dy=.075, bar_r=.024, bush_r=.045, bush_len=.16, cheek_t=.02,
+                cheek_x=-(default_layers()['plate_out']+.006+.01),
                 cheek_y=.12, cheek_z=.045, axle_r=.02, bridge_y=(.085, .125), bridge_z=-.13, bridge_x=.03, axle_z=-.10)
 # The drive pinion (build_clockwork.gear) on its axle, and the rack it rolls
 # on (formlab.gantry.rack). The disc sits on one of four MOUNTS off the
@@ -32,6 +54,74 @@ CARRIAGE = dict(bar_dy=.075, bar_r=.024, bush_r=.045, bush_len=.16, cheek_x=-.06
 PINION = dict(out=.195, up=.17, r_pitch=.12, teeth=16, thickness=.07, r_tip=.13, r_hub=.1014)
 # mount -> disc-plane normal (y, z); preference order for ties
 MOUNTS = dict(back=(0., -1.), up=(1., 0.), down=(-1., 0.), front=(0., 1.))
+# The rail gantry (formlab.gantry builds it; the rail search screens it):
+# bars run rail_over past the reach window into a head (head_len long from
+# head_inset past the bar end, half-height head_h, half-depth head_d) that
+# a tapered mast carries from the stage — straight down, or on a bracket
+# `outreach` beyond the rail end along X and `setback` behind it along Z
+# (gantry_candidates, cheapest first). mast_r is the column the rail search
+# reserves for it: between the mast's half-depth at the top and at the base.
+GANTRY = dict(rail_over=.12, head_inset=.04, head_len=.20, head_h=.14, head_d=.07,
+              mast_w=.045, mast_d_top=.05, mast_d_cap=.11, mast_r=.08, margin=.02,
+              stage=dict(x=(-6.4, 6.4), z=(-4.6, 3.3), top=-.02),
+              setbacks=(0., .40, .55, .70, .85, 1.0, 1.2, 1.5), outreaches=(0., .35, .5, .7))
+
+def gantry_candidates():
+    """(outreach, setback) brackets, cheapest first: straight down, then
+    back, then out, then both; behind before in front (negative setback)."""
+    G = GANTRY
+    return sorted(((o, sb) for o in G['outreaches'] for sb in G['setbacks']+tuple(-x for x in G['setbacks'][1:])),
+                  key=lambda c: (c[0]+abs(c[1]), c[1] < 0, c[0]))
+
+def mast_columns(x_end, side, rz, behind=1):
+    """Where a mast could stand for the rail end at x_end (side ±1 along X):
+    (x_col, z_m, outreach, setback) per bracket candidate on the stage, in
+    the gantry planner's order (formlab.gantry.plan_end uses the same rule)."""
+    G = GANTRY; out = []
+    for o, sb in gantry_candidates():
+        x_col = x_end+side*(G['head_inset']+G['head_len']-.07+o); z_m = rz+behind*sb
+        if G['stage']['x'][0] < x_col < G['stage']['x'][1] and G['stage']['z'][0] < z_m < G['stage']['z'][1]:
+            out.append((x_col, z_m, o, sb))
+    return out
+
+def head_box(x_end, side, ry, rz):
+    """The rail head's bounding box at one rail end (formlab.gantry.rail_end's
+    brass prism): head_inset beyond the bar end, head_len long."""
+    G = GANTRY; x_in = x_end+side*G['head_inset']; x_out = x_in+side*G['head_len']
+    return (np.array([min(x_in, x_out), ry-G['head_h'], rz-G['head_d']]), np.array([max(x_in, x_out), ry+G['head_h'], rz+G['head_d']]))
+
+def foot_level(x, z, boxes):
+    """Stage top, or the lid of a furniture box the mast footprint stands on:
+    (y, box or None). boxes: (lo, hi) pairs."""
+    y = GANTRY['stage']['top']; on = None
+    for lo, hi in boxes:
+        if lo[0]+.22 <= x <= hi[0]-.22 and lo[2]+.22 <= z <= hi[2]-.22 and hi[1] < 1e8:
+            if hi[1] > y: y, on = float(hi[1]), (lo, hi)
+    return y, on
+
+def bracket_solids(x_end, side, ry, rz, behind, outreach, setback, foot_y=None):
+    """The solids formlab.gantry.rail_end builds for one bracket, as the
+    planner measures them (its `solids`): ('box', lo, hi) for the mast
+    column, the bracket beams and the plinth; ('capsule', a, b, r) for the
+    knee braces. Numpy-only so the rail search (inside Blender) can screen
+    a bracket before the rails are fixed; rail_end must stay in step."""
+    G = GANTRY; s = float(side); foot_y = G['stage']['top'] if foot_y is None else foot_y
+    x_in = x_end+s*G['head_inset']; x_head = x_in+s*G['head_len']; x_col = x_in+s*(G['head_len']-.07+outreach); z_m = rz+behind*setback
+    top = ry+G['head_h'] if (setback or outreach) else ry-G['head_h']
+    H = top-(foot_y+.08); d_base = min(G['mast_d_top']+.025*H, G['mast_d_cap'])
+    def box(xa, xb, ya, yb, za, zb): return ('box', np.array([min(xa, xb), min(ya, yb), min(za, zb)]), np.array([max(xa, xb), max(ya, yb), max(za, zb)]))
+    out = [box(x_col-G['mast_w'], x_col+G['mast_w'], foot_y+.06, top, z_m-d_base, z_m+d_base),
+           box(x_col-.17, x_col+.17, foot_y, foot_y+.085, z_m-d_base-.10, z_m+d_base+.10)]
+    if setback or outreach:
+        dz = behind*np.sign(setback)
+        if outreach:
+            out.append(box(x_head-s*.06, x_col, ry-.08, ry+.08, rz-.04, rz+.04))
+            out.append(('capsule', np.array([x_head-s*.08, ry-.10, rz]), np.array([x_col, ry-.10-min(outreach+.13, 1.0), rz]), .017*1.5))
+        if setback:
+            z_a = rz-dz*.04 if outreach else rz+dz*(G['head_d']-.02)
+            out.append(box(x_col-.04, x_col+.04, ry-.08, ry+.08, z_a, z_m))
+            out.append(('capsule', np.array([x_col, ry-.10, rz+dz*.03]), np.array([x_col, ry-.10-min(abs(setback), 1.0), z_m]), .017*1.5))
+    return out
 
 def pinion_centre(mount):
     """Disc centre relative to the carriage's shoulder pin."""
@@ -118,11 +208,6 @@ def shank_path(start, mount, rise=.05, count=24):
     end = mount-[0, SOCKET_DEPTH, 0]
     rise = min(rise, max((end[1]-start[1])/2, .005))
     return bezier([start, start+[0, rise, 0], end-[0, rise, 0], end], count)
-
-def default_layers(spec=DEFAULT_SPEC):
-    gap = spec['head_t']+.006
-    outer = gap/2+spec['ear_t']+.006+spec['width']/2
-    return dict(outer=outer, gap=gap, span=2*outer+spec['width']*.8+.004)
 
 def segment_distance(p1, q1, p2, q2):
     """Vectorised minimum distance between segments p1q1 and p2q2 (Ericson 5.1.9).

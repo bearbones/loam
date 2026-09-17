@@ -76,10 +76,11 @@ for mount, (ny, nz) in MOUNTS.items():
     check(len(bush) == 2 and all(abs(abs(v[:, 1].mean())-CARRIAGE['bar_dy']) < 2e-3 and abs(v[:, 2].mean()) < 2e-3 for v in bush),
           f'{mount}: two bushings, each centred on a guide bar')
     cheek = [v for v in V if abs(v[:, 0].max()-(CARRIAGE['cheek_x']+CARRIAGE['cheek_t']/2)) < 1e-6]
-    check(len(cheek) == 1 and cheek[0][:, 0].max() < -(layers['gap']/2+DEFAULT_SPEC['ear_t']) and cheek[0][:, 0].min() > -layers['span']/2,
-          f'{mount}: the cheek plate clears the fork ears and stays inside the pin span')
+    check(len(cheek) == 1 and cheek[0][:, 0].max() < -layers['plate_out']-.004 and cheek[0][:, 0].min() > -layers['span']/2,
+          f'{mount}: the cheek plate clears the crosshead plate and stays inside the pin span')
     centre = pinion_centre(mount); hub = centre-np.array([0, ny, nz])*PINION['thickness']/2
-    axle = [v for v in V if abs(v[:, 0].max()-CARRIAGE['axle_r']) < 1e-6 and (np.ptp(v[:, 2]) > .1 or np.ptp(v[:, 1]) > .035)]
+    on_axis = (lambda v: np.hypot(v[:, 0], v[:, 1]).min() < 1e-6) if nz else (lambda v: np.hypot(v[:, 0], v[:, 2]-CARRIAGE['axle_z']).min() < 1e-6)
+    axle = [v for v in V if abs(v[:, 0].max()-CARRIAGE['axle_r']) < 1e-6 and on_axis(v) and (np.ptp(v[:, 2]) > .1 or np.ptp(v[:, 1]) > .035)]
     check(len(axle) == 1 and np.linalg.norm(axle[0].mean(0)[[0, 2]]-hub[[0, 2]])*(1-abs(nz)) < 1e-6
           and (axle[0][:, 1].max() >= hub[1] if ny > 0 else axle[0][:, 1].min() <= hub[1] if ny < 0 else True)
           and (axle[0][:, 2].max() >= hub[2] if nz > 0 else axle[0][:, 2].min() <= hub[2] if nz < 0 else True),
@@ -91,6 +92,68 @@ for mount, (ny, nz) in MOUNTS.items():
               and (bridge[0][:, 1].max() if ny > 0 else -bridge[0][:, 1].min()) < PINION['up']-PINION['thickness']/2-.005,
               f'{mount}: the bridge reaches back past the axle and stays under the disc')
         check(abs(CARRIAGE['axle_z'])-CARRIAGE['axle_r'] >= CARRIAGE['bush_r']+.004, f'{mount}: the vertical axle misses the bushing')
+# the knuckle stack at the elbow, layer by layer along the pin: the lower
+# link's eye at the centre, the elbowhead's two plates either side of it with
+# nothing between them at that pin, the upper link's fork ears (and nothing
+# else of it) straddling the plates, the secondary bars outboard of the ears
+# on stub pins whose nuts are the widest thing; the primary pin spans the ears
+o1, o2 = [0, 0, .11], [0, .1, .05]
+arm = parallelogram_arm(1.0, 1.0, o1, o2)
+def near(part, centre, r=.055):
+    """x extents (lo, hi) of every piece with vertices within r of `centre` (y, z)."""
+    out = []
+    for p in arm[part]['pieces']:
+        v = p.vertices; m = np.hypot(v[:, 1]-centre[0], v[:, 2]-centre[1]) < r
+        if m.any(): out.append((v[m, 0].min(), v[m, 0].max()))
+    return out
+eye = near('lower', (0, 0)); plates = near('elbowhead', (0, 0)); ears = near('upper', (1.0, 0), DEFAULT_SPEC['boss_r'])
+check(eye and all(hi <= DEFAULT_SPEC['width']/2+1e-9 and lo >= -DEFAULT_SPEC['width']/2-1e-9 for lo, hi in eye),
+      'elbow: the lower link\'s eye and body stay within the eye layer')
+check(plates and all(min(abs(lo), abs(hi)) >= layers['plate']-1e-9 and max(abs(lo), abs(hi)) <= layers['plate_out']+1e-9 for lo, hi in plates),
+      f'elbow: the elbowhead is two plates at ±({layers["plate"]*1000:.0f}..{layers["plate_out"]*1000:.0f}) mm, nothing between them at the pin ({len(plates)} pieces)')
+check(ears and all(min(abs(lo), abs(hi)) >= layers['gap']/2-1e-9 and max(abs(lo), abs(hi)) <= layers['ear_out']+1e-9 for lo, hi in ears),
+      f'elbow: only the upper link\'s fork ears reach the pin, straddling the plates ({len(ears)} pieces)')
+stubs = near('elbowhead', (o1[1], o1[2]), .046)
+check(max(hi for lo, hi in stubs) >= layers['pin_x']-1e-9 and all(lo >= -layers['plate_out']-1e-9 for lo, hi in stubs),
+      'elbow: the second bar\'s stub pin and nut reach the pin-tip plane on the +X side only')
+u2 = [(v.min(), v.max()) for v in (p.vertices[:, 0] for p in arm['upper2']['pieces'])]
+check(all(lo >= layers['ear_out']+.004 and hi <= layers['span']/2-.001 for lo, hi in u2), 'elbow: the upper second bar rides outboard of the ears, inside its nut')
+pin = arm['elbow']['pieces'][0].vertices[:, 0]
+check(abs(pin.max()-pin.min()-(layers['pin_span']+2*DEFAULT_SPEC['pin_r']*1.9)) < 1e-6, 'the primary knuckle pin spans the ears, head and nut outside')
+# the rail search screens each rail end on the gantry planner's own bracket
+# grid, cheapest first, with the planner's solids (mast, beams, braces, head)
+from formlab.clearance import GANTRY, gantry_candidates, mast_columns, head_box, bracket_solids, foot_level
+from formlab.layout_search import mast_gaps, stack_caps, solids_gap
+cands = gantry_candidates(); cols = mast_columns(2.0, 1, -1.0, behind=-1)
+check(cands[0] == (0., 0.) and cands[1] == (.35, 0.) and cands[2] == (0., .40) and cands[3] == (0., -.40) and len(cols) == len(cands),
+      'gantry brackets: straight down first, then the cheapest reach, back before in front; every bracket on the stage')
+check(abs(cols[0][0]-(2.0+GANTRY['head_inset']+GANTRY['head_len']-.07)) < 1e-9 and abs(cols[0][1]+1.0) < 1e-9 and cols[2][1] < -1.0,
+      'mast columns stand under the head and set back behind the rail')
+check(len(mast_columns(6.3, 1, -1.0)) < len(cands), 'brackets off the stage are dropped')
+lo, hi = head_box(2.0, 1, 3.0, -1.0)
+check(abs(lo[0]-2.04) < 1e-9 and abs(hi[0]-2.24) < 1e-9 and abs(hi[1]-lo[1]-2*GANTRY['head_h']) < 1e-9 and abs(hi[2]-lo[2]-2*GANTRY['head_d']) < 1e-9,
+      'head_box: head_inset past the bar end, head_len long, the planner\'s half-height and half-depth')
+straight = bracket_solids(2.0, 1, 3.0, -1.0, -1, 0., 0.); back = bracket_solids(2.0, 1, 3.0, -1.0, -1, 0., .4); out = bracket_solids(2.0, 1, 3.0, -1.0, -1, .35, 0.)
+check([k for k, *_ in straight] == ['box', 'box'] and [k for k, *_ in back] == ['box', 'box', 'box', 'capsule'] and [k for k, *_ in out] == ['box', 'box', 'box', 'capsule'],
+      'bracket_solids: a straight mast is a column and plinth; a bracket adds a beam and a knee brace')
+col = lambda sol: (sol[0][1]+sol[0][2])/2
+check(abs(straight[0][2][1]-(3.0-GANTRY['head_h'])) < 1e-9 and abs(back[0][2][1]-(3.0+GANTRY['head_h'])) < 1e-9
+      and abs(col(back)[2]+1.4) < 1e-9 and abs(out[2][2][0]-col(out)[0]) < 1e-9 and abs(col(out)[0]-cols[1][0]) < 1e-9,
+      'bracket_solids: a straight mast stops under the head, a bracketed one rises beside it; the column stands at the setback / outreach and the beam reaches it')
+box = (np.array([-1., 0., -1.]), np.array([1., .9, 1.]))
+check(foot_level(0., 0., [box]) == (0.9, box) and foot_level(0.9, 0., [box]) == (GANTRY['stage']['top'], None),
+      'foot_level: a mast inside a furniture box\'s footprint stands on its lid; beside it, on the stage')
+T = 5; still = lambda a, b, r: (np.broadcast_to(np.array(a, float), (T, 3)), np.broadcast_to(np.array(b, float), (T, 3)), r)
+caps = {'upper': still([2.0, 2.0, -1.0], [2.0, 1.0, -1.0], .02), 'bar': still([2.0, 1.5, -1.5], [2.4, 1.5, -.5], .03)}   # 'bar' crosses the straight column
+st = stack_caps(caps, {'upper': (0.,), 'bar': (-.1, 0., .1)})
+check(solids_gap(straight[:1], st) < -GANTRY['margin'] and solids_gap(straight[:1], stack_caps({'upper': caps['upper']}, {'upper': (0.,)})) > 0,
+      'solids_gap: a bar through the mast column is negative; a link beside it is clear')
+wide = stack_caps({'bar': still([2.0, 1.5, -1.5], [2.0, 1.5, -.5], .03)}, {'bar': (-.1, 0., .1)}); narrow = stack_caps({'bar': still([2.0, 1.5, -1.5], [2.0, 1.5, -.5], .03)}, {'bar': (0.,)})
+check(abs(solids_gap(straight[:1], narrow)-solids_gap(straight[:1], wide)-.1) < 1e-6, 'solids_gap: the pin span widens a box by the slide, as the planner does')
+P = np.array([[0., 0., 0.], [1., 0., 0.]]); Q = P+[0, 3, 0]
+through = (np.array([[-1., 1.5, 0.]]), np.array([[.5, 1.5, 0.]]), .03)      # crosses column 0, ends .5 short of column 1
+g = mast_gaps(P, Q, .1, {'bar': through})
+check(g[0] < -.1 and abs(g[1]-(.5-.1-.03)) < 1e-9, 'mast_gaps: a bar through a column is negative there and measured to the next')
 check(offset_hits([0, .108, -.019], (.075, 0), .024) and not offset_hits([0, 0, .11], (.075, 0), .024),
       'offset_hits: an upward second bar hits the top guide bar; a forward one misses')
 sw = dict(root=rng.normal(size=(T, 3)), elbow=rng.normal(size=(T, 3)), wrist=rng.normal(size=(T, 3)))

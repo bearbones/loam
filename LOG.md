@@ -1,5 +1,56 @@
 # loam — log (newest at top)
 
+## 2026-09-17 — CLOCKWORK an honest knuckle stack: two-plate crossheads, stub pins, forked yokes
+
+The joints looked right from a metre away and were a lie up close. At
+the shoulder and the elbow a primary link's eye sat at X = 0, inside the
+crosshead's own boss at the same X; the fork's yoke ran 20 mm into the
+boss it was supposed to straddle; each secondary bar's eye was buried in
+a boss cast at its own layer; and the crosshead's web, swept straight
+along Z, came out 50 mm thick along the pin axis because sweep() picks
+its profile frame from the path direction.
+
+Now every layer along the pin has its own seat, all derived by
+clearance.default_layers from one spec: the eye (±17 mm) turns between
+the crosshead's two 12 mm plates (19–31 mm), the next link's 22 mm fork
+ears straddle the plates (34–56 mm) with the bar's yoke stopped at the
+ears' rim, the secondary bar (62–89 mm) turns on a shouldered stub pin
+cast with the crosshead, and the stub's nut (to 125 mm) is the widest
+thing on the arm — gantry.PIN_X is that number now, not a literal. The
+primary knuckle pin spans only the ears. A solid spacer boss ties the
+plates at every pin except the eye's; the wristhead is solid at both (the
+tool's socket tenon is buried in it). Webs are swept along +Y and turned
+into the swing plane. The carriage's cheek stands 6 mm outside its −X
+plate (derived, not −62 mm). tools/test_linkage_tools.py reads the elbow
+layer by layer (eye, plates with nothing between them at the pin, only
+ears within the boss radius, stub pin and nut to the pin-tip plane on one
+side, the second bar outboard of the ears, the primary pin's span).
+Docs: docs/articulated-arms.md, the layer table.
+
+The rebuild then failed silently: Blender exits 0 when the -P script
+raises, and the grep-filtered build log had dropped the traceback —
+`no gantry placement clears the scene for harp_arm1 (high end)`. Build
+logs go raw to a file first now, grep after. The cause was a gap between
+two rulers: the rail search (which fixes the rails) knew nothing of the
+brackets the gantry planner would later need, slid no capsule across the
+pin span, and modelled the rail heads as capsules; the planner does all
+three, and the wider pin span plus the head's square corner turned the
+search's +79 mm into the planner's −49 mm. clearance.py now carries the
+planner's solids in numpy (bracket_solids, head_box, foot_level — gantry.py
+imports them), layout_search screens every rail end on the planner's
+bracket grid with the planner's slides and boxes (pin_shifts, stack_caps,
+solids_gap, mast_margin: cheapest bracket first, early out at a
+comfortable gap, coarse pass before fine), and the chosen rail set is
+re-measured at 120 Hz (verify_fine) with a failing option dropped and the
+search repeated. A first version of the screen measured the mast against
+the arm's own head and rail — which touch it by design — and found every
+bracket blocked; the own check now sees moving parts only, as the planner
+does. A second version measured every part of an arm against every
+bracket and took an hour without finishing the harp; each part now
+carries its sweep box and is measured only when that box comes within
+150 mm of a solid, and the harp's three arms plan in ten minutes with
+every mast at the full 100 mm and the chosen set confirmed at 120 Hz.
+
 ## 2026-09-17 — CLOCKWORK the carriage rides its bars; the pinion rolls on a rack
 
 The carriage was the shoulder crosshead alone, floating at the rail axis,

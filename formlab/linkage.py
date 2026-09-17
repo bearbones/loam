@@ -111,6 +111,18 @@ def knuckle_pin(radius, span, head=None, axis=X, centre=(0, 0, 0)):
           (hr*.8, span/2+h*.18), (hr*.8, span/2+h*.85), (radius*.6, span/2+h), (0, span/2+h)]
     return revolve(pr, axis, centre, 24)
 
+def stub_pin(centre, side, layers, spec):
+    """A secondary bar's pin, cast with its crosshead: a shouldered stub from
+    the crosshead's mid-plane out to the eye's layer (`side` = ±1 along X),
+    the pin proper the eye turns on, and a nut past it (layers: outer, span
+    from clearance.default_layers)."""
+    c = np.asarray(centre, float); r = spec['pin_r']; hr = r*1.75; h = r*1.9
+    xs = layers['outer']-spec['width']*.8/2-.002; xe = layers['span']/2
+    pr = [(0, 0), (r*1.6, 0), (r*1.6, xs), (r, xs), (r, xe), (hr*1.05, xe), (hr*1.05, xe+h*.18),
+          (hr*.8, xe+h*.18), (hr*.8, xe+h*.85), (r*.6, xe+h), (0, xe+h)]
+    pts = [(rr, side*x) for rr, x in pr]
+    return revolve(pts[::-1] if side < 0 else pts, X, c, 24)
+
 def eye_end(centre, ear_r, pin_r, thickness, axis=X):
     """One ear: a ring with a bushing hole. Returns [ring]."""
     return [ring(centre, pin_r*1.15, ear_r, thickness, axis)]
@@ -129,8 +141,12 @@ def link(length, width=.034, depth=.062, ear_r=.055, pin_r=.018, ear_t=.028, for
     gap = fork_gap if fork_gap is not None else width+.006
     pieces = []
     yoke_w = gap+2*ear_t
-    # body stops short of each pin so ears carry the end; ears overlap the yoke.
-    y0 = ear_r*.55; y1 = length-ear_r*.55
+    # body stops short of each pin so ears carry the end: an eye end's body
+    # runs into its ring; a fork end's stops at the ears' rim, so the
+    # crosshead's boss (radius < ear_r) turns between the ears, not in the yoke.
+    stop = dict(eye=ear_r*.55, fork=ear_r*.96, none=ear_r*.55)
+    y0 = stop['fork' if fork_at == 'A' else 'eye' if eye_at == 'A' else 'none']
+    y1 = length-stop['fork' if fork_at == 'B' else 'eye' if eye_at == 'B' else 'none']
     body = bar(y1-y0, width, depth, taper, belly, yoke=(.86, yoke_w) if fork_at == 'B' else None)
     if fork_at == 'A':
         body = bar(y1-y0, width, depth, 1/taper, belly, yoke=(.86, yoke_w))
@@ -149,19 +165,31 @@ def link(length, width=.034, depth=.062, ear_r=.055, pin_r=.018, ear_t=.028, for
     return dict(pieces=pieces, pins={'A': ends['A']+[layer, 0, 0], 'B': ends['B']+[layer, 0, 0]},
                 fork_gap=gap, ear_t=ear_t, ear_r=ear_r, pin_r=pin_r)
 
-def crosshead(pins, thickness=.03, boss_r=.05, pin_r=.018, web=.05, axis=X, layer=0.0):
-    """A rigid plate joining several pins (bosses) with a web: the body that a
-    parallelogram holds at fixed orientation. pins: list of (x=0, y, z) in the
-    crosshead frame; the plate lies in the YZ plane at X = layer."""
+def crosshead(pins, thickness=.012, boss_r=.05, pin_r=.018, web=.05, axis=X, plate=.019, eye=(0,)):
+    """The rigid body a parallelogram holds at fixed orientation: two plates
+    (each `thickness`, inner faces at X = ±plate) with a boss at every pin
+    and a web between neighbouring pins, tied by a solid spacer boss at
+    every pin except those in `eye`, where a primary link's eye turns
+    between the plates. pins: list of (x=0, y, z) in the crosshead frame."""
     P = np.asarray(pins, float); pieces = []
-    for p in P: pieces.append(ring(p+[layer, 0, 0], pin_r*1.15, boss_r, thickness, axis))
-    for a, b in zip(P[:-1], P[1:]):
-        d = b-a; L = np.linalg.norm(d)
-        if L < 1e-9: continue
-        count = max(8, int(L/.01))
-        u = np.linspace(boss_r*.6/L, 1-boss_r*.6/L, count)[:, None]
-        path = a+u*d+[layer, 0, 0]
-        pieces.append(sweep(path, thickness/2*.98, web/2, profile=rounded_rect(.3, 16)))
+    for x in (-(plate+thickness/2), plate+thickness/2):
+        for p in P: pieces.append(ring(p+[x, 0, 0], pin_r*1.15, boss_r, thickness, axis))
+        for a, b in zip(P[:-1], P[1:]):
+            d = b-a; L = np.linalg.norm(d)
+            if L < 1e-9: continue
+            # swept along +Y (profile width across X, the plate's thickness)
+            # then turned in the swing plane: sweep() picks its profile
+            # frame from the path direction, so a web run straight along Z
+            # would come out 50 mm thick along the pin axis.
+            count = max(8, int(L/.01))
+            u = np.linspace(boss_r*.6*L/L, L-boss_r*.6, count)[:, None]
+            path = np.c_[np.zeros(count), u, np.zeros(count)]
+            web_mesh = sweep(path, thickness/2*.98, web/2, profile=rounded_rect(.3, 16))
+            c, s = d[1]/L, d[2]/L
+            pieces.append(transform(web_mesh, np.array([[1., 0, 0], [0, c, -s], [0, s, c]]), a+[x, 0, 0]))
+    for i, p in enumerate(P):
+        if i in eye: continue
+        pieces.append(ring(p, pin_r*1.15, boss_r, 2*plate+.002, axis))
     return pieces
 
 def socket(mount, r=.017, depth=SOCKET_DEPTH, buried=.04):
@@ -211,18 +239,21 @@ def mallet_tool(mount, head_r=.06):
     head = revolve(pr, Y, (0, 0, 0), 28)
     return [[head], swan_shank((0, head_r*1.4, 0), mount, .012, .013)]
 
-def carriage_body(o1, spec, outer, mount='back'):
+def carriage_body(o1, spec, mount='back', head=None):
     """The carriage that rides the rail: the shoulder crosshead (pins 0 and
-    o1), a split bushing around each guide bar, a cheek plate on the -X side
+    o1; the upper link's eye turns between its plates at the shoulder), a
+    split bushing around each guide bar, a cheek plate on the -X side
     tying the bushings together (the +X side carries the second bar's boss),
     and the pinion's axle: out of the carriage plane for a front/back mount,
     or standing on a bridge back from a bushing for a pinion above or below
     the carriage (formlab.clearance.CARRIAGE / PINION / MOUNTS). One
-    casting; pieces overlap."""
-    from .clearance import CARRIAGE as C, PINION as G, MOUNTS
-    pieces = crosshead([[0, 0, 0], o1], spec['head_t'], spec['boss_r'], spec['pin_r'], spec['web'])
-    pieces += [ring(np.asarray(o1, float)+[outer, 0, 0], spec['pin_r']*1.15, spec['boss_r']*.9, spec['width']*.8, X),
-               revolve([(0, 0), (spec['pin_r']*1.6, 0), (spec['pin_r']*1.6, outer), (0, outer)], X, o1, 16)]
+    casting; pieces overlap. `head`: crosshead() keywords (parallelogram_arm)."""
+    from .clearance import CARRIAGE as C, PINION as G, MOUNTS, default_layers
+    L = default_layers(spec)
+    if head is None:
+        head = dict(thickness=spec['head_t'], boss_r=spec['boss_r'], pin_r=spec['pin_r'], web=spec['web'], plate=L['plate'])
+    pieces = crosshead([[0, 0, 0], o1], eye=(0,), **head)
+    pieces.append(stub_pin(o1, +1, L, spec))
     for s in (-1, 1):
         pieces.append(ring((0, s*C['bar_dy'], 0), C['bar_r']+.002, C['bush_r'], C['bush_len'], X, 48, .3))
     u = np.linspace(0, 1, 3)[:, None]
@@ -254,17 +285,20 @@ def parallelogram_arm(l1, l2, o1, o2, spec=None, mount='back'):
       lower      link frame from elbow pin to wrist pin         (fork at B)
       lower2     link frame from elbow+o2 to wrist+o2           (eye both ends)
       wristhead  at the wrist pin, fixed orientation (pins 0, o2)
-    Layers along the pin axis: crossheads centred (x=0); primary forks straddle
-    them; secondary bars ride outside on the +x (upper) / -x (lower) faces, so
-    upper and lower bars can cross in plane without touching.
+    Layers along the pin axis (clearance.default_layers): a primary link's eye
+    at the centre, between the two plates of the crosshead at the pin it
+    hangs from (the carriage at the shoulder, the elbowhead at the elbow);
+    its fork at the other end straddles the next crosshead's plates;
+    secondary bars ride outside the ears on the +x (upper) / -x (lower)
+    faces, so upper and lower bars can cross in plane without touching.
     """
     from .clearance import DEFAULT_SPEC, default_layers
     s = dict(DEFAULT_SPEC)
     if spec: s.update(spec)
-    gap = default_layers(s)['gap']
+    L = default_layers(s); gap = L['gap']; outer = L['outer']; span = L['span']
+    head = dict(thickness=s['head_t'], boss_r=s['boss_r'], pin_r=s['pin_r'], web=s['web'], plate=L['plate'])
     upper = link(l1, s['width'], s['depth'], s['ear_r'], s['pin_r'], s['ear_t'], gap, fork_at='B', eye_at='A')
     lower = link(l2, s['width'], s['depth'], s['ear_r'], s['pin_r'], s['ear_t'], gap, fork_at='B', eye_at='A')
-    outer = gap/2+s['ear_t']+.006+s['width']/2      # secondary bar layer, outside the fork ears
     upper2 = link(l1, s['width']*.8, s['depth']*.8, s['ear_r']*.85, s['pin_r'], s['width']*.8, None,
                   fork_at='none', eye_at='A', layer=+outer, taper=1, belly=.1)
     upper2['pieces'] += eye_end(np.array([outer, l1, 0]), s['ear_r']*.78, s['pin_r'], s['width']*.8)
@@ -272,25 +306,22 @@ def parallelogram_arm(l1, l2, o1, o2, spec=None, mount='back'):
                   fork_at='none', eye_at='A', layer=-outer, taper=1, belly=.1)
     lower2['pieces'] += eye_end(np.array([-outer, l2, 0]), s['ear_r']*.78, s['pin_r'], s['width']*.8)
     o1 = np.asarray(o1, float); o2 = np.asarray(o2, float)
-    elbow = crosshead([[0, 0, 0], o1, o2] if np.linalg.norm(o1-o2) > 1e-6 else [[0, 0, 0], o1],
-                      s['head_t'], s['boss_r'], s['pin_r'], s['web'])
-    # secondary pins sit on bosses that reach the outer layers
-    elbow += [ring(o1+[outer, 0, 0], s['pin_r']*1.15, s['boss_r']*.9, s['width']*.8, X),
-              ring(o2-[outer, 0, 0], s['pin_r']*1.15, s['boss_r']*.9, s['width']*.8, X)]
-    elbow += [revolve([(0, 0), (s['pin_r']*1.6, 0), (s['pin_r']*1.6, outer), (0, outer)], X, o1, 16),
-              revolve([(0, -outer), (s['pin_r']*1.6, -outer), (s['pin_r']*1.6, 0), (0, 0)], X, o2, 16)]
-    wrist = crosshead([[0, 0, 0], o2], s['head_t'], s['boss_r'], s['pin_r'], s['web'])
-    wrist += [ring(o2-[outer, 0, 0], s['pin_r']*1.15, s['boss_r']*.9, s['width']*.8, X),
-              revolve([(0, -outer), (s['pin_r']*1.6, -outer), (s['pin_r']*1.6, 0), (0, 0)], X, o2, 16)]
-    carriage = carriage_body(o1, s, outer, mount)
-    span = 2*outer+s['width']*.8+.004
-    pins = dict(shoulder=[knuckle_pin(s['pin_r'], span)], elbow=[knuckle_pin(s['pin_r'], span)],
-                wrist=[knuckle_pin(s['pin_r'], span)])
+    # the lower link's eye turns between the elbowhead's plates at the elbow pin
+    elbow = crosshead([[0, 0, 0], o1, o2] if np.linalg.norm(o1-o2) > 1e-6 else [[0, 0, 0], o1], eye=(0,), **head)
+    # the secondary bars' eyes turn on stub pins cast with the crosshead
+    elbow += [stub_pin(o1, +1, L, s), stub_pin(o2, -1, L, s)]
+    # the lower link's fork straddles the wristhead: solid at both pins (the
+    # tool's socket tenon is buried in the wrist boss)
+    wrist = crosshead([[0, 0, 0], o2], eye=(), **head)
+    wrist += [stub_pin(o2, -1, L, s)]
+    carriage = carriage_body(o1, s, mount, head)
+    pins = dict(shoulder=[knuckle_pin(s['pin_r'], L['pin_span'])], elbow=[knuckle_pin(s['pin_r'], L['pin_span'])],
+                wrist=[knuckle_pin(s['pin_r'], L['pin_span'])])
     return dict(carriage=dict(pieces=carriage), upper=dict(pieces=upper['pieces']),
                 upper2=dict(pieces=upper2['pieces']), elbowhead=dict(pieces=elbow),
                 lower=dict(pieces=lower['pieces']), lower2=dict(pieces=lower2['pieces']),
                 wristhead=dict(pieces=wrist), **{k: dict(pieces=v) for k, v in pins.items()},
-                layers=dict(outer=outer, gap=gap, span=span), spec=s)
+                layers=L, spec=s)
 
 def check_pieces(pieces):
     reports = [validate_mesh(m) for m in pieces]

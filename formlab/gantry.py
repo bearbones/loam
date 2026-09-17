@@ -32,29 +32,31 @@ import numpy as np
 try:
     from .sweep import sweep, validate_mesh
     from .linkage import rounded_rect, revolve
-    from .clearance import arm_capsules, default_layers, DEFAULT_SPEC, segment_distance, PINION, MOUNTS, pinion_centre, rack_direction
+    from .clearance import (arm_capsules, default_layers, DEFAULT_SPEC, segment_distance, PINION, MOUNTS, pinion_centre, rack_direction,
+                            GANTRY, gantry_candidates, foot_level)
     from .layout_search import box_gap, scene_boxes
 except ImportError:   # bare import (formlab/ on sys.path)
     from sweep import sweep, validate_mesh
     from linkage import rounded_rect, revolve
-    from clearance import arm_capsules, default_layers, DEFAULT_SPEC, segment_distance, PINION, MOUNTS, pinion_centre, rack_direction
+    from clearance import (arm_capsules, default_layers, DEFAULT_SPEC, segment_distance, PINION, MOUNTS, pinion_centre, rack_direction,
+                           GANTRY, gantry_candidates, foot_level)
     from layout_search import box_gap, scene_boxes
 
-RAIL_OVER = .12        # the bars run this far beyond the reach window (build_clockwork)
+# The space model lives in formlab.clearance.GANTRY (the rail search screens
+# a mast column at every candidate rail end with the same numbers).
+RAIL_OVER = GANTRY['rail_over']        # the bars run this far beyond the reach window (build_clockwork)
 BAR_R = .024; BAR_DY = .075
-HEAD_INSET = .04       # head's inner face beyond the bar end: 0.16 m past the window
-HEAD_LEN = .20; HEAD_H = .14; HEAD_D = .07       # rail head: half-height, half-depth
-MAST_W = .045          # half-width across X (constant)
-MAST_D_TOP = .05       # half-depth along Z at the top
-MAST_D_CAP = .11       # half-depth at the base, at most
-MARGIN = .02           # every gantry piece keeps this much from everything else
-PIN_X = .119           # an arm's pin heads reach this far from its capsule plane (linkage.knuckle_pin)
-STAGE = dict(x=(-6.4, 6.4), z=(-4.6, 3.3), top=-.02)
-SETBACKS = (0., .40, .55, .70, .85, 1.0, 1.2, 1.5)     # mast behind the rail (Z); negative = in front
-OUTREACHES = (0., .35, .5, .7)                          # mast beyond the rail end (X)
-# cheapest bracket first: straight down, then back, then out, then both; behind before in front
-CANDIDATES = sorted(((o, sb) for o in OUTREACHES for sb in SETBACKS+tuple(-x for x in SETBACKS[1:])),
-                    key=lambda c: (c[0]+abs(c[1]), c[1] < 0, c[0]))
+HEAD_INSET = GANTRY['head_inset']      # head's inner face beyond the bar end: 0.16 m past the window
+HEAD_LEN = GANTRY['head_len']; HEAD_H = GANTRY['head_h']; HEAD_D = GANTRY['head_d']   # rail head: half-height, half-depth
+MAST_W = GANTRY['mast_w']              # half-width across X (constant)
+MAST_D_TOP = GANTRY['mast_d_top']      # half-depth along Z at the top
+MAST_D_CAP = GANTRY['mast_d_cap']      # half-depth at the base, at most
+MARGIN = GANTRY['margin']              # every gantry piece keeps this much from everything else
+PIN_X = default_layers(DEFAULT_SPEC)['pin_x']   # an arm's pin heads reach this far from its capsule plane (linkage.knuckle_pin)
+STAGE = GANTRY['stage']
+SETBACKS = GANTRY['setbacks']          # mast behind the rail (Z); negative = in front
+OUTREACHES = GANTRY['outreaches']      # mast beyond the rail end (X)
+CANDIDATES = gantry_candidates()       # cheapest bracket first
 
 
 def prism(a, b, w, d, corner=.25, count=None):
@@ -128,15 +130,6 @@ def rail_end(x_end, side, ry, rz, behind, setback, foot_y, outreach=0.):
             for dz in (-.035, .035):
                 steel.append(bolt_head((x_col+dx, ry+HEAD_H, rz+dz)))
     return dict(brass=brass, steel=steel, mast_z=z_m, x_col=x_col, foot_y=foot_y, height=H, setback=setback, outreach=outreach)
-
-
-def foot_level(x, z, boxes):
-    """Stage top, or the lid of a furniture box the mast footprint stands on."""
-    y = STAGE['top']; on = None
-    for lo, hi in boxes:
-        if lo[0]+.22 <= x <= hi[0]-.22 and lo[2]+.22 <= z <= hi[2]-.22 and hi[1] < 1e8:
-            if hi[1] > y: y, on = float(hi[1]), (lo, hi)
-    return y, on
 
 
 def behind_sign(cfg, strings):

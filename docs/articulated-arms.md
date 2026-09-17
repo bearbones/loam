@@ -29,18 +29,33 @@ along the link, the pin axis +X) and never scaled afterwards:
 | --- | --- | --- |
 | upper, lower | `link()` | flat fish-belly bar (`bar()` with `belly`, `taper`), eye end at A, fork end at B |
 | upper2, lower2 | `link(layer=...)` | the parallel bar, one layer outboard |
-| elbowhead, wristhead | `crosshead()` | two bosses joined by a web; the pins live here |
+| elbowhead, wristhead | `crosshead()` | two plates, each with a boss at every pin and a web between, tied by a spacer boss at every pin but the one where a primary link's eye turns between them; the secondary bars' stub pins (`stub_pin()`) are cast with it |
 | carriage | `carriage_body()` | the shoulder crosshead plus bushings on the guide bars, a cheek plate and the pinion's axle — on a bridge behind the bushing when the pinion lies above or below the carriage (see The carriage and its drive) |
-| shoulder, elbow, wrist | `knuckle_pin()` | domed head one side, nut the other |
+| shoulder, elbow, wrist | `knuckle_pin()` | domed head one side, nut the other; spans the fork ears |
 | tool + shank | `pick_tool(mount)` / `mallet_tool(mount)` | tool origin = contact point; the shank is built to reach its socket under the wrist boss (see Tools) |
 
 Joints are **knuckle joints**: a fork straddles an eye on a pin (`fork_end`,
-`eye_end`, `ring`, `revolve`). The fork gap, ear thickness and pin radius
-are one spec (`clearance.DEFAULT_SPEC`) so every seat fits: the fork of a
-primary bar straddles a crosshead boss; the secondary bars sit outside on
-the +X (upper) and −X (lower) layers so the two segments can cross in plane
-without touching. `default_layers(spec)` derives the layer offsets from the
-spec; nothing is placed by eye.
+`eye_end`, `ring`, `revolve`). Every layer along the pin has its own room,
+derived by `clearance.default_layers(spec)` from one spec
+(`clearance.DEFAULT_SPEC`); nothing is placed by eye. From the crosshead's
+mid-plane outward:
+
+| layer | half-width | what |
+| --- | --- | --- |
+| eye | 0–17 mm | a primary link's eye (its own bar's width), turning between the crosshead's plates |
+| plates | 19–31 mm | the crosshead's two plates (12 mm each), bosses and webs on both; a solid spacer boss ties them at every other pin |
+| fork ears | 34–56 mm | the next primary link's fork (22 mm ears) straddling the plates; the bar's yoke stops at the ears' rim so the boss turns between the ears, not in the yoke |
+| secondary bar | 62–89 mm | the parallel bar (+X for the upper segment, −X for the lower), its eye turning on a shouldered **stub pin** cast with the crosshead |
+| nut | to 125 mm | the stub pin's nut, the widest thing on the arm (`pin_x`; `gantry.PIN_X`) |
+
+The primary knuckle pin spans only the fork ears (`pin_span`), head and
+nut outside. So at the elbow, read outward: the lower link's eye, the
+elbowhead's plates, the upper link's ears, then the second bars on their
+stubs — each part on its own seat. (The first stack was a lie: the eye
+sat inside the crosshead's boss at the same X, the fork's yoke ran into
+the boss, and each secondary eye was buried in a boss cast at its own
+layer.) The two segments' second bars ride on opposite faces so the
+upper and lower segments can cross in plane without touching.
 
 `parallelogram_arm(l1, l2, o1, o2)` returns every piece plus the layer table
 and the pin-axis span — the number the planner needs (see below).
@@ -140,6 +155,37 @@ stands 0.4 m behind its head, its high mast straight under; the middle harp
 rail, wedged between the other two, carries both heads 0.35 m out and
 0.4 m *forward* to masts on the floor in front of the cabinet.
 
+### The rail search screens the brackets first
+
+The gantry planner runs after the rails are fixed, so a rail whose ends no
+bracket can serve is a build failure, not a worse score — and the honest
+knuckle stack produced one: the re-planned harp rails put the middle arm's
+high head where the outer arm's links sweep, every bracket at that end was
+blocked by 50 mm, and Blender exited 0 with no asset written (the
+traceback was in the raw log; a grep-filtered log had hidden it).
+`layout_search.evaluate_arm` now keeps, per rail end, every bracket of the
+planner's grid that the arm's own motion and the furniture leave clear,
+built from the planner's own solids in numpy-only form
+(`clearance.bracket_solids`: mast column, plinth, bracket beams, knee
+braces as capsules; `clearance.head_box` for the head; `clearance.foot_level`
+for a mast on a furniture lid — the planner imports the same functions),
+and the search objective asks whether the neighbours leave at least one
+bracket at each end (`mast_margin`, cheapest bracket first, stopping at a
+comfortable gap). The screen stays affordable because each part carries
+its whole sweep box: a part whose box keeps 150 mm from a solid is scored
+by that bound and never measured, and most of an arm never comes near a
+bracket (`solids_gap`); a coarse pass over every fourth pose, an upper
+bound on the gap, rules blocked brackets out before the fine pass. Two
+more differences between the rulers closed at the
+same time: the rail search slides every capsule across the pin span the
+way the planner does (`pin_shifts`, from the same `pin_x`), and measures
+each rail's heads as boxes rather than capsules — the capsule pair had let
+that harp rail through by the corner a box does not round off. Because
+the search samples at 30 Hz and the planner confirms at 120 Hz, the chosen
+set is re-measured at 120 Hz (`verify_fine`) and an option that fails
+there is dropped and the search repeated; the 120 Hz worst is recorded as
+`margins.fine`.
+
 ### Rails are obstacles too
 
 Building the gantries exposed a flaw the earlier rulers could not see: the
@@ -171,9 +217,10 @@ dimensions in `clearance.CARRIAGE` and `clearance.PINION`:
   outer radius, 160 mm long — inside the knuckle pin's span, so a carriage
   parked at the rail end still clears the head);
 - a **cheek plate** on the −X side tying the two bushings together, 20 mm
-  thick, standing just outside the upper link's fork ears; the +X side is
-  where the second bar's boss lives, so it gets none. The shoulder pin runs
-  through the crosshead and the cheek — that is its bearing;
+  thick, standing 6 mm outside the crosshead's −X plate (the upper link's
+  eye turns between the carriage's plates at the shoulder); the +X side is
+  where the second bar's stub pin lives, so it gets none. The shoulder pin
+  runs through the crosshead and the cheek — that is its bearing;
 - the **pinion's axle**: out of the carriage plane for a pinion in front
   of or behind the carriage; for one above or below it, a **bridge** back
   from the bushing (the bars are in the way of a vertical axle at the
