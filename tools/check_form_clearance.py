@@ -62,6 +62,6 @@ for style in ('carved','ribbed','shell'):
 (folder/'clearance.json').write_text(json.dumps(dict(results=results,failures=failures,
   mesh_sha256=hashlib.sha256((folder/'collision_meshes.json').read_bytes()).hexdigest(),
   motion_sha256=hashlib.sha256((folder/'motion.json').read_bytes()).hexdigest(),
-  scope='New frame and branching stand vs tools only; does not certify full arm/rail collision, inter-sample motion, or structural safety'),indent=2))
+  scope='Frames and the bar instrument\'s stand vs tools only; does not certify full arm/rail collision, inter-sample motion, or structural safety'),indent=2))
 if failures: raise RuntimeError(failures)
 print('FORM CLEARANCE: PASS')

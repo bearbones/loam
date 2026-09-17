@@ -1,0 +1,63 @@
+# Instrument frames: construction-driven assemblies
+
+The harp and rake frames are continuous carved forms ([traditional harp
+refinement](traditional-harp-refinement.md)). The bar instrument is different:
+a mallet instrument is an assembly of sawn members and hardware, and its look
+comes from the construction rules real marimbas follow. This page records those
+rules as the pipeline implements them (`formlab/layout.py` `bar_frame_plan`,
+`formlab/recipes.py` `bar_frame`, hardware in `tools/build_clockwork.py`,
+checks in `tools/test_bar_frame.py`).
+
+## The bar frame
+
+A free-free bar's fundamental mode has its nodes 22.4 % in from each end
+(`layout.NODE`). A marimba drills the bars there and hangs them on a cord, so a
+bar rings instead of being damped by whatever holds it. Everything else follows:
+
+- **Rails follow the node lines.** Two rails run under the bars through every
+  bar's nodes (`bar_nodes`), 0.30 m past the end bars. Because the bars shorten
+  toward the treble, the rails converge; the rail curve is a spline through the
+  actual node points, not a straight approximation. A rail is 60 mm deep by
+  70 mm wide and its top sits 30 mm under the bars' underside.
+- **Cord and posts.** Brass posts stand on each rail midway between adjacent
+  bars (and one past each end bar), topped with a rubber cushion; the cord runs
+  post to post at the bars' mid-thickness, through the node holes. Posts and
+  cushions stay below the bar tops, so the mallets only ever meet bars.
+- **Resonators.** Under each bar hangs a closed quarter-wave tube: real length
+  `c/4f − 0.61 r` (open-end correction), scaled by the scene's ×3, with a dark
+  mouth ring under the bar and a stopper cap at the bottom. The radius is
+  capped so the tube hangs between the rails with a 12 mm gap — the treble
+  tubes are narrower because their node spread is smaller, exactly as on the
+  real instrument. A steel bank rod through the tubes ties them to the ends.
+- **End frames.** Each end is a foot across the rails, two uprights tapering
+  upward just outside the rails, and a crosspiece the rails rest on. The end
+  frames are as wide as the local rail spread, so the bass end stands broader
+  than the treble end. Brass glides sit under the foot tips.
+- **Stretcher and name board.** A low stretcher ties the ends; the plaque and
+  note names sit on a name board hung on the front uprights' faces. The board
+  is straight between the two ends, so it angles slightly with the converging
+  rails, and the text follows it (`board_z`).
+
+The wooden members are closed sweeps with a chamfered rectangular section
+(`recipes.TIMBER`), exported as one profiled object, `form_bars_stand`, the
+name the Godot form toggle and the tool-clearance ruler already key on. Metal
+hardware is built in Blender from the same plan, so the tubes, posts, cord and
+text agree with the timber to the millimetre.
+
+## Space accounting
+
+The frame is built after the rail search fixes the rails and before the gantry
+planner places the masts. The whole frame stays inside the footprint of the
+bed it replaced (z within ±0.75 m of the bar line, nothing above the bars'
+underside), so the gantry plan is unchanged by the swap — `test_bar_frame.py`
+pins that envelope, and `build_forms.py` still measures the masts and plinths
+against the frame's bounding box. The tool-clearance ruler
+(`check_form_clearance.py`) measures every mallet pose against the frame mesh.
+
+## Rulers
+
+```sh
+python3 tools/test_bar_frame.py        # construction rules and closed pieces
+python3 tools/build_forms.py           # packs the frame; gantries measured against it
+blender -b -t 2 -P tools/check_form_clearance.py   # tools vs frames and stand
+```

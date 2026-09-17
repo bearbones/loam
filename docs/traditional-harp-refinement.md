@@ -10,8 +10,9 @@ The sympathetic chamber now sits behind them so their feet remain visible.
 The profile has a broad recessed face, concave coves, raised beads and narrow
 fillets, similar to a balustrade handrail. The soundbox has a pale inset face.
 The frame preserves these analytic profiles through Blender, with only a 3 mm
-edge break and controlled split normals. Voxel smoothing is retained for the
-branching bar stand, where blended junctions are intentional. Frame members are
+edge break and controlled split normals. (Voxel smoothing was retained for the
+former branching bar stand; its replacement, the [marimba frame](instrument-frames.md),
+is profiled sawn timber and keeps its edges.) Frame members are
 separately closed, fitted components, not a single voxel union.
 
 The overall column/neck/soundbox arrangement was checked against traditional

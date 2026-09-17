@@ -14,7 +14,7 @@ out = ROOT/'harness/assets'
 sys.path.insert(0,str(ROOT/'tools'))
 from blender_forms import make_form
 sys.path.insert(0,str(ROOT/'formlab'))
-from layout import string_endpoints
+from layout import string_endpoints,bar_frame_plan,board_z,BAR
 # formlab.rig / clearance / layout_search are numpy-only (no SciPy) so they run here too.
 import rig as arm_rig, clearance as arm_clearance, layout_search
 # Pure Python preparation keeps SciPy and structural logic out of Blender's runtime.
@@ -58,9 +58,10 @@ def ball(n,p,r,m):
 def beam(n,a,b,r,m):
     o=cyl(n,(Vector(a)+Vector(b))/2,r,(Vector(b)-Vector(a)).length,m)
     o.rotation_mode='QUATERNION'; o.rotation_quaternion=(vec(b)-vec(a)).to_track_quat('Z','Y'); return o
-def text(n,body,p,size=.12):
+def text(n,body,p,size=.12,yaw=0.):
+    # Upright, facing +z; yaw turns it about the vertical (Godot radians, +x toward -z) to lie on an angled face.
     bpy.ops.object.text_add(location=vec(p)); o=bpy.context.object; o.name=n; o.data.body=body; o.data.align_x='CENTER'; o.data.size=size; o.data.extrude=.001
-    o.rotation_euler=(math.pi/2,0,0); o.data.materials.append(brass)
+    o.rotation_euler=(math.pi/2,0,yaw); o.data.materials.append(brass)
     bpy.ops.object.convert(target='MESH')
 def gear(n,p,r=.15):
     # One joined mesh: hub, toothed perimeter, and a contrasting axle remain visible.
@@ -101,11 +102,14 @@ for m in score['instrument']['mechanisms']:
     # this far apart along x at every moment (world = 3 x score units).
     manifest['mechanisms'][mid]={'center':[x,base_y,z], 'kind':m['kind'], 'material':m['material'], 'arm_clearance_m':3*float(m.get('arm_clearance',0.0))}
     span=m['span']*3
-    if struck: box(mid+' bed',(x,.73,z),(span+.5,.22,1.5),wood)
+    # The bars hang on a marimba frame built by formlab (form_bars_stand); other
+    # struck mechanisms keep a bed on legs.
+    framed=mid=='bars'
+    if struck and not framed: box(mid+' bed',(x,.73,z),(span+.5,.22,1.5),wood)
     for dx in (() if mid in ("bars","harp","rake") else (-span/2-.1,span/2+.1)):
         box(mid+' leg',(x+dx,.36,z),(.16,.7,.36),wood)
         cyl(mid+' foot',(x+dx,.07,z),.17,.13,brass)
-    if struck: text(mid+' plaque',mid.upper()+'  /  '+m['material'].upper(),(x,.68,z+.78),.105)
+    if struck and not framed: text(mid+' plaque',mid.upper()+'  /  '+m['material'].upper(),(x,.68,z+.78),.105)
     ends=[]
     for i,s in enumerate(m['strings']):
         sx=x+s['pos'][0]*3; sy=base_y+s['pos'][1]*3; sz=z+s['pos'][2]*3; length=s['length']*3
@@ -115,17 +119,42 @@ for m in score['instrument']['mechanisms']:
                 bell(s['id']+' bell',(sx,sy-.12,sz))
                 cyl(s['id']+' crown',(sx,sy-.0225,sz),.12,.045,brass)
             else:
-                box(s['id']+' bar',(sx,sy-.055,sz),(min(.24,span/len(m['strings'])*.7),.11,length),rose)
+                box(s['id']+' bar',(sx,sy-BAR['thick']/2,sz),(min(.24,span/len(m['strings'])*.7),BAR['thick'],length),rose)
                 if m['material']=='wood':
                     box(s['id']+' slit',(sx,sy+.001,sz+.07),(.19,.006,.018),black,.002)
-            beam(s['id']+' resonator',(sx,.84,sz),(sx,sy-.13,sz),.07,brass)
+            if not framed: beam(s['id']+' resonator',(sx,.84,sz),(sx,sy-.13,sz),.07,brass)
         else:
             for ep in (a,b):
                 ball(s['id']+' anchor',ep,.035,brass)
                 beam(s['id']+' pin',ep,[ep[0],ep[1],ep[2]-.1],.022,steel)
         ends.append((a,b))
         manifest['strings'][s['id']]={'a':a,'b':b,'mid':mid,'struck':struck,'midi':s['midi'],'pick':s['pick_default']}
-        if struck: text(s['id']+' note',str(int(s['midi'])),(sx,.91,z+.79),.065)
+        if struck and not framed: text(s['id']+' note',str(int(s['midi'])),(sx,.91,z+.79),.065)
+    if framed:
+        # Hardware on the marimba frame: cord posts with rubber cushions, the cord through the
+        # bars' node holes, closed quarter-wave resonators on their bank rod, glides, and the
+        # plaque and note names on the name board. The wooden frame itself is form_bars_stand.
+        plan=bar_frame_plan([dict(manifest['strings'][s['id']],id=s['id']) for s in m['strings']])
+        for side,posts in plan['posts'].items():
+            for i,p in enumerate(posts):
+                beam(f'{mid} {side} post {i}',(p['x'],p['y0'],p['z']),(p['x'],p['y1'],p['z']),.012,brass)
+                ball(f'{mid} {side} cushion {i}',(p['x'],p['y1'],p['z']),.016,black)
+            for p,q in zip(posts[:-1],posts[1:]):
+                beam(f'{mid} {side} cord',(p['x'],plan['cord_y'],p['z']),(q['x'],plan['cord_y'],q['z']),.006,black)
+        for r in plan['resonators']:
+            cyl(r['id']+' resonator',(r['x'],r['top']-r['length']/2,r['z']),r['radius'],r['length'],brass)
+            cyl(r['id']+' resonator mouth',(r['x'],r['top']-.002,r['z']),r['radius']*.82,.008,black)
+            cyl(r['id']+' resonator stop',(r['x'],r['top']-r['length']+.015,r['z']),r['radius']*1.06,.03,brass)
+        bank=plan['bank']; beam(mid+' resonator bank',(bank['x'][0],bank['y'],bank['z']),(bank['x'][1],bank['y'],bank['z']),.018,steel)
+        for e in plan['ends']:
+            for zz in e['foot']: cyl(mid+' glide',(e['x'],e['floor']+.006,zz+.04 if zz<e['z_back'] else zz-.04),.035,.024,brass)
+        # The board runs at the converging rails' angle; the text turns with it and sits 2 mm off its face.
+        bx,bz=plan['board']['x'],plan['board']['z']; yaw=math.atan2(-(bz[1]-bz[0]),bx[1]-bx[0]); off=.0145
+        face=lambda xx:(xx+off*math.sin(yaw),board_z(plan,xx)+off*math.cos(yaw))   # along the face normal (sin yaw, cos yaw)
+        xm=(bx[0]+bx[1])/2; fx,fz=face(xm)
+        text(mid+' plaque',mid.upper()+'  /  '+m['material'].upper(),(fx,.605,fz),.095,yaw)
+        for s in m['strings']:
+            sx=manifest['strings'][s['id']]['a'][0]; fx,fz=face(sx); text(s['id']+' note',str(int(s['midi'])),(fx,.735,fz),.06,yaw)
     if mid=='harp':
         left=min(v['a'][0] for v in manifest['strings'].values() if v['mid']==mid)
         # A solid pedal box receives the continuous lower frame. Small edge

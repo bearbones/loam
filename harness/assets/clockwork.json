@@ -605,7 +605,7 @@
         "behind": 1.0677,
         "scene": 0.985,
         "strings": 0.028,
-        "mast": 0.1,
+        "mast": 0.095,
         "fine": 0.0245,
         "cross": {
           "harp_arm0": 0.2716,
@@ -665,8 +665,8 @@
         "margin_m": 0.02499999999999991,
         "worst": "gantry harp_arm0 rack",
         "rack": {
-          "gap": 1.220237329413276,
-          "worst": "arm harp_arm0 elbowhead_web2",
+          "gap": 0.6327745598275163,
+          "worst": "arm harp_arm2 lower2",
           "mount": "back"
         }
       }
@@ -748,8 +748,8 @@
             "x_col": -0.2356,
             "foot_y": -0.02,
             "height": 0.35000000000000003,
-            "gap": 0.03459999999999995,
-            "worst": "arm harp_arm2 upper2"
+            "gap": 0.03459999999999997,
+            "worst": "arm harp_arm2 carriage_web"
           },
           {
             "side": 1,
@@ -963,7 +963,7 @@
         "margin_m": 0.03459999999999887,
         "worst": "arm bars_arm0 carriage_axle",
         "rack": {
-          "gap": 0.18110838109190014,
+          "gap": 0.17182840277439576,
           "worst": "arm bars_arm1 carriage_cheek",
           "mount": "back"
         }
@@ -1003,7 +1003,7 @@
         "pair": 0.0304,
         "scene": 1.549,
         "strings": 0.1155,
-        "mast": 0.1,
+        "mast": 0.0495,
         "fine": 0.0304,
         "cross": {
           "bars_arm0": 0.1648
@@ -1062,8 +1062,8 @@
         "margin_m": 0.025399999999999867,
         "worst": "gantry bars_arm1 rack",
         "rack": {
-          "gap": 0.4850773134253959,
-          "worst": "gantry bars_arm0 rack",
+          "gap": 0.2409400000000001,
+          "worst": "arm bars_arm0 upper2",
           "mount": "back"
         }
       }

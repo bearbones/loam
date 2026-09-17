@@ -13,9 +13,10 @@ fixed. Both the original and expanded ensembles include three selectable forms:
 | Shell | Walnut with flowing forks and openings | Geometric / load-collection heuristic |
 
 Press **F** in Godot to cycle them, or use `--form=carved`, `--form=ribbed`,
-or `--form=shell`. The bar instrument also has a branching stand made through
-the same pipeline. Its branches illustrate load collection, without a solved
-stress claim.
+or `--form=shell`. The bar instrument originally had a branching stand made
+through the same pipeline (a load-collection heuristic, no solved stress
+claim); on 2026-09-17 it was replaced by a construction-driven marimba frame,
+see [instrument frames](instrument-frames.md).
 
 ## Architecture and where to invest
 
@@ -31,7 +32,7 @@ and reconstructs grain coordinates from source curves. Godot consumes baked
 GLBs and uses those coordinates for the existing procedural wood shader.
 No additional software was installed.
 
-The second use case—the branching stand—supports keeping the core reusable,
+The second use case—the bar instrument's frame—supports keeping the core reusable,
 but does not yet justify a separately distributed package. A future Blender
 add-on should expose recipes and assumptions through controls and overlays,
 calling this core. Continue using Blender for finishing and asset editing.

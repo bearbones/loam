@@ -325,6 +325,10 @@ func _camera_at(t: float) -> void:
 		var s: Dictionary=layout["strings"][follow_sid]
 		var a := motion.v(s["a"]); var b := motion.v(s["b"])
 		target=a.lerp(b,.3); pos=target+Vector3(.85,.3,.85)
+	elif chosen==11:
+		# Bar frame close-up: the treble end's rails, cord posts and resonator mouths, from low in front.
+		var c := motion.v(layout["mechanisms"]["bars"]["center"]) if layout["mechanisms"].has("bars") else Vector3(4.5,1.35,1.2)
+		target=c+Vector3(.8,-.17,0); pos=c+Vector3(-.6,-.3,1.7)
 	camera.position=pos; camera.look_at(target)
 
 func _process(dt: float) -> void:

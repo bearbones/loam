@@ -13,7 +13,8 @@ import json,sys
 from pathlib import Path
 import numpy as np
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from formlab.recipes import harp_frame,soundboard,action_plate,branching_stand,pack,STYLES
+from formlab.recipes import harp_frame,soundboard,action_plate,bar_frame,pack,STYLES
+from formlab.layout import bar_frame_plan
 from formlab.linkage import parallelogram_arm,pick_tool,mallet_tool,tool_mount
 from formlab.rig import Rig
 from formlab.clearance import choose_offset,report,cross_arm_clearance,pinion_mount,rail_keep_clear,bar_pair_separation
@@ -35,8 +36,9 @@ for mid in ('harp','rake'):
     if mid=='harp':
         objects.append(pack('form_harp_actionplate',action_plate(elements),'brass','static neck mechanism mounting plate'))
         objects[-1]['finish']='profiled'
-m=layout['mechanisms']['bars']; xs=[s['a'][0] for s in layout['strings'].values() if s['mid']=='bars']
-objects.append(pack('form_bars_stand',branching_stand(m['center'],max(xs)-min(xs)),'wood','load-collection heuristic'))
+# The bar instrument's frame: rails under the nodal lines on end frames (formlab.layout.bar_frame_plan).
+objects.append(pack('form_bars_stand',bar_frame(bar_frame_plan([s for s in layout['strings'].values() if s['mid']=='bars'])),'wood',
+    'mallet-instrument construction: node-line rails, end frames, stretcher, name board')); objects[-1]['finish']='profiled'
 
 # Articulated arms: a double parallelogram per actuator, offsets from the motion.
 arms={}; reports={}; all_poses={}

@@ -3,6 +3,7 @@ import numpy as np
 from scipy.interpolate import PchipInterpolator
 from .sweep import sample_curve,sweep,validate_mesh
 from .joints import rounded_loop,section_field,smoothstep
+from .layout import RAIL,END,BOARD
 
 STYLES=('carved','ribbed','shell')
 def handrail_profile():
@@ -89,20 +90,33 @@ def action_plate(elements):
     profile=np.array([[-1,-.7],[-.96,-1],[.96,-1],[1,-.7],[1,.7],[.96,1],[-.96,1],[-1,.7]])
     return [sweep(path,.078,.004,profile=profile)]
 
-def branching_stand(center,span):
-    """Second application: load-collection heuristic, not a solved stand."""
-    x,_,z=center; pieces=[]
-    for side in (-1,1):
-        zz=z+side*.3
-        # Central trunk, two spreading roots, two forks supporting the existing bed.
-        paths=[([[x,.06,zz],[x,.28,zz],[x,.48,zz]], [.16,.12]),
-               ([[x-span*.31,.035,zz],[x-span*.19,.12,zz],[x,.32,zz]],[.13,.12]),
-               ([[x+span*.31,.035,zz],[x+span*.19,.12,zz],[x,.32,zz]],[.13,.12]),
-               ([[x,.3,zz],[x-span*.18,.53,zz],[x-span*.41,.68,zz]],[.14,.09]),
-               ([[x,.3,zz],[x+span*.18,.53,zz],[x+span*.41,.68,zz]],[.14,.09])]
-        for controls,radii in paths:
-            path=sample_curve(controls,48)
-            pieces.append(sweep(path,np.linspace(*radii,len(path)),np.linspace(*radii,len(path))*.8))
+TIMBER=np.array([[-1,-.8],[-.9,-1],[.9,-1],[1,-.8],[1,.8],[.9,1],[-.9,1],[-1,.8]])   # chamfered rectangle
+def _timber(points,width,depth,count=None):
+    """A straight or gently curved sawn member; width/depth are half-extents per sweep()'s frame rule."""
+    path=sample_curve(points,count or max(12,4*len(points)))
+    n=len(path); w=np.linspace(*width,n) if np.ndim(width) else width; d=np.linspace(*depth,n) if np.ndim(depth) else depth
+    return sweep(path,w,d,profile=TIMBER)
+
+def bar_frame(plan):
+    """Marimba construction from formlab.layout.bar_frame_plan: two rails under the
+    bars' nodal lines, each end a foot, two uprights and a crosspiece the rails
+    rest on, a low stretcher between the ends and a name board on the front
+    uprights. Every piece is a closed sweep; the wood joins where they overlap."""
+    R=plan['rails']; pieces=[]
+    for side in ('back','front'):                                   # +X path: width->Y, depth->Z
+        pieces.append(_timber(R[side],RAIL['half_y'],RAIL['half_z'],64))
+    for e in plan['ends']:
+        xe=e['x']; y0=e['floor']
+        zb,zf=e['uprights']; cy=e['cross_y']
+        pieces.append(_timber([[xe,cy,zb-END['half_x']-.03],[xe,cy,(zb+zf)/2],[xe,cy,zf+END['half_x']+.03]],END['half_x'],END['half_x']))   # +Z path: width->Y, depth->X
+        for zu in (zb,zf):                                          # +Y path: width->X, depth->Z (tapering upward)
+            pieces.append(_timber([[xe,y0+END['foot_half_y'],zu],[xe,(y0+cy)/2,zu],[xe,cy+END['half_x']*.6,zu]],(END['taper'],END['half_x']),(END['taper'],END['half_x'])))
+        fb,ff=e['foot']
+        pieces.append(_timber([[xe,y0+END['foot_half_y'],fb],[xe,y0+END['foot_half_y'],(fb+ff)/2],[xe,y0+END['foot_half_y'],ff]],END['foot_half_y'],END['foot_half_x']))
+    s=plan['stretcher']; xa,xb=s['x']
+    pieces.append(_timber([[xa,s['y'],s['z']],[(xa+xb)/2,s['y'],s['z']],[xb,s['y'],s['z']]],.04,.045))
+    b=plan['board']; (x0,x1),(z0,z1)=b['x'],b['z']
+    pieces.append(_timber([[x0,b['y'],z0],[(x0+x1)/2,b['y'],(z0+z1)/2],[x1,b['y'],z1]],BOARD['half_y'],BOARD['half_z']))
     return pieces
 
 def pack(name,pieces,material,classification):

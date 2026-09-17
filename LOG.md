@@ -1,5 +1,51 @@
 # loam — log (newest at top)
 
+## 2026-09-17 — CLOCKWORK the bars hang on a marimba frame: node-line rails, end frames, quarter-wave resonators
+
+The bar instrument was a plank on branching roots, each bar on a bare
+brass stalk — a stand that explained nothing. A mallet instrument is an
+assembly whose every member follows from one fact: a free-free bar's
+fundamental has its nodes 22.4 % in from each end, and the bar is drilled
+and hung on a cord there so nothing damps it. formlab.layout.bar_frame_plan
+derives the rest from the bars alone: two rails splined through the actual
+node points (they converge toward the short treble bars), 30 mm under the
+bars; brass posts between the bars with rubber cushions and the cord at
+mid-thickness; a closed quarter-wave tube under each bar (c/4f − .61 r,
+scaled ×3, dark mouth, stopper cap, a steel bank rod through them) whose
+radius is capped to hang between the rails, so the treble tubes come out
+narrower as on the real thing; end frames — foot, two tapering uprights
+outside the rails, a crosspiece the rails rest on — as wide as the local
+rail spread, so the bass end stands broader; a low stretcher; a name board
+on the front uprights carrying the plaque and note names. recipes.bar_frame
+sweeps the timber (chamfered rectangular section, twelve closed pieces,
+profiled finish so the edges stay crisp) as form_bars_stand — the name the
+Godot form toggle and the tool-clearance ruler already key on — and Blender
+builds the metal from the same plan, so the tubes, posts, cord and text
+agree with the wood to the millimetre.
+
+Space accounting: the frame stays inside the footprint of the bed it
+replaced (z within ±0.75 m of the bar line, nothing above the bars'
+underside), so the gantry plan is unmoved — build_forms reproduced every
+mast, bracket and margin — and tools/test_bar_frame.py pins that envelope
+along with the construction rules (nodes, convergence, rail gap, posts clear
+of every bar and under the bar tops, tube radii and lengths, feet on the
+stage). docs/instrument-frames.md records the rules; `--view=11` is a
+fixed close-up of the frame's treble end. One lesson from the first render:
+the board runs at the converging rails' 3° angle over 3.3 m, so text placed
+in a fixed plane sank 9 cm into it at one end — the text now yaws with the
+board and sits on its face normal.
+
+The build also re-planned every rail this once: the tick-7 planner change
+altered solids_gap's source, which is part of the rail cache key. The
+chamber's rails and gantries came back identical. The expanded rig's second
+bells arm moved (z −4.21 → −3.66, links 1.6 → 1.45 m): its old rail's masts
+cannot stand once the first bells arm's rail is in place (−20 mm, every
+bracket blocked) — the gantry planner had been rescuing it with a 1.2 m
+set-back bracket at 22 mm — and the search now takes a rail whose masts
+stand plainly at 96 mm. Rulers: score plan, formlab, form joints, linkage
+tools, bar frame, form clearance (harp frame still governs at 24 mm), joint
+seats, gantry, and the six Godot tests on both assets — all green.
+
 ## 2026-09-17 — CLOCKWORK the gantry planner measures with the rail search's ruler (25 min → 44 s)
 
 tools/test_gantry.py had become a ruler nobody could afford: it re-runs the

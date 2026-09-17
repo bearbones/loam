@@ -23,7 +23,7 @@ Editable source files live in `models/`, outside Godot's import tree so headless
 
 ## Playback and inspection
 
-Space pauses/resumes; Home starts a one-second pre-roll so the first contact has an approach. Left/right seek two seconds. The bottom slider scrubs. C cycles wide, harp, rake, bars, overhead and expansion views. Two inspection views follow the action for stills and clips: `--view=9` sits behind the string plane on the second harp arm's elbow (knuckle pins, crossheads, parallel bars) and `--view=10` frames the most recently plucked string from 45° off its pluck axis, latching for 1.5 s so a run of plucks does not throw it about. A restores cue-directed cameras. T shows the existing annotated score. M switches the finished master and dry stems; 1–9 mute/unmute dry stems and select that audition mode. The default master is `chamber.wav` next to the score. Playback stops at the end rather than drifting past the tail.
+Space pauses/resumes; Home starts a one-second pre-roll so the first contact has an approach. Left/right seek two seconds. The bottom slider scrubs. C cycles wide, harp, rake, bars, overhead and expansion views. Two inspection views follow the action for stills and clips: `--view=9` sits behind the string plane on the second harp arm's elbow (knuckle pins, crossheads, parallel bars) and `--view=10` frames the most recently plucked string from 45° off its pluck axis, latching for 1.5 s so a run of plucks does not throw it about; `--view=11` is a fixed close-up of the bar frame's treble end (rails, cord posts, resonator mouths). A restores cue-directed cameras. T shows the existing annotated score. M switches the finished master and dry stems; 1–9 mute/unmute dry stems and select that audition mode. The default master is `chamber.wav` next to the score. Playback stops at the end rather than drifting past the tail.
 
 ```sh
 SHOT=/tmp/chamber.png godot --path harness -- --camera=manual --view=0 --time=48
@@ -77,6 +77,6 @@ review clips have 180 frames at 30 fps, H.264 video and AAC master audio.
 The [surface and lighting guide](clockwork-look.md) covers the runtime shaders,
 procedural texture rebuild, studio lighting and `--clean` beauty captures.
 
-The [procedural form results](form-generation-results.md) cover the continuous frames, branching stand, structural experiment and sampled tool-clearance checks. Press **F** to cycle carved, ribbed and shell frames, or pass `--form=carved|ribbed|shell`.
+The [procedural form results](form-generation-results.md) cover the continuous frames, structural experiment and sampled tool-clearance checks; the bar instrument's marimba construction (node-line rails, end frames, resonators) is in [instrument frames](instrument-frames.md). Press **F** to cycle carved, ribbed and shell frames, or pass `--form=carved|ribbed|shell`.
 
 The current [traditional harp refinement](traditional-harp-refinement.md) replaces the initial rounded frames with coved moulding and a diagonal soundbox.
