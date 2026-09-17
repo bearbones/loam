@@ -1,5 +1,23 @@
 # loam — log (newest at top)
 
+## 2026-09-17 — CLOCKWORK strings that read: glow, cross-axis blur, action cameras
+
+Stills from the front showed no vibration at all, and a forced 6 cm bend
+proved why: the pluck axis is world Z, straight at a frontal camera, so
+the bend and the flat sheath were edge-on. A real plucked wire precesses
+into an ellipse, so wire_string.gdshader now mirrors 35 % of the bend and
+the sheath width across X (`cross_axis`). And a thin metallic wire in a
+dark studio mirrors darkness: the core keeps a little diffuse body and a
+sounding string lights itself — `excitation` (peak excursion of the last
+1/30 s over a full 0.02 m pluck, set per frame by performance.gd) drives
+emission with its square, tinted by the wire's albedo so a red C sings
+red. Two inspection cameras: `--view=9` sits on the second harp arm's
+elbow from behind the string plane (knuckle pins, crossheads, bar pairs);
+`--view=10` frames the most recently plucked string 45° off its pluck
+axis and latches 1.5 s so a run of plucks does not throw it about.
+Rulers green on both assets (rig 324/392 contacts exact, cross-arm
+margin +56 mm, formlab, joints, joint seats, mesh distance, score plan).
+
 ## 2026-09-16 — CLOCKWORK articulated arms: joints, parallel bars, the space they need, wire strings
 
 Brief: helpers for beautiful articulating joints (and radius/ulna-style

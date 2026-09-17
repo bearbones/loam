@@ -10,11 +10,18 @@ uniform float envelope[24];
 uniform float radius = .004;
 uniform bool sheath = false;
 uniform vec4 albedo : source_color = vec4(.78,.8,.82,1);
-uniform float metallic = .9;
+uniform float metallic = .75;
 uniform float roughness = .28;
 uniform float wound = 0.0;        // 1 = bronze-wound bass string
 uniform float wind_pitch = 900.0; // turns per metre of the winding
 uniform float length_m = 3.0;
+uniform float excitation = 0.0;   // 0 silent .. 1 full pluck: the wire glows with its energy
+uniform vec4 glow : source_color = vec4(1.0, .86, .62, 1.0);
+// A plucked wire never stays in one plane: the pick's release and the wire's own
+// stiffness turn the motion into a slowly precessing ellipse. `cross` is the
+// minor axis as a fraction of the major one, so the bend and the blur read
+// from a camera in front of the string plane too, not only edge-on.
+uniform float cross_axis = .35;
 varying float v_env;
 varying float v_theta;
 
@@ -38,26 +45,28 @@ void vertex() {
     if (sheath) {
         float e = node_value(u, true);
         v_env = e;
-        // flat lens in the vibration plane: thin across X, wide along Z
-        VERTEX.x = cos(theta) * radius * 1.15;
+        // elliptical lens: wide along Z (the pluck), the minor axis across X
+        VERTEX.x = cos(theta) * (radius * 1.15 + e * cross_axis);
         VERTEX.z = sin(theta) * (radius + e);
     } else {
         v_env = 0.0;
     }
     VERTEX.z += d;
+    VERTEX.x += d * cross_axis;
     // tilt the ring normal with the local slope of the bent wire
     vec3 n = NORMAL;
-    NORMAL = normalize(vec3(n.x, n.y - du * n.z, n.z));
+    NORMAL = normalize(vec3(n.x - du * cross_axis * n.y, n.y - du * n.z, n.z));
 }
 
 void fragment() {
     if (sheath) {
         // denser near the turning points (a sinusoid dwells there), soft in the middle
         float edge = abs(sin(v_theta));
-        float a = smoothstep(.0008, .004, v_env) * (.10 + .30 * edge * edge);
+        float a = smoothstep(.0008, .004, v_env) * (.14 + .34 * edge * edge);
         ALBEDO = albedo.rgb;
         ALPHA = a;
         METALLIC = 0.0; ROUGHNESS = .6; SPECULAR = .2;
+        EMISSION = glow.rgb * mix(vec3(1.0), albedo.rgb, .5) * excitation * .8;
     } else {
         float tone = 1.0;
         float rough = roughness;
@@ -68,9 +77,13 @@ void fragment() {
             tone = .82 + .18 * ridge;
             rough = roughness + .08 * (1.0 - ridge);
         }
+        // A thin wire in a dark studio would vanish as pure metal: keep a little
+        // diffuse body so it reads, and let a sounding string light itself.
         ALBEDO = albedo.rgb * tone;
-        METALLIC = metallic;
+        METALLIC = metallic * (1.0 - .35 * excitation);
         ROUGHNESS = rough;
-        SPECULAR = .6;
+        SPECULAR = .7;
+        // tinted by the wire's own colour so a red C stays red when it sings
+        EMISSION = glow.rgb * mix(vec3(1.0), albedo.rgb, .65) * (excitation * excitation) * 1.1 + albedo.rgb * .06;
     }
 }

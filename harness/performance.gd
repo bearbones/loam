@@ -36,6 +36,8 @@ var fixed_time := 48.0
 var clock_started := false
 var silent := false
 var audio_mode := "master"
+var follow_sid := ""
+var follow_since := -1e9
 
 func option(key: String, fallback: String) -> String:
 	for a in OS.get_cmdline_user_args():
@@ -245,10 +247,15 @@ func evaluate(t: float) -> void:
 			for k in range(1,5):
 				var past := score.shape_frame(e["shape"],tau-k*step)
 				for i in mini(past.size(),STRING_NODES): envelope[i]=maxf(envelope[i],absf(past[i]*gain))
-		for i in STRING_NODES: envelope[i]=maxf(envelope[i],absf(displacement[i]))
+		var peak := 0.0
+		for i in STRING_NODES:
+			envelope[i]=maxf(envelope[i],absf(displacement[i])); peak=maxf(peak,envelope[i])
+		# A sounding string glows with its energy (a full-amplitude pluck peaks near 0.035 m).
+		var excitation := clampf(peak/.02,0.0,1.0)
 		for child in strings[sid].get_children():
 			var mat: ShaderMaterial=child.material_override
 			mat.set_shader_parameter("disp",displacement); mat.set_shader_parameter("envelope",envelope)
+			mat.set_shader_parameter("excitation",excitation)
 	for sid in hits:
 		if not layout["strings"][sid]["struck"]: continue
 		var energy := 0.0
@@ -284,6 +291,25 @@ func _camera_at(t: float) -> void:
 	elif chosen==6: target=Vector3(-.15,3.3,.25); pos=target+Vector3(.65,.28,3.5)
 	elif chosen==7: target=Vector3(0,1.95,0); pos=Vector3(0,1.95,6.6)
 	elif chosen==8: target=Vector3(-.9,.35,.2); pos=target+Vector3(1.3,.8,2.2)
+	elif chosen==9:
+		# Joint close-up: follow the second harp arm's elbow from behind the string plane.
+		var aid: String="harp_arm1" if layout["arms"].has("harp_arm1") else layout["arms"].keys()[0]
+		var pose := motion.pose(aid,t)
+		target=(pose["elbow"]+pose["wrist"])/2; pos=target+Vector3(1.5,.45,-1.9)
+	elif chosen==10:
+		# String close-up: the most recently sounded unstruck string, seen from
+		# 45° off its pluck axis so both the bend and the blur read. The camera
+		# latches for a while so a run of plucks does not throw it about.
+		var best_t := -1e9; var best_sid := ""
+		for sid in hits:
+			if layout["strings"][sid]["struck"]: continue
+			for hit in hits[sid]:
+				if float(hit["t"])<=t and float(hit["t"])>best_t: best_t=float(hit["t"]); best_sid=sid
+		if best_sid=="": best_sid=hits.keys()[0]
+		if follow_sid=="" or t<follow_since or t-follow_since>1.5: follow_sid=best_sid; follow_since=t
+		var s: Dictionary=layout["strings"][follow_sid]
+		var a := motion.v(s["a"]); var b := motion.v(s["b"])
+		target=a.lerp(b,.3); pos=target+Vector3(.85,.3,.85)
 	camera.position=pos; camera.look_at(target)
 
 func _process(dt: float) -> void:

@@ -127,3 +127,17 @@ and a second translucent copy is a sheath widened to the peak excursion of
 the last 1/30 s — the blur a vibrating wire presents to the eye, denser at
 the turning points. Gauge follows pitch (a display gauge; real wire would be
 sub-pixel) and strings below C4 are wound bronze with a helical ridge.
+
+Two things a still from the front never showed. The pluck axis is world Z,
+straight at a frontal camera, so the bend and the sheath (a lens flat in
+the vibration plane) were edge-on and vanished; a real plucked wire does
+not stay in its plane either — the pick's release and the wire's stiffness
+precess the motion into a slowly turning ellipse — so `cross_axis` (0.35)
+mirrors that fraction of the bend and the sheath width across X. And a
+thin metallic wire in a dark studio is a mirror of darkness: the core
+keeps a little diffuse body, and a sounding string lights itself —
+`excitation` is the peak excursion of the last 1/30 s over a full pluck
+(0.02 m), emission rises with its square and is tinted by the wire's own
+albedo so a red C sings red. `performance.gd` sets it per frame beside
+`disp`/`envelope`. `--view=10` frames the most recently plucked string
+from 45° off its pluck axis to judge all of this; it latches for 1.5 s.
