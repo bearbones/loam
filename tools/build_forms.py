@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from formlab.recipes import harp_frame,soundboard,action_plate,branching_stand,pack,STYLES
-from formlab.linkage import parallelogram_arm,pick_tool,mallet_tool
+from formlab.linkage import parallelogram_arm,pick_tool,mallet_tool,tool_mount
 from formlab.rig import Rig
 from formlab.clearance import choose_offset,report,cross_arm_clearance
 ROOT=Path(__file__).resolve().parents[1]
@@ -54,10 +54,12 @@ if score_path.exists() and layout.get('arms'):
             if part in ('layers','spec'): continue
             entry=pack(f'{aid}__{part}',body['pieces'],material.get(part,'brass'),'articulated link, local frame')
             entry['finish']='profiled'; entry['local']=True; objects.append(entry)
-        tool=mallet_tool() if cfg['kind']=='mallet' else pick_tool()
-        objects.append(pack(f'{aid}__tool',tool[:1],'felt' if cfg['kind']=='mallet' else 'steel','contact tool, origin at contact'))
+        # The tool hangs from the wrist crosshead's lower boss; the shank is built to reach it.
+        mount=tool_mount(rig.wrist_offset(cfg),o2)
+        tool=mallet_tool(mount) if cfg['kind']=='mallet' else pick_tool(mount)
+        objects.append(pack(f'{aid}__tool',tool[0],'felt' if cfg['kind']=='mallet' else 'brass','contact tool, origin at contact'))
         objects[-1]['finish']='profiled'; objects[-1]['local']=True
-        objects.append(pack(f'{aid}__shank',tool[1:],'steel','tool shank to the wrist'))
+        objects.append(pack(f'{aid}__shank',tool[1],'steel','tool shank to its socket on the wrist crosshead'))
         objects[-1]['finish']='profiled'; objects[-1]['local']=True
         upper=np.concatenate([m.vertices for m in parts['upper']['pieces']])
         arms[aid]=dict(o1=o1.round(5).tolist(),o2=o2.round(5).tolist(),layers=layers,

@@ -31,7 +31,7 @@ along the link, the pin axis +X) and never scaled afterwards:
 | upper2, lower2 | `link(layer=...)` | the parallel bar, one layer outboard |
 | carriage, elbowhead, wristhead | `crosshead()` | two bosses joined by a web; the pins live here |
 | shoulder, elbow, wrist | `knuckle_pin()` | domed head one side, nut the other |
-| tool + shank | `pick_tool()` / `mallet_tool()` | tool origin = contact point |
+| tool + shank | `pick_tool(mount)` / `mallet_tool(mount)` | tool origin = contact point; the shank is built to reach its socket under the wrist boss (see Tools) |
 
 Joints are **knuckle joints**: a fork straddles an eye on a pin (`fork_end`,
 `eye_end`, `ring`, `revolve`). The fork gap, ear thickness and pin radius
@@ -51,8 +51,10 @@ are the same two-link planar IK to 3e-7 m: root at `(tip.x, root_y,
 root_z)`, swing plane yz, pins along world X. Two rules were added:
 
 - **Wrist offset.** The wrist pin sits at `tip + wrist_offset`. Picks and
-  rakes use `(0, .15, −.10)`: above and *behind* the string, so the pin never
-  sits on the string it plays. Mallets use `(0, .20, 0)`.
+  rakes use `(0, .20, −.10)`: above and *behind* the string, so the pin never
+  sits on the string it plays. Mallets use `(0, .28, 0)`. The heights are
+  what the tool stack needs: plectrum (or felt head), ferrule, a shank you
+  can see, the socket collar, and the boss's own radius (0.05 m) above it.
 - **Bend hint.** `bend = "back"` keeps a pick arm's elbow on the far side of
   the string plane — the hanging elbow of a harpist. With the root above and
   behind the string an "up" elbow is geometrically forced through the
@@ -62,7 +64,36 @@ root_z)`, swing plane yz, pins along world X. Two rules were added:
 The parallel bars are posed with `link_basis(a, b)` at `a + o` — the same
 basis as the primary bar, translated by the constant world offset `o`.
 `choose_offset()` picks `o` (magnitude 0.11 m) to maximise the minimum
-separation between the two bars of a segment over the whole piece.
+separation between the two bars of a segment over the whole piece. `o` and
+`−o` separate the bars identically, so the chooser keeps `o` pointing up or
+level: the second bar's pin then never hangs below the wrist, where the
+tool's shank needs its socket.
+
+## Tools
+
+The first tools were a straight 0.15 m rod from the contact point — and
+the wrist pin is 0.10 m behind that point, so no shank actually reached
+its crosshead. A tool is now built *to its mount*:
+
+- **Plectrum** (`pick_tool`): a tear-drop blade 50 × 70 × 7 mm, its face
+  toward the string (wide across the pin axis, thin along the pluck — the
+  old blade was swept edge-on, which is why it read as a needle), clamped at
+  its top in a **ferrule** block with two set screws. Brass, for the eye;
+  a real mechanism would use horn or hard leather.
+- **Swan-neck shank** (`swan_shank`, `clearance.shank_path`): a round
+  steel rod on a cubic Bezier from the ferrule top — rising vertically,
+  curving back, arriving vertically — into a **socket** collar hanging
+  under the wrist pin's boss (chamfered mouth, tenon buried in the boss).
+  `clearance.tool_mount` is that rule; `SOCKET_DEPTH` (0.075 m) is where
+  the mouth sits below the boss centre. When the mount is directly above
+  (mallets) the same recipe is a straight drop.
+- **Mallet** (`mallet_tool`): a 12 cm felt head with the shank starting
+  inside it — threaded on, not pasted to the rod.
+
+The clearance capsules follow: `tool` runs from the contact point to the
+neck's apex, `shank` from the apex into the socket; the shank is judged
+against the strings like every bar, and the lower bar is measured against
+the tool rather than excused. `tools/test_linkage_tools.py` is the ruler.
 
 ## The space an arm needs
 
@@ -110,6 +141,7 @@ whole piece.
 python3 tools/test_score_plan.py          # planner clearance rule, neck fan
 python3 tools/test_formlab.py             # sweeps, frames, layout
 python3 tools/test_form_joints.py         # seamless frame joints
+python3 tools/test_linkage_tools.py       # plectrum, ferrule, swan neck, socket, mallet
 blender -b -t 2 -P tools/test_form_joint_seats.py
 godot --headless --path harness -s dev/test_clockwork.gd
 godot --headless --path harness -s dev/test_performance.gd

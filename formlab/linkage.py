@@ -21,6 +21,7 @@ Real-world grammar, kept honest:
 """
 import numpy as np
 from .sweep import Mesh, sweep, validate_mesh
+from .clearance import bezier, SOCKET_DEPTH, tool_mount, shank_path
 
 X, Y, Z = np.eye(3)
 
@@ -163,22 +164,52 @@ def crosshead(pins, thickness=.03, boss_r=.05, pin_r=.018, web=.05, axis=X, laye
         pieces.append(sweep(path, thickness/2*.98, web/2, profile=rounded_rect(.3, 16)))
     return pieces
 
-def pick_tool(shank_r=.011, shank_h=.15, blade_w=.034, blade_h=.05, blade_t=.008):
-    """Steel pick: origin at the contact point (bottom); shank rises to the wrist."""
-    pr = [(0, blade_h*.9), (shank_r*.7, blade_h*.9), (shank_r, blade_h*1.3), (shank_r, shank_h-.01),
-          (shank_r*1.6, shank_h-.006), (shank_r*1.6, shank_h+.012), (0, shank_h+.012)]
-    shank = revolve(pr, Y, (0, 0, 0), 20)
-    u = np.linspace(0, 1, 12)
-    path = np.c_[np.zeros(12), u*blade_h, np.zeros(12)]
-    blade = sweep(path, blade_t/2*(.35+.65*u), blade_w/2*(.25+.75*np.sqrt(u)), profile=rounded_rect(.45, 16))
-    return [shank, blade]
+def socket(mount, r=.017, depth=SOCKET_DEPTH, buried=.04):
+    """Tapped socket boss hanging under a crosshead boss (radius .05): a
+    collar with a chamfered mouth, its tenon buried in the boss above."""
+    m = np.asarray(mount, float)
+    pr = [(0, -depth-.006), (r*.72, -depth-.006), (r, -depth+.002), (r, -depth+.018),
+          (r*.82, -depth+.022), (r*.82, -buried), (0, -buried)]
+    return revolve(pr, Y, m, 20)
 
-def mallet_tool(head_r=.075, shank_r=.012, shank_h=.15):
-    """Felt mallet head on a steel shank; origin at the head's lowest point."""
+def swan_shank(start, mount, r0=.010, r1=.012, rise=.05):
+    """Round steel shank along shank_path, thickening toward the socket, plus
+    the socket itself. Returns [shank, socket]."""
+    path = shank_path(start, mount, rise)
+    u = np.linspace(0, 1, len(path))
+    return [sweep(path, r0+(r1-r0)*u, r0+(r1-r0)*u, sides=16), socket(mount)]
+
+def pick_tool(mount, blade_w=.05, blade_h=.07, blade_t=.007, ferrule_w=.04):
+    """Plectrum in a clamped ferrule on a swan-neck shank. Origin at the
+    contact point (the plectrum's tip); `mount` is the crosshead boss the
+    shank hangs from (tool_mount). Returns [blade, ferrule, screws...] first
+    (the contact tool) then [shank, socket]; build_forms splits at index 1."""
+    n = 16; u = np.linspace(0, 1, n)
+    path = np.c_[np.zeros(n), u*blade_h, np.zeros(n)]
+    # tear-drop plectrum: a point at the contact, full shoulders at 80 % height
+    half_w = blade_w/2*(.10+.90*np.sin(np.pi/2*np.minimum(u/.8, 1)))*(1-.12*np.clip((u-.8)/.2, 0, 1)**2)
+    half_t = blade_t/2*(.35+.65*u)
+    # sweep: width lies across X (the pin axis, along the string row), depth
+    # along Z (the pluck). The face meets the string; the edge does not.
+    blade = sweep(path, half_w, half_t, profile=rounded_rect(.45, 16))
+    # ferrule: a block across the plectrum's top, clamped by two set screws
+    fy = blade_h*.86; fh = .011; ft = .009
+    fpath = np.c_[np.linspace(-ferrule_w/2, ferrule_w/2, 8), np.full(8, fy), np.zeros(8)]
+    ferrule = sweep(fpath, fh, ft, profile=rounded_rect(.35, 16))
+    screws = []
+    for sx in (-ferrule_w*.28, ferrule_w*.28):
+        pr = [(0, ft-.001), (.0035, ft-.001), (.0035, ft+.004), (.0025, ft+.0055), (0, ft+.0055)]
+        screws.append(revolve(pr, Z, (sx, fy, 0), 12))
+    tool = [blade, ferrule]+screws
+    return [tool]+[swan_shank((0, fy+fh, 0), mount)]
+
+def mallet_tool(mount, head_r=.06):
+    """Felt mallet head on a steel shank to its socket; origin at the head's
+    lowest point. Returns [[head], [shank, socket]]. The shank starts inside
+    the head, so the felt is threaded on rather than pasted to the rod."""
     pr = [(0, 0)]+[(head_r*np.sin(a), head_r*(1-np.cos(a))) for a in np.linspace(.15, np.pi-.15, 14)]+[(0, 2*head_r)]
     head = revolve(pr, Y, (0, 0, 0), 28)
-    sh = [(0, head_r*1.6), (shank_r, head_r*1.6), (shank_r, shank_h-.006), (shank_r*1.6, shank_h-.004), (shank_r*1.6, shank_h+.012), (0, shank_h+.012)]
-    return [head, revolve(sh, Y, (0, 0, 0), 20)]
+    return [[head], swan_shank((0, head_r*1.4, 0), mount, .012, .013)]
 
 def parallelogram_arm(l1, l2, o1, o2, spec=None):
     """Double-parallelogram arm parts in their own local frames.

@@ -43,11 +43,12 @@ def candidates(mech, layout):
     strings = [s for s in layout['strings'].values() if s['mid'] == mech['id']]
     if mech['kind'] == 'struck':
         cy = float(layout['mechanisms'][mech['id']]['center'][1]); cz = float(np.mean([s['a'][2] for s in strings]))
-        ys = [cy+.9, cy+1.15, cy+1.4]; zs = [cz-.75, cz-1.0, cz-1.3]; bend = 'up'; wrist = [0, .20, 0]
+        # .28 above the felt: a 12 cm head, a shank you can see, the socket collar, the boss
+        ys = [cy+.9, cy+1.15, cy+1.4]; zs = [cz-.75, cz-1.0, cz-1.3]; bend = 'up'; wrist = [0, .28, 0]
     else:
         zs_plane = float(np.mean([s['a'][2] for s in strings]))
         ys = [.55, 2.75, 3.15, 3.6, 4.1]; zs = [zs_plane+d for d in (-.75, -1.05, -1.4, -1.8, -2.25)]
-        bend = 'back'; wrist = [0, .15, -.10]
+        bend = 'back'; wrist = [0, .20, -.10]   # room for plectrum, ferrule, swan neck, socket
     ls = [1.0, 1.15, 1.3, 1.45, 1.6]
     return [dict(root_y=y, root_z=z, l1=l, l2=l, bend=bend, wrist_offset=wrist) for y in ys for z in zs for l in ls]
 
@@ -75,7 +76,7 @@ def evaluate_arm(rig, aid, cfg, times, spec=DEFAULT_SPEC, layers=None, boxes=(),
     sg = 1e9
     for s in strings.values():
         A = np.broadcast_to(np.asarray(s['a'], float), poses['root'].shape); B = np.broadcast_to(np.asarray(s['b'], float), poses['root'].shape)
-        for name in ('upper', 'upper2', 'lower', 'lower2', 'wristhead_web', 'elbowhead_web1', 'elbowhead_web2'):
+        for name in ('upper', 'upper2', 'lower', 'lower2', 'wristhead_web', 'elbowhead_web1', 'elbowhead_web2', 'shank'):
             P, Q, r = caps[name]; sg = min(sg, float((segment_distance(P, Q, A, B)-r-.002).min()))
     margins['strings'] = sg
     return dict(cfg=dict(cfg, o1=o1.tolist(), o2=o2.tolist()), poses=poses, caps=caps, margins=margins, worst=min(margins.values()))

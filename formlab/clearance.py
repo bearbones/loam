@@ -13,6 +13,34 @@ import numpy as np
 # Section dimensions shared with formlab.linkage (kept here so the space
 # rulers import without SciPy, e.g. inside Blender's Python).
 DEFAULT_SPEC = dict(width=.034, depth=.062, ear_r=.055, pin_r=.018, ear_t=.028, head_t=.03, boss_r=.05, web=.05)
+def bezier(points, count=24):
+    """Cubic (or quadratic) Bezier samples, (count, 3)."""
+    P = np.asarray(points, float); u = np.linspace(0, 1, count)[:, None]
+    if len(P) == 4:
+        return (1-u)**3*P[0]+3*(1-u)**2*u*P[1]+3*(1-u)*u**2*P[2]+u**3*P[3]
+    return (1-u)**2*P[0]+2*(1-u)*u*P[1]+u**2*P[2]
+
+SOCKET_DEPTH = .075    # socket mouth this far below the boss centre (boss radius .05 + collar)
+
+def tool_mount(wrist_offset, o2):
+    """Where a tool hangs from its wrist crosshead, relative to the contact
+    point: under the wrist pin's boss, entered from directly below. The
+    second bar's boss never hangs lower — choose_offset keeps that offset
+    pointing up or level, so the web and the lower bar's second pin stay
+    out of the shank's way. o2 is accepted for the record and checked."""
+    w = np.asarray(wrist_offset, float); o = np.asarray(o2, float)
+    if o[1] < -1e-9: raise ValueError('second-bar offset must point up or level (choose_offset half_plane)')
+    return w
+
+def shank_path(start, mount, rise=.05, count=24):
+    """Swan-neck centreline from `start` (top of the tool) to the socket mouth
+    under `mount`: rises vertically, curves across, arrives vertically. A
+    straight drop when the mount is directly above."""
+    start = np.asarray(start, float); mount = np.asarray(mount, float)
+    end = mount-[0, SOCKET_DEPTH, 0]
+    rise = min(rise, max((end[1]-start[1])/2, .005))
+    return bezier([start, start+[0, rise, 0], end-[0, rise, 0], end], count)
+
 def default_layers(spec=DEFAULT_SPEC):
     gap = spec['head_t']+.006
     outer = gap/2+spec['ear_t']+.006+spec['width']/2
@@ -48,6 +76,11 @@ def arm_capsules(poses, o1, o2, layers, spec):
     root, elbow, wrist = poses['root'], poses['elbow'], poses['wrist']
     o1 = np.asarray(o1, float); o2 = np.asarray(o2, float); X = np.array([1., 0, 0])
     r_bar = max(spec['width'], spec['depth'])/2; r_bar2 = r_bar*.8; outer = layers['outer']
+    # The tool: contact point up to the swan neck's apex, then the shank into
+    # its socket under the crosshead's lower boss (formlab.linkage.tool_mount).
+    tip = poses['tip']; mount = tool_mount(wrist[0]-tip[0], o2)
+    neck = shank_path([0, .07, 0], mount, count=25)
+    apex = tip+neck[12]; socket_end = tip+mount-[0, .03, 0]
     caps = {
         'upper':  (root, elbow, r_bar),
         'lower':  (elbow, wrist, r_bar),
@@ -57,15 +90,16 @@ def arm_capsules(poses, o1, o2, layers, spec):
         'elbowhead_web2': (elbow, elbow+o2, spec['web']/2),
         'wristhead_web': (wrist, wrist+o2, spec['web']/2),
         'carriage_web': (root, root+o1, spec['web']/2),
-        'tool': (poses['tip'], wrist, .03),
+        'tool': (tip, apex, .03),
+        'shank': (apex, socket_end, .02),
     }
     adjacent = {frozenset(p) for p in [
         ('upper', 'lower'), ('upper', 'elbowhead_web1'), ('upper', 'elbowhead_web2'), ('upper', 'carriage_web'),
-        ('lower', 'elbowhead_web1'), ('lower', 'elbowhead_web2'), ('lower', 'wristhead_web'), ('lower', 'tool'),
+        ('lower', 'elbowhead_web1'), ('lower', 'elbowhead_web2'), ('lower', 'wristhead_web'), ('lower', 'shank'),
         ('upper2', 'elbowhead_web1'), ('upper2', 'carriage_web'), ('upper2', 'elbowhead_web2'),
-        ('lower2', 'elbowhead_web2'), ('lower2', 'wristhead_web'), ('lower2', 'elbowhead_web1'),
-        ('elbowhead_web1', 'elbowhead_web2'), ('wristhead_web', 'tool'), ('upper', 'wristhead_web'),
-        ('upper2', 'upper'), ('lower2', 'lower')]}
+        ('lower2', 'elbowhead_web2'), ('lower2', 'wristhead_web'), ('lower2', 'elbowhead_web1'), ('lower2', 'shank'),
+        ('elbowhead_web1', 'elbowhead_web2'), ('wristhead_web', 'shank'), ('upper', 'wristhead_web'),
+        ('upper2', 'upper'), ('lower2', 'lower'), ('tool', 'shank')]}
     return caps, adjacent
 
 def pairwise_clearance(caps, adjacent=frozenset()):
@@ -88,14 +122,18 @@ def bar_pair_separation(poses, o, which='upper'):
     perp = o-d*(d@o)[:, None]
     return np.linalg.norm(perp, axis=-1)
 
-def choose_offset(poses, which, magnitude, candidates=72):
+def choose_offset(poses, which, magnitude, candidates=72, half_plane=True):
     """Pick the in-plane direction (yz) for the parallel bar's offset that
     maximises the worst-case bar separation over the motion. Returns
-    (offset, worst_separation, all candidates)."""
+    (offset, worst_separation, all candidates). o and -o separate the bars
+    identically, so `half_plane` keeps the offset pointing up or level: the
+    second bar's pin then never hangs below the wrist, where the tool's
+    shank needs its socket (tool_mount)."""
     best = None; table = []
     for k in range(candidates):
         ang = 2*np.pi*k/candidates
         o = np.array([0, magnitude*np.cos(ang), magnitude*np.sin(ang)])
+        if half_plane and o[1] < -1e-12: continue
         worst = float(bar_pair_separation(poses, o, which).min())
         table.append((ang, worst))
         if best is None or worst > best[1]: best = (o, worst)
@@ -119,7 +157,7 @@ def report(rig, aid, o1, o2, layers, spec, strings=None, string_r=.002, poses=No
         sg = []
         for sid, s in strings.items():
             A = np.broadcast_to(np.asarray(s['a'], float), poses['root'].shape); B = np.broadcast_to(np.asarray(s['b'], float), poses['root'].shape)
-            for name in ('upper', 'upper2', 'lower', 'lower2', 'wristhead_web', 'elbowhead_web1', 'elbowhead_web2'):
+            for name in ('upper', 'upper2', 'lower', 'lower2', 'wristhead_web', 'elbowhead_web1', 'elbowhead_web2', 'shank'):
                 P, Q, r = caps[name]
                 g = segment_distance(P, Q, A, B)-r-string_r
                 k = int(np.argmin(g)); sg.append((float(g[k]), sid, name, float(poses['t'][k])))

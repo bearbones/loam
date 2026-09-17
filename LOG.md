@@ -1,5 +1,36 @@
 # loam — log (newest at top)
 
+## 2026-09-17 — CLOCKWORK tools built to their mounts: plectrum, ferrule, swan neck, socket
+
+Reading the tool recipe for the "pick looks small" note found a
+construction bug instead: the wrist pin sits 0.10 m behind the contact
+point (0.20 m above a mallet), and every shank was a straight 0.15 m rod
+rising from the tip — no shank reached its crosshead. The blade was also
+swept edge-on (thin across the string row, wide along the pluck), which
+is why it read as a needle.
+
+formlab/linkage.py: pick_tool(mount) is a 50 × 70 mm tear-drop plectrum
+with its face to the string, clamped in a ferrule block with two set
+screws; swan_shank() runs a round rod on a cubic Bezier from the ferrule
+top — up, back, and vertically into a socket collar hanging under the
+wrist pin's boss (chamfered mouth, tenon buried in the boss). The same
+recipe is a straight drop for the mallet, whose shank now starts inside
+the felt. clearance.tool_mount / shank_path / SOCKET_DEPTH are the rule
+(numpy-only, so Blender's bare imports keep working); the clearance
+capsules follow the neck (tool: tip→apex, shank: apex→socket), the shank
+is judged against strings, and the lower bar is measured against the
+tool instead of excused.
+
+Two consequences the new ruler (tools/test_linkage_tools.py) caught:
+a wrist 0.15 m above the tip leaves no room for boss + socket + shank
+above a 70 mm plectrum, so pick wrists rise to 0.20 m (mallets 0.28 m);
+and one arm's second-bar offset pointed down, hanging its second pin
+below the plectrum — o and −o separate the bars identically, so
+choose_offset now keeps the offset up or level. Rails re-searched
+(cache keys changed); both assets rebuilt. Rulers green: rig 324/392
+contacts exact, link error 6.4e-7 m, cross-arm +56 mm beyond promise,
+self ≥ 18 mm, string ≥ 28 mm, mesh tool clearance 24 mm.
+
 ## 2026-09-17 — CLOCKWORK strings that read: glow, cross-axis blur, action cameras
 
 Stills from the front showed no vibration at all, and a forced 6 cm bend
