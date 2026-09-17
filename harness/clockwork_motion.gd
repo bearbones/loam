@@ -68,19 +68,40 @@ func tip_at(aid: String, t: float) -> Vector3:
 		rest = last+lift
 	return rest
 
+## Wrist pin relative to the tool's contact point; older manifests keep 0.15 m above.
+func wrist_offset(cfg: Dictionary) -> Vector3:
+	return v(cfg["wrist_offset"]) if cfg.has("wrist_offset") else Vector3(0,.15,0)
+
+## Elbow side. "up" bulges the elbow up/forward (a mallet over a bar); "back"
+## keeps it on the far side from the strings so a pick arm never pushes its
+## elbow through the string plane. Mirrored in formlab/rig.py.
+func bend_hint(cfg: Dictionary) -> Vector3:
+	return Vector3.FORWARD if String(cfg.get("bend","up"))=="back" else Vector3.UP
+
 func pose(aid: String, t: float) -> Dictionary:
 	var cfg: Dictionary = geometry["arms"][aid]
 	var tip := tip_at(aid,t)
 	var root := Vector3(tip.x,float(cfg["root_y"]),float(cfg["root_z"]))
-	var delta := tip+Vector3(0,.15,0)-root
+	var wrist := tip+wrist_offset(cfg)
+	var delta := wrist-root
 	var distance := delta.length()
 	var l1 := float(cfg["l1"])
 	var l2 := float(cfg["l2"])
 	var d := clampf(distance,absf(l1-l2)+.00001,l1+l2-.00001)
 	var direction := delta.normalized()
 	var along := (l1*l1-l2*l2+d*d)/(2*d)
-	var bend := Vector3.UP - direction*direction.dot(Vector3.UP)
+	var hint := bend_hint(cfg)
+	var bend := hint - direction*direction.dot(hint)
 	if bend.length_squared()<.00001:
 		bend=Vector3.FORWARD
 	var elbow := root + direction*along + bend.normalized()*sqrt(maxf(0,l1*l1-along*along))
-	return {"root":root,"elbow":elbow,"tip":tip,"reachable":distance<=l1+l2 and distance>=absf(l1-l2)}
+	return {"root":root,"elbow":elbow,"wrist":wrist,"tip":tip,"reachable":distance<=l1+l2 and distance>=absf(l1-l2)}
+
+## Link frame: y along the link, x the pin axis (world X projected), z = x × y.
+## Meshes are built at true length in this frame (formlab.linkage), never scaled.
+static func link_basis(a: Vector3, b: Vector3) -> Basis:
+	var y := (b-a).normalized()
+	var x := Vector3.RIGHT - y*y.dot(Vector3.RIGHT)
+	if x.length_squared()<.000001: x=Vector3.FORWARD
+	x=x.normalized()
+	return Basis(x,y,x.cross(y))

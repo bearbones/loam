@@ -1,5 +1,73 @@
 # loam — log (newest at top)
 
+## 2026-09-16 — CLOCKWORK articulated arms: joints, parallel bars, the space they need, wire strings
+
+Brief: helpers for beautiful articulating joints (and radius/ulna-style
+bar pairs) for the arms that play the instruments, frames from real
+construction, space accounting so nothing intersects, better strings.
+docs/articulated-arms.md is the guide.
+
+formlab/linkage.py — joint and link recipes in a link frame (pin A at
+the origin, +Y along the link, pin axis +X), built at true length and
+never scaled: knuckle joints (fork straddling an eye on a domed pin
+with a nut), flat fish-belly bars with forked and eyed ends, crossheads
+(two bosses and a web), pick and mallet tools. parallelogram_arm()
+assembles the drafting-lamp arrangement: two bars per segment on pins a
+fixed offset apart, so every crosshead and the tool stay upright with
+no third motor; layers along the pin axis let the two segments cross.
+One spec (clearance.DEFAULT_SPEC) sizes every seat.
+
+formlab/rig.py mirrors clockwork_motion.gd to 3e-7 m. Two motion rules
+landed on both sides: wrist_offset (picks .15 up and .10 BEHIND the
+string — the pin no longer sits on the string it plays) and the bend
+hint "back" (a harpist's hanging elbow: with the root above and behind
+the strings, an "up" elbow is geometrically forced through the plane).
+
+Space: formlab/clearance.py is a capsule ruler (segment–segment
+distance over the sampled piece; self, string and cross-arm gaps);
+formlab/layout_search.plan_arms searches rail height/depth and link
+length per arm against self, pair, string, scene-box and cross-arm
+margins (greedy + coordinate descent, per-mechanism cache since it is
+minutes per mechanism). Result: worst cross-arm gap went from −55 mm
+(stacked rails, bars through each other) to +139 mm; every arm's self
+margin ≥ 13 mm by the conservative ruler; mesh-sampled tool clearance
+24 mm.
+
+The finding that mattered: an arm is 0.24 m across its pin axis and
+harp strings are 0.11 m apart, so no rail placement can separate two
+arms reaching adjacent strings at once — the score planner has to know
+the arm's width. Mechanism.arm_clearance: _Solver charges each arm with
+the axis interval it crosses while moving and a point over its last
+string while hovering, and refuses any plan that brings two arms of a
+mechanism closer than that at any time (piecewise-constant occupancy,
+checked at every breakpoint). The composition already asks before it
+writes, so the rule shapes the piece: The Chamber drops 7 of 247
+intended notes (2.8 %, under the 5 % ruler), zero conflicts;
+songs/clockwork.py preserves every original plan. tools/test_score_plan.py.
+
+For the planner's positions to be the model's, Mechanism.fan() moved
+the harp/rake neck fan into the score (one scale degree per equal
+step, feet climbing the diagonal soundboard); formlab/layout reads
+fanned mechanisms straight from pos. A dorian scale's uneven steps
+kinked the neck spline through the string tops and the sweep went
+non-manifold; fan(smooth=2) refits log-length with a quadratic (≤ 2.6 %
+of length, pitch untouched) — a real neck is one fair curve the
+strings are cut to. dev/test_clockwork.gd now also checks the promised
+tip-x separation of every arm pair over the piece at 120 Hz (+56 mm
+beyond the promise).
+
+Strings: harness/shaders/wire_string.gdshader replaces the line strips.
+A static tube per string; the vertex shader bends it with the 24-node
+shape frame (Catmull-Rom, normals tilted by slope) and a translucent
+copy is a sheath widened to the last 1/30 s peak excursion — the blur a
+vibrating wire shows the eye, denser at the turning points. Gauge by
+pitch, wound bronze below C4.
+
+Rulers green on both assets: formlab, joints, joint seats, score plan,
+rig (324/392 contacts exact, link error 5.7e-7 m), performance GLB
+integration, form clearance. Both assets rebuilt (models/*.blend,
+harness/assets/*).
+
 ## 2026-09-06 — THE CHAMBER: a score for a machine (e97-e99, the piece, the Godot harness)
 
 The question that started it: what would it take to recreate

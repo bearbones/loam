@@ -4,7 +4,8 @@ Rigid links have explicit pivots; runtime analytic IK drives them, not baked not
 """
 import bpy, json, math, sys, subprocess, shutil
 from pathlib import Path
-from mathutils import Vector
+import numpy as np
+from mathutils import Vector, Matrix
 ROOT = Path(__file__).resolve().parents[1]
 args = sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else []
 score = json.loads(Path(args[0] if args else ROOT/'render/chamber/score.json').read_text())
@@ -14,6 +15,8 @@ sys.path.insert(0,str(ROOT/'tools'))
 from blender_forms import make_form
 sys.path.insert(0,str(ROOT/'formlab'))
 from layout import string_endpoints
+# formlab.rig / clearance / layout_search are numpy-only (no SciPy) so they run here too.
+import rig as arm_rig, clearance as arm_clearance, layout_search
 # Pure Python preparation keeps SciPy and structural logic out of Blender's runtime.
 recipe=ROOT/'render/form-study/recipe.json'
 
@@ -93,7 +96,9 @@ for x in range(-6,7): box('Floor inlay',(x,-.008,-.4),(.008,.004,7.1),brass,.001
 for m in score['instrument']['mechanisms']:
     mid=m['id']; struck=m['kind']=='struck'; mp=m['pos']; x=mp[0]*3; z=mp[2]*3
     base_y=1.35 if struck else 2.05+mp[1]*3
-    manifest['mechanisms'][mid]={'center':[x,base_y,z], 'kind':m['kind'], 'material':m['material']}
+    # arm_clearance_m: the planner's promise that two arms of this mechanism stay
+    # this far apart along x at every moment (world = 3 x score units).
+    manifest['mechanisms'][mid]={'center':[x,base_y,z], 'kind':m['kind'], 'material':m['material'], 'arm_clearance_m':3*float(m.get('arm_clearance',0.0))}
     span=m['span']*3
     if struck: box(mid+' bed',(x,.73,z),(span+.5,.22,1.5),wood)
     for dx in (() if mid in ("bars","harp","rake") else (-span/2-.1,span/2+.1)):
@@ -147,21 +152,11 @@ for m in score['instrument']['mechanisms']:
             beam(sid+' tuning pin',tuning-Vector((0,0,.1)),tuning+Vector((0,0,.055)),.015,wire)
             box(sid+' tuning key',tuning+Vector((0,0,.059)),(.025,.025,.025),steel,.003)
     for k,act in enumerate(m['actuators']):
-        aid=act['id']; ry=base_y+(.9 if struck else .7)+k*.14; rz=z-.75-k*.23
-        # Independent rails explain overlap in the score's reach windows.
+        aid=act['id']
+        # Rail height/depth and link lengths are decided by the clearance search
+        # below, once every string of every mechanism is known.
         xs=[manifest['strings'][sid]['a'][0] for sid in act['reach']]
-        for dy in (-.075,.075): beam(aid+' rail',(min(xs)-.12,ry+dy,rz),(max(xs)+.12,ry+dy,rz),.024,steel)
-        for xx in (min(xs)-.12,max(xs)+.12): beam(aid+' post',(xx,.8,rz),(xx,ry+.14,rz),.035,brass)
-        manifest['arms'][aid]={'mid':mid,'root_y':ry,'root_z':rz,'l1':1.2,'l2':1.2,'kind':act['kind'],'index':k}
-        box(aid+'__carriage',(0,0,0),(.25,.25,.15),brass)
-        for part in ('upper','lower'):
-            cyl(aid+'__'+part,(0,0,0),.047,1,brass)
-        for part in ('shoulder','elbow','wrist'): ball(aid+'__'+part,(0,0,0),.077,steel)
-        # Tool mesh origin is the actual contact point (bottom), not its centre.
-        tool=ball(aid+'__tool',(0,.075,0),.075,felt) if struck else box(aid+'__tool',(0,.07,0),(.034,.14,.04),steel,.012)
-        bpy.context.scene.cursor.location=(0,0,0); bpy.context.view_layer.objects.active=tool
-        bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
-        g=gear(aid+'__gear',(0,0,0),.13); manifest['gears'].append(g.name)
+        manifest['arms'][aid]={'mid':mid,'kind':act['kind'],'index':k,'reach_x':[min(xs),max(xs)]}
 # The sympathetic chamber is a resonant body, with an envelope-driven pressure gauge.
 box('Chamber cabinet',(0,.49,-1.6),(3.6,.85,.65),wood,.09)
 for i in range(23):
@@ -169,31 +164,48 @@ for i in range(23):
 text('Chamber name','L O A M   /   THE CHAMBER',(0,.18,-1.21),.11)
 gear('Chamber flywheel',(-2.4,.53,-1.5),.4)
 ball('chamber__lamp',(1.8,.54,-1.25),.085,glass)
-# Assemble the rigid rigs in their actual home poses in the editable Blender file.
-for m in score['instrument']['mechanisms']:
-    for act in m['actuators']:
-        aid=act['id']; cfg=manifest['arms'][aid]; st=manifest['strings'][act['home']]
-        tip=Vector(st['a']).lerp(Vector(st['b']),.5 if st['struck'] else st['pick'])
-        tip+=Vector((0,.22,0) if st['struck'] else (0,0,-.22))
-        root=Vector((tip.x,cfg['root_y'],cfg['root_z'])); wrist=tip+Vector((0,.15,0))
-        delta=wrist-root; direction=delta.normalized(); along=delta.length/2
-        bend=(Vector((0,1,0))-direction*direction.y).normalized()
-        elbow=root+direction*along+bend*math.sqrt(max(0,1.2**2-along**2))
-        for part,p in [('carriage',root),('shoulder',root),('elbow',elbow),('wrist',wrist),('tool',tip),('gear',root+Vector((0,0,.12)))]:
-            bpy.data.objects[aid+'__'+part].location=vec(p)
-        for part,a,b in [('upper',root,elbow),('lower',elbow,wrist)]:
-            ob=bpy.data.objects[aid+'__'+part]; ob.location=vec((a+b)/2)
-            ob.rotation_mode='QUATERNION'; ob.rotation_quaternion=(vec(b)-vec(a)).to_track_quat('Z','Y'); ob.scale.z=(b-a).length
+# Static volumes the arms must stay out of (the cabinet, the harp pedal base).
+manifest['obstacles']=[[[-1.8,.06,-1.925],[1.8,.92,-1.275]]]
+if 'harp' in manifest['mechanisms']:
+    left=min(v['a'][0] for v in manifest['strings'].values() if v['mid']=='harp'); zz=manifest['mechanisms']['harp']['center'][2]+.20
+    manifest['obstacles'].append([[left-.82,0,zz-.58],[left+.46,.36,zz+.58]])
+# Rails, posts and link lengths from the clearance search over the whole score.
+manifest['score']=str(Path(args[0]).resolve() if args else (ROOT/'render/chamber/score.json').resolve())
+layout_search.plan_arms(score,manifest,cache=str(ROOT/'render/form-study/rails-cache.json'))
+for aid,cfg in manifest['arms'].items():
+    ry=cfg['root_y']; rz=cfg['root_z']; x0,x1=cfg['reach_x']
+    # Independent rails explain overlap in the score's reach windows.
+    for dy in (-.075,.075): beam(aid+' rail',(x0-.12,ry+dy,rz),(x1+.12,ry+dy,rz),.024,steel)
+    for xx in (x0-.12,x1+.12):
+        beam(aid+' post',(xx,0,rz),(xx,ry+.14,rz),.035,brass)
+        cyl(aid+' post foot',(xx,.03,rz),.09,.06,brass)
+    g=gear(aid+'__gear',(0,0,0),.13); manifest['gears'].append(g.name)
 recipe.parent.mkdir(parents=True,exist_ok=True)
 form_layout=recipe.parent/'layout.json'
 form_layout.write_text(json.dumps(manifest))
-subprocess.run([shutil.which('python3'),str(ROOT/'tools/build_forms.py'),str(form_layout),str(recipe)],check=True)
+subprocess.run([shutil.which('python3'),str(ROOT/'tools/build_forms.py'),str(form_layout),str(recipe),manifest['score']],check=True)
 forms=json.loads(recipe.read_text())
+for aid,extra in forms.get('arms',{}).items():
+    if aid in manifest['arms']: manifest['arms'][aid].update(extra)
+    else: manifest.setdefault('arm_checks',{})[aid]=extra
 # Geometry variants share anchors and are selected in Godot with --form or F.
 form_colliders=[]
 for entry in forms['objects']:
-    obj,collider=make_form(entry,{'brass':brass,'wood':wood,'spruce':spruce}[entry['material']])
-    form_colliders.append(collider)
+    obj,collider=make_form(entry,{'brass':brass,'wood':wood,'spruce':spruce,'steel':steel,'felt':felt}[entry['material']])
+    if not entry.get('local'): form_colliders.append(collider)
+# Assemble the articulated rigs at their home poses in the editable Blender file.
+# Godot re-poses them every frame with the same rule (clockwork_motion.gd).
+P=Matrix(((1,0,0),(0,0,-1),(0,1,0)))   # Godot axes -> Blender axes, as vec()
+R=arm_rig.Rig(score,manifest)
+for aid,cfg in manifest['arms'].items():
+    p=R.pose(aid,-10.0); o1=Vector(cfg['o1']); o2=Vector(cfg['o2'])
+    root,elbow,wrist,tip=(Vector(p[k]) for k in ('root','elbow','wrist','tip'))
+    for part,pos in [('carriage',root),('shoulder',root),('elbowhead',elbow),('elbow',elbow),('wristhead',wrist),('wrist',wrist),('tool',tip),('shank',tip),('gear',root+Vector((0,0,.12)))]:
+        bpy.data.objects[aid+'__'+part].location=vec(pos)
+    for part,a,b,o in [('upper',root,elbow,Vector((0,0,0))),('upper2',root,elbow,o1),('lower',elbow,wrist,Vector((0,0,0))),('lower2',elbow,wrist,o2)]:
+        x,y,z=arm_clearance.link_basis(np.array([a]),np.array([b]))
+        B=Matrix(((x[0][0],y[0][0],z[0][0]),(x[0][1],y[0][1],z[0][1]),(x[0][2],y[0][2],z[0][2])))
+        ob=bpy.data.objects[aid+'__'+part]; ob.matrix_world=Matrix.Translation(vec(a+o))@(P@B@P.transposed()).to_4x4()
 # Include the added reference hardware in the offline clearance mesh.
 hardware_vertices=[];hardware_faces=[]
 for obj in list(bpy.data.objects):

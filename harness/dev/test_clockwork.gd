@@ -33,11 +33,33 @@ func _init() -> void:
 			var p := rig.pose(aid,t)
 			if not p["reachable"]: unreachable+=1
 			worst_link=maxf(worst_link,absf(p["root"].distance_to(p["elbow"])-float(cfg["l1"])))
-			worst_link=maxf(worst_link,absf(p["elbow"].distance_to(p["tip"]+Vector3(0,.15,0))-float(cfg["l2"])))
+			worst_link=maxf(worst_link,absf(p["elbow"].distance_to(p["wrist"])-float(cfg["l2"])))
+			# The parallel bar of each segment must keep the same length as its primary.
+			if cfg.has("o1"):
+				var o1: Vector3=rig.v(cfg["o1"]); var o2: Vector3=rig.v(cfg["o2"])
+				worst_link=maxf(worst_link,absf((p["root"]+o1).distance_to(p["elbow"]+o1)-float(cfg["l1"])))
+				worst_link=maxf(worst_link,absf((p["elbow"]+o2).distance_to(p["wrist"]+o2)-float(cfg["l2"])))
 		# An intervening backwards seek must have no effect on a later pose.
 		var before := rig.pose(aid,48)
 		rig.pose(aid,2)
 		if before!=rig.pose(aid,48): failures.append("seek changed pose "+aid)
+	# The planner promised arms of one mechanism stay arm_clearance_m apart
+	# along x at every moment (they are 0.24 m wide); the rendered rig must keep it.
+	var arm_ids: Array=rig.acts.keys()
+	var worst_gap := INF
+	for i in arm_ids.size():
+		for j in range(i+1,arm_ids.size()):
+			var a: String=arm_ids[i]; var b: String=arm_ids[j]
+			var ma: String=layout["arms"][a]["mid"]
+			if ma!=layout["arms"][b]["mid"]: continue
+			var need := float(layout["mechanisms"][ma].get("arm_clearance_m",0.0))
+			if need<=0.0: continue
+			for frame in range(-120,int(sd.total_s*120)):
+				var t := frame/120.0
+				var gap := absf(rig.tip_at(a,t).x-rig.tip_at(b,t).x)
+				worst_gap=minf(worst_gap,gap-need)
+	if worst_gap<-.000001: failures.append("arms of one mechanism closer than their clearance by %.3f m" % -worst_gap)
+	print("  cross-arm x margin beyond promised clearance: %.3f m" % worst_gap)
 	if worst_contact>.00001: failures.append("contact miss")
 	if worst_link>.00001: failures.append("link length changed")
 	if worst_boundary>.001: failures.append("pose discontinuity")

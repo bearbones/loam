@@ -77,18 +77,32 @@ HARP_MIDIS = scale_notes(50, "dorian", 3)[:16]      # D3 .. E5
 RAKE_MIDIS = [50, 57, 62, 65, 69]                   # D3 A3 D4 F4 A4
 BAR_MIDIS = scale_notes(62, "dorian", 2)[:8]        # D4 .. D5
 
+# An arm is 0.24 m wide across its pin axis in the model (formlab.linkage
+# double parallelogram, world = 3 x score units): two arms of one
+# mechanism keep 0.27 m = 0.09 score units apart at every moment.
+ARM_CLEARANCE = 0.09
 harp = Mechanism.build("harp", "plucked", "steel", HARP_MIDIS,
         arms=3, overlap=4, span=1.6, pos=[0.0, 0.0, 0.0],
         approach_s=0.09, recover_s=0.05, travel_s=0.02,
         pick_default=0.18, restrike_s=0.06)
+# The neck fan: one scale degree per equal step, as a real harp is strung
+# (the neck's curve comes from the lengths), gathered into the triangular
+# frame — feet climb the diagonal soundboard from world y 0.66 to 2.30.
+# Equal steps also give the three arms room: 0.109 m per string in the
+# world against 0.27 m of arm, so neighbours sit three strings apart.
+harp.fan(width=0.34, power=1.0, by="index", smooth=2,
+        rise=((0.66 - 2.05) / 3, (0.66 + 1.64 - 2.05) / 3))
+harp.arm_clearance = ARM_CLEARANCE
 rake = Mechanism.build("rake", "raked", "bronze", RAKE_MIDIS,
         arms=1, span=0.5, pos=[-1.4, 0.2, 0.3], arm_kind="rake",
         approach_s=0.15, recover_s=0.10, travel_s=0.0,
         pick_default=0.28, restrike_s=0.10)
+rake.fan(width=0.70, power=1.0, rise=((0.66 - 2.65) / 3, (0.66 + 1.36 - 2.65) / 3))
 bars = Mechanism.build("bars", "struck", "rosewood", BAR_MIDIS,
         arms=2, overlap=2, span=0.9, pos=[1.5, -0.1, 0.4],
         arm_kind="mallet", approach_s=0.08, recover_s=0.04,
         travel_s=0.025, restrike_s=0.05, length_max=0.35)
+bars.arm_clearance = ARM_CLEARANCE
 inst = Instrument("the chamber", [harp, rake, bars])
 
 take = Take(DUR, SEED, tail_s=TAIL)

@@ -101,6 +101,58 @@ class Mechanism:
     axis: list = field(default_factory=lambda: [1.0, 0.0, 0.0])
     span: float = 1.0           # world extent along axis
     restrike_s: float = 0.05
+    # Minimum distance along the axis between any two of this mechanism's
+    # arms, at every moment (hovering, travelling, playing). An arm is a
+    # real object with width across its pin axis; 0 keeps the historical
+    # point-arm planning. Same units as pos/span.
+    arm_clearance: float = 0.0
+    fanned: bool = False        # pos already carries the neck fan (see fan())
+
+    def axis_pos(self, sid: str) -> float:
+        """A string's coordinate along the mechanism axis (pos units)."""
+        ax = np.asarray(self.axis, float)
+        return float(np.dot(self.string(sid).pos, ax) / max(np.linalg.norm(ax), 1e-12))
+
+    def fan(self, width: float = 1.0, power: float = 1.0,
+            rise=(0.0, 0.0), by: str = "length", smooth: int = 0) -> "Mechanism":
+        """Re-space the strings along the axis the way a harp neck does.
+        by="index": one scale degree per equal step, as real harps are
+        strung (the neck's curve then comes from the lengths alone);
+        by="length": log-spaced by string length (equal pitch ratios,
+        equal steps). `power` < 1 compresses the treble end; the whole
+        fan is `width` times the built span. `rise` = (foot at the bass
+        end, foot at the treble end) lifts each string's origin across
+        the fan — the diagonal soundboard of a triangular frame.
+        `smooth` > 0 refits log(length) with a polynomial of that degree
+        across the fan: a scale's uneven steps would otherwise put a
+        kink at every string top, and a real neck is one fair curve the
+        strings are cut to (a few percent of length; pitch is untouched).
+        Everything downstream (planner clearance, layout, contacts)
+        reads the result from pos, so the score stays the single truth."""
+        n = len(self.strings)
+        if smooth > 0 and n > smooth + 1:
+            uu = np.linspace(0.0, 1.0, n)
+            coef = np.polyfit(uu, np.log([s.length for s in self.strings]), smooth)
+            for s, v in zip(self.strings, np.exp(np.polyval(coef, uu))):
+                s.length = float(v)
+        lengths = [s.length for s in self.strings]
+        hi, lo = max(lengths), min(lengths)
+        ax = np.asarray(self.axis, float)
+        ax = ax / max(np.linalg.norm(ax), 1e-12)
+        ext = max(float(np.dot(s.pos, ax)) for s in self.strings) \
+            - min(float(np.dot(s.pos, ax)) for s in self.strings)
+        for i, s in enumerate(self.strings):
+            if by == "index":
+                u = i / max(n - 1, 1)
+            else:
+                u = np.log(hi / s.length) / np.log(hi / lo) if hi > lo else 0.0
+            u = float(u) ** power
+            off = np.asarray(s.pos, float) - ax * float(np.dot(s.pos, ax))
+            p = off + ax * ((u - 0.5) * ext * width)
+            p[1] += rise[0] + (rise[1] - rise[0]) * u
+            s.pos = [float(v) for v in p]
+        self.fanned = True
+        return self
 
     def index(self, sid: str) -> int:
         for i, s in enumerate(self.strings):
@@ -190,12 +242,83 @@ class _Solver:
         self.at = {a.id: a.home for a in mech.actuators}
         self.last_hit = {}
         self.last_t = -np.inf
+        # Occupancy timeline per arm: (t0, t1, lo, hi) — while moving
+        # the arm is charged with the whole axis interval it crosses;
+        # between moves it hovers over the string it last played.
+        self.moves = {a.id: [] for a in mech.actuators}
 
     def travel(self, act: Actuator, s_from: str, s_to: str) -> float:
         if not s_from:
             return 0.0
         return abs(self.mech.index(s_from) - self.mech.index(s_to)) \
             * act.travel_s
+
+    def _range_at(self, aid: str, t: float):
+        """Axis interval arm `aid` occupies at time t under the plan
+        committed so far: the crossed interval while moving, else a
+        point over the destination of its latest finished move (its
+        home before any)."""
+        hover = self.mech.axis_pos(self.mech.actuator(aid).home)
+        latest = -np.inf
+        for t0, t1, lo, hi, dest in self.moves[aid]:
+            if t0 <= t <= t1:
+                return lo, hi
+            if t1 < t and t1 > latest:
+                latest, hover = t1, dest
+        return hover, hover
+
+    def _separated(self, act: Actuator, t_move: float, t_last: float,
+            sids) -> bool:
+        """The candidate move keeps `arm_clearance` from every other arm
+        of the mechanism for all time from t_move on: during its
+        travel it owns the whole interval it crosses, afterwards it
+        hovers over sids[-1]. Ranges are piecewise constant in time,
+        so testing every breakpoint plus the midpoints between them is
+        exact for this occupancy model."""
+        w = float(self.mech.arm_clearance)
+        if w <= 0.0:
+            return True
+        m = self.mech
+        xs = [m.axis_pos(s) for s in sids]
+        if self.at[act.id]:
+            xs.append(m.axis_pos(self.at[act.id]))
+        lo, hi = min(xs), max(xs)
+        rest = m.axis_pos(sids[-1])
+
+        def mine(t):
+            return (lo, hi) if t <= t_last else (rest, rest)
+        for other in m.actuators:
+            if other.id == act.id:
+                continue
+            times = {t_move, t_last, t_last + 1e-6}
+            for t0, t1, _, _, _ in self.moves[other.id]:
+                for tb in (t0, t1):
+                    if tb >= t_move:
+                        times.add(tb)
+                    times.add(max(t_move, tb))
+            ts = sorted(times)
+            probes = list(ts) + [0.5 * (u + v) for u, v in zip(ts, ts[1:])] \
+                + [ts[-1] + 1.0]
+            for tp in probes:
+                a_lo, a_hi = mine(tp)
+                b_lo, b_hi = self._range_at(other.id, tp)
+                if max(a_lo - b_hi, b_lo - a_hi) < w:
+                    return False
+        return True
+
+    def _feasible(self, a: Actuator, t: float, sids, spread_s: float):
+        """(t_move, travel, t_last) if arm `a` can take the contact
+        under the busy rule and the clearance rule, else None."""
+        if any(s not in a.reach for s in sids):
+            return None
+        tr = self.travel(a, self.at[a.id], sids[0])
+        t_move = t - a.approach_s - tr
+        if t_move < self.free_at[a.id]:
+            return None
+        t_last = t + spread_s * (len(sids) - 1)
+        if not self._separated(a, t_move, t_last, sids):
+            return None
+        return t_move, tr, t_last
 
     def plan(self, t: float, sids, spread_s: float = 0.0):
         """Best feasible actuator for a contact at t on sids (a run
@@ -208,36 +331,34 @@ class _Solver:
                 return None
         best = None
         for a in m.actuators:
-            if any(s not in a.reach for s in sids):
+            f = self._feasible(a, t, sids, spread_s)
+            if f is None:
                 continue
-            tr = self.travel(a, self.at[a.id], sids[0])
-            t_move = t - a.approach_s - tr
-            if t_move < self.free_at[a.id]:
-                continue
+            t_move, tr, t_last = f
             key = (tr, self.free_at[a.id])
             if best is None or key < best[0]:
-                best = (key, a, t_move, tr)
+                best = (key, a, t_move, tr, t_last)
         if best is None:
             return None
-        _, a, t_move, tr = best
-        t_last = t + spread_s * (len(sids) - 1)
+        _, a, t_move, tr, t_last = best
         return a, dict(actuator=a.id, t_move=float(t_move),
                 t_free=float(t_last + a.recover_s),
                 travel_s=float(tr), from_string=self.at[a.id])
 
-    def options(self, t: float, sids) -> int:
+    def options(self, t: float, sids, spread_s: float = 0.0) -> int:
         """How many actuators could take this contact now — the
         constraint count for tie-breaking."""
-        n = 0
-        for a in self.mech.actuators:
-            if any(s not in a.reach for s in sids):
-                continue
-            tr = self.travel(a, self.at[a.id], sids[0])
-            if t - a.approach_s - tr >= self.free_at[a.id]:
-                n += 1
-        return n
+        return sum(1 for a in self.mech.actuators
+                   if self._feasible(a, t, sids, spread_s) is not None)
 
     def commit(self, t: float, sids, act: Actuator, p: dict) -> None:
+        m = self.mech
+        xs = [m.axis_pos(s) for s in sids]
+        if self.at[act.id]:
+            xs.append(m.axis_pos(self.at[act.id]))
+        t_last = p["t_free"] - act.recover_s
+        self.moves[act.id].append((p["t_move"], t_last, min(xs), max(xs),
+                m.axis_pos(sids[-1])))
         self.free_at[act.id] = p["t_free"]
         self.at[act.id] = sids[-1]
         for s in sids:

@@ -21,6 +21,7 @@ for data in original['instrument']['mechanisms']:
     kw=dict(data); kw['strings']=[StringDef(**s) for s in kw['strings']]; kw['actuators']=[Actuator(**a) for a in kw['actuators']]
     mechs.append(Mechanism(**kw))
 bells=Mechanism.build('bells','struck','glass',[74,77,81,86],arms=2,overlap=1,span=.65,pos=[-.6,0,-.85],arm_kind='mallet',approach_s=.14,recover_s=.14,travel_s=.045,length_max=.32)
+bells.arm_clearance=.09   # two mallet arms, 0.27 m wide each in the model
 blocks=Mechanism.build('blocks','struck','wood',[62,69,74],arms=1,span=.55,pos=[.7,0,-.85],arm_kind='hammer',approach_s=.08,recover_s=.08,travel_s=.035,length_max=.22)
 canvas=Take(original['duration_s'],original['seed'],tail_s=original['total_s']-original['duration_s'])
 score=Score(canvas,'The Clockwork Chamber',original['bpm'],original['seed'],Instrument('clockwork chamber',mechs+[bells,blocks]))

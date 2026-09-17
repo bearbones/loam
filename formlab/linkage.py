@@ -1,0 +1,240 @@
+"""Articulated-joint and link recipes: knuckle pins, forks, eyes, flat bars,
+crossheads and the double-parallelogram arm.
+
+Everything is a closed formlab Mesh in the LINK FRAME: the link runs from
+pin A at the origin along +Y to pin B at (0, L, 0); every pin axis is +X, so
+the link swings in the YZ plane. Godot places a part by setting its node
+basis (x = pin axis, y = link direction, z = x × y) — meshes are built at
+true length and never scaled at runtime.
+
+Real-world grammar, kept honest:
+- A KNUCKLE JOINT is a fork (two ears) straddling an eye on one pin. The pin
+  has a domed head on one side and a washer + nut on the other; both ears
+  carry a bronze bushing flange. Three bodies may share one pin (a stack).
+- A DOUBLE PARALLELOGRAM (drafting-lamp / Luxo arm) holds every crosshead
+  at one fixed orientation: the second bar of each segment runs parallel to
+  the first at a constant offset o, so the wrist stays upright without any
+  extra actuator. The offset direction is a design choice; the pair collapses
+  onto itself when the link runs parallel to o (see formlab.clearance).
+- Bars are FLAT with rounded corners, deepest mid-span (a fish-belly), and
+  widen into a yoke before the fork so the ears are not pasted on.
+"""
+import numpy as np
+from .sweep import Mesh, sweep, validate_mesh
+
+X, Y, Z = np.eye(3)
+
+def rounded_rect(corner=.35, n=20):
+    """Unit rounded rectangle, star-shaped, CCW; corner = fillet fraction."""
+    pts = []
+    for cx, cy, a0 in ((1, 1, 0), (-1, 1, np.pi/2), (-1, -1, np.pi), (1, -1, 3*np.pi/2)):
+        for a in np.linspace(a0, a0+np.pi/2, n//4+1)[:-1] if n >= 8 else [a0]:
+            pts.append([cx*(1-corner)+corner*np.cos(a), cy*(1-corner)+corner*np.sin(a)])
+    return np.array(pts)
+
+def transform(mesh, R=np.eye(3), t=(0, 0, 0)):
+    R = np.asarray(R, float); t = np.asarray(t, float)
+    return Mesh(mesh.vertices@R.T+t, mesh.faces.copy(), mesh.uv.copy(), mesh.path@R.T+t,
+                mesh.widths.copy(), mesh.depths.copy())
+
+def revolve(profile, axis=X, centre=(0, 0, 0), sides=32):
+    """Closed solid of revolution. profile: (r, s) pairs with r >= 0, first and
+    last r == 0 (poles); s is the coordinate along the axis. Outward-wound."""
+    pr = np.asarray(profile, float)
+    if pr[0, 0] != 0 or pr[-1, 0] != 0 or (pr[1:-1, 0] <= 0).any():
+        raise ValueError('revolve profile must start and end on the axis with positive radii between')
+    axis = np.asarray(axis, float)/np.linalg.norm(axis)
+    u = np.cross(axis, Z if abs(axis@Z) < .9 else X); u /= np.linalg.norm(u); v = np.cross(axis, u)
+    angle = np.arange(sides)*2*np.pi/sides
+    ring = np.cos(angle)[:, None]*u+np.sin(angle)[:, None]*v
+    inner = pr[1:-1]
+    vertices = [np.asarray(centre, float)+axis*pr[0, 1]]
+    for r, s in inner: vertices.extend(np.asarray(centre, float)+axis*s+r*ring)
+    vertices.append(np.asarray(centre, float)+axis*pr[-1, 1])
+    vertices = np.array(vertices); faces = []
+    last = 1+len(inner)*sides
+    for k in range(sides): faces.append((0, 1+k, 1+(k+1) % sides))
+    for j in range(len(inner)-1):
+        for k in range(sides):
+            a = 1+j*sides+k; b = 1+j*sides+(k+1) % sides
+            faces.extend(((a, a+sides, b), (b, a+sides, b+sides)))
+    base = 1+(len(inner)-1)*sides
+    for k in range(sides): faces.append((last, base+(k+1) % sides, base+k))
+    faces = np.asarray(faces, int)
+    signed = np.einsum('ij,ij->i', vertices[faces[:, 0]], np.cross(vertices[faces[:, 1]], vertices[faces[:, 2]])).sum()
+    if signed < 0: faces = faces[:, ::-1].copy()
+    uv = np.zeros((len(vertices), 2))
+    path = np.asarray(centre, float)+axis*np.linspace(pr[0, 1], pr[-1, 1], 3)[:, None]
+    return Mesh(vertices, faces, uv, path, np.full(3, pr[:, 0].max()), np.full(3, pr[:, 0].max()))
+
+def ring(centre, r_in, r_out, thickness, axis=X, sides=64, corner=.4):
+    """A washer / eye / ear: rounded-rectangular section swept around a circle.
+    Closed genus-one mesh — the hole is real, no boolean."""
+    if not 0 < r_in < r_out: raise ValueError('ring radii')
+    angle = np.linspace(0, 2*np.pi, sides, endpoint=False)
+    mid = (r_in+r_out)/2
+    path = np.c_[mid*np.cos(angle), mid*np.sin(angle), np.zeros(sides)]   # axis = Z here
+    m = sweep(path, (r_out-r_in)/2, thickness/2, closed=True, profile=rounded_rect(corner, 16))
+    axis = np.asarray(axis, float)/np.linalg.norm(axis)
+    if abs(axis@Z) > .999999:
+        R = np.eye(3) if axis@Z > 0 else np.diag([1., -1., -1.])
+    else:
+        u = np.cross(Z, axis); u /= np.linalg.norm(u); c = axis@Z; s = np.sqrt(1-c*c)
+        K = np.array([[0, -u[2], u[1]], [u[2], 0, -u[0]], [-u[1], u[0], 0]])
+        R = np.eye(3)+s*K+(1-c)*K@K
+    return transform(m, R, centre)
+
+def bar(length, width, depth, taper=.85, belly=.18, yoke=None, sides_profile=None, samples=None):
+    """Straight flat bar along +Y. width = thickness across the pin axis (X),
+    depth = in-plane (Z). belly deepens mid-span; taper scales the far end.
+    yoke=(start_fraction, full_width) widens X into a fork yoke near pin B."""
+    count = samples or max(24, int(length/.02))
+    u = np.linspace(0, 1, count)
+    path = np.c_[np.zeros(count), u*length, np.zeros(count)]
+    scale = 1+(taper-1)*u
+    d = depth/2*scale*(1+belly*np.sin(np.pi*u))
+    w = np.full(count, width/2)*scale
+    if yoke is not None:
+        start, full = yoke
+        blend = np.clip((u-start)/max(1-start, 1e-9), 0, 1); blend = blend*blend*(3-2*blend)
+        w = w*(1-blend)+full/2*blend
+    return sweep(path, w, d, profile=rounded_rect(.4, 24) if sides_profile is None else sides_profile)
+
+def knuckle_pin(radius, span, head=None, axis=X, centre=(0, 0, 0)):
+    """Steel pin along `axis` through a stack of total width `span` (centred),
+    domed head on the -axis side, washer + hex-ish nut on the +axis side."""
+    h = head or radius*1.9
+    hr = radius*1.75
+    pr = [(0, -span/2-h), (hr*.55, -span/2-h), (hr*.9, -span/2-h*.55), (hr, -span/2-h*.2), (hr, -span/2),
+          (radius, -span/2), (radius, span/2), (hr*1.05, span/2), (hr*1.05, span/2+h*.18),
+          (hr*.8, span/2+h*.18), (hr*.8, span/2+h*.85), (radius*.6, span/2+h), (0, span/2+h)]
+    return revolve(pr, axis, centre, 24)
+
+def eye_end(centre, ear_r, pin_r, thickness, axis=X):
+    """One ear: a ring with a bushing hole. Returns [ring]."""
+    return [ring(centre, pin_r*1.15, ear_r, thickness, axis)]
+
+def fork_end(centre, ear_r, pin_r, thickness, gap, axis=X):
+    """Two ears straddling a `gap` (the body between them)."""
+    a = np.asarray(axis, float); c = np.asarray(centre, float)
+    off = (gap+thickness)/2
+    return [ring(c-a*off, pin_r*1.15, ear_r, thickness, axis), ring(c+a*off, pin_r*1.15, ear_r, thickness, axis)]
+
+def link(length, width=.034, depth=.062, ear_r=.055, pin_r=.018, ear_t=.028, fork_gap=None,
+         fork_at='B', eye_at='A', layer=0.0, taper=.88, belly=.18):
+    """A complete flat link: bar body, a fork at one pin and an eye at the other.
+    `layer` shifts the whole link along the pin axis (stacking). Pin A at the
+    origin, pin B at (0, length, 0). Returns dict(pieces, pins)."""
+    gap = fork_gap if fork_gap is not None else width+.006
+    pieces = []
+    yoke_w = gap+2*ear_t
+    # body stops short of each pin so ears carry the end; ears overlap the yoke.
+    y0 = ear_r*.55; y1 = length-ear_r*.55
+    body = bar(y1-y0, width, depth, taper, belly, yoke=(.86, yoke_w) if fork_at == 'B' else None)
+    if fork_at == 'A':
+        body = bar(y1-y0, width, depth, 1/taper, belly, yoke=(.86, yoke_w))
+        body = transform(body, np.diag([1., -1., 1.]), (0, y1, 0))   # mirror so the yoke is at A
+    else:
+        body = transform(body, np.eye(3), (0, y0, 0))
+    pieces.append(body)
+    ends = {'A': np.array([0., 0., 0.]), 'B': np.array([0., length, 0.])}
+    for key, kind in ((fork_at, 'fork'), (eye_at, 'eye')):
+        if key not in ends: continue
+        c = ends[key]
+        if kind == 'fork': pieces += fork_end(c, ear_r, pin_r, ear_t, gap)
+        else: pieces += eye_end(c, ear_r*.92, pin_r, width)
+    if layer:
+        pieces = [transform(p, np.eye(3), (layer, 0, 0)) for p in pieces]
+    return dict(pieces=pieces, pins={'A': ends['A']+[layer, 0, 0], 'B': ends['B']+[layer, 0, 0]},
+                fork_gap=gap, ear_t=ear_t, ear_r=ear_r, pin_r=pin_r)
+
+def crosshead(pins, thickness=.03, boss_r=.05, pin_r=.018, web=.05, axis=X, layer=0.0):
+    """A rigid plate joining several pins (bosses) with a web: the body that a
+    parallelogram holds at fixed orientation. pins: list of (x=0, y, z) in the
+    crosshead frame; the plate lies in the YZ plane at X = layer."""
+    P = np.asarray(pins, float); pieces = []
+    for p in P: pieces.append(ring(p+[layer, 0, 0], pin_r*1.15, boss_r, thickness, axis))
+    for a, b in zip(P[:-1], P[1:]):
+        d = b-a; L = np.linalg.norm(d)
+        if L < 1e-9: continue
+        count = max(8, int(L/.01))
+        u = np.linspace(boss_r*.6/L, 1-boss_r*.6/L, count)[:, None]
+        path = a+u*d+[layer, 0, 0]
+        pieces.append(sweep(path, thickness/2*.98, web/2, profile=rounded_rect(.3, 16)))
+    return pieces
+
+def pick_tool(shank_r=.011, shank_h=.15, blade_w=.034, blade_h=.05, blade_t=.008):
+    """Steel pick: origin at the contact point (bottom); shank rises to the wrist."""
+    pr = [(0, blade_h*.9), (shank_r*.7, blade_h*.9), (shank_r, blade_h*1.3), (shank_r, shank_h-.01),
+          (shank_r*1.6, shank_h-.006), (shank_r*1.6, shank_h+.012), (0, shank_h+.012)]
+    shank = revolve(pr, Y, (0, 0, 0), 20)
+    u = np.linspace(0, 1, 12)
+    path = np.c_[np.zeros(12), u*blade_h, np.zeros(12)]
+    blade = sweep(path, blade_t/2*(.35+.65*u), blade_w/2*(.25+.75*np.sqrt(u)), profile=rounded_rect(.45, 16))
+    return [shank, blade]
+
+def mallet_tool(head_r=.075, shank_r=.012, shank_h=.15):
+    """Felt mallet head on a steel shank; origin at the head's lowest point."""
+    pr = [(0, 0)]+[(head_r*np.sin(a), head_r*(1-np.cos(a))) for a in np.linspace(.15, np.pi-.15, 14)]+[(0, 2*head_r)]
+    head = revolve(pr, Y, (0, 0, 0), 28)
+    sh = [(0, head_r*1.6), (shank_r, head_r*1.6), (shank_r, shank_h-.006), (shank_r*1.6, shank_h-.004), (shank_r*1.6, shank_h+.012), (0, shank_h+.012)]
+    return [head, revolve(sh, Y, (0, 0, 0), 20)]
+
+def parallelogram_arm(l1, l2, o1, o2, spec=None):
+    """Double-parallelogram arm parts in their own local frames.
+
+    o1, o2: constant world offsets (in the swing plane, x = 0) of the second
+    bar of the upper / lower segment. Returns dict name -> dict(pieces, pins)
+    with these local frames:
+      carriage   at the shoulder pin, fixed orientation (holds pins 0 and o1)
+      upper      link frame from shoulder pin to elbow pin      (fork at B)
+      upper2     link frame from shoulder+o1 to elbow+o1        (eye both ends)
+      elbowhead  at the elbow pin, fixed orientation (pins 0, o1, o2)
+      lower      link frame from elbow pin to wrist pin         (fork at B)
+      lower2     link frame from elbow+o2 to wrist+o2           (eye both ends)
+      wristhead  at the wrist pin, fixed orientation (pins 0, o2)
+    Layers along the pin axis: crossheads centred (x=0); primary forks straddle
+    them; secondary bars ride outside on the +x (upper) / -x (lower) faces, so
+    upper and lower bars can cross in plane without touching.
+    """
+    from .clearance import DEFAULT_SPEC, default_layers
+    s = dict(DEFAULT_SPEC)
+    if spec: s.update(spec)
+    gap = default_layers(s)['gap']
+    upper = link(l1, s['width'], s['depth'], s['ear_r'], s['pin_r'], s['ear_t'], gap, fork_at='B', eye_at='A')
+    lower = link(l2, s['width'], s['depth'], s['ear_r'], s['pin_r'], s['ear_t'], gap, fork_at='B', eye_at='A')
+    outer = gap/2+s['ear_t']+.006+s['width']/2      # secondary bar layer, outside the fork ears
+    upper2 = link(l1, s['width']*.8, s['depth']*.8, s['ear_r']*.85, s['pin_r'], s['width']*.8, None,
+                  fork_at='none', eye_at='A', layer=+outer, taper=1, belly=.1)
+    upper2['pieces'] += eye_end(np.array([outer, l1, 0]), s['ear_r']*.78, s['pin_r'], s['width']*.8)
+    lower2 = link(l2, s['width']*.8, s['depth']*.8, s['ear_r']*.85, s['pin_r'], s['width']*.8, None,
+                  fork_at='none', eye_at='A', layer=-outer, taper=1, belly=.1)
+    lower2['pieces'] += eye_end(np.array([-outer, l2, 0]), s['ear_r']*.78, s['pin_r'], s['width']*.8)
+    o1 = np.asarray(o1, float); o2 = np.asarray(o2, float)
+    elbow = crosshead([[0, 0, 0], o1, o2] if np.linalg.norm(o1-o2) > 1e-6 else [[0, 0, 0], o1],
+                      s['head_t'], s['boss_r'], s['pin_r'], s['web'])
+    # secondary pins sit on bosses that reach the outer layers
+    elbow += [ring(o1+[outer, 0, 0], s['pin_r']*1.15, s['boss_r']*.9, s['width']*.8, X),
+              ring(o2-[outer, 0, 0], s['pin_r']*1.15, s['boss_r']*.9, s['width']*.8, X)]
+    elbow += [revolve([(0, 0), (s['pin_r']*1.6, 0), (s['pin_r']*1.6, outer), (0, outer)], X, o1, 16),
+              revolve([(0, -outer), (s['pin_r']*1.6, -outer), (s['pin_r']*1.6, 0), (0, 0)], X, o2, 16)]
+    wrist = crosshead([[0, 0, 0], o2], s['head_t'], s['boss_r'], s['pin_r'], s['web'])
+    wrist += [ring(o2-[outer, 0, 0], s['pin_r']*1.15, s['boss_r']*.9, s['width']*.8, X),
+              revolve([(0, -outer), (s['pin_r']*1.6, -outer), (s['pin_r']*1.6, 0), (0, 0)], X, o2, 16)]
+    carriage = crosshead([[0, 0, 0], o1], s['head_t'], s['boss_r'], s['pin_r'], s['web'])
+    carriage += [ring(o1+[outer, 0, 0], s['pin_r']*1.15, s['boss_r']*.9, s['width']*.8, X),
+                 revolve([(0, 0), (s['pin_r']*1.6, 0), (s['pin_r']*1.6, outer), (0, outer)], X, o1, 16)]
+    span = 2*outer+s['width']*.8+.004
+    pins = dict(shoulder=[knuckle_pin(s['pin_r'], span)], elbow=[knuckle_pin(s['pin_r'], span)],
+                wrist=[knuckle_pin(s['pin_r'], span)])
+    return dict(carriage=dict(pieces=carriage), upper=dict(pieces=upper['pieces']),
+                upper2=dict(pieces=upper2['pieces']), elbowhead=dict(pieces=elbow),
+                lower=dict(pieces=lower['pieces']), lower2=dict(pieces=lower2['pieces']),
+                wristhead=dict(pieces=wrist), **{k: dict(pieces=v) for k, v in pins.items()},
+                layers=dict(outer=outer, gap=gap, span=span), spec=s)
+
+def check_pieces(pieces):
+    reports = [validate_mesh(m) for m in pieces]
+    bad = [r for r in reports if not r['ok']]
+    if bad: raise ValueError(bad)
+    return reports

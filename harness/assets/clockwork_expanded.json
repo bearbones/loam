@@ -5,13 +5,13 @@
   "strings": {
     "harp00": {
       "a": [
-        -0.8160000000000002,
-        0.66,
+        -0.8160000000000001,
+        0.6600000000000001,
         0.0
       ],
       "b": [
-        -0.8160000000000002,
-        3.7199999999999998,
+        -0.8160000000000001,
+        3.71437335856264,
         0.0
       ],
       "mid": "harp",
@@ -21,13 +21,13 @@
     },
     "harp01": {
       "a": [
-        -0.5450059173772297,
-        0.9323224849885683,
+        -0.7072,
+        0.7693333333333334,
         0.0
       ],
       "b": [
-        -0.5450059173772297,
-        3.658472562498007,
+        -0.7072,
+        3.538662519311182,
         0.0
       ],
       "mid": "harp",
@@ -37,13 +37,13 @@
     },
     "harp02": {
       "a": [
-        -0.4560653234431298,
-        1.0216990622262667,
+        -0.5984000000000002,
+        0.8786666666666667,
         0.0
       ],
       "b": [
-        -0.4560653234431298,
-        3.5948420929026335,
+        -0.5984000000000002,
+        3.389045167761561,
         0.0
       ],
       "mid": "harp",
@@ -53,13 +53,13 @@
     },
     "harp03": {
       "a": [
-        -0.301343083242632,
-        1.1771797447806884,
+        -0.48960000000000004,
+        0.9880000000000002,
         0.0
       ],
       "b": [
-        -0.301343083242632,
-        3.4695895724020116,
+        -0.48960000000000004,
+        3.26318122706063,
         0.0
       ],
       "mid": "harp",
@@ -69,13 +69,13 @@
     },
     "harp04": {
       "a": [
-        -0.16466046639121282,
-        1.3145323744598105,
+        -0.3808,
+        1.0973333333333333,
         0.0
       ],
       "b": [
-        -0.16466046639121282,
-        3.3568373513399634,
+        -0.3808,
+        3.1589359118732427,
         0.0
       ],
       "mid": "harp",
@@ -85,13 +85,13 @@
     },
     "harp05": {
       "a": [
-        -0.039380005595649414,
-        1.4404269551612345,
+        -0.2720000000000001,
+        1.2066666666666668,
         0.0
       ],
       "b": [
-        -0.039380005595649414,
-        3.259913841115398,
+        -0.2720000000000001,
+        3.0743621404190824,
         0.0
       ],
       "mid": "harp",
@@ -101,13 +101,13 @@
     },
     "harp06": {
       "a": [
-        0.02006262787496804,
-        1.5001609740900412,
+        -0.16319999999999998,
+        1.316,
         0.0
       ],
       "b": [
-        0.02006262787496804,
-        3.217527908003382,
+        -0.16319999999999998,
+        3.0076844150700026,
         0.0
       ],
       "mid": "harp",
@@ -117,13 +117,13 @@
     },
     "harp07": {
       "a": [
-        0.1338733061565469,
-        1.6145295478533925,
+        -0.05439999999999999,
+        1.4253333333333333,
         0.0
       ],
       "b": [
-        0.1338733061565469,
-        3.1445295478533923,
+        -0.05439999999999999,
+        2.9572840522861954,
         0.0
       ],
       "mid": "harp",
@@ -133,13 +133,13 @@
     },
     "harp08": {
       "a": [
-        0.24210419403058053,
-        1.7232909792954363,
+        0.05439999999999999,
+        1.5346666666666666,
         0.0
       ],
       "b": [
-        0.24210419403058053,
-        3.0863660180501555,
+        0.05439999999999999,
+        2.9216856520522487,
         0.0
       ],
       "mid": "harp",
@@ -149,13 +149,13 @@
     },
     "harp09": {
       "a": [
-        0.29445941901381506,
-        1.7759028475383927,
+        0.16319999999999998,
+        1.644,
         0.0
       ],
       "b": [
-        0.29445941901381506,
-        3.062474362876576,
+        0.16319999999999998,
+        2.899544705643697,
         0.0
       ],
       "mid": "harp",
@@ -165,13 +165,13 @@
     },
     "harp10": {
       "a": [
-        0.3961407615137356,
-        1.878082627991744,
+        0.27199999999999996,
+        1.7533333333333332,
         0.0
       ],
       "b": [
-        0.3961407615137356,
-        3.0242875418024058,
+        0.27199999999999996,
+        2.889636248563102,
         0.0
       ],
       "mid": "harp",
@@ -181,13 +181,13 @@
     },
     "harp11": {
       "a": [
-        0.4942866962181817,
-        1.9767096702192513,
+        0.3808,
+        1.8626666666666665,
         0.0
       ],
       "b": [
-        0.4942866962181817,
-        2.997862158659328,
+        0.3808,
+        2.8908444728805076,
         0.0
       ],
       "mid": "harp",
@@ -197,13 +197,13 @@
     },
     "harp12": {
       "a": [
-        0.5893753025006597,
-        2.072264397120761,
+        0.48960000000000015,
+        1.972,
         0.0
       ],
       "b": [
-        0.5893753025006597,
-        2.9820078400978423,
+        0.48960000000000015,
+        2.9021532200413778,
         0.0
       ],
       "mid": "harp",
@@ -213,13 +213,13 @@
     },
     "harp13": {
       "a": [
-        0.6358932541546161,
-        2.1190103779494915,
+        0.5984000000000002,
+        2.0813333333333333,
         0.0
       ],
       "b": [
-        0.6358932541546161,
-        2.977693844906162,
+        0.5984000000000002,
+        2.9226372815077686,
         0.0
       ],
       "mid": "harp",
@@ -229,13 +229,13 @@
     },
     "harp14": {
       "a": [
-        0.7270737383209507,
-        2.210637825273504,
+        0.7072,
+        2.1906666666666665,
         0.0
       ],
       "b": [
-        0.7270737383209507,
-        2.9756378252735036,
+        0.7072,
+        2.951454440414442,
         0.0
       ],
       "mid": "harp",
@@ -245,13 +245,13 @@
     },
     "harp15": {
       "a": [
-        0.8160000000000002,
+        0.8160000000000001,
         2.3,
         0.0
       ],
       "b": [
-        0.8160000000000002,
-        2.9815375193773592,
+        0.8160000000000001,
+        2.9878381927870863,
         0.0
       ],
       "mid": "harp",
@@ -262,7 +262,7 @@
     "rake00": {
       "a": [
         -4.725,
-        0.66,
+        0.6600000000000001,
         0.8999999999999999
       ],
       "b": [
@@ -278,12 +278,12 @@
     "rake01": {
       "a": [
         -4.338157894736842,
-        1.1610526315789473,
+        1.1610526315789476,
         0.8999999999999999
       ],
       "b": [
         -4.338157894736842,
-        2.3624085003319784,
+        2.362408500331979,
         0.8999999999999999
       ],
       "mid": "rake",
@@ -293,12 +293,12 @@
     },
     "rake02": {
       "a": [
-        -4.061842105263157,
+        -4.061842105263158,
         1.5189473684210528,
         0.8999999999999999
       ],
       "b": [
-        -4.061842105263157,
+        -4.061842105263158,
         2.418947368421053,
         0.8999999999999999
       ],
@@ -309,12 +309,12 @@
     },
     "rake03": {
       "a": [
-        -3.8960526315789465,
+        -3.896052631578947,
         1.7336842105263162,
         0.8999999999999999
       ],
       "b": [
-        -3.8960526315789465,
+        -3.896052631578947,
         2.4904909842546594,
         0.8999999999999999
       ],
@@ -325,12 +325,12 @@
     },
     "rake04": {
       "a": [
-        -3.6749999999999994,
+        -3.675,
         2.02,
         0.8999999999999999
       ],
       "b": [
-        -3.6749999999999994,
+        -3.675,
         2.6206779343765154,
         0.8999999999999999
       ],
@@ -583,84 +583,528 @@
   "arms": {
     "harp_arm0": {
       "mid": "harp",
-      "root_y": 2.75,
-      "root_z": -0.75,
-      "l1": 1.2,
-      "l2": 1.2,
       "kind": "pick",
-      "index": 0
+      "index": 0,
+      "reach_x": [
+        -0.8160000000000001,
+        -0.05439999999999999
+      ],
+      "root_y": 3.15,
+      "root_z": -1.4,
+      "l1": 1.45,
+      "l2": 1.45,
+      "bend": "back",
+      "wrist_offset": [
+        0,
+        0.15,
+        -0.1
+      ],
+      "o1": [
+        0.0,
+        0.0191,
+        -0.10833
+      ],
+      "o2": [
+        0.0,
+        -0.10625,
+        -0.02847
+      ],
+      "margins": {
+        "self": 0.0528,
+        "pair": 0.0461,
+        "behind": 1.4321,
+        "scene": 0.465,
+        "strings": 0.067,
+        "cross": {
+          "harp_arm1": 0.1388,
+          "harp_arm2": 0.4652
+        }
+      },
+      "layers": {
+        "outer": 0.069,
+        "gap": 0.036,
+        "span": 0.16920000000000002
+      },
+      "link_extent_y": 1.5555999999999999,
+      "upper_pair_separation_m": 0.10894262151877732,
+      "lower_pair_separation_m": 0.1080758193933808,
+      "self_clearance_m": 0.05284819178713607,
+      "self_worst": [
+        "lower2",
+        "tool"
+      ],
+      "self_worst_time_s": 40.016666666666666,
+      "string_clearance_m": 0.06700000000000009,
+      "string_worst": [
+        "harp00",
+        "lower",
+        0.0
+      ]
     },
     "harp_arm1": {
       "mid": "harp",
-      "root_y": 2.89,
-      "root_z": -0.98,
-      "l1": 1.2,
-      "l2": 1.2,
       "kind": "pick",
-      "index": 1
+      "index": 1,
+      "reach_x": [
+        -0.3808,
+        0.3808
+      ],
+      "root_y": 3.6,
+      "root_z": -1.05,
+      "l1": 1.45,
+      "l2": 1.45,
+      "bend": "back",
+      "wrist_offset": [
+        0,
+        0.15,
+        -0.1
+      ],
+      "o1": [
+        0.0,
+        0.04649,
+        -0.09969
+      ],
+      "o2": [
+        0.0,
+        0.10625,
+        0.02847
+      ],
+      "margins": {
+        "self": 0.0528,
+        "pair": 0.0451,
+        "behind": 1.3972,
+        "scene": 0.9089,
+        "strings": 0.067,
+        "cross": {
+          "harp_arm0": 0.1388,
+          "harp_arm2": 0.1388
+        }
+      },
+      "layers": {
+        "outer": 0.069,
+        "gap": 0.036,
+        "span": 0.16920000000000002
+      },
+      "link_extent_y": 1.5555999999999999,
+      "upper_pair_separation_m": 0.10836802712962011,
+      "lower_pair_separation_m": 0.10683881199850989,
+      "self_clearance_m": 0.01319999999999999,
+      "self_worst": [
+        "upper",
+        "lower2"
+      ],
+      "self_worst_time_s": 1.2916666666666667,
+      "string_clearance_m": 0.04452990503872272,
+      "string_worst": [
+        "harp04",
+        "wristhead_web",
+        1.4285714285714286
+      ]
     },
     "harp_arm2": {
       "mid": "harp",
-      "root_y": 3.0300000000000002,
-      "root_z": -1.21,
-      "l1": 1.2,
-      "l2": 1.2,
       "kind": "pick",
-      "index": 2
+      "index": 2,
+      "reach_x": [
+        0.05439999999999999,
+        0.8160000000000001
+      ],
+      "root_y": 4.1,
+      "root_z": -0.75,
+      "l1": 1.45,
+      "l2": 1.45,
+      "bend": "back",
+      "wrist_offset": [
+        0,
+        0.15,
+        -0.1
+      ],
+      "o1": [
+        0.0,
+        -0.055,
+        0.09526
+      ],
+      "o2": [
+        0.0,
+        0.09969,
+        0.04649
+      ],
+      "margins": {
+        "self": 0.0618,
+        "pair": 0.0447,
+        "behind": 1.2739,
+        "scene": 1.245,
+        "strings": 0.067,
+        "cross": {
+          "harp_arm0": 0.4652,
+          "harp_arm1": 0.1388
+        }
+      },
+      "layers": {
+        "outer": 0.069,
+        "gap": 0.036,
+        "span": 0.16920000000000002
+      },
+      "link_extent_y": 1.5555999999999999,
+      "upper_pair_separation_m": 0.1071961715142474,
+      "lower_pair_separation_m": 0.10661141340078893,
+      "self_clearance_m": 0.013199999999999948,
+      "self_worst": [
+        "upper",
+        "lower2"
+      ],
+      "self_worst_time_s": 13.825,
+      "string_clearance_m": 0.026511991208523066,
+      "string_worst": [
+        "harp08",
+        "wristhead_web",
+        6.428571428571429
+      ]
     },
     "rake_arm0": {
       "mid": "rake",
-      "root_y": 3.3499999999999996,
-      "root_z": 0.1499999999999999,
-      "l1": 1.2,
-      "l2": 1.2,
       "kind": "rake",
-      "index": 0
+      "index": 0,
+      "reach_x": [
+        -4.725,
+        -3.675
+      ],
+      "root_y": 4.1,
+      "root_z": 0.15000000000000002,
+      "l1": 1.6,
+      "l2": 1.6,
+      "bend": "back",
+      "wrist_offset": [
+        0,
+        0.15,
+        -0.1
+      ],
+      "o1": [
+        0.0,
+        0.055,
+        -0.09526
+      ],
+      "o2": [
+        0.0,
+        -0.09011,
+        -0.06309
+      ],
+      "margins": {
+        "self": 0.0687,
+        "pair": 0.0418,
+        "behind": 1.0921,
+        "scene": 1.1491,
+        "strings": 0.067,
+        "cross": {}
+      },
+      "layers": {
+        "outer": 0.069,
+        "gap": 0.036,
+        "span": 0.16920000000000002
+      },
+      "link_extent_y": 1.7056,
+      "upper_pair_separation_m": 0.10546262878056552,
+      "lower_pair_separation_m": 0.10380679388993223,
+      "self_clearance_m": 0.06874338226944192,
+      "self_worst": [
+        "lower2",
+        "tool"
+      ],
+      "self_worst_time_s": 21.383333333333333,
+      "string_clearance_m": 0.06699999999999987,
+      "string_worst": [
+        "rake00",
+        "lower",
+        21.42857142857143
+      ]
     },
     "bars_arm0": {
       "mid": "bars",
-      "root_y": 2.25,
-      "root_z": 0.4500000000000002,
-      "l1": 1.2,
-      "l2": 1.2,
       "kind": "mallet",
-      "index": 0
+      "index": 0,
+      "reach_x": [
+        3.1500000000000004,
+        4.692857142857143
+      ],
+      "root_y": 2.75,
+      "root_z": -0.48090083372513304,
+      "l1": 1.6,
+      "l2": 1.6,
+      "bend": "up",
+      "wrist_offset": [
+        0,
+        0.2,
+        0
+      ],
+      "o1": [
+        0.0,
+        0.10337,
+        -0.03762
+      ],
+      "o2": [
+        0.0,
+        0.00959,
+        0.10958
+      ],
+      "margins": {
+        "self": 0.0739,
+        "pair": 0.0475,
+        "scene": 1.469,
+        "strings": 0.167,
+        "cross": {
+          "bars_arm1": 0.2471
+        }
+      },
+      "layers": {
+        "outer": 0.069,
+        "gap": 0.036,
+        "span": 0.16920000000000002
+      },
+      "link_extent_y": 1.7056,
+      "upper_pair_separation_m": 0.10945246720054708,
+      "lower_pair_separation_m": 0.10987558285785176,
+      "self_clearance_m": 0.07386279698749541,
+      "self_worst": [
+        "lower",
+        "upper2"
+      ],
+      "self_worst_time_s": 67.61666666666666,
+      "string_clearance_m": 0.16699999999999995,
+      "string_worst": [
+        "bars00",
+        "lower",
+        45.714285714285715
+      ]
     },
     "bars_arm1": {
       "mid": "bars",
-      "root_y": 2.39,
-      "root_z": 0.22000000000000017,
-      "l1": 1.2,
-      "l2": 1.2,
       "kind": "mallet",
-      "index": 1
+      "index": 1,
+      "reach_x": [
+        4.307142857142857,
+        5.85
+      ],
+      "root_y": 2.5,
+      "root_z": -0.180900833725133,
+      "l1": 1.45,
+      "l2": 1.45,
+      "bend": "up",
+      "wrist_offset": [
+        0,
+        0.2,
+        0
+      ],
+      "o1": [
+        0.0,
+        0.09969,
+        -0.04649
+      ],
+      "o2": [
+        0.0,
+        0.00959,
+        0.10958
+      ],
+      "margins": {
+        "self": 0.0735,
+        "pair": 0.0474,
+        "scene": 1.469,
+        "strings": 0.167,
+        "cross": {
+          "bars_arm0": 0.2471
+        }
+      },
+      "layers": {
+        "outer": 0.069,
+        "gap": 0.036,
+        "span": 0.16920000000000002
+      },
+      "link_extent_y": 1.5555999999999999,
+      "upper_pair_separation_m": 0.1093752155124451,
+      "lower_pair_separation_m": 0.10970203280796127,
+      "self_clearance_m": 0.07352106467391077,
+      "self_worst": [
+        "lower",
+        "upper2"
+      ],
+      "self_worst_time_s": 46.36666666666667,
+      "string_clearance_m": 0.16699999999999995,
+      "string_worst": [
+        "bars03",
+        "lower",
+        48.214285714285715
+      ]
     },
     "bells_arm0": {
       "mid": "bells",
-      "root_y": 2.25,
-      "root_z": -3.3,
-      "l1": 1.2,
-      "l2": 1.2,
       "kind": "mallet",
-      "index": 0
+      "index": 0,
+      "reach_x": [
+        -2.7750000000000004,
+        -1.475
+      ],
+      "root_y": 2.5,
+      "root_z": -3.910997961080648,
+      "l1": 1.15,
+      "l2": 1.15,
+      "bend": "up",
+      "wrist_offset": [
+        0,
+        0.2,
+        0
+      ],
+      "o1": [
+        0.0,
+        -0.10625,
+        0.02847
+      ],
+      "o2": [
+        0.0,
+        0.02847,
+        0.10625
+      ],
+      "margins": {
+        "self": 0.0735,
+        "pair": 0.0473,
+        "scene": 0.9014,
+        "strings": 0.167,
+        "cross": {
+          "bells_arm1": 0.4624
+        }
+      },
+      "layers": {
+        "outer": 0.069,
+        "gap": 0.036,
+        "span": 0.16920000000000002
+      },
+      "link_extent_y": 1.2555999999999998,
+      "upper_pair_separation_m": 0.10932427264482661,
+      "lower_pair_separation_m": 0.10976749108559755,
+      "self_clearance_m": 0.013199999999999948,
+      "self_worst": [
+        "lower",
+        "upper2"
+      ],
+      "self_worst_time_s": -1.0,
+      "string_clearance_m": 0.16699999999999995,
+      "string_worst": [
+        "bells00",
+        "lower",
+        23.571428571428573
+      ]
     },
     "bells_arm1": {
       "mid": "bells",
-      "root_y": 2.39,
-      "root_z": -3.53,
-      "l1": 1.2,
-      "l2": 1.2,
       "kind": "mallet",
-      "index": 1
+      "index": 1,
+      "reach_x": [
+        -1.475,
+        -0.825
+      ],
+      "root_y": 2.5,
+      "root_z": -4.210997961080648,
+      "l1": 1.3,
+      "l2": 1.3,
+      "bend": "up",
+      "wrist_offset": [
+        0,
+        0.2,
+        0
+      ],
+      "o1": [
+        0.0,
+        0.10337,
+        -0.03762
+      ],
+      "o2": [
+        0.0,
+        0.03762,
+        0.10337
+      ],
+      "margins": {
+        "self": 0.0739,
+        "pair": 0.0471,
+        "scene": 0.8224,
+        "strings": 0.167,
+        "cross": {
+          "bells_arm0": 0.4624
+        }
+      },
+      "layers": {
+        "outer": 0.069,
+        "gap": 0.036,
+        "span": 0.16920000000000002
+      },
+      "link_extent_y": 1.4056,
+      "upper_pair_separation_m": 0.10914337696248506,
+      "lower_pair_separation_m": 0.1099051725717913,
+      "self_clearance_m": 0.07387595192258213,
+      "self_worst": [
+        "lower",
+        "upper2"
+      ],
+      "self_worst_time_s": 34.891666666666666,
+      "string_clearance_m": 0.16699999999999995,
+      "string_worst": [
+        "bells02",
+        "lower",
+        30.714285714285715
+      ]
     },
     "blocks_arm0": {
       "mid": "blocks",
-      "root_y": 2.25,
-      "root_z": -3.3,
-      "l1": 1.2,
-      "l2": 1.2,
       "kind": "hammer",
-      "index": 0
+      "index": 0,
+      "reach_x": [
+        1.275,
+        2.925
+      ],
+      "root_y": 2.75,
+      "root_z": -3.7884161919793518,
+      "l1": 1.45,
+      "l2": 1.45,
+      "bend": "up",
+      "wrist_offset": [
+        0,
+        0.2,
+        0
+      ],
+      "o1": [
+        0.0,
+        0.10625,
+        -0.02847
+      ],
+      "o2": [
+        0.0,
+        -0.00959,
+        0.10958
+      ],
+      "margins": {
+        "self": 0.0737,
+        "pair": 0.0475,
+        "scene": 0.7818,
+        "strings": 0.1634,
+        "cross": {}
+      },
+      "layers": {
+        "outer": 0.069,
+        "gap": 0.036,
+        "span": 0.16920000000000002
+      },
+      "link_extent_y": 1.5555999999999999,
+      "upper_pair_separation_m": 0.10947803506374264,
+      "lower_pair_separation_m": 0.10988580634980515,
+      "self_clearance_m": 0.07366634717770333,
+      "self_worst": [
+        "lower",
+        "upper2"
+      ],
+      "self_worst_time_s": 28.866666666666667,
+      "string_clearance_m": 0.1634128682977575,
+      "string_worst": [
+        "blocks00",
+        "wristhead_web",
+        24.285714285714285
+      ]
     }
   },
   "mechanisms": {
@@ -671,7 +1115,8 @@
         0.0
       ],
       "kind": "plucked",
-      "material": "steel"
+      "material": "steel",
+      "arm_clearance_m": 0.27
     },
     "rake": {
       "center": [
@@ -680,7 +1125,8 @@
         0.8999999999999999
       ],
       "kind": "raked",
-      "material": "bronze"
+      "material": "bronze",
+      "arm_clearance_m": 0.0
     },
     "bars": {
       "center": [
@@ -689,7 +1135,8 @@
         1.2000000000000002
       ],
       "kind": "struck",
-      "material": "rosewood"
+      "material": "rosewood",
+      "arm_clearance_m": 0.27
     },
     "bells": {
       "center": [
@@ -698,7 +1145,8 @@
         -2.55
       ],
       "kind": "struck",
-      "material": "glass"
+      "material": "glass",
+      "arm_clearance_m": 0.27
     },
     "blocks": {
       "center": [
@@ -707,7 +1155,8 @@
         -2.55
       ],
       "kind": "struck",
-      "material": "wood"
+      "material": "wood",
+      "arm_clearance_m": 0.0
     }
   },
   "gears": [
@@ -721,6 +1170,325 @@
     "bells_arm1__gear",
     "blocks_arm0__gear"
   ],
+  "obstacles": [
+    [
+      [
+        -1.8,
+        0.06,
+        -1.925
+      ],
+      [
+        1.8,
+        0.92,
+        -1.275
+      ]
+    ],
+    [
+      [
+        -1.6360000000000001,
+        0,
+        -0.37999999999999995
+      ],
+      [
+        -0.35600000000000004,
+        0.36,
+        0.78
+      ]
+    ]
+  ],
+  "score": "/home/stinky/git/loam/render/clockwork/score.json",
+  "arm_checks": {
+    "_cross_arm": {
+      "harp_arm0/harp_arm1": {
+        "gap_m": 0.13880000000000003,
+        "parts": [
+          "upper2",
+          "lower2"
+        ],
+        "time_s": 36.708333333333336
+      },
+      "harp_arm0/harp_arm2": {
+        "gap_m": 0.46520000000000017,
+        "parts": [
+          "upper2",
+          "lower2"
+        ],
+        "time_s": 32.775
+      },
+      "harp_arm0/rake_arm0": {
+        "gap_m": 2.762102780710615,
+        "parts": [
+          "upper",
+          "upper2"
+        ],
+        "time_s": 78.57142857142857
+      },
+      "harp_arm0/bars_arm0": {
+        "gap_m": 3.557805230778511,
+        "parts": [
+          "upper2",
+          "carriage_web"
+        ],
+        "time_s": 47.85714285714286
+      },
+      "harp_arm0/bars_arm1": {
+        "gap_m": 4.730223225173795,
+        "parts": [
+          "lower",
+          "upper"
+        ],
+        "time_s": 48.141666666666666
+      },
+      "harp_arm0/bells_arm0": {
+        "gap_m": 1.3829425027831386,
+        "parts": [
+          "lower2",
+          "wristhead_web"
+        ],
+        "time_s": 14.216666666666667
+      },
+      "harp_arm0/bells_arm1": {
+        "gap_m": 0.572551890725684,
+        "parts": [
+          "elbowhead_web1",
+          "wristhead_web"
+        ],
+        "time_s": 68.5
+      },
+      "harp_arm0/blocks_arm0": {
+        "gap_m": 1.4574574002112093,
+        "parts": [
+          "upper2",
+          "lower2"
+        ],
+        "time_s": 32.85714285714286
+      },
+      "harp_arm1/harp_arm2": {
+        "gap_m": 0.13879999999999998,
+        "parts": [
+          "upper2",
+          "lower2"
+        ],
+        "time_s": 45.275
+      },
+      "harp_arm1/rake_arm0": {
+        "gap_m": 3.1820432190238828,
+        "parts": [
+          "upper",
+          "upper2"
+        ],
+        "time_s": 21.608333333333334
+      },
+      "harp_arm1/bars_arm0": {
+        "gap_m": 3.115380163267666,
+        "parts": [
+          "upper2",
+          "carriage_web"
+        ],
+        "time_s": 45.641666666666666
+      },
+      "harp_arm1/bars_arm1": {
+        "gap_m": 4.222551925062672,
+        "parts": [
+          "wristhead_web",
+          "upper"
+        ],
+        "time_s": 48.141666666666666
+      },
+      "harp_arm1/bells_arm0": {
+        "gap_m": 1.9007757043328117,
+        "parts": [
+          "elbowhead_web1",
+          "wristhead_web"
+        ],
+        "time_s": 4.216666666666667
+      },
+      "harp_arm1/bells_arm1": {
+        "gap_m": 0.9272833046017416,
+        "parts": [
+          "elbowhead_web1",
+          "wristhead_web"
+        ],
+        "time_s": 4.216666666666667
+      },
+      "harp_arm1/blocks_arm0": {
+        "gap_m": 0.8503169237194611,
+        "parts": [
+          "upper2",
+          "lower2"
+        ],
+        "time_s": 24.216666666666665
+      },
+      "harp_arm2/rake_arm0": {
+        "gap_m": 3.8720322712695414,
+        "parts": [
+          "lower2",
+          "upper2"
+        ],
+        "time_s": 48.64342857142857
+      },
+      "harp_arm2/bars_arm0": {
+        "gap_m": 2.3848923252814322,
+        "parts": [
+          "lower",
+          "upper"
+        ],
+        "time_s": 72.14285714285714
+      },
+      "harp_arm2/bars_arm1": {
+        "gap_m": 3.8706967474723712,
+        "parts": [
+          "lower",
+          "upper"
+        ],
+        "time_s": 51.785714285714285
+      },
+      "harp_arm2/bells_arm0": {
+        "gap_m": 2.408230002463967,
+        "parts": [
+          "lower2",
+          "upper2"
+        ],
+        "time_s": 6.358333333333333
+      },
+      "harp_arm2/bells_arm1": {
+        "gap_m": 1.524542653374982,
+        "parts": [
+          "upper",
+          "lower2"
+        ],
+        "time_s": 6.358333333333333
+      },
+      "harp_arm2/blocks_arm0": {
+        "gap_m": 0.6097998763528549,
+        "parts": [
+          "upper",
+          "lower2"
+        ],
+        "time_s": 24.285714285714285
+      },
+      "rake_arm0/bars_arm0": {
+        "gap_m": 6.708594570709208,
+        "parts": [
+          "upper2",
+          "upper"
+        ],
+        "time_s": 45.78628571428572
+      },
+      "rake_arm0/bars_arm1": {
+        "gap_m": 7.867200653087964,
+        "parts": [
+          "tool",
+          "lower2"
+        ],
+        "time_s": 48.64342857142857
+      },
+      "rake_arm0/bells_arm0": {
+        "gap_m": 1.7692194427951806,
+        "parts": [
+          "upper2",
+          "lower2"
+        ],
+        "time_s": 67.025
+      },
+      "rake_arm0/bells_arm1": {
+        "gap_m": 2.643851803719892,
+        "parts": [
+          "upper2",
+          "lower2"
+        ],
+        "time_s": 55.6
+      },
+      "rake_arm0/blocks_arm0": {
+        "gap_m": 4.918990373255068,
+        "parts": [
+          "upper2",
+          "lower2"
+        ],
+        "time_s": 24.285714285714285
+      },
+      "bars_arm0/bars_arm1": {
+        "gap_m": 0.24517825369599083,
+        "parts": [
+          "upper2",
+          "lower2"
+        ],
+        "time_s": 48.92857142857143
+      },
+      "bars_arm0/bells_arm0": {
+        "gap_m": 5.619864625008214,
+        "parts": [
+          "carriage_web",
+          "upper2"
+        ],
+        "time_s": 47.85714285714286
+      },
+      "bars_arm0/bells_arm1": {
+        "gap_m": 4.476488085960431,
+        "parts": [
+          "upper",
+          "wristhead_web"
+        ],
+        "time_s": 59.208333333333336
+      },
+      "bars_arm0/blocks_arm0": {
+        "gap_m": 1.698841291378949,
+        "parts": [
+          "carriage_web",
+          "elbowhead_web2"
+        ],
+        "time_s": 55.714285714285715
+      },
+      "bars_arm1/bells_arm0": {
+        "gap_m": 6.797434321156636,
+        "parts": [
+          "upper",
+          "wristhead_web"
+        ],
+        "time_s": 52.00833333333333
+      },
+      "bars_arm1/bells_arm1": {
+        "gap_m": 5.594323748201631,
+        "parts": [
+          "upper",
+          "wristhead_web"
+        ],
+        "time_s": 63.44166666666667
+      },
+      "bars_arm1/blocks_arm0": {
+        "gap_m": 2.427404667599854,
+        "parts": [
+          "carriage_web",
+          "elbowhead_web2"
+        ],
+        "time_s": 48.92857142857143
+      },
+      "bells_arm0/bells_arm1": {
+        "gap_m": 0.46240000000000003,
+        "parts": [
+          "upper2",
+          "lower2"
+        ],
+        "time_s": 30.575
+      },
+      "bells_arm0/blocks_arm0": {
+        "gap_m": 3.234502499215345,
+        "parts": [
+          "upper2",
+          "lower2"
+        ],
+        "time_s": 25.0
+      },
+      "bells_arm1/blocks_arm0": {
+        "gap_m": 1.9751999999999998,
+        "parts": [
+          "upper2",
+          "upper"
+        ],
+        "time_s": 59.358333333333334
+      }
+    }
+  },
   "forms": [
     "carved",
     "ribbed",
@@ -736,6 +1504,114 @@
     "form_rake_ribbed",
     "form_rake_shell",
     "form_rake_soundboard",
-    "form_bars_stand"
+    "form_bars_stand",
+    "harp_arm0__carriage",
+    "harp_arm0__upper",
+    "harp_arm0__upper2",
+    "harp_arm0__elbowhead",
+    "harp_arm0__lower",
+    "harp_arm0__lower2",
+    "harp_arm0__wristhead",
+    "harp_arm0__shoulder",
+    "harp_arm0__elbow",
+    "harp_arm0__wrist",
+    "harp_arm0__tool",
+    "harp_arm0__shank",
+    "harp_arm1__carriage",
+    "harp_arm1__upper",
+    "harp_arm1__upper2",
+    "harp_arm1__elbowhead",
+    "harp_arm1__lower",
+    "harp_arm1__lower2",
+    "harp_arm1__wristhead",
+    "harp_arm1__shoulder",
+    "harp_arm1__elbow",
+    "harp_arm1__wrist",
+    "harp_arm1__tool",
+    "harp_arm1__shank",
+    "harp_arm2__carriage",
+    "harp_arm2__upper",
+    "harp_arm2__upper2",
+    "harp_arm2__elbowhead",
+    "harp_arm2__lower",
+    "harp_arm2__lower2",
+    "harp_arm2__wristhead",
+    "harp_arm2__shoulder",
+    "harp_arm2__elbow",
+    "harp_arm2__wrist",
+    "harp_arm2__tool",
+    "harp_arm2__shank",
+    "rake_arm0__carriage",
+    "rake_arm0__upper",
+    "rake_arm0__upper2",
+    "rake_arm0__elbowhead",
+    "rake_arm0__lower",
+    "rake_arm0__lower2",
+    "rake_arm0__wristhead",
+    "rake_arm0__shoulder",
+    "rake_arm0__elbow",
+    "rake_arm0__wrist",
+    "rake_arm0__tool",
+    "rake_arm0__shank",
+    "bars_arm0__carriage",
+    "bars_arm0__upper",
+    "bars_arm0__upper2",
+    "bars_arm0__elbowhead",
+    "bars_arm0__lower",
+    "bars_arm0__lower2",
+    "bars_arm0__wristhead",
+    "bars_arm0__shoulder",
+    "bars_arm0__elbow",
+    "bars_arm0__wrist",
+    "bars_arm0__tool",
+    "bars_arm0__shank",
+    "bars_arm1__carriage",
+    "bars_arm1__upper",
+    "bars_arm1__upper2",
+    "bars_arm1__elbowhead",
+    "bars_arm1__lower",
+    "bars_arm1__lower2",
+    "bars_arm1__wristhead",
+    "bars_arm1__shoulder",
+    "bars_arm1__elbow",
+    "bars_arm1__wrist",
+    "bars_arm1__tool",
+    "bars_arm1__shank",
+    "bells_arm0__carriage",
+    "bells_arm0__upper",
+    "bells_arm0__upper2",
+    "bells_arm0__elbowhead",
+    "bells_arm0__lower",
+    "bells_arm0__lower2",
+    "bells_arm0__wristhead",
+    "bells_arm0__shoulder",
+    "bells_arm0__elbow",
+    "bells_arm0__wrist",
+    "bells_arm0__tool",
+    "bells_arm0__shank",
+    "bells_arm1__carriage",
+    "bells_arm1__upper",
+    "bells_arm1__upper2",
+    "bells_arm1__elbowhead",
+    "bells_arm1__lower",
+    "bells_arm1__lower2",
+    "bells_arm1__wristhead",
+    "bells_arm1__shoulder",
+    "bells_arm1__elbow",
+    "bells_arm1__wrist",
+    "bells_arm1__tool",
+    "bells_arm1__shank",
+    "blocks_arm0__carriage",
+    "blocks_arm0__upper",
+    "blocks_arm0__upper2",
+    "blocks_arm0__elbowhead",
+    "blocks_arm0__lower",
+    "blocks_arm0__lower2",
+    "blocks_arm0__wristhead",
+    "blocks_arm0__shoulder",
+    "blocks_arm0__elbow",
+    "blocks_arm0__wrist",
+    "blocks_arm0__tool",
+    "blocks_arm0__shank"
   ]
 }

@@ -1,12 +1,22 @@
-"""Visual harp arrangement; explicit display proportions, independent of acoustic score geometry."""
+"""Score geometry -> world string endpoints (world = 3 x score units).
+
+A mechanism whose score carries `fanned` positions (Mechanism.fan) is laid
+out straight from pos: the planner, the arm clearance rule and the model
+then agree on where every string is. Older scores without the flag keep
+the display-only harp/rake fan that used to live here."""
+import math
+
+
 def string_endpoints(mechanism, string):
     mid=mechanism['id']; mp=mechanism['pos']; sp=string['pos']
     x=3*(mp[0]+sp[0]); z=3*(mp[2]+sp[2]); length=3*string['length']*(1.7 if mid=='harp' else 1.0)
     struck=mechanism['kind']=='struck'
     y=(1.35 if struck else 2.05+3*mp[1])+3*sp[1]
+    if mechanism.get('fanned') and not struck:
+        # pos is the string's foot on the diagonal soundboard; it rises from there.
+        return [x,y,z],[x,y+length,z]
     if mid in ('harp','rake'):
         xs=[s['pos'][0] for s in mechanism['strings']]
-        import math
         lengths=[s['length'] for s in mechanism['strings']]
         u=math.log(max(lengths)/string['length'])/math.log(max(lengths)/min(lengths))
         if mid=='harp': u=u**.70

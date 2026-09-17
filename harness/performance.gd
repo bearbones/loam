@@ -1,5 +1,9 @@
 extends Node3D
 ## Clockwork performance, with the original 2D harness retained as main.tscn.
+## Every moving part of one arm, as named in the GLB (aid + "__" + part). The
+## parallelogram pairs (upper/upper2, lower/lower2) and the crossheads
+## (carriage, elbowhead, wristhead) are posed from the same IK as the pins.
+const PART_NAMES := ["carriage","upper","upper2","lower","lower2","elbowhead","wristhead","shoulder","elbow","wrist","tool","shank","gear"]
 var score := ScoreDoc.new()
 var motion := ClockworkMotion.new()
 var look := ClockworkLook.new()
@@ -67,23 +71,14 @@ func _ready() -> void:
 	_set_form(form_style)
 	for aid in layout["arms"]:
 		parts[aid]={}
-		for part in ["carriage","upper","lower","shoulder","elbow","wrist","tool","gear"]:
+		for part in PART_NAMES:
 			parts[aid][part]=model.find_child(aid+"__"+part,true,false)
 			if parts[aid][part]==null:
 				push_error("Missing GLB pivot "+aid+"__"+part); get_tree().quit(1); return
 	for sid in layout["strings"]:
 		hits[sid]=[]
 		if not layout["strings"][sid]["struck"]:
-			var node := MeshInstance3D.new()
-			node.mesh=ImmediateMesh.new()
-			var mat := StandardMaterial3D.new()
-			mat.albedo_color=Color(.72,.8,.78)
-			if layout["strings"][sid]["mid"]=="harp":
-				var pitch_class := int(layout["strings"][sid]["midi"])%12
-				mat.albedo_color=Color("b74636") if pitch_class==0 else (Color("303a42") if pitch_class==5 else Color("d4c6a3"))
-			mat.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
-			node.material_override=mat
-			add_child(node); strings[sid]=node
+			strings[sid]=_make_string(sid)
 	for e in score.events:
 		for k in range(e.get("strings",[]).size()):
 			var sid: String=e["strings"][k]
@@ -111,6 +106,63 @@ func _ready() -> void:
 	if capture_dir!="":
 		DirAccess.make_dir_recursive_absolute(capture_dir); playing=false; time=capture_start
 	print("CLOCKWORK: loaded ",score.events.size()," events, ",parts.size()," rigs; ",audio_mode," audio")
+
+const WIRE := preload("res://shaders/wire_string.gdshader")
+const STRING_NODES := 24
+
+## A string is a static shaded tube along its own +Y (z = the pluck direction,
+## world Z). The wire shader bends it each frame from the baked shape frames;
+## a second, translucent copy is a sheath widened to the recent peak excursion —
+## the blur a vibrating wire actually presents to the eye. Gauge follows pitch
+## (a display gauge: true wire would be sub-pixel) and bass strings are wound.
+func _make_string(sid: String) -> Node3D:
+	var s: Dictionary=layout["strings"][sid]
+	var a := motion.v(s["a"]); var b := motion.v(s["b"])
+	var length := a.distance_to(b)
+	var midi := float(s["midi"])
+	var radius := .0035*pow(2.0,(64.0-midi)/18.0)
+	var wound := midi<60.0
+	var holder := Node3D.new(); holder.name=sid+" string"
+	holder.transform=Transform3D(ClockworkMotion.link_basis(a,b),a)
+	var colour := Color(.72,.56,.40) if wound else Color(.80,.82,.84)
+	if s["mid"]=="harp":
+		var pitch_class := int(midi)%12
+		if pitch_class==0: colour=Color("c8483a")
+		elif pitch_class==5: colour=Color("2c3540")
+	var mesh := _wire_mesh(length,radius,48,10)
+	for sheath in [false,true]:
+		var node := MeshInstance3D.new(); node.mesh=mesh
+		var mat := ShaderMaterial.new(); mat.shader=WIRE
+		mat.set_shader_parameter("radius",radius); mat.set_shader_parameter("length_m",length)
+		mat.set_shader_parameter("albedo",colour); mat.set_shader_parameter("wound",1.0 if wound else 0.0)
+		mat.set_shader_parameter("sheath",sheath)
+		var zero := PackedFloat32Array(); zero.resize(STRING_NODES)
+		mat.set_shader_parameter("disp",zero); mat.set_shader_parameter("envelope",zero)
+		node.material_override=mat
+		if sheath: node.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		holder.add_child(node)
+	add_child(holder)
+	return holder
+
+## Tube along +Y from 0 to `length`: `rings` samples along it (UV.x = fraction,
+## so the shader can interpolate the 24 shape nodes smoothly), `sides` around.
+static func _wire_mesh(length: float, radius: float, rings: int, sides: int) -> ArrayMesh:
+	var verts := PackedVector3Array(); var norms := PackedVector3Array(); var uvs := PackedVector2Array(); var idx := PackedInt32Array()
+	for j in rings+1:
+		var y := length*float(j)/rings
+		for k in sides+1:
+			var th := TAU*float(k)/sides
+			verts.append(Vector3(radius*cos(th),y,radius*sin(th)))
+			norms.append(Vector3(cos(th),0,sin(th)))
+			uvs.append(Vector2(float(j)/rings,float(k)/sides))
+	for j in rings:
+		for k in sides:
+			var p := j*(sides+1)+k
+			idx.append_array([p,p+1,p+sides+1, p+1,p+sides+2,p+sides+1])
+	var arrays := []; arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX]=verts; arrays[Mesh.ARRAY_NORMAL]=norms; arrays[Mesh.ARRAY_TEX_UV]=uvs; arrays[Mesh.ARRAY_INDEX]=idx
+	var mesh := ArrayMesh.new(); mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
+	return mesh
 
 func _set_form(style: String) -> void:
 	if not style in ["carved","ribbed","shell"]: style="carved"
@@ -161,28 +213,42 @@ func evaluate(t: float) -> void:
 	for aid in parts:
 		var pose := motion.pose(aid,t)
 		var p: Dictionary=parts[aid]
-		p["carriage"].position=pose["root"]
-		p["shoulder"].position=pose["root"]
-		p["elbow"].position=pose["elbow"]
-		p["wrist"].position=pose["tip"]+Vector3(0,.15,0)
-		p["tool"].position=pose["tip"]
-		rod(p["upper"],pose["root"],pose["elbow"])
-		rod(p["lower"],pose["elbow"],pose["tip"]+Vector3(0,.15,0))
-		p["gear"].position=pose["root"]+Vector3(0,0,.12)
-		p["gear"].rotation.z=-pose["root"].x/.13
+		var cfg: Dictionary=layout["arms"][aid]
+		var o1 := motion.v(cfg["o1"]); var o2 := motion.v(cfg["o2"])
+		var root: Vector3=pose["root"]; var elbow: Vector3=pose["elbow"]; var wrist: Vector3=pose["wrist"]
+		# Crossheads and pins keep a fixed orientation: that is what the parallelograms guarantee.
+		p["carriage"].position=root; p["shoulder"].position=root
+		p["elbowhead"].position=elbow; p["elbow"].position=elbow
+		p["wristhead"].position=wrist; p["wrist"].position=wrist
+		p["tool"].position=pose["tip"]; p["shank"].position=pose["tip"]
+		var upper := ClockworkMotion.link_basis(root,elbow)
+		var lower := ClockworkMotion.link_basis(elbow,wrist)
+		p["upper"].transform=Transform3D(upper,root)
+		p["upper2"].transform=Transform3D(upper,root+o1)
+		p["lower"].transform=Transform3D(lower,elbow)
+		p["lower2"].transform=Transform3D(lower,elbow+o2)
+		p["gear"].position=root+Vector3(0,0,.12)
+		p["gear"].rotation.z=-root.x/.13
 	for sid in strings:
-		var s: Dictionary=layout["strings"][sid]
-		var a := motion.v(s["a"]); var b := motion.v(s["b"])
-		var displacement := PackedFloat32Array(); displacement.resize(24)
+		var displacement := PackedFloat32Array(); displacement.resize(STRING_NODES)
+		var envelope := PackedFloat32Array(); envelope.resize(STRING_NODES)
 		for hit in hits[sid]:
 			var tau := t-float(hit["t"])
 			var e: Dictionary=hit["event"]
 			if tau<0 or tau>5 or e.get("shape")==null: continue
+			var gain := float(e["amp"])*.035
 			var values := score.shape_frame(e["shape"],tau)
-			for i in mini(values.size(),24): displacement[i]+=values[i]*float(e["amp"])*.035
-		var mesh: ImmediateMesh=strings[sid].mesh; mesh.clear_surfaces(); mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP)
-		for i in 24: mesh.surface_add_vertex(a.lerp(b,float(i)/23)+Vector3(0,0,displacement[i]))
-		mesh.surface_end()
+			for i in mini(values.size(),STRING_NODES): displacement[i]+=values[i]*gain
+			# The sheath holds the peak excursion over the last 1/30 s — the
+			# eye integrates a few cycles of a wire, so the blur, not the instant.
+			var step := 1.0/float(score.clips[e["shape"]]["rate_hz"])
+			for k in range(1,5):
+				var past := score.shape_frame(e["shape"],tau-k*step)
+				for i in mini(past.size(),STRING_NODES): envelope[i]=maxf(envelope[i],absf(past[i]*gain))
+		for i in STRING_NODES: envelope[i]=maxf(envelope[i],absf(displacement[i]))
+		for child in strings[sid].get_children():
+			var mat: ShaderMaterial=child.material_override
+			mat.set_shader_parameter("disp",displacement); mat.set_shader_parameter("envelope",envelope)
 	for sid in hits:
 		if not layout["strings"][sid]["struck"]: continue
 		var energy := 0.0
