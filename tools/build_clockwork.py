@@ -155,16 +155,17 @@ for m in score['instrument']['mechanisms']:
         text(mid+' plaque',mid.upper()+'  /  '+m['material'].upper(),(fx,.605,fz),.095,yaw)
         for s in m['strings']:
             sx=manifest['strings'][s['id']]['a'][0]; fx,fz=face(sx); text(s['id']+' note',str(int(s['midi'])),(fx,.735,fz),.06,yaw)
-    if mid=='harp':
+    if mid in ('harp','rake'):
         left=min(v['a'][0] for v in manifest['strings'].values() if v['mid']==mid)
-        # A pedal harp's base (formlab.layout.harp_base_plan): a box the column and body
-        # foot seat in, with a crown and a sole; seven pedals leave slots in its front
-        # face toward the soundbox, three left of the string plane and four right.
-        hb=harp_base_plan(left,z+.20)
+        # The harp's base (formlab.layout.harp_base_plan): a box the column and body
+        # foot seat in, with a crown and a sole; on the pedal harp seven pedals leave
+        # slots in its front face toward the soundbox, three left of the string plane
+        # and four right. The rake, strung like a lever harp, stands on the plain plinth.
+        hb=harp_base_plan(left,z+.20,with_pedals=mid=='harp'); tag=mid.title()+' '
         def slab(label,xs,ys,zs,mat,bevel):
-            return box('Harp '+label,((xs[0]+xs[1])/2,(ys[0]+ys[1])/2,(zs[0]+zs[1])/2),(xs[1]-xs[0],ys[1]-ys[0],zs[1]-zs[0]),mat,bevel)
+            return box(tag+label,((xs[0]+xs[1])/2,(ys[0]+ys[1])/2,(zs[0]+zs[1])/2),(xs[1]-xs[0],ys[1]-ys[0],zs[1]-zs[0]),mat,bevel)
         bx,by,bz=hb['box']['x'],hb['box']['y'],hb['box']['z']
-        slab('pedal box',bx,by,bz,wood,.03)
+        slab('pedal box' if hb['pedals'] else 'base',bx,by,bz,wood,.03)
         for label,part,mat,bev in (('base crown',hb['crown'],wood,.014),('base sole',hb['sole'],black,.008)):
             i=part['inset']; slab(label,[bx[0]+i,bx[1]-i],part['y'],[bz[0]+i,bz[1]-i],mat,bev)
         for p in hb['pedals']:
@@ -172,6 +173,7 @@ for m in score['instrument']['mechanisms']:
             beam('Harp pedal '+p['note']+' lever',p['lever'][0],p['lever'][1],.016,steel)
             box('Harp pedal '+p['note']+' tread',p['tread'],(.17,.036,.07),black,.01)
             pv=Vector(p['pivot']); beam('Harp pedal '+p['note']+' pivot',pv-Vector((0,0,.03)),pv+Vector((0,0,.03)),.022,brass)
+    if mid=='harp':
         for sid,spec in manifest['strings'].items():
             if spec['mid']!=mid:continue
             b=Vector(spec['b'])
@@ -197,10 +199,11 @@ for i in range(23):
 text('Chamber name','L O A M   /   THE CHAMBER',(0,.18,-1.21),.11)
 gear('Chamber flywheel',(-2.4,.53,-1.5),.4)
 ball('chamber__lamp',(1.8,.54,-1.25),.085,glass)
-# Static volumes the arms must stay out of (the cabinet, the harp pedal base).
+# Static volumes the arms must stay out of (the cabinet, the harp's and the rake's bases).
 manifest['obstacles']=[[[-1.8,.06,-1.925],[1.8,.92,-1.275]]]
-if 'harp' in manifest['mechanisms']:
-    left=min(v['a'][0] for v in manifest['strings'].values() if v['mid']=='harp'); zz=manifest['mechanisms']['harp']['center'][2]+.20
+for based in ('harp','rake'):
+    if based not in manifest['mechanisms']: continue
+    left=min(v['a'][0] for v in manifest['strings'].values() if v['mid']==based); zz=manifest['mechanisms'][based]['center'][2]+.20
     manifest['obstacles'].append([[left-.82,0,zz-.58],[left+.46,.36,zz+.58]])
 # Rails, posts and link lengths from the clearance search over the whole score.
 manifest['score']=str(Path(args[0]).resolve() if args else (ROOT/'render/chamber/score.json').resolve())
@@ -245,7 +248,7 @@ for aid,cfg in manifest['arms'].items():
 # Include the added reference hardware in the offline clearance mesh.
 hardware_vertices=[];hardware_faces=[]
 for obj in list(bpy.data.objects):
-    if obj.type!='MESH' or not (obj.name.startswith('Harp ') or any(tag in obj.name for tag in (' action disc',' fork pin',' tuning pin',' tuning key'))): continue
+    if obj.type!='MESH' or not (obj.name.startswith(('Harp ','Rake ')) or any(tag in obj.name for tag in (' action disc',' fork pin',' tuning pin',' tuning key'))): continue
     obj.data.calc_loop_triangles();offset=len(hardware_vertices)
     for v in obj.data.vertices:
         p=obj.matrix_world@v.co;hardware_vertices.append([p.x,p.z,-p.y])

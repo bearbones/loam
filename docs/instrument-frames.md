@@ -53,13 +53,22 @@ the string plane (D C B, outside in) and four on the right (E F G A), each a
 steel lever on a brass pivot inside the box falling to a tread on the floor.
 `layout.harp_base_plan` lays that out from the column's x and the string
 plane's z alone — box, crown, sole, slots, levers, treads — and
-`build_clockwork.py` builds it. The base is one of the two static obstacles
-the rail search is promised (x left−.82…+.46, y to .36, z ±.58); the plan
+`build_clockwork.py` builds it. The base is one of the static obstacles
+the rail search is promised (with the chamber cabinet and, below, the rake's plinth) (x left−.82…+.46, y to .36, z ±.58); the plan
 keeps the box inside that promise so a base change never moves a rail.
 `tools/test_harp_base.py` pins that, the 3|4 split, tread spacing and the
 levers leaving the front face. (The obstacle box is part of the rail cache
 key; the treads reach 30 cm past its x limit at floor level, below anything
 an arm can reach, and the tool-clearance ruler measures them anyway.)
+
+The rake is strung like a lever harp — no pedals — and stood on the bare floor
+with its column foot sunk into the stage. It now stands on the same base plan
+without pedals (`harp_base_plan(..., with_pedals=False)`): a plain plinth with crown
+and sole under the column and the body's lower return, promised to the rail
+search as an obstacle exactly as the harp's is. Adding that promise changes the
+rail cache key for every mechanism, so the rails re-plan once; the rake's rail
+is 1.4 m in front of its string plane and the plinth stays 0.3 m below the
+lowest string foot, so nothing moves. `test_harp_base.py` checks both bases.
 
 ## Space accounting
 

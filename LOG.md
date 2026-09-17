@@ -1,3 +1,18 @@
+## 2026-09-17 — CLOCKWORK the rake stands on a plinth
+
+The rake — a five-string bronze instrument on a harp-shaped frame — stood on
+the bare stage with its column foot sunk into the floor, while the harp beside
+it had its pedal box. `formlab.layout.harp_base_plan` now takes `pedals`: with
+them it is the pedal harp's box, without it a plain plinth with crown and sole,
+the way a lever harp stands, and `build_clockwork.py` builds one under each of
+the two. The rake's base is promised to the rail search as an obstacle exactly
+like the harp's (the promise is part of the rail cache key, so every rail
+re-planned once; the rake's rail is 1.4 m in front of its strings and the
+plinth 0.3 m below the lowest string foot, so nothing moved). The tool-clearance
+ruler measures the new `Rake *` hardware with the harp's;
+`tools/test_harp_base.py` now checks both bases (promise, envelope, footprint,
+no pedals on the rake). docs/instrument-frames.md gains the paragraph.
+
 ## 2026-09-17 — CLOCKWORK strings strung by register: wound wire, gut, nylon
 
 Every plain string was the same grey metal tube; only the bass strings told
