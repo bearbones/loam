@@ -189,7 +189,13 @@ that harp rail through by the corner a box does not round off. Because
 the search samples at 30 Hz and the planner confirms at 120 Hz, the chosen
 set is re-measured at 120 Hz (`verify_fine`) and an option that fails
 there is dropped and the search repeated; the 120 Hz worst is recorded as
-`margins.fine`.
+`margins.fine`. The option dropped is the one to blame: of a failing arm
+pair, the later arm; of a rail whose masts have no clear bracket, the arm
+itself when its own motion or the scene closes every bracket, otherwise the
+later of it and each arm that alone blocks them. (The rule used to drop the
+mechanism's last arm whatever failed, and the expanded rig's harp search
+spent all its retries dropping harp_arm2 for harp_arm0's masts.) Each retry
+prints every arm's 120 Hz margin, so a search that gives up says why.
 
 ### Rails are obstacles too
 
@@ -205,6 +211,19 @@ rail and in front of it, so neither high arm's link crosses the other's
 rail — and the second bars rail up to 2.75 m; worst arm-to-rail margin in
 the harp is now 139 mm. `tools/test_gantry.py` re-measures every arm
 against every rail of the whole rig at 120 Hz.
+
+The same blind spot existed between mechanisms: each was planned against
+its own arms and the scene only, and when the expanded rig's harp moved to
+high rails the gantry planner refused the build for a bells arm's lower link
+31 mm inside the harp's rack. The mechanisms are planned in score order and
+each candidate is now measured against the arms of the mechanisms already
+placed — their links and rail hardware against its own (heads included),
+its masts against their motion and theirs against its — at both sampling
+rates, recorded as `margins.others`; an arm whose bounds stand the comfort
+gap apart is not measured and the margin records that bound. The placed
+rails are part of the later mechanisms' cache key, so a harp that moves
+re-plans the bells behind it. `test_gantry.py` checks that every arm of a
+mechanism planned after another records that margin clear.
 
 ## The carriage and its drive
 
@@ -291,14 +310,26 @@ Three rulers, all run at build time and all fatal when negative:
    to every string of the mechanism.
 2. **Cross-arm clearance** (`cross_arm_clearance`): the same capsules
    between arms, at the same time samples.
-3. **Scene** (`layout_search.scene_boxes`): stage top, harp pedal box,
-   cabinet — axis-aligned boxes the arm must not enter.
+3. **Scene** (`layout_search.scene_boxes`): stage top, cabinet, the harp and
+   rake bases, and every struck instrument's frame footprint up to its
+   elements' undersides — axis-aligned boxes the arm must not enter. Every
+   capsule is measured against them, not only the four links: the carriage,
+   the pinion, and the rail's own bars, heads and rack (the rack reaches
+   0.26 m past the reach window, so a rail whose links clear a bench can
+   still park its rack inside it — the gantry planner refused exactly such a
+   rail before the rail search learned to measure it).
 
 `layout_search.plan_arms()` searches rail height, rail depth and link length
 per arm (greedy, then two rounds of coordinate descent) to maximise the worst
 of those margins, preferring shorter links and rails near the middle height
-once the margin is "enough" (80 mm). The chosen rails, link lengths, bend
-and wrist rule are written into the manifest with the achieved margins.
+once the margin is "enough" (80 mm). The greedy placement is run from every
+order of the arms and the clearest set kept: a set can lock, each arm's
+alternatives judged by a third arm's blocked masts so that only the
+tie-breakers speak and the descent never moves — the expanded rig's harp
+locked that way at −20 mm once the bells' bench took its back-low rail away,
+and placing the arms in another order found three clear high rails. The
+chosen rails, link lengths, bend and wrist rule are written into the
+manifest with the achieved margins.
 
 ### Arms are wide: the planner knows
 

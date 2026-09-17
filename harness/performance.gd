@@ -190,11 +190,11 @@ func _set_form(style: String) -> void:
 	if not style in ["carved","ribbed","shell"]: style="carved"
 	form_style=style
 	# Frame variants share a name stem and are switched here; everything else
-	# built by build_forms.py (the stand, soundboards, action plates, the rail
+	# built by build_forms.py (the stands, soundboards, action plates, the rail
 	# gantries and heads with their racks) is not a variant and stays visible.
 	for node in model.find_children("form_*","Node3D",true,false):
 		var n := String(node.name)
-		node.visible=n.ends_with("_"+style) or n=="form_bars_stand" or n.ends_with("_soundboard") or n.ends_with("_actionplate") or n.ends_with("_gantry") or n.ends_with("_railhead")
+		node.visible=n.ends_with("_"+style) or n.ends_with("_stand") or n.ends_with("_soundboard") or n.ends_with("_actionplate") or n.ends_with("_gantry") or n.ends_with("_railhead")
 
 func _environment() -> void:
 	look.light_rig(self)

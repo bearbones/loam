@@ -107,3 +107,52 @@ def harp_base_plan(left,zz,floor=-.01,with_pedals=True):
     return dict(box=box,crown=crown,sole=sole,pedals=pedals,front_x=box['x'][1])
 def board_z(plan,x):
     b=plan['board']; return b['z'][0]+(b['z'][1]-b['z'][0])*(x-b['x'][0])/(b['x'][1]-b['x'][0])
+
+
+# A trestle bench for the struck elements that sit on it (the glass bells, the
+# temple blocks): two straight rails along the row on a splayed-leg trestle at
+# each end, a bearer across the rails under every element, and the element's
+# own mount on its bearer — rubber pads at a block's nodal points (it rings
+# like a bar), a call bell's base flange and centre post reaching up into its
+# crown. A fascia hung on the bearers' front ends carries the names.
+BENCH=dict(rail_z=.20, rail_half_y=.035, rail_half_z=.04, over=.25, bearer_half_y=.03, bearer_half_x=.035, bearer_over=.06,
+           pad=.02, leg_splay=.16, leg_top=.05, leg_toe=.038, cross_half=.045, tie=.45, board_drop=.10, end_inset=.08)
+BELL=dict(drop=.12, mouth=.315, post_r=.03, post_in=.05, flange_r=.075)   # bell() profile: top at drop above its origin, lip mouth below
+def bench_elements(strings,material):
+    """Annotate struck elements with what the bench needs: their underside, top and mount kind."""
+    out=[]
+    for s in strings:
+        y=s['a'][1]
+        if material=='glass': out.append(dict(s,underside=y-BELL['drop']-BELL['mouth'],top=y,mount='post'))
+        else: out.append(dict(s,underside=y-BAR['thick'],top=y,mount='pads'))
+    return out
+def bench_plan(elements,floor=-.01):
+    """Every number the bench, its mounts and its text need, from the annotated elements."""
+    import numpy as np
+    B=BENCH; els=sorted(elements,key=lambda s:s['a'][0])
+    x=np.array([s['a'][0] for s in els],float); zc=np.array([(s['a'][2]+s['b'][2])/2 for s in els],float); zm=float(zc.mean())
+    under=min(s['underside'] for s in els)
+    bearer_top=under-B['pad']; bearer_y=bearer_top-B['bearer_half_y']
+    rail_top=bearer_y-B['bearer_half_y']; rail_y=rail_top-B['rail_half_y']
+    x0,x1=float(x[0]-B['over']),float(x[-1]+B['over'])
+    rails={'back':[[x0,rail_y,zm-B['rail_z']],[x1,rail_y,zm-B['rail_z']]],'front':[[x0,rail_y,zm+B['rail_z']],[x1,rail_y,zm+B['rail_z']]]}
+    zb,zf=zm-B['rail_z']-B['bearer_over'],zm+B['rail_z']+B['bearer_over']
+    bearers=[dict(id=s.get('id'),x=float(xx),y=float(bearer_y),z=[zb,zf],top=float(bearer_top)) for s,xx in zip(els,x)]
+    cross_y=rail_y-B['rail_half_y']-B['cross_half']
+    ends=[]
+    for xe in (x0+B['end_inset'],x1-B['end_inset']):
+        legs=[dict(top=[xe,cross_y,zm+sign*B['rail_z']],toe=[xe,floor+.02,zm+sign*(B['rail_z']+B['leg_splay'])]) for sign in (-1,1)]
+        ty=floor+B['tie']*(cross_y-floor)           # the tie meets each leg where it has splayed to at that height
+        tz=[float(np.interp(ty,[floor+.02,cross_y],[l['toe'][2],l['top'][2]])) for l in legs]
+        ends.append(dict(x=float(xe),cross_y=float(cross_y),z=[zm-B['rail_z'],zm+B['rail_z']],legs=legs,tie_y=float(ty),tie_z=tz,floor=floor))
+    stretcher=dict(y=ends[0]['tie_y'],z=zm,x=[ends[0]['x'],ends[1]['x']])
+    board=dict(x=[x0+.03,x1-.03],y=float(rail_y-B['board_drop']),z=float(zf+BOARD['half_z']))
+    mounts=[]
+    for s,b in zip(els,bearers):
+        if s['mount']=='post':
+            mounts.append(dict(id=b['id'],kind='post',x=b['x'],z=float((s['a'][2]+s['b'][2])/2),y0=bearer_top,y1=s['top']-BELL['post_in']))
+        else:
+            n=bar_nodes(s['a'],s['b'])
+            mounts.append(dict(id=b['id'],kind='pads',x=b['x'],z=[n[0][2],n[1][2]],y0=bearer_top,y1=s['underside']))
+    return dict(rails=rails,rail_y=float(rail_y),rail_top=float(rail_top),bearers=bearers,ends=ends,stretcher=stretcher,board=board,
+                mounts=mounts,x=[x0,x1],z=zm,top=float(bearer_top),underside=float(under))

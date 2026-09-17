@@ -13,8 +13,8 @@ import json,sys
 from pathlib import Path
 import numpy as np
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from formlab.recipes import harp_frame,soundboard,action_plate,bar_frame,pack,STYLES
-from formlab.layout import bar_frame_plan
+from formlab.recipes import harp_frame,soundboard,action_plate,bar_frame,bench_frame,pack,STYLES
+from formlab.layout import bar_frame_plan,bench_plan,bench_elements
 from formlab.linkage import parallelogram_arm,pick_tool,mallet_tool,tool_mount
 from formlab.rig import Rig
 from formlab.clearance import choose_offset,report,cross_arm_clearance,pinion_mount,rail_keep_clear,bar_pair_separation
@@ -39,6 +39,11 @@ for mid in ('harp','rake'):
 # The bar instrument's frame: rails under the nodal lines on end frames (formlab.layout.bar_frame_plan).
 objects.append(pack('form_bars_stand',bar_frame(bar_frame_plan([s for s in layout['strings'].values() if s['mid']=='bars'])),'wood',
     'mallet-instrument construction: node-line rails, end frames, stretcher, name board')); objects[-1]['finish']='profiled'
+# Every other struck instrument sits on a trestle bench (formlab.layout.bench_plan).
+for mid,mech in layout['mechanisms'].items():
+    if mech['kind']!='struck' or mid=='bars': continue
+    els=bench_elements([dict(s,id=sid) for sid,s in layout['strings'].items() if s['mid']==mid],mech['material'])
+    objects.append(pack(f'form_{mid}_stand',bench_frame(bench_plan(els)),'wood','trestle bench: rails, bearers, splayed legs, ties, stretcher, fascia')); objects[-1]['finish']='profiled'
 
 # Articulated arms: a double parallelogram per actuator, offsets from the motion.
 arms={}; reports={}; all_poses={}

@@ -44,6 +44,32 @@ name the Godot form toggle and the tool-clearance ruler already key on. Metal
 hardware is built in Blender from the same plan, so the tubes, posts, cord and
 text agree with the timber to the millimetre.
 
+## Trestle benches for the bells and blocks
+
+The expanded rig's glass bells and temple blocks sat on plank beds with two
+legs each. Every struck instrument other than the bars now sits on a trestle
+bench (`layout.bench_plan`, `recipes.bench_frame`, object `form_<mid>_stand`):
+
+- **Rails and bearers.** Two straight rails run along the row, 0.25 m past the
+  end elements, and a bearer crosses them under every element. The bearer top
+  sits one pad (20 mm) below the lowest element's underside, so the whole bench
+  is below anything a mallet meets.
+- **Mounts follow the element.** A block is a bar: it rests on two rubber pads
+  at its nodal points (`bar_nodes`), the way a concert wood block sits on foam
+  at its ends. A glass bell is a call bell: a brass base flange on the bearer
+  and a centre post rising through the mouth into the crown, so the dome hangs
+  free of the bench and rings (`layout.BELL` records the bell profile's drop
+  and mouth so the plan knows where the lip is).
+- **Trestles.** Each end is a crossbar the rails rest on, two legs splayed
+  outward to the floor and a tie between them where they have splayed to at
+  45 % of the height; a stretcher joins the two ties. A fascia hung on the
+  bearers' front ends carries the plaque and note names.
+
+The bench stays inside the footprint of the bed it replaced and below the
+elements, so the gantry plan is unchanged; `tools/test_bench.py` pins those
+rules on the expanded layout, and the tool-clearance ruler and the Godot form
+toggle treat every `form_*_stand` alike.
+
 ## The harp's pedal base
 
 A pedal harp's base is a box, not a drum: the column and the body's lower
@@ -72,13 +98,22 @@ lowest string foot, so nothing moves. `test_harp_base.py` checks both bases.
 
 ## Space accounting
 
-The frame is built after the rail search fixes the rails and before the gantry
-planner places the masts. The whole frame stays inside the footprint of the
-bed it replaced (z within ±0.75 m of the bar line, nothing above the bars'
-underside), so the gantry plan is unchanged by the swap — `test_bar_frame.py`
-pins that envelope, and `build_forms.py` still measures the masts and plinths
-against the frame's bounding box. The tool-clearance ruler
-(`check_form_clearance.py`) measures every mallet pose against the frame mesh.
+The frames are built after the rail search fixes the rails and before the
+gantry planner places the masts, and each stays inside the footprint of the bed
+it replaced and below its elements' undersides. That was not enough on its own:
+the plank beds were never obstacles to the rail search, and when the bells' bed
+became a form the gantry planner found the expanded rig's first harp arm
+running its rail and rack straight through it — the arm had been sweeping
+through the bed unmeasured. Every struck instrument's frame footprint (up to
+the elements' undersides) is therefore promised to the rail search as an
+obstacle, like the cabinet and the harp and rake bases (`build_clockwork.py`,
+`manifest['obstacles']`); the mallets of the instrument's own arms come from
+above, so the promise costs them nothing, and a rail from another mechanism
+must plan around it. `test_bar_frame.py` and `test_bench.py` pin that each
+frame is promised and lies inside its promise; `build_forms.py` measures the
+masts, plinths and racks against the frame's bounding box, and the
+tool-clearance ruler (`check_form_clearance.py`) measures every mallet pose
+against the frame meshes.
 
 ## Rulers
 

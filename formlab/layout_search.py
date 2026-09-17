@@ -52,8 +52,32 @@ def candidates(mech, layout):
     ls = [1.0, 1.15, 1.3, 1.45, 1.6]
     return [dict(root_y=y, root_z=z, l1=l, l2=l, bend=bend, wrist_offset=wrist) for y in ys for z in zs for l in ls]
 
-def evaluate_arm(rig, aid, cfg, times, spec=DEFAULT_SPEC, layers=None, boxes=(), string_plane_z=None, enough=.08):
-    """Feasibility + self score for one arm config. Returns dict or None."""
+CFG_KEYS = ('root_y', 'root_z', 'l1', 'l2', 'bend', 'wrist_offset', 'o1', 'o2', 'pinion')
+
+def _bounds(stack):
+    """Axis-aligned bounds of a capsule stack over every pose (lo, hi)."""
+    r = stack['r'][:, None, None]
+    return np.minimum((stack['A']-r).min((0, 1)), (stack['B']-r).min((0, 1))), np.maximum((stack['A']+r).max((0, 1)), (stack['B']+r).max((0, 1)))
+
+def _bracket_bounds(ends):
+    """Axis-aligned bounds of every bracket solid of both rail ends."""
+    lo = np.full(3, 1e9); hi = np.full(3, -1e9)
+    for end in ends:
+        for br in end['brackets']:
+            for kind, *geo in br['solids']:
+                if kind == 'box': lo = np.minimum(lo, geo[0]); hi = np.maximum(hi, geo[1])
+                else: lo = np.minimum(lo, np.minimum(geo[0], geo[1])-geo[2]); hi = np.maximum(hi, np.maximum(geo[0], geo[1])+geo[2])
+    return lo, hi
+
+def _box_apart(a, b):
+    """Gap between two (lo, hi) boxes, 0 when they meet."""
+    return float(np.linalg.norm(np.maximum(np.maximum(a[0]-b[1], b[0]-a[1]), 0)))
+
+def evaluate_arm(rig, aid, cfg, times, spec=DEFAULT_SPEC, layers=None, boxes=(), string_plane_z=None, enough=.08, others=()):
+    """Feasibility + self score for one arm config. Returns dict or None.
+    `others`: evaluated arms of the mechanisms planned before this one, at the
+    same sampling — this arm is measured against them as the gantry planner
+    measures every arm of the rig against every other."""
     layers = layers or default_layers(spec)
     old = dict(rig.geometry['arms'][aid]); rig.geometry['arms'][aid].update(cfg)
     try:
@@ -95,6 +119,14 @@ def evaluate_arm(rig, aid, cfg, times, spec=DEFAULT_SPEC, layers=None, boxes=(),
     # and the rack the pinion rolls on, in the disc's plane off its mount (formlab.gantry.rack)
     rm = np.array([0., ry, rz])+pinion_centre(mount)+rack_direction(mount)*(PINION['r_hub']+PINION['r_tip']+.039)/2
     caps['rack'] = fixed([x0-.26, rm[1], rm[2]], [x1+.26, rm[1], rm[2]], .04)
+    # The scene's promises (cabinet, bases, instrument frames) bind the carriage,
+    # the pinion and the rail's own bars, heads and rack as much as the links:
+    # the gantry planner refuses a rack inside a frame after the rails are fixed.
+    if boxes:
+        for name, (P, Q, r) in caps.items():
+            if name in ('upper', 'upper2', 'lower', 'lower2'): continue
+            rows = 1 if _is_rail(name) else len(P)
+            margins['scene'] = min(margins['scene'], min(box_gap(P[:rows], Q[:rows], r, lo, hi) for lo, hi in boxes))
     # A mast must stand at each rail end (formlab.gantry.plan_end searches the
     # same brackets and measures the same solids): keep, per end, every bracket
     # the arm's own motion and the scene leave clear, so the objective can ask
@@ -118,8 +150,24 @@ def evaluate_arm(rig, aid, cfg, times, spec=DEFAULT_SPEC, layers=None, boxes=(),
     stack = stack_caps(caps, shifts)
     caps = {n: (stack['A'][i], stack['B'][i], stack['r'][i]) for i, n in enumerate(stack['names'])}     # views into the stack: one copy per arm
     ev = dict(cfg=dict(cfg, o1=o1.tolist(), o2=o2.tolist(), pinion=mount), poses=poses, caps=caps, shifts=shifts, stack=stack,
-              ends=ends, mast_memo={}, margins=margins)
+              ends=ends, mast_memo={}, margins=margins, bounds=_bounds(stack), bracket_bounds=_bracket_bounds(ends))
     margins['mast'] = mast_margin(ev, [], boxes, enough)
+    if others:
+        # The arms of the mechanisms planned before this one: their links and
+        # rail hardware against this arm's (heads included), this arm's masts
+        # against their motion and theirs against this arm's — what the gantry
+        # planner measures across the whole rig once the rails are fixed. (The
+        # expanded harp's rack was refused for a bells arm's lower link at
+        # -31 mm before the search knew of it.) An arm whose bounds stand
+        # `enough` apart is not measured; the margin records that bound.
+        g = 1e9
+        for o in others:
+            apart = _box_apart(ev['bounds'], o['bounds'])
+            g = min(g, apart if apart >= enough else cross_gap(caps, o['caps'], stack, o['stack'], heads(ev), heads(o)))
+            if _box_apart(ev['bracket_bounds'], o['bounds']) < enough: margins['mast'] = min(margins['mast'], mast_margin(ev, [o], boxes, enough))
+            if _box_apart(o['bracket_bounds'], ev['bounds']) < enough: g = min(g, mast_margin(o, [ev], boxes, enough))
+            if g < 0: break
+        margins['others'] = g
     ev['worst'] = min(margins.values())
     return ev
 
@@ -269,20 +317,22 @@ def _is_rail(name): return name.startswith(('rail', 'head_', 'rack'))
 def rails_compatible(a, b):
     return abs(a['root_y']-b['root_y']) > .22 or abs(a['root_z']-b['root_z']) > .16
 
-def verify_fine(rig, aids, chosen, times, boxes, plane_z, enough):
+def verify_fine(rig, aids, chosen, times, boxes, plane_z, enough, placed=()):
     """The chosen rail set re-measured with the poses sampled four times as
-    finely: per arm, the worst of its own margins, its cross gaps (heads
-    included) and every arm's bracket margins in which it takes part.
-    Returns (fine margins per arm, the arms whose option to drop) — of a
-    failing pair, the one later in `aids` (the earlier has priority)."""
+    finely: per arm, the worst of its own margins (the arms of the mechanisms
+    planned before, `placed` at the fine rate, included), its cross gaps
+    (heads included) and every arm's bracket margins in which it takes part.
+    Returns (fine margins per arm, the arms whose option to drop) — an arm
+    whose own margins fail; of a failing pair, the one later in `aids` (the
+    earlier has priority)."""
     t4 = np.linspace(times[0], times[-1], 4*(len(times)-1)+1)
     evs = {}
     for aid in aids:
         cfg = {k: v for k, v in chosen[aid]['cfg'].items() if k not in ('o1', 'o2', 'pinion')}
-        evs[aid] = evaluate_arm(rig, aid, cfg, t4, boxes=boxes, string_plane_z=plane_z, enough=enough)
+        evs[aid] = evaluate_arm(rig, aid, cfg, t4, boxes=boxes, string_plane_z=plane_z, enough=enough, others=placed)
     fine = {aid: (evs[aid]['worst'] if evs[aid] is not None else -1.) for aid in aids}; bad = set()
     for aid in aids:
-        if evs[aid] is None: bad.add(aid)
+        if evs[aid] is None or evs[aid]['worst'] < 0: bad.add(aid)
     for i, a in enumerate(aids):
         for b in aids[i+1:]:
             if evs[a] is None or evs[b] is None: continue
@@ -291,22 +341,30 @@ def verify_fine(rig, aids, chosen, times, boxes, plane_z, enough):
             if g < 0: bad.add(b)
     for aid in aids:
         if evs[aid] is None: continue
-        others = [evs[o] for o in aids if o != aid and evs[o] is not None]
-        g = mast_margin(evs[aid], others, boxes, enough); fine[aid] = min(fine[aid], g)
-        if g < 0: bad.add(max([aid]+[o for o in aids if o != aid and evs[o] is not None], key=aids.index))
+        others = [o for o in aids if o != aid and evs[o] is not None]
+        g = mast_margin(evs[aid], [evs[o] for o in others], boxes, enough); fine[aid] = min(fine[aid], g)
+        if g < 0 and aid not in bad:
+            # blame the arm whose parts close the brackets: the later in
+            # `aids` of the owner and each arm that alone blocks every
+            # bracket (the owner's own motion and the scene are in its
+            # `worst` above); if only the combination does, the latest of all
+            culprits = [o for o in others if mast_margin(evs[aid], [evs[o]], boxes, enough) < 0]
+            if culprits: bad.update(max([aid, o], key=aids.index) for o in culprits)
+            else: bad.add(max([aid]+others, key=aids.index))
     return fine, bad
 
-def _mech_key(score, layout, mech, hz, enough):
+def _mech_key(score, layout, mech, hz, enough, placed=None):
     """Everything the search for one mechanism depends on, hashed: its
     events (times, strings, picks), its string geometry, the obstacles,
-    the sampling, the candidate grid and the space model (the source text of
-    candidates, evaluate_arm and the whole clearance module)."""
+    the rails and links of the mechanisms planned before it (`placed`: arm
+    id -> cfg), the sampling, the candidate grid and the space model (the
+    source text of candidates, evaluate_arm and the whole clearance module)."""
     import hashlib, inspect, sys
     ev = [{k: e.get(k) for k in ('t', 't_move', 't_free', 'strings', 'pick', 'spread_s', 'actuator')}
           for e in score['events'] if e.get('mech') == mech['id']]
     strings = {k: v for k, v in layout['strings'].items() if v['mid'] == mech['id']}
     blob = json.dumps([mech, ev, strings, layout.get('obstacles', []), layout['mechanisms'][mech['id']],
-                       {a: layout['arms'][a] for a in (x['id'] for x in mech['actuators'])},
+                       {a: layout['arms'][a] for a in (x['id'] for x in mech['actuators'])}, placed or {},
                        score['total_s'], hz, enough, inspect.getsource(candidates), inspect.getsource(evaluate_arm),
                        inspect.getsource(plan_arms), inspect.getsource(verify_fine), inspect.getsource(mast_margin), inspect.getsource(column_gap),
                        inspect.getsource(mast_gaps), inspect.getsource(pin_shifts), inspect.getsource(stack_caps), inspect.getsource(stack_view), inspect.getsource(solids_gap), inspect.getsource(cross_gap),
@@ -326,20 +384,32 @@ def plan_arms(score, layout, hz=30, enough=.08, verbose=print, cache=None):
     if cache and os.path.exists(cache):
         try: store = _json.load(open(cache))
         except ValueError: store = {}
+    # The mechanisms are planned in score order, each against the arms of
+    # those before it (links, rail hardware and masts, both sampling rates):
+    # the gantry planner measures the whole rig, and a harp rack it refused
+    # for a bells arm's link was the search's blind spot, not the planner's.
+    placed = {}                                   # aid -> dict(coarse=ev at hz, fine=ev at 4 hz)
+    t4 = np.linspace(times[0], times[-1], 4*(len(times)-1)+1)
+    def place(aid, cfg, plane_z):
+        cfg = {k: v for k, v in cfg.items() if k in CFG_KEYS and k not in ('o1', 'o2', 'pinion')}
+        placed[aid] = dict(coarse=evaluate_arm(rig, aid, cfg, times, boxes=boxes, string_plane_z=plane_z, enough=enough),
+                           fine=evaluate_arm(rig, aid, cfg, t4, boxes=boxes, string_plane_z=plane_z, enough=enough))
     for mech in score['instrument']['mechanisms']:
         aids = [a['id'] for a in mech['actuators']]
-        key = _mech_key(score, layout, mech, hz, enough) if cache else None
+        strings = [s for s in layout['strings'].values() if s['mid'] == mech['id']]
+        plane_z = float(np.mean([s['a'][2] for s in strings])) if mech['kind'] != 'struck' else None
+        key = _mech_key(score, layout, mech, hz, enough, {a: {k: layout['arms'][a][k] for k in CFG_KEYS if k in layout['arms'][a]} for a in placed}) if cache else None
         if key and key in store:
             for aid in aids:
                 layout['arms'][aid].update(store[key][aid])
                 if verbose: verbose(f"  RAIL {aid}: (cached) "+' '.join(f'{k2}={v}' for k2, v in store[key][aid].items() if k2 != 'margins'))
+                place(aid, store[key][aid], plane_z)
             continue
-        strings = [s for s in layout['strings'].values() if s['mid'] == mech['id']]
-        plane_z = float(np.mean([s['a'][2] for s in strings])) if mech['kind'] != 'struck' else None
+        coarse = [p['coarse'] for p in placed.values()]; fine_placed = [p['fine'] for p in placed.values()]
         options = {aid: [] for aid in aids}
         for aid in aids:
             for cfg in candidates(mech, layout):
-                ev = evaluate_arm(rig, aid, cfg, times, boxes=boxes, string_plane_z=plane_z, enough=enough)
+                ev = evaluate_arm(rig, aid, cfg, times, boxes=boxes, string_plane_z=plane_z, enough=enough, others=coarse)
                 if ev is not None: options[aid].append(ev)
             if not options[aid]: raise ValueError(f'no feasible rail for {aid}')
         chosen = {}; memo = {}
@@ -357,21 +427,38 @@ def plan_arms(score, layout, hz=30, enough=.08, verbose=print, cache=None):
                 for other, oev in others.items():
                     worst = min(worst, mast_margin(oev, [ev]+[x for o, x in others.items() if o != other], boxes, enough))
             return (min(worst, enough), -ev['cfg']['l1'], -abs(ev['cfg']['root_y']-2.75), worst)
-        for attempt in range(4):
-            for aid in aids:                      # greedy
-                chosen[aid] = max(options[aid], key=lambda ev: objective(aid, ev))
-            for _ in range(2):                    # coordinate descent
-                for aid in aids:
+        from itertools import permutations
+        orders = list(permutations(aids)) if len(aids) <= 3 else [tuple(aids[k:]+aids[:k]) for k in range(len(aids))]
+        def set_worst(): return min(objective(aid, chosen[aid])[3] for aid in aids)
+        for attempt in range(6):
+            # Greedy placement then coordinate descent, from every placement
+            # order: a set can lock — each arm's alternatives judged by a third
+            # arm's blocked masts, so only the tie-breakers speak and nothing
+            # moves — and the order the arms are placed in decides whether it
+            # does. Keep the order whose set stands clearest.
+            best = None
+            for order in orders:
+                chosen.clear()
+                for aid in order:                     # greedy
                     chosen[aid] = max(options[aid], key=lambda ev: objective(aid, ev))
+                for _ in range(2):                    # coordinate descent
+                    for aid in order:
+                        chosen[aid] = max(options[aid], key=lambda ev: objective(aid, ev))
+                w = set_worst()
+                if best is None or w > best[0]: best = (w, dict(chosen))
+                if w >= enough: break
+            chosen.clear(); chosen.update(best[1])
+            if verbose and best[0] < enough: verbose(f"  RAIL {mech['id']}: clearest set over {len(orders)} placement orders stands {best[0]:+.3f} m at {hz} Hz")
             # The search samples at hz; the gantry planner confirms at 4 hz and
             # a pick's fast stroke can close 50 mm between samples. Re-measure
             # the chosen set at its rate and, if it does not pass there, drop
             # the offending option(s) and search again.
-            fine, bad = verify_fine(rig, aids, chosen, times, boxes, plane_z, enough)
+            fine, bad = verify_fine(rig, aids, chosen, times, boxes, plane_z, enough, placed=fine_placed)
             for aid in aids: chosen[aid]['margins']['fine'] = fine[aid]
             if not bad: break
+            if verbose: verbose(f"  RAIL {mech['id']}: at {4*hz} Hz "+' '.join(f"{aid}(y={chosen[aid]['cfg']['root_y']:.2f} z={chosen[aid]['cfg']['root_z']:.2f} l={chosen[aid]['cfg']['l1']:.2f})={fine[aid]:+.3f}" for aid in aids))
             for aid in bad:
-                if verbose: verbose(f"  RAIL {aid}: y={chosen[aid]['cfg']['root_y']:.2f} z={chosen[aid]['cfg']['root_z']:.2f} l={chosen[aid]['cfg']['l1']:.2f} fails at {4*hz} Hz ({fine[aid]:+.3f} m); dropped")
+                if verbose: verbose(f"  RAIL {aid}: y={chosen[aid]['cfg']['root_y']:.2f} z={chosen[aid]['cfg']['root_z']:.2f} l={chosen[aid]['cfg']['l1']:.2f} blamed at {4*hz} Hz; dropped")
                 options[aid] = [ev for ev in options[aid] if ev is not chosen[aid]]
                 if not options[aid]: raise ValueError(f'no feasible rail for {aid} at {4*hz} Hz')
         else:
@@ -379,7 +466,7 @@ def plan_arms(score, layout, hz=30, enough=.08, verbose=print, cache=None):
         for k, aid in enumerate(aids):
             ev = chosen[aid]; cfg = ev['cfg']
             cross = {o: cross_gap(ev['caps'], chosen[o]['caps'], ev['stack'], chosen[o]['stack'], heads(ev), heads(chosen[o])) for o in aids if o != aid}
-            ev['margins']['mast'] = mast_margin(ev, [chosen[o] for o in aids if o != aid], boxes, enough)
+            ev['margins']['mast'] = min(ev['margins']['mast'], mast_margin(ev, [chosen[o] for o in aids if o != aid], boxes, enough))
             layout['arms'][aid].update(cfg)
             layout['arms'][aid]['margins'] = dict({k2: round(v, 4) for k2, v in ev['margins'].items()}, cross={o: round(g, 4) for o, g in cross.items()})
             if verbose: verbose(f"  RAIL {aid}: y={cfg['root_y']:.2f} z={cfg['root_z']:.2f} l={cfg['l1']:.2f} bend={cfg['bend']} margins="+
@@ -388,4 +475,5 @@ def plan_arms(score, layout, hz=30, enough=.08, verbose=print, cache=None):
             store[key] = {aid: dict(chosen[aid]['cfg'], margins=layout['arms'][aid]['margins']) for aid in aids}
             os.makedirs(os.path.dirname(cache) or '.', exist_ok=True)
             _json.dump(store, open(cache, 'w'), indent=1)
+        for aid in aids: place(aid, chosen[aid]['cfg'], plane_z)
     return layout['arms']

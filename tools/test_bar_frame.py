@@ -72,5 +72,9 @@ check('frame stays within .45 m of the end bars in x',V[:,0].min()>xs.min()-.45 
 for m in pieces[:2]:   # rails: a +X path puts the 60 mm depth in Y and the 70 mm width in Z
     ext=m.vertices[:-2].reshape(-1,len(m.vertices[:-2])//len(m.path),3)
     check('rail section is 60 mm deep by 70 mm wide',np.isclose(ext[5,:,1].max()-ext[5,:,1].min(),2*RAIL['half_y'],atol=1e-3) and np.isclose(ext[5,:,2].max()-ext[5,:,2].min(),2*RAIL['half_z'],atol=1e-3))
+# The frame's footprint is promised to the rail search (build_clockwork.py) up to the bars' underside.
+V=np.concatenate([p.vertices for p in bar_frame(plan)])
+promised=[o for o in layout['obstacles'] if o[0][0]<V[:,0].min() and V[:,0].max()<o[1][0] and o[0][2]<V[:,2].min() and V[:,2].max()<o[1][2] and abs(o[1][1]-plan['bar_bottom'])<1e-9]
+check('frame promised to the rail search as an obstacle up to the bar underside',len(promised)==1)
 if fails: raise SystemExit('BAR FRAME: FAIL '+', '.join(fails))
 print('BAR FRAME: PASS')

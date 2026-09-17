@@ -124,3 +124,28 @@ def pack(name,pieces,material,classification):
     if not all(r['ok'] for r in reports): raise ValueError((name,reports))
     return dict(name=name,material=material,classification=classification,
                 pieces=[m.to_dict() for m in pieces],component_checks=reports)
+
+def bench_frame(plan):
+    """Trestle-bench construction from formlab.layout.bench_plan: two rails, a
+    bearer under each element, at each end a crossbar the rails rest on with
+    two splayed legs and a tie between them, a stretcher tying the ends at the
+    ties' height, and a fascia board hung on the bearers' front ends."""
+    from .layout import BENCH as B
+    pieces=[]
+    for side in ('back','front'):
+        (xa,y,z),(xb,_,_)=plan['rails'][side]
+        pieces.append(_timber([[xa,y,z],[(xa+xb)/2,y,z],[xb,y,z]],B['rail_half_y'],B['rail_half_z']))            # +X: width->Y, depth->Z
+    for b in plan['bearers']:
+        za,zb=b['z']; pieces.append(_timber([[b['x'],b['y'],za],[b['x'],b['y'],(za+zb)/2],[b['x'],b['y'],zb]],B['bearer_half_y'],B['bearer_half_x']))   # +Z: width->Y, depth->X
+    for e in plan['ends']:
+        xe=e['x']; za,zb=e['z']; cy=e['cross_y']
+        pieces.append(_timber([[xe,cy,za-B['cross_half']-.02],[xe,cy,(za+zb)/2],[xe,cy,zb+B['cross_half']+.02]],B['cross_half'],B['cross_half']))
+        for l in e['legs']:                                        # built upward from the toe: width->X, depth->Z, tapering toward the toe
+            toe=np.array(l['toe']); top=np.array(l['top'])+[0,B['cross_half']*.6,0]
+            pieces.append(_timber([toe,(toe+top)/2,top],(B['leg_toe'],B['leg_top']),(B['leg_toe'],B['leg_top'])))
+        ta,tb=e['tie_z']; pieces.append(_timber([[xe,e['tie_y'],ta-.02],[xe,e['tie_y'],(ta+tb)/2],[xe,e['tie_y'],tb+.02]],.03,.035))
+    s=plan['stretcher']; xa,xb=s['x']
+    pieces.append(_timber([[xa,s['y'],s['z']],[(xa+xb)/2,s['y'],s['z']],[xb,s['y'],s['z']]],.035,.04))
+    b=plan['board']; x0,x1=b['x']
+    pieces.append(_timber([[x0,b['y'],b['z']],[(x0+x1)/2,b['y'],b['z']],[x1,b['y'],b['z']]],BOARD['half_y']*.6,BOARD['half_z']))
+    return pieces

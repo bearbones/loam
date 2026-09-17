@@ -14,7 +14,7 @@ out = ROOT/'harness/assets'
 sys.path.insert(0,str(ROOT/'tools'))
 from blender_forms import make_form
 sys.path.insert(0,str(ROOT/'formlab'))
-from layout import string_endpoints,bar_frame_plan,board_z,harp_base_plan,BAR
+from layout import string_endpoints,bar_frame_plan,board_z,harp_base_plan,bench_plan,bench_elements,BAR,BENCH,BELL,BOARD
 # formlab.rig / clearance / layout_search are numpy-only (no SciPy) so they run here too.
 import rig as arm_rig, clearance as arm_clearance, layout_search
 # Pure Python preparation keeps SciPy and structural logic out of Blender's runtime.
@@ -102,14 +102,9 @@ for m in score['instrument']['mechanisms']:
     # this far apart along x at every moment (world = 3 x score units).
     manifest['mechanisms'][mid]={'center':[x,base_y,z], 'kind':m['kind'], 'material':m['material'], 'arm_clearance_m':3*float(m.get('arm_clearance',0.0))}
     span=m['span']*3
-    # The bars hang on a marimba frame built by formlab (form_bars_stand); other
-    # struck mechanisms keep a bed on legs.
-    framed=mid=='bars'
-    if struck and not framed: box(mid+' bed',(x,.73,z),(span+.5,.22,1.5),wood)
-    for dx in (() if mid in ("bars","harp","rake") else (-span/2-.1,span/2+.1)):
-        box(mid+' leg',(x+dx,.36,z),(.16,.7,.36),wood)
-        cyl(mid+' foot',(x+dx,.07,z),.17,.13,brass)
-    if struck and not framed: text(mid+' plaque',mid.upper()+'  /  '+m['material'].upper(),(x,.68,z+.78),.105)
+    # The bars hang on a marimba frame built by formlab (form_bars_stand); every
+    # other struck instrument sits on a trestle bench (form_<mid>_stand).
+    framed=mid=='bars'; benched=struck and not framed
     ends=[]
     for i,s in enumerate(m['strings']):
         sx=x+s['pos'][0]*3; sy=base_y+s['pos'][1]*3; sz=z+s['pos'][2]*3; length=s['length']*3
@@ -122,14 +117,12 @@ for m in score['instrument']['mechanisms']:
                 box(s['id']+' bar',(sx,sy-BAR['thick']/2,sz),(min(.24,span/len(m['strings'])*.7),BAR['thick'],length),rose)
                 if m['material']=='wood':
                     box(s['id']+' slit',(sx,sy+.001,sz+.07),(.19,.006,.018),black,.002)
-            if not framed: beam(s['id']+' resonator',(sx,.84,sz),(sx,sy-.13,sz),.07,brass)
         else:
             for ep in (a,b):
                 ball(s['id']+' anchor',ep,.035,brass)
                 beam(s['id']+' pin',ep,[ep[0],ep[1],ep[2]-.1],.022,steel)
         ends.append((a,b))
         manifest['strings'][s['id']]={'a':a,'b':b,'mid':mid,'struck':struck,'midi':s['midi'],'pick':s['pick_default']}
-        if struck and not framed: text(s['id']+' note',str(int(s['midi'])),(sx,.91,z+.79),.065)
     if framed:
         # Hardware on the marimba frame: cord posts with rubber cushions, the cord through the
         # bars' node holes, closed quarter-wave resonators on their bank rod, glides, and the
@@ -155,6 +148,21 @@ for m in score['instrument']['mechanisms']:
         text(mid+' plaque',mid.upper()+'  /  '+m['material'].upper(),(fx,.605,fz),.095,yaw)
         for s in m['strings']:
             sx=manifest['strings'][s['id']]['a'][0]; fx,fz=face(sx); text(s['id']+' note',str(int(s['midi'])),(fx,.735,fz),.06,yaw)
+    if benched:
+        # Mounts on the bench's bearers (formlab.layout.bench_plan): a call bell's base
+        # flange and centre post up into its crown, rubber pads at a block's nodal points;
+        # the plaque and note names on the fascia board.
+        plan=bench_plan(bench_elements([dict(manifest['strings'][s['id']],id=s['id']) for s in m['strings']],m['material']))
+        for mt in plan['mounts']:
+            if mt['kind']=='post':
+                cyl(mt['id']+' post',(mt['x'],(mt['y0']+mt['y1'])/2,mt['z']),BELL['post_r'],mt['y1']-mt['y0'],brass)
+                cyl(mt['id']+' post flange',(mt['x'],mt['y0']+.01,mt['z']),BELL['flange_r'],.02,brass)
+            else:
+                for k,zn in enumerate(mt['z']): box(f"{mt['id']} pad {k}",(mt['x'],mt['y0']+BENCH['pad']/2,zn),(.06,BENCH['pad'],.05),black,.004)
+        bd=plan['board']; bz=bd['z']+BOARD['half_z']+.002; xm=(bd['x'][0]+bd['x'][1])/2
+        text(mid+' plaque',mid.upper()+'  /  '+m['material'].upper(),(xm,bd['y']-.03,bz),.036)
+        for s in m['strings']:
+            text(s['id']+' note',str(int(s['midi'])),(manifest['strings'][s['id']]['a'][0],bd['y']+.028,bz),.04)
     if mid in ('harp','rake'):
         left=min(v['a'][0] for v in manifest['strings'].values() if v['mid']==mid)
         # The harp's base (formlab.layout.harp_base_plan): a box the column and body
@@ -205,6 +213,18 @@ for based in ('harp','rake'):
     if based not in manifest['mechanisms']: continue
     left=min(v['a'][0] for v in manifest['strings'].values() if v['mid']==based); zz=manifest['mechanisms'][based]['center'][2]+.20
     manifest['obstacles'].append([[left-.82,0,zz-.58],[left+.46,.36,zz+.58]])
+# Every struck instrument's frame is a promise too: its footprint up to the elements'
+# undersides (the marimba frame, the benches). The mallets come from above; a rail
+# or a pick arm from another mechanism must not run through the frame.
+for m in score['instrument']['mechanisms']:
+    if m['kind']!='struck': continue
+    els=[dict(manifest['strings'][s['id']],id=s['id']) for s in m['strings']]; c=manifest['mechanisms'][m['id']]['center']
+    if m['id']=='bars':
+        plan=bar_frame_plan(els); xs=plan['rails']['back'][:,0]
+        manifest['obstacles'].append([[float(xs.min())-.05,0,c[2]-.75],[float(xs.max())+.05,plan['bar_bottom'],c[2]+.75]])
+    else:
+        plan=bench_plan(bench_elements(els,m['material'])); reach=BENCH['rail_z']+BENCH['leg_splay']+.06
+        manifest['obstacles'].append([[plan['x'][0]-.05,0,plan['z']-reach],[plan['x'][1]+.05,plan['underside'],plan['z']+reach]])
 # Rails, posts and link lengths from the clearance search over the whole score.
 manifest['score']=str(Path(args[0]).resolve() if args else (ROOT/'render/chamber/score.json').resolve())
 layout_search.plan_arms(score,manifest,cache=str(ROOT/'render/form-study/rails-cache.json'))
@@ -248,7 +268,7 @@ for aid,cfg in manifest['arms'].items():
 # Include the added reference hardware in the offline clearance mesh.
 hardware_vertices=[];hardware_faces=[]
 for obj in list(bpy.data.objects):
-    if obj.type!='MESH' or not (obj.name.startswith(('Harp ','Rake ')) or any(tag in obj.name for tag in (' action disc',' fork pin',' tuning pin',' tuning key'))): continue
+    if obj.type!='MESH' or not (obj.name.startswith(('Harp ','Rake ')) or any(tag in obj.name for tag in (' action disc',' fork pin',' tuning pin',' tuning key',' post',' pad '))): continue
     obj.data.calc_loop_triangles();offset=len(hardware_vertices)
     for v in obj.data.vertices:
         p=obj.matrix_world@v.co;hardware_vertices.append([p.x,p.z,-p.y])

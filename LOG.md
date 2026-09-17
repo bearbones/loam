@@ -1,3 +1,59 @@
+## 2026-09-17 — CLOCKWORK trestle benches under the bells and blocks; every frame is now a promise
+
+The expanded rig's glass bells and temple blocks sat on plank beds with two
+legs each — the last plank-on-legs construction in the scene. They now sit on
+trestle benches built the way the marimba frame was: `formlab.layout.bench_plan`
+lays out two rails along the row on a splayed-leg trestle at each end (crossbar,
+legs, a tie where the legs have splayed to, a stretcher between the ties), a
+bearer across the rails under every element, and the element's own mount on
+its bearer — rubber pads at a block's nodal points (it rings like a bar), and
+for a glass bell a call bell's base flange and centre post reaching up into
+the crown so the dome hangs free. A fascia hung on the bearers' front ends
+carries the plaque and the note names. `recipes.bench_frame` sweeps the timber
+(16 and 15 closed pieces, `form_bells_stand` / `form_blocks_stand`); the
+Blender builder adds the brass and rubber and drops the beds, legs and
+under-bell tubes; the tool-clearance ruler and the Godot form toggle treat
+every `form_*_stand` alike.
+
+The first build failed honestly: the gantry planner found harp_arm0's rail and
+rack running through the bells bench (+0.000 m). The plank beds were never
+obstacles to the rail search, so that pick arm had been sweeping through the
+bells' bed unmeasured. Every struck instrument's frame footprint, up to its
+elements' undersides, is now promised to the rail search as an obstacle like
+the cabinet and the bases (the mallets of the instrument's own arms come from
+above, so the promise costs them nothing). The second build then showed the
+other half of the gap: the rail search had only ever measured the four links
+against the scene promises, so it accepted a rail whose rack — which reaches
+0.26 m past the reach window — sat inside the bench, and the gantry planner
+refused it after the rails were fixed. `layout_search.evaluate_arm` now
+measures every capsule against the scene: carriage, pinion, and the rail's
+own bars, heads and rack. The third build failed in the search's own 120 Hz
+check: a harp rail's masts had no clear bracket at the fine rate, and
+`verify_fine` blamed the mechanism's last arm whatever failed, so it dropped
+harp_arm2's options four times for harp_arm0's masts and gave up. It now
+blames the arm that closes the bracket (the owner for its own motion or the
+scene, else the later of owner and blocker) and prints every arm's fine margin
+per retry. That print showed the fourth failure was not a rate mismatch at
+all: the 30 Hz search itself had settled on a set standing −20 mm, locked —
+harp_arm0's end masts ran into the other two rails, every alternative for
+either of those was judged by harp_arm0's blocked masts, so only the
+tie-breakers spoke and the coordinate descent never moved. The greedy
+placement now runs from every order of the arms and keeps the clearest set;
+placed in another order the expanded harp finds three clear high rails
+(y 2.75 / 3.60 / 4.10). That unlocked set then met the last blind spot: the
+gantry planner refused it for a bells arm's lower link 31 mm inside the
+harp's rack — each mechanism had been planned against its own arms and the
+scene only. The mechanisms are planned in score order and every candidate is
+now measured against the arms already placed (links, rail hardware, masts
+both ways, both sampling rates; `margins.others`), and the placed rails are
+part of the later mechanisms' cache key. The bells re-planned behind the
+harp. The chamber's harp also moved: the clearest-set rule found a set
+standing +23 mm against the old +20 mm (two high rails and a low back one).
+`tools/test_bench.py` pins the bench rules and the
+promise; `test_bar_frame.py` pins the marimba frame's promise.
+docs/instrument-frames.md gains the bench section and the space-accounting
+lesson.
+
 ## 2026-09-17 — CLOCKWORK the rake stands on a plinth
 
 The rake — a five-string bronze instrument on a harp-shaped frame — stood on

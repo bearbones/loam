@@ -81,8 +81,9 @@ def run(layout_path, score_path):
           f'rack teeth pitched to the pinion: pitch {R["pitch"]*1000:.1f} mm, clearances {G.RACK_GAP*1000:.0f} mm; the disc clears the heads')
     # 3. the recorded placement is what the search finds, with its margins
     recipe = json.loads((ROOT/'render/form-study/recipe.json').read_text())
+    # the recipe is the last build's (the expanded rig's, with its benches): keep the forms of this layout's mechanisms
     form_boxes = [(o['name'], (V.min(0), V.max(0))) for o in recipe['objects']
-                  if not o.get('local') and not o['name'].endswith(('_gantry', '_railhead'))
+                  if not o.get('local') and not o['name'].endswith(('_gantry', '_railhead')) and o['name'].split('_')[1] in layout['mechanisms']
                   for V in [np.concatenate([np.array(p['vertices']) for p in o['pieces']])]]
     plan = G.plan_gantries(layout, poses, form_boxes, verbose=lambda *a: None)
     for aid, g in plan.items():
@@ -107,6 +108,13 @@ def run(layout_path, score_path):
             check(len(inside) and inside[:, 1].min() < ry-.075-.024 and inside[:, 1].max() > ry+.075+.024
                   and inside[:, 2].min() < rz-.024 and inside[:, 2].max() > rz+.024,
                   f'{aid}: head captures the bar end at x={x_bar:.3f}')
+    # 5. the rail search planned every mechanism after the first against the
+    #    arms already placed (formlab.layout_search.evaluate_arm `others`),
+    #    and recorded that margin clear
+    for m in score['instrument']['mechanisms'][1:]:
+        for a in m['actuators']:
+            others = layout['arms'][a['id']].get('margins', {}).get('others')
+            check(others is not None and others >= 0, f'{a["id"]}: planned against the mechanisms placed before it ({others} m)')
 
 if __name__ == '__main__':
     if len(sys.argv) > 2: pairs = [(Path(sys.argv[1]), Path(sys.argv[2]))]
