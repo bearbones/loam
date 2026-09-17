@@ -74,6 +74,23 @@ func check_scene() -> void:
 					if first.global_position.distance_to(scene.motion.v(s["b"]))>.00001: failures.append("dead length does not start at b "+sid)
 					var top: MeshInstance3D=dead.get_child(1)
 					if top.global_position.y<=scene.motion.v(s["b"]).y+.1: failures.append("dead length does not climb to the neck "+sid)
+		# The chamber's flywheel turns about z once a bar, and the belt pulley with it,
+		# faster by the pulleys' radii (formlab.layout.flywheel_plan).
+		var wheel: Node3D=scene.model.find_child("Chamber flywheel",true,false)
+		var pulley: Node3D=scene.model.find_child("Chamber belt pulley",true,false)
+		if wheel==null or pulley==null or not scene.layout.has("flywheel"): failures.append("flywheel assembly missing from the model")
+		else:
+			var f: Dictionary=scene.layout["flywheel"]
+			var ratio: float=float(f["cyls"]["drive pulley"][2])/float(f["cyls"]["belt pulley"][2])
+			var bar: float=240.0/float(scene.score.doc.get("bpm",84.0))
+			# The imported mesh's own axes are whatever Blender baked in, so judge the
+			# motion by the rotation between the two poses, not by any one local axis.
+			scene.evaluate(10.0); var w0: Basis=wheel.global_basis; var p0: Basis=pulley.global_basis
+			scene.evaluate(10.0+bar/4.0); var wq: Quaternion=(wheel.global_basis*w0.inverse()).get_rotation_quaternion(); var pq: Quaternion=(pulley.global_basis*p0.inverse()).get_rotation_quaternion()
+			if absf(wq.get_angle()-TAU/4.0)>.001 or absf(absf(wq.get_axis().z)-1.0)>.0001: failures.append("flywheel does not turn a quarter turn in a quarter bar about z")
+			var want: float=fmod(TAU/4.0*ratio,TAU); if want>PI: want=TAU-want
+			if absf(pq.get_angle()-want)>.01 or absf(absf(pq.get_axis().z)-1.0)>.0001 or signf(pq.get_axis().z*pq.get_angle())!=signf(wq.get_axis().z*wq.get_angle()) and want<PI-.01: failures.append("belt pulley does not turn with the flywheel by the pulleys' ratio")
+			if wheel.global_position.distance_to(scene.motion.v(f["centre"]))>.001: failures.append("flywheel off its planned centre")
 	print("  integrated GLB: %d tool contacts; %d rigs" % [contacts,scene.parts.size()])
 	print("PERFORMANCE: PASS" if failures.is_empty() else str(failures))
 	quit(0 if failures.is_empty() else 1)

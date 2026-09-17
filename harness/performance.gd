@@ -11,6 +11,7 @@ var layout: Dictionary
 var model: Node3D
 var parts: Dictionary = {}
 var gear_home: Dictionary = {}   # each pinion's imported basis: the disc in its mount's plane, unspun
+var wheel_home: Dictionary = {}  # the flywheel, hub and pulleys: node -> imported basis, unspun
 var strings: Dictionary = {}
 var hits: Dictionary = {}
 var camera: Camera3D
@@ -79,6 +80,11 @@ func _ready() -> void:
 			if parts[aid][part]==null:
 				push_error("Missing GLB pivot "+aid+"__"+part); get_tree().quit(1); return
 		gear_home[aid]=parts[aid]["gear"].basis
+	# The chamber's flywheel, its axle pulley and the belt pulley turn about z
+	# (formlab.layout.flywheel_plan); their imported bases are the unspun home.
+	for label in ["Chamber flywheel","Chamber hub","Chamber drive pulley","Chamber belt pulley"]:
+		var node: Node3D=model.find_child(label,true,false)
+		if node!=null: wheel_home[node]=node.basis
 	for sid in layout["strings"]:
 		hits[sid]=[]
 		if not layout["strings"][sid]["struck"]:
@@ -166,6 +172,11 @@ func _make_dead_length(sid: String, s: Dictionary, radius: float, colour: Color,
 		node.material_override=mat
 		dead.add_child(node)
 	add_child(dead)
+
+## The flywheel's angle at time t: one turn per bar of the score's tempo,
+## the wheel's +x face turning down toward the house (a negative turn about z).
+func flywheel_angle(t: float) -> float:
+	return -TAU*t*float(score.doc.get("bpm",84.0))/240.0
 
 ## A harp is strung by register: wound wire below C4, gut through the middle,
 ## nylon from C5 up (the wire shader's `family`: 0 steel, 1 wound, 2 gut, 3 nylon).
@@ -286,6 +297,14 @@ func evaluate(t: float) -> void:
 		var flat := mount=="up" or mount=="down"
 		p["gear"].position=root+(Vector3(0,(.17 if mount=="up" else -.17),-.10) if flat else Vector3(0,0,(.195 if mount=="front" else -.195)))
 		p["gear"].basis=Basis(Vector3.UP if flat else Vector3(0,0,1),root.x/.12)*gear_home[aid]
+	# The flywheel turns once a bar; the belt pulley turns with it, faster by the
+	# pulleys' radii, the same way round (an open belt).
+	var spin: float=flywheel_angle(t)
+	for node in wheel_home:
+		var k: float=1.0
+		if node.name=="Chamber belt pulley" and layout.has("flywheel"):
+			var f: Dictionary=layout["flywheel"]; k=float(f["cyls"]["drive pulley"][2])/float(f["cyls"]["belt pulley"][2])
+		node.basis=Basis(Vector3(0,0,1),spin*k)*wheel_home[node]
 	for sid in strings:
 		var displacement := PackedFloat32Array(); displacement.resize(STRING_NODES)
 		var envelope := PackedFloat32Array(); envelope.resize(STRING_NODES)
@@ -375,6 +394,10 @@ func _camera_at(t: float) -> void:
 		# and the dead lengths, seen from behind the string plane where the arms work.
 		var c := motion.v(layout["mechanisms"]["harp"]["center"]) if layout["mechanisms"].has("harp") else Vector3(0,3.3,0)
 		target=Vector3(c.x-.1,3.35,c.z); pos=target+Vector3(1.05,.15,-1.45)
+	elif chosen==13:
+		# The flywheel drive: wheel, plummer blocks, pedestals, the belt to the cabinet's end.
+		var f: Vector3=motion.v(layout["flywheel"]["centre"]) if layout.has("flywheel") else Vector3(-2.4,.53,-1.5)
+		target=f+Vector3(.2,-.05,-.1); pos=f+Vector3(-.75,.55,1.75)
 	camera.position=pos; camera.look_at(target)
 
 func _process(dt: float) -> void:

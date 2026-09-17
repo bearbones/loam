@@ -14,7 +14,7 @@ out = ROOT/'harness/assets'
 sys.path.insert(0,str(ROOT/'tools'))
 from blender_forms import make_form
 sys.path.insert(0,str(ROOT/'formlab'))
-from layout import string_endpoints,bar_frame_plan,board_z,harp_base_plan,bench_plan,bench_elements,BAR,BENCH,BELL,BOARD,NECK
+from layout import string_endpoints,bar_frame_plan,board_z,harp_base_plan,bench_plan,bench_elements,flywheel_plan,BAR,BENCH,BELL,BOARD,NECK,FLYWHEEL
 # formlab.rig / clearance / layout_search are numpy-only (no SciPy) so they run here too.
 import rig as arm_rig, clearance as arm_clearance, layout_search
 # Pure Python preparation keeps SciPy and structural logic out of Blender's runtime.
@@ -193,7 +193,23 @@ box('Chamber cabinet',(0,.49,-1.6),(3.6,.85,.65),wood,.09)
 for i in range(23):
     box('Chamber grille',(-1.58+i*.144,.5,-1.26),(.045,.61,.05),brass,.012)
 text('Chamber name','L O A M   /   THE CHAMBER',(0,.18,-1.21),.11)
-gear('Chamber flywheel',(-2.4,.53,-1.5),.4)
+# The flywheel on its axle in two plummer blocks on pedestals, a pulley on the
+# axle's back end and a flat belt to a pulley on a bracket at the cabinet's end
+# (formlab.layout.flywheel_plan); Godot turns the wheel and pulleys a bar a turn.
+fw=flywheel_plan((-2.4,.53,-1.5),.4,cabinet_x=-1.8); manifest['flywheel']=fw
+gear('Chamber flywheel',fw['centre'],fw['r'])
+fw_mat={'hub':brass,'axle':steel,'housing':steel,'bolt':brass,'pulley':steel,'stub axle':steel}
+for label,(a,b,r) in fw['cyls'].items():
+    beam('Chamber '+label,a,b,r,next((m for k,m in fw_mat.items() if k in label),steel))
+for label,(c,s) in fw['boxes'].items():
+    box('Chamber '+label,c,s,black,.012 if 'ear' in label or 'block' in label else .02)
+for i,band in enumerate(fw['belt']):
+    a=Vector(band['a']); b=Vector(band['b'])
+    band_box=box(f'Chamber belt band {i}',(a+b)/2,(band['length'],FLYWHEEL['belt_t'],FLYWHEEL['belt_w']),black,.002)
+    band_box.rotation_euler[1]=-band['angle']
+for i,(c,r) in enumerate(fw['wraps']):
+    bpy.ops.mesh.primitive_torus_add(major_radius=r,minor_radius=FLYWHEEL['belt_t']/2,major_segments=48,minor_segments=8,location=vec(c))
+    o=bpy.context.object; o.rotation_euler=(math.pi/2,0,0); o.scale=(1,1,FLYWHEEL['belt_w']/FLYWHEEL['belt_t']); finish(o,f'Chamber belt wrap {i}',black)
 ball('chamber__lamp',(1.8,.54,-1.25),.085,glass)
 # Static volumes the arms must stay out of (the cabinet, the harp's and the rake's bases).
 manifest['obstacles']=[[[-1.8,.06,-1.925],[1.8,.92,-1.275]]]

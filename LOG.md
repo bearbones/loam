@@ -1,3 +1,22 @@
+## 2026-09-17 — CLOCKWORK the flywheel on plummer blocks, belt-driven, turning a bar a turn
+
+The brass flywheel beside the harp stood on its rim with no axle — the last
+thing in the main shots that nothing held up. It is now carried the way a
+flywheel is: an axle through its hub in two plummer blocks (split bearing
+housings bolted to pedestals on a sole plate) either side of the wheel, a
+drive pulley on the axle's back end, and a flat belt — the true outer
+tangents of the two pulleys, with a wrap round each — to a pulley on a stub
+axle between two ears bracketed to the chamber cabinet's end face.
+`layout.flywheel_plan` (numpy-free) lays out every solid from the wheel's
+centre and radius; `build_clockwork.py` builds it and records the plan on
+the manifest; `performance.gd` turns the wheel, hub and drive pulley once a
+bar of the score's tempo and the belt pulley with them, faster by the radii.
+The assembly stands beyond the cabinet's end, outside every obstacle and
+every arm's reach, so no rail moved. `tools/test_flywheel.py` pins the
+construction and its clearance from every arm sweep, rail and obstacle;
+`dev/test_performance.gd` checks the wheel turns a quarter turn in a quarter
+bar and the pulley by the ratio.
+
 ## 2026-09-17 — CLOCKWORK the harp's neck carries its strings: plate on the string side, bridge and tuning pins, dead lengths
 
 The harp's action sat on the wrong side of the neck. The plate and the two

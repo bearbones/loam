@@ -137,6 +137,29 @@ manifest's turning points, and the single foot ferrule;
 `dev/test_performance.gd` checks every harp and rake string has its dead length
 starting at `b` and climbing to the neck.
 
+## The chamber's flywheel is carried and driven
+
+The brass flywheel beside the harp stood on the floor on its rim with no
+axle, the one thing left in the main shots that nothing held up. A flywheel is
+carried on an axle in two plummer blocks — split bearing housings bolted to
+pedestals on a sole plate — one either side of the wheel, and it drives
+something. `layout.flywheel_plan` (numpy-free) lays that out from the wheel's
+centre and radius: hub, axle, the two housings in their blocks on pedestals
+standing on the sole plate on the floor, bolt heads, a drive pulley on the
+axle's back end, and a flat belt to a pulley on a stub axle between two ears
+bracketed to the chamber cabinet's end face. The belt's bands are the true
+outer tangents of the two pulleys, with a wrap round each. `build_clockwork.py`
+builds it from the plan and records the plan on the manifest (`flywheel`);
+`performance.gd` turns the wheel, hub and drive pulley once a bar of the
+score's tempo and the belt pulley with them, faster by the pulleys' radii, the
+same way round as an open belt does. The assembly stands beyond the cabinet's
+end, outside every obstacle and every arm's reach, so no promise changed and no
+rail moved. `tools/test_flywheel.py` pins the axle through the wheel and both
+housings, the housings clear of the wheel and hub, the pedestals on the sole
+plate, the pulleys in one plane, the bands tangent, and the assembly clear of
+every arm sweep, rail and obstacle; `dev/test_performance.gd` checks the wheel
+turns a quarter turn in a quarter bar about z and the belt pulley by the ratio.
+
 ## Space accounting
 
 The frames are built after the rail search fixes the rails and before the
@@ -163,6 +186,7 @@ python3 tools/test_bar_frame.py        # construction rules and closed pieces
 python3 tools/test_bench.py            # the benches and their promise
 python3 tools/test_harp_base.py        # the harp's pedal base and the rake's plinth
 python3 tools/test_neck.py             # the necks' plates, discs, bridge and tuning pins, dead lengths
+python3 tools/test_flywheel.py         # the flywheel's bearings, pedestals, belt drive and clearance
 python3 tools/build_forms.py           # packs the frame; gantries measured against it
 blender -b -t 2 -P tools/check_form_clearance.py   # tools vs frames and stand
 ```

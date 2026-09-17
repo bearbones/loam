@@ -109,6 +109,65 @@ def board_z(plan,x):
     b=plan['board']; return b['z'][0]+(b['z'][1]-b['z'][0])*(x-b['x'][0])/(b['x'][1]-b['x'][0])
 
 
+# The chamber's flywheel (numpy-free). A flywheel is carried on an axle in two
+# plummer blocks — split bearing housings bolted to pedestals on a sole plate —
+# one either side of the wheel, and it drives something: a pulley on the axle's
+# back end and a flat belt to a pulley on a bracket at the chamber cabinet's end.
+# The wheel's axis is world z (it faces the house); Godot turns it a bar a turn.
+FLYWHEEL=dict(width=.07, hub_r=.09, hub_w=.12, axle_r=.03, axle=(-.34,.22), bearing_z=.16, housing_r=.065, housing_w=.10,
+              block=(.20,.06,.11), pedestal=(.14,.10), sole=(.30,.03,.54), bolt_r=.012, bolt_h=.012, bolt_x=.08,
+              pulley_z=-.27, pulley_r=.12, pulley_w=.06, belt_pulley_r=.10, belt_w=.05, belt_t=.006,
+              ear=(.18,.26,.03), ear_gap=.05, stub_r=.022)
+def flywheel_plan(centre,r,cabinet_x,floor=-.01):
+    """Every solid of the flywheel assembly, from the wheel's centre (world),
+    its radius, and the x of the cabinet end face the belt pulley's bracket
+    bolts to (the wheel stands beyond that face). Boxes are (centre, size);
+    cylinders are (a, b, radius) along their axis."""
+    F=FLYWHEEL; cx,cy,cz=centre; bz=F['bearing_z']
+    plan=dict(centre=list(centre),r=r,boxes={},cyls={},floor=floor)
+    B=plan['boxes']; C=plan['cyls']
+    C['hub']=([cx,cy,cz-F['hub_w']/2],[cx,cy,cz+F['hub_w']/2],F['hub_r'])
+    C['axle']=([cx,cy,cz+F['axle'][0]],[cx,cy,cz+F['axle'][1]],F['axle_r'])
+    for side in (-1,1):
+        z=cz+side*bz; tag='back' if side<0 else 'front'
+        C[tag+' housing']=([cx,cy,z-F['housing_w']/2],[cx,cy,z+F['housing_w']/2],F['housing_r'])
+        bw,bh,bl=F['block']; B[tag+' block']=([cx,cy-F['housing_r']+bh/2-.02,z],[bw,bh,bl])
+        top=cy-F['housing_r']+bh-.02-bh   # the block's underside
+        pw,pl=F['pedestal']; B[tag+' pedestal']=([cx,(floor+F['sole'][1]+top)/2,z],[pw,top-floor-F['sole'][1],pl])
+        for sx in (-1,1):
+            C[f'{tag} bolt {"l" if sx<0 else "r"}']=([cx+sx*F['bolt_x'],top+bh,z],[cx+sx*F['bolt_x'],top+bh+F['bolt_h'],z],F['bolt_r'])
+    B['sole']=([cx,floor+F['sole'][1]/2,cz],list(F['sole']))
+    pz=cz+F['pulley_z']; C['drive pulley']=([cx,cy,pz-F['pulley_w']/2],[cx,cy,pz+F['pulley_w']/2],F['pulley_r'])
+    # the belt pulley on its bracket: two ears standing off the cabinet's end face, a stub axle between them
+    ew,eh,et=F['ear']; ex=cabinet_x-ew/2
+    for side in (-1,1):
+        B[('back' if side<0 else 'front')+' ear']=([ex,cy,pz+side*(F['pulley_w']/2+F['ear_gap']+et/2)],[ew,eh,et])
+    qx=cabinet_x-ew+F['belt_pulley_r']*.3; plan['belt_pulley_centre']=[qx,cy,pz]
+    span=F['pulley_w']/2+F['ear_gap']+et/2; C['stub axle']=([qx,cy,pz-span],[qx,cy,pz+span],F['stub_r'])   # into each ear's mid-thickness
+    C['belt pulley']=([qx,cy,pz-F['pulley_w']/2],[qx,cy,pz+F['pulley_w']/2],F['belt_pulley_r'])
+    # the flat belt: the two outer tangents between the pulleys, and a wrap round each
+    r1,r2=F['pulley_r'],F['belt_pulley_r']; dx,dy=qx-cx,0.0; d=math.hypot(dx,dy); ux,uy=dx/d,dy/d; vx,vy=-uy,ux
+    beta=math.acos((r1-r2)/d); plan['belt']=[]
+    for s in (-1,1):
+        nx,ny=ux*math.cos(beta)+s*vx*math.sin(beta),uy*math.cos(beta)+s*vy*math.sin(beta)
+        p1=[cx+r1*nx,cy+r1*ny]; p2=[qx+r2*nx,cy+r2*ny]
+        plan['belt'].append(dict(a=[p1[0],p1[1],pz],b=[p2[0],p2[1],pz],angle=math.atan2(p2[1]-p1[1],p2[0]-p1[0]),
+                                 length=math.hypot(p2[0]-p1[0],p2[1]-p1[1]),normal=[nx,ny]))
+    plan['wraps']=[([cx,cy,pz],r1+F['belt_t']/2),([qx,cy,pz],r2+F['belt_t']/2)]
+    plan['bounds']=_plan_bounds(plan)
+    return plan
+def _plan_bounds(plan):
+    lo=[1e9]*3; hi=[-1e9]*3
+    def take(p,e):
+        for i in range(3): lo[i]=min(lo[i],p[i]-e[i]); hi[i]=max(hi[i],p[i]+e[i])
+    c=plan['centre']; take(c,[plan['r'],plan['r'],FLYWHEEL['width']/2])
+    for centre,size in plan['boxes'].values(): take(centre,[s/2 for s in size])
+    for a,b,r in plan['cyls'].values():
+        for p in (a,b): take(p,[r]*3)
+    for (p,r) in plan['wraps']: take(p,[r,r,FLYWHEEL['belt_w']/2])
+    return [lo,hi]
+
+
 # The neck's hardware (numpy-free: Blender's builder and the ruler read it).
 # A harp's strings run close to ONE side of the neck, and that side carries
 # the action: the brass plate seated on the neck's bead crests, and for each
