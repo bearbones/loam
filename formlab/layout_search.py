@@ -353,12 +353,40 @@ def verify_fine(rig, aids, chosen, times, boxes, plane_z, enough, placed=()):
             else: bad.add(max([aid]+others, key=aids.index))
     return fine, bad
 
+# The formlab modules the rail plan is measured against, hashed by source text
+# so a change to the space model (clearance) OR to the geometry it measures
+# (linkage, gantry, pawl) OR to the motion it samples (rig) replans the rails.
+# Read from disk rather than through `inspect.getsource`: layout_search is also
+# imported bare from Blender's Python, where `formlab` is not a package and the
+# sibling modules are not all imported.
+GEOMETRY_SOURCES = ('rig.py', 'clearance.py', 'linkage.py', 'gantry.py', 'pawl.py')
+
+def geometry_digest():
+    """sha1 over the sources in GEOMETRY_SOURCES, in order."""
+    import hashlib
+    here = os.path.dirname(os.path.abspath(__file__))
+    h = hashlib.sha1()
+    for name in GEOMETRY_SOURCES:
+        h.update(name.encode())
+        with open(os.path.join(here, name), 'rb') as fh: h.update(fh.read())
+    return h.hexdigest()
+
+def motion_constants():
+    """The motion vocabularies' constants by name (every upper-case module-level
+    value in formlab.rig). Hashed into the rail key beside the source text so
+    the intent is explicit and a new constant is picked up without editing this
+    list; the harness mirrors the same names by hand and tools/test_motion.py
+    holds the two together."""
+    import sys
+    m = sys.modules[Rig.__module__]
+    return {k: getattr(m, k) for k in sorted(dir(m)) if k.isupper() and isinstance(getattr(m, k), (int, float, dict, list, tuple))}
+
 def _mech_key(score, layout, mech, hz, enough, placed=None):
     """Everything the search for one mechanism depends on, hashed: its
     events (times, strings, picks), its string geometry, the obstacles,
     the rails and links of the mechanisms planned before it (`placed`: arm
-    id -> cfg), the sampling, the candidate grid and the space model (the
-    source text of candidates, evaluate_arm and the whole clearance module)."""
+    id -> cfg), the sampling, the candidate grid, the space model and the
+    motion sampled through it (GEOMETRY_SOURCES, motion_constants)."""
     import hashlib, inspect, sys
     ev = [{k: e.get(k) for k in ('t', 't_move', 't_free', 'strings', 'pick', 'spread_s', 'actuator')}
           for e in score['events'] if e.get('mech') == mech['id']]
@@ -368,14 +396,20 @@ def _mech_key(score, layout, mech, hz, enough, placed=None):
                        score['total_s'], hz, enough, inspect.getsource(candidates), inspect.getsource(evaluate_arm),
                        inspect.getsource(plan_arms), inspect.getsource(verify_fine), inspect.getsource(mast_margin), inspect.getsource(column_gap),
                        inspect.getsource(mast_gaps), inspect.getsource(pin_shifts), inspect.getsource(stack_caps), inspect.getsource(stack_view), inspect.getsource(solids_gap), inspect.getsource(cross_gap),
-                       inspect.getsource(sys.modules[arm_capsules.__module__]), DEFAULT_SPEC], sort_keys=True, default=str)
+                       inspect.getsource(sys.modules[arm_capsules.__module__]), DEFAULT_SPEC,
+                       geometry_digest(), motion_constants()], sort_keys=True, default=str)
     return hashlib.sha1(blob.encode()).hexdigest()
 
-def plan_arms(score, layout, hz=30, enough=.08, verbose=print, cache=None):
+def plan_arms(score, layout, hz=30, enough=.08, verbose=print, cache=None, rails='replan'):
     """Choose (root_y, root_z, l1, l2, bend, wrist_offset, o1, o2) per arm.
     Mutates and returns layout['arms']; also records the achieved margins.
     `cache` is a JSON path: a mechanism whose inputs are unchanged reuses its
-    stored result (the search is minutes per mechanism)."""
+    stored result (the search is minutes per mechanism).
+    `rails='keep'` reuses the last plan stored for a mechanism even when the
+    inputs HAVE changed — a full replan is over an hour an asset and the flag
+    exists so an unrelated build need not pay for one. It is loud: a warning
+    line per mechanism and `stale_rails: true` in the layout, which
+    tools/test_gantry.py refuses, so a stale plan cannot be committed."""
     import json as _json
     rig = Rig(score, layout)
     total = float(score['total_s']); times = np.arange(-hz, int(total*hz)+1)/hz
@@ -399,11 +433,26 @@ def plan_arms(score, layout, hz=30, enough=.08, verbose=print, cache=None):
         strings = [s for s in layout['strings'].values() if s['mid'] == mech['id']]
         plane_z = float(np.mean([s['a'][2] for s in strings])) if mech['kind'] != 'struck' else None
         key = _mech_key(score, layout, mech, hz, enough, {a: {k: layout['arms'][a][k] for k in CFG_KEYS if k in layout['arms'][a]} for a in placed}) if cache else None
-        if key and key in store:
+        entry = store.get(key) if key else None; stale = False
+        if entry is None and key and rails == 'keep':
+            # The alias records the key of the last plan stored for this
+            # mechanism, so a keep-build can find it when the inputs moved.
+            alias = store.get('mech:'+mech['id'])
+            if not (isinstance(alias, str) and isinstance(store.get(alias), dict)):
+                # a cache written before the alias existed: the newest entry
+                # whose arms are exactly this mechanism's is its last plan
+                alias = next((k for k, v in reversed(list(store.items()))
+                              if isinstance(v, dict) and set(v) == set(aids)), None)
+            if isinstance(alias, str) and isinstance(store.get(alias), dict) and all(a in store[alias] for a in aids):
+                entry = store[alias]; stale = True
+                layout['stale_rails'] = True
+                if verbose: verbose(f"  RAIL {mech['id']}: *** STALE: --rails=keep reused a plan made for different inputs;"
+                                    " the manifest is marked stale_rails and test_gantry will refuse it ***")
+        if entry is not None:
             for aid in aids:
-                layout['arms'][aid].update(store[key][aid])
-                if verbose: verbose(f"  RAIL {aid}: (cached) "+' '.join(f'{k2}={v}' for k2, v in store[key][aid].items() if k2 != 'margins'))
-                place(aid, store[key][aid], plane_z)
+                layout['arms'][aid].update(entry[aid])
+                if verbose: verbose(f"  RAIL {aid}: ({'STALE' if stale else 'cached'}) "+' '.join(f'{k2}={v}' for k2, v in entry[aid].items() if k2 != 'margins'))
+                place(aid, entry[aid], plane_z)
             continue
         coarse = [p['coarse'] for p in placed.values()]; fine_placed = [p['fine'] for p in placed.values()]
         options = {aid: [] for aid in aids}
@@ -473,6 +522,7 @@ def plan_arms(score, layout, hz=30, enough=.08, verbose=print, cache=None):
                                 ' '.join(f'{k2}={v:.3f}' for k2, v in ev['margins'].items())+' cross='+' '.join(f'{o}={g:.3f}' for o, g in cross.items()))
         if key:
             store[key] = {aid: dict(chosen[aid]['cfg'], margins=layout['arms'][aid]['margins']) for aid in aids}
+            store['mech:'+mech['id']] = key
             os.makedirs(os.path.dirname(cache) or '.', exist_ok=True)
             _json.dump(store, open(cache, 'w'), indent=1)
         for aid in aids: place(aid, chosen[aid]['cfg'], plane_z)

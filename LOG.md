@@ -1,3 +1,43 @@
+## 2026-09-17 — CLOCKWORK the rail cache re-plans when the motion or the linkage changes
+
+The rail search is an hour an asset, so each mechanism's answer is cached
+under a hash of what the search consumed (`layout_search._mech_key`) — and
+that hash was incomplete in exactly the way that matters
+(`docs/plans/rail-cache-key.md`). It covered `clearance.py`, the space model,
+but not `rig.py`, the *motion* sampled through it, nor `linkage.py`,
+`gantry.py` or `pawl.py`, the geometry it measures. So the motion redesign of
+this morning and the pawl of this evening changed what every arm sweeps and
+what hangs off every carriage, and the rails were never re-planned: the
+rulers re-measured the old rails against the new motion and happened to pass
+with 56 mm to spare. The next change need not be so lucky, and a stale plan
+shows only as a red ruler after a 7 minute build.
+
+The key now hashes the source text of all five modules
+(`layout_search.GEOMETRY_SOURCES`, read from disk rather than through
+`inspect.getsource` because `layout_search` is also imported bare from
+Blender's Python, where `formlab` is not a package) and the motion constants
+by name and value (`motion_constants()` — every upper-case module-level value
+in `formlab.rig`, so a constant tuned by hand replans as loudly as a file
+edited, and a constant added later is picked up without editing a list).
+
+Because a replan is expensive, there is now a marked escape hatch:
+`build_clockwork.py --rails=keep` reuses the plan stored for each mechanism
+even when the inputs moved (found through a `mech:<id>` alias written beside
+each cached answer, or — for a cache written before the alias — the newest
+entry whose arms are exactly that mechanism's). It is loud rather than
+silent: a warning line per mechanism in the build log and `stale_rails: true`
+in the manifest, and `tools/test_gantry.py` now FAILS on a manifest carrying
+that note, so a stale plan cannot be committed. The default still searches.
+
+`tools/test_rail_cache.py` (new) holds the key to its promise: it appends a
+comment to each of the five sources in turn and watches the key move (then
+restores them and watches it come back), tunes `CLICK_S`, `SLEW_S` and
+`OVERSHOOT` in the imported module and watches it move again, re-checks the
+inputs the key already covered (an arm's reach window, an event time), and
+drives `plan_arms(rails='keep')` against a one-mechanism fixture to see it
+reuse the stored rail, mark `stale_rails` and say STALE in the log. 18 checks
+PASS; `test_gantry` PASS on both assets (neither manifest is stale).
+
 ## 2026-09-17 — CLOCKWORK the highlight runs along a string; the winding fades before it shimmers; strings darken at their hardware
 
 The strings read as flat grey lines in the wide shots, and wound, gut and
@@ -699,6 +739,84 @@ Rulers green on both assets: formlab, joints, joint seats, score plan,
 rig (324/392 contacts exact, link error 5.7e-7 m), performance GLB
 integration, form clearance. Both assets rebuilt (models/*.blend,
 harness/assets/*).
+
+## 2026-09-13 — SOUNDGARDEN beyond the named dimensions (descriptor, blend, ear-weighting, matching; SMS and latent prototypes)
+
+The question: can the pad explore a purely abstract sound space,
+something like the ordered MFCC frames of a college genre
+classifier, rather than ten named resonator parameters? The
+answer split in two. Coordinates are cheap to make abstract;
+the generator is the ceiling. docs/soundgarden-abstract-space.md
+is the full argument with figures. All three approaches were
+built; A is finished into the instrument, B and C are prototypes.
+
+A. soundgarden/describe.py: 24 mel bands x 8 log-time anchors
+(5 ms .. 1.5 s), dB relative to the loudest cell, plus the four
+old scalars = a 196-number fixed-scale embedding. Level-invariant
+by construction. (Euclidean on full MFCCs == Euclidean on log-mel;
+the DCT is orthogonal. 13 coefficients is the lossy part.)
+sensitivity(): 11 renders, ~120 ms, a Jacobian norm per recipe
+dimension. field.py + web/space.js: the FIELD BLEND slider draws
+each pad axis from k of the ten dimensions, k = 1..10, magnitudes
+sliding from folded-normal to exactly even; Gram-Schmidt with
+redraw; both languages round the slider the same way and both
+test suites check the same properties. EVEN BY EAR weights the
+blend by inverse sensitivity (clip 0.5..2; wider clips pushed the
+pad into inaudible dimensions and pinned the range at max) and
+calibrates the range from measured axis distances. Axis labels
+rank by audible contribution, not raw weight. match.py + /api/match:
+any PCM WAV -> pitch estimate -> starters + journal (shortlisted
+by stored descriptors) rendered at that pitch -> Nelder-Mead in
+logit space. A starter rendered at G4 is recovered exactly
+(0.001); a church bell lands at 0.13, "the closest this resonator
+gets". Journal migration replaced the source-hash gate for search
+changes: every recorded recipe is re-rendered and must reproduce
+its metrics to 1e-5 (synthesis hash still fails closed). The
+150-trial library migrated in place. measure() moved to scipy.fft
+(numpy took 16 ms on a 110k-sample ring; scipy 2 ms; 1e-7 rel).
+
+B. soundgarden/sms.py: partials (ratio, amp, decay, attack) from a
+zero-padded peak pick + per-frame log-linear fits, residual as a
+24x8 noise envelope with partial bins masked. Reconstructs audio,
+which MFCCs cannot; any recording becomes a morphable recipe.
+Every starter's resynthesis is nearer its own original (0.47-0.73)
+than any other starter (>= 1.32). Defects, recorded: the drive's
+difference tones show up as sub-fundamental partials; beating pairs
+the tanh had limited sum in phase at onset.
+
+C. soundgarden/latent.py: NumPy autoencoder 192-64-6-64-192, Adam,
+manual backprop, 1500 renders, under a minute on CPU. Held-out MSE
+0.00106 vs PCA-6 0.00156 vs mean 0.0177. The six unnamed numbers
+work; the DECODER is the work: Griffin-Lim through a 24x8 grid
+blurs partials into bands and smears the attack, and the latent
+reconstruction is nearly identical to the grid's own decode. The
+nearest-recipe decoder gives exact audio and blends back into A.
+RAVE is the real version; it needs torch and a rethink of the
+instrument's reproducibility promises.
+
+C2. "Perhaps a more foundational primitive is a tone rather than a
+struck sound." Yes: a stationary tone has no time axis, so its
+descriptor is one spectrum and one spectrum decodes exactly by
+additive synthesis. soundgarden/tone.py: f0 + stretch B (partials
+at k·f0·sqrt(1+Bk²), grid-searched by closeness-weighted peak
+level; energy-summing preferred B=0 because empty windows at the
+right answer lost to wrong windows catching neighbors) + 64
+harmonic dB + 24 masked noise bands = 89 pitch-free numbers.
+Parabolic log-power peaks remove the 1.4 dB Hann scalloping.
+Corpus from Loam's tone makers (pads, vowels, analog, bowed modal
+tables, flute/ney/reed, plucks; sing left out, per-sample formant
+bank, minutes per note) + 400 averaged strikes = 535 tones in
+12 s, doubled by pairwise mixes. Held-out MSE 0.0038 vs PCA-6
+0.0060 vs mean 0.049. The walk WAV is the point: the struck-sound
+walk decodes eight blurred identical strikes; the tone walk moves
+from a bright noisy tone to a clean plucked series, playable at
+any pitch. Limit: bells, whose partials are not a stretched grid,
+lose most of them to the noise bands. Next: time as the second
+factor, per-partial and noise decays over the tone.
+
+Verified: 28 Python tests, the JS plane tests at every slider step,
+a headless-Chrome drive of keep/turn, blend change, undo, and the
+session store. figures.py regenerates the doc's spectrograms.
 
 ## 2026-09-06 — THE CHAMBER: a score for a machine (e97-e99, the piece, the Godot harness)
 

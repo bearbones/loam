@@ -236,6 +236,32 @@ rails are part of the later mechanisms' cache key, so a harp that moves
 re-plans the bells behind it. `test_gantry.py` checks that every arm of a
 mechanism planned after another records that margin clear.
 
+### What the cache key promises
+
+The search is an hour an asset, so each mechanism's answer is cached in
+`render/form-study/rails-cache.json` under a hash of everything the search
+consumed (`layout_search._mech_key`). That key was once incomplete in the
+way that matters: it hashed the space model (`clearance.py`) but not the
+*motion* sampled through it, so the motion redesign of 2026-09-17 changed
+what every arm sweeps and the rails were never replanned — the rulers
+re-measured the old rails against the new motion and happened to pass, with
+56 mm to spare on the arm clearance. A stale plan shows only as a red ruler
+after a 7 minute build, so the key now hashes the source of every module the
+plan is measured against — `rig.py` (the motion), `clearance.py` (the space
+model), `linkage.py`, `gantry.py` and `pawl.py` (the geometry measured) —
+listed as `layout_search.GEOMETRY_SOURCES`, and the motion constants by name
+and value (`layout_search.motion_constants()`, every upper-case value in
+`formlab.rig`) so tuning a click length replans as loudly as editing the
+file. `tools/test_rail_cache.py` holds the key to that promise: it edits each
+source and each constant in turn and watches the key move.
+
+Because a replan is expensive, `build_clockwork.py --rails=keep` reuses the
+stored plan even when the inputs have moved — for a build whose changes are
+nowhere near the rails. It is loud rather than silent: a warning line per
+mechanism in the build log and `stale_rails: true` in the manifest, which
+`tools/test_gantry.py` refuses. A stale plan therefore cannot be committed,
+and the default is always to search.
+
 ## The carriage and its drive
 
 The first carriage was the shoulder crosshead alone: two bosses and a web

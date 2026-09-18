@@ -8,6 +8,11 @@ import numpy as np
 from mathutils import Vector, Matrix
 ROOT = Path(__file__).resolve().parents[1]
 args = sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else []
+# --rails=keep reuses the cached rail plan even when its inputs changed (a full
+# replan is over an hour an asset); the manifest is then marked stale_rails and
+# tools/test_gantry.py refuses it, so a stale plan cannot be committed.
+rails = 'keep' if '--rails=keep' in args else 'replan'
+args = [a for a in args if not a.startswith('--')]
 score = json.loads(Path(args[0] if args else ROOT/'render/chamber/score.json').read_text())
 name = args[1] if len(args)>1 else 'clockwork'
 out = ROOT/'harness/assets'
@@ -238,7 +243,9 @@ for m in score['instrument']['mechanisms']:
         manifest['obstacles'].append([[plan['x'][0]-.05,0,plan['z']-reach],[plan['x'][1]+.05,plan['underside'],plan['z']+reach]])
 # Rails, posts and link lengths from the clearance search over the whole score.
 manifest['score']=str(Path(args[0]).resolve() if args else (ROOT/'render/chamber/score.json').resolve())
-layout_search.plan_arms(score,manifest,cache=str(ROOT/'render/form-study/rails-cache.json'))
+if rails=='keep': print('CLOCKWORK BUILD: --rails=keep — the rail plan is NOT being re-searched')
+layout_search.plan_arms(score,manifest,cache=str(ROOT/'render/form-study/rails-cache.json'),rails=rails)
+if manifest.get('stale_rails'): print('CLOCKWORK BUILD: *** stale_rails: this manifest carries a rail plan made for different inputs ***')
 for aid,cfg in manifest['arms'].items():
     ry=cfg['root_y']; rz=cfg['root_z']; x0,x1=cfg['reach_x']
     # Independent rails explain overlap in the score's reach windows. The bars run

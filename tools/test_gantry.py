@@ -34,6 +34,10 @@ def check(ok, msg):
 def run(layout_path, score_path):
     print(f'== {layout_path.name} / {score_path.name}')
     layout = json.loads(layout_path.read_text()); score = json.loads(score_path.read_text())
+    # A --rails=keep build reused a rail plan made for different inputs: every
+    # margin below was measured against geometry or motion the search never saw.
+    check(not layout.get('stale_rails'),
+          'the rail plan was searched for this geometry and motion (no stale_rails)')
     rig = Rig(score, layout); times = rig.sample_times()
     poses = {aid: rig.poses(aid, times) for aid in layout['arms']}
     caps = G._caps(layout, poses, 1)
