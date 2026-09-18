@@ -91,6 +91,39 @@ def run():
         check(abs(kept['arms']['m_arm0']['root_y']-cfg['root_y']) < 1e-12, 'a keep-build reuses the stored rail')
         check(any('STALE' in l for l in lines), 'a keep-build says so in the build log: '
               + next((l.strip() for l in lines if 'STALE' in l), '(nothing)'))
+
+        # 4b. keep_from wins over the cache. "Keep" has to mean "keep what
+        # this asset was built with": the newest entry stored for a mechanism
+        # need not be the one the manifest on disk came from, and trusting it
+        # silently re-laid-out three harp arms under a flag whose purpose is
+        # to change nothing.
+        prior = {'m_arm0': dict(cfg, root_y=1.85, l1=1.1, l2=1.1, pinion='down')}
+        kept2 = copy.deepcopy(layout); lines2 = []
+        LS.plan_arms(score, kept2, cache=str(cache), rails='keep', keep_from=prior, verbose=lines2.append)
+        got = kept2['arms']['m_arm0']
+        check(abs(got['root_y']-1.85) < 1e-12 and abs(got['l1']-1.1) < 1e-12 and got['pinion'] == 'down',
+              f"keep_from beats the cache (kept root_y={got['root_y']}, l1={got['l1']}, pinion={got['pinion']})")
+        check(kept2.get('stale_rails') is True and any('built with' in l for l in lines2),
+              'and it is still marked stale and named in the log: '
+              + next((l.strip() for l in lines2 if 'STALE' in l), '(nothing)'))
+        # An incomplete manifest is not a plan: fall back to the cache, loudly.
+        kept3 = copy.deepcopy(layout); lines3 = []
+        LS.plan_arms(score, kept3, cache=str(cache), rails='keep',
+                     keep_from={'m_arm0': {'root_y': 1.85}}, verbose=lines3.append)
+        check(abs(kept3['arms']['m_arm0']['root_y']-cfg['root_y']) < 1e-12
+              and any('NEWEST CACHED' in l for l in lines3),
+              'a half-written manifest falls back to the cache and says which it used')
+        # A manifest with the rail but no margins is also half-written: a
+        # keep-build that dropped them once poisoned the next keep-build.
+        kept4 = copy.deepcopy(layout); lines4 = []
+        LS.plan_arms(score, kept4, cache=str(cache), rails='keep',
+                     keep_from={'m_arm0': {k: v for k, v in prior['m_arm0'].items() if k != 'margins'}},
+                     verbose=lines4.append)
+        check(abs(kept4['arms']['m_arm0']['root_y']-cfg['root_y']) < 1e-12
+              and any('NEWEST CACHED' in l for l in lines4),
+              'a manifest missing its margins is refused as a record too')
+        check(kept2['arms']['m_arm0'].get('margins') == cfg['margins'],
+              'a kept plan carries the margins it achieved (test_gantry reads them back)')
         # ...and a replan-build does not silently accept it
         fresh = copy.deepcopy(layout)
         try:

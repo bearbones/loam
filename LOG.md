@@ -49,6 +49,42 @@ manifest checks — red between the two — are green again. The concurrent
 session's wrist-and-tool build is still uncommitted in the main tree; its
 next rebuild picks these teeth up from the tree.
 
+## 2026-09-17 — CLOCKWORK --rails=keep now keeps what the asset was built with
+
+The escape hatch added this afternoon asked the cache the wrong question. A
+cache keyed by inputs can answer "what was computed for *these* inputs";
+`--rails=keep` needs the answer to "what is this asset actually built with",
+and no keyed cache can answer that. So it guessed — `store['mech:<id>']`, the
+key of the plan stored *last* for that mechanism — and on the first real
+keep-build the guess was wrong: the three harp arms came back with different
+link lengths (1.6 → 1.45 and 1.15 m), different root heights, and two of them
+with a different pinion mount. A flag whose entire purpose is to change
+nothing silently re-laid-out a third of the machine.
+
+It showed up as two red lines in `dev/test_performance.gd` — "imported link
+mesh extent wrong harp_arm0" and "pinion not lying in its mount's plane
+harp_arm1 (0.260 thin, 0.264 wide)" — because that ruler compares the
+*rendered GLB* against the *manifest*, two artifacts of one build, so any
+disagreement means the build contradicted itself. Nothing that looks at only
+one of them could have caught it.
+
+The record of what an asset was built with is the manifest sitting beside it.
+`build_clockwork.py` now reads `harness/assets/<name>.json` before
+overwriting it and passes its arms to `plan_arms(keep_from=...)`, which uses
+them in preference to anything in the cache (`CFG_KEYS` plus the `margins`
+that plan achieved, which `test_gantry` reads back out). The alias survives
+only as the fallback for a build with no manifest on disk, and the log line
+now names which of the two it used — "reused the plan this asset was built
+with" or "reused the NEWEST CACHED plan, which need not be this asset's".
+`tools/test_rail_cache.py` pins all three paths: keep_from beats the cache, a
+half-written manifest falls back and says so, and both still mark
+`stale_rails`. (The `build_clockwork.py` half of this landed early, carried
+into 40ca118 by the other session working this tree; the planner half and its
+ruler are here.)
+
+Verified by rebuilding both assets: 0 of 6 and 0 of 9 arms changed plan, and
+`test_performance` is green again on both.
+
 ## 2026-09-17 — CLOCKWORK the string's winding runs through the bridge; the ring band across a string was its own far wall
 
 Two string faults seen in the `--view=16` close-up (the harp's lowest string

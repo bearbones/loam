@@ -1,5 +1,12 @@
 # The rail search re-plans when the motion or the linkage changes
 
+**Status (2026-09-17, late evening):** items 1 and 2 are landed — the key
+hashes `GEOMETRY_SOURCES` and `motion_constants()` (commit ae05e0d), and
+`--rails=keep` keeps the plan the asset on disk was *built with* rather than
+the newest cached one, marks the manifest `stale_rails` and names its source.
+Item 3 — the one full replan of both assets — is held until the
+geometry-changing plans are done, so it is paid once.
+
 **Where:** `formlab/layout_search.py` (`_mech_key`, `plan_arms`),
 `render/form-study/rails-cache.json`, `tools/build_clockwork.py`,
 `docs/articulated-arms.md` ("The rail search screens the brackets first").

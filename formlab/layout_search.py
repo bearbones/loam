@@ -400,16 +400,22 @@ def _mech_key(score, layout, mech, hz, enough, placed=None):
                        geometry_digest(), motion_constants()], sort_keys=True, default=str)
     return hashlib.sha1(blob.encode()).hexdigest()
 
-def plan_arms(score, layout, hz=30, enough=.08, verbose=print, cache=None, rails='replan'):
+def plan_arms(score, layout, hz=30, enough=.08, verbose=print, cache=None, rails='replan', keep_from=None):
     """Choose (root_y, root_z, l1, l2, bend, wrist_offset, o1, o2) per arm.
     Mutates and returns layout['arms']; also records the achieved margins.
     `cache` is a JSON path: a mechanism whose inputs are unchanged reuses its
     stored result (the search is minutes per mechanism).
-    `rails='keep'` reuses the last plan stored for a mechanism even when the
-    inputs HAVE changed — a full replan is over an hour an asset and the flag
-    exists so an unrelated build need not pay for one. It is loud: a warning
-    line per mechanism and `stale_rails: true` in the layout, which
-    tools/test_gantry.py refuses, so a stale plan cannot be committed."""
+    `rails='keep'` reuses the existing plan even when the inputs HAVE changed
+    — a full replan is over an hour an asset and the flag exists so an
+    unrelated build need not pay for one. `keep_from` is the arms dict of the
+    manifest already on disk: that is the *record* of what the current asset
+    was built with, and it is what "keep" has to mean. The cache alias is only
+    a fallback for a first build, because the newest entry stored for a
+    mechanism need not be the one the asset came from — trusting it once
+    silently re-laid-out three harp arms (new link lengths, new pinion mounts)
+    under a flag whose whole purpose is to change nothing. Either way it is
+    loud: a warning line per mechanism and `stale_rails: true` in the layout,
+    which tools/test_gantry.py refuses, so a stale plan cannot be committed."""
     import json as _json
     rig = Rig(score, layout)
     total = float(score['total_s']); times = np.arange(-hz, int(total*hz)+1)/hz
@@ -434,19 +440,34 @@ def plan_arms(score, layout, hz=30, enough=.08, verbose=print, cache=None, rails
         plane_z = float(np.mean([s['a'][2] for s in strings])) if mech['kind'] != 'struck' else None
         key = _mech_key(score, layout, mech, hz, enough, {a: {k: layout['arms'][a][k] for k in CFG_KEYS if k in layout['arms'][a]} for a in placed}) if cache else None
         entry = store.get(key) if key else None; stale = False
-        if entry is None and key and rails == 'keep':
-            # The alias records the key of the last plan stored for this
-            # mechanism, so a keep-build can find it when the inputs moved.
-            alias = store.get('mech:'+mech['id'])
-            if not (isinstance(alias, str) and isinstance(store.get(alias), dict)):
-                # a cache written before the alias existed: the newest entry
-                # whose arms are exactly this mechanism's is its last plan
-                alias = next((k for k, v in reversed(list(store.items()))
-                              if isinstance(v, dict) and set(v) == set(aids)), None)
-            if isinstance(alias, str) and isinstance(store.get(alias), dict) and all(a in store[alias] for a in aids):
-                entry = store[alias]; stale = True
+        if entry is None and rails == 'keep':
+            # First choice: the manifest already on disk, which is what the
+            # asset in the tree was actually built with.
+            # 'margins' is part of what makes a manifest a usable record: a
+            # manifest written by an earlier keep-build that dropped them is
+            # not a plan, and keeping from it would carry the gap forward.
+            needed = ('root_y', 'root_z', 'l1', 'l2', 'bend', 'margins')
+            if keep_from and all(a in keep_from and all(k in keep_from[a] for k in needed) for a in aids):
+                # margins too: they are the margins THAT plan achieved, and
+                # tools/test_gantry.py reads them out of the manifest.
+                entry = {a: {k: keep_from[a][k] for k in CFG_KEYS+('margins',) if k in keep_from[a]} for a in aids}
+                source = 'the plan this asset was built with'
+            elif key:
+                # No manifest to read (a first build): fall back to the alias,
+                # which records the key of the last plan stored for this
+                # mechanism. It is a guess, and it says so.
+                alias = store.get('mech:'+mech['id'])
+                if not (isinstance(alias, str) and isinstance(store.get(alias), dict)):
+                    # a cache written before the alias existed: the newest entry
+                    # whose arms are exactly this mechanism's is its last plan
+                    alias = next((k for k, v in reversed(list(store.items()))
+                                  if isinstance(v, dict) and set(v) == set(aids)), None)
+                if isinstance(alias, str) and isinstance(store.get(alias), dict) and all(a in store[alias] for a in aids):
+                    entry = store[alias]; source = 'the NEWEST CACHED plan, which need not be this asset\'s'
+            if entry is not None:
+                stale = True
                 layout['stale_rails'] = True
-                if verbose: verbose(f"  RAIL {mech['id']}: *** STALE: --rails=keep reused a plan made for different inputs;"
+                if verbose: verbose(f"  RAIL {mech['id']}: *** STALE: --rails=keep reused {source};"
                                     " the manifest is marked stale_rails and test_gantry will refuse it ***")
         if entry is not None:
             for aid in aids:

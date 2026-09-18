@@ -256,11 +256,22 @@ file. `tools/test_rail_cache.py` holds the key to that promise: it edits each
 source and each constant in turn and watches the key move.
 
 Because a replan is expensive, `build_clockwork.py --rails=keep` reuses the
-stored plan even when the inputs have moved — for a build whose changes are
+existing plan even when the inputs have moved — for a build whose changes are
 nowhere near the rails. It is loud rather than silent: a warning line per
 mechanism in the build log and `stale_rails: true` in the manifest, which
 `tools/test_gantry.py` refuses. A stale plan therefore cannot be committed,
 and the default is always to search.
+
+**Where "the existing plan" comes from matters.** A cache keyed by inputs can
+answer "what was computed for these inputs"; it cannot answer "what is this
+asset built with", and that is the question keep-mode asks. Asking the cache
+anyway — via the `mech:<id>` alias, the key stored last for that mechanism —
+gave the harp three different link lengths and two different pinion mounts on
+the first real keep-build, under a flag whose purpose is to change nothing.
+So keep-mode reads `harness/assets/<name>.json`, the manifest sitting beside
+the asset, and prefers its arms (`plan_arms(keep_from=...)`: `CFG_KEYS` plus
+the margins that plan achieved). The alias is only the fallback for a build
+with no manifest on disk, and the log names which of the two was used.
 
 ## The carriage and its drive
 
