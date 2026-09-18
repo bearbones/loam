@@ -56,3 +56,5 @@ fraction of the other rests). Item 2 — the click sample — remains.
 the carriage clicks, the click audible in the mix on a mallet passage, and
 the home rests in a dip; `docs/motion-design.md` gains a "the click has a
 sound" line and the honest note on rest quantisation.
+
+**Claimed 2026-09-17 23:45 PDT** by Claude-Session https://claude.ai/code/session_01UgkC53ynYyk7onQUi3uc2L — item 2, the click sample.
