@@ -71,13 +71,16 @@ the arc is radial where the roller meets the corners and the lift is 0.17°.
 The bracket's spring post follows the lean. The yoke's top drops 3 mm under
 the bigger roller.
 
-Landed in two commits: the code, rulers and docs first; then the assets,
-rebuilt in a worktree of that commit (the rail cache key covers `gantry.py`
-and `pawl.py`, so both rails replanned, and the manifests' pawl pivot and
-phase moved), so that `test_gantry`'s stale-rails check and `test_pawl`'s
-manifest checks — red between the two — are green again. The concurrent
-session's wrist-and-tool build is still uncommitted in the main tree; its
-next rebuild picks these teeth up from the tree.
+Landed as the code, rulers and docs (`40ca118`). The assets were rebuilt by
+the concurrent session's next build from the tree (its `--rails=keep` build
+of 23:30, so the teeth, the pawl's pivot and phase are in the manifests and
+`test_pawl` is green), with the rails kept: `test_gantry`'s stale-rails
+check stays red on purpose until the single full replan that session's
+`docs/plans/rail-cache-key.md` holds for the end of the geometry plans (the
+cache key covers `gantry.py`, `pawl.py` and `linkage.py`, and the wrist
+work moved the key again). A worktree replan of this commit alone was
+started and stopped: its assets would have been stale against the wrist
+commit the moment they landed.
 ## 2026-09-17 — CLOCKWORK the tool is held on, and the mallet is wound
 
 Three pieces of hand detail the tools were missing
