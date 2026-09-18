@@ -1,3 +1,20 @@
+## 2026-09-17 — CLOCKWORK strings hold a minimum on-screen width
+
+In the wide shots the treble strings broke into dashes and the thinnest
+vanished: a 2 mm wire five metres from the camera is under half a pixel.
+`shaders/wire_string.gdshader` now holds every tube to `min_px` (1.6 px) of
+on-screen width — the size of a metre at the bent axis's depth comes from
+the view transform and the projection's vertical focal length, and the ring
+is rebuilt at the larger of the true gauge and that width, with the wire's
+body (albedo, specular, rim, backlight, emission) toned down by the coverage
+it would have had, so a distant string stays a faint continuous line rather
+than a bold one; the sheath grows with it. A trap worth recording: Godot's
+Vulkan projection flips Y, so `PROJECTION_MATRIX[1][1]` is negative in the
+vertex stage and the naive formula silently never engages (renders were
+pixel-identical before and after) — it takes `abs`. `dev/test_performance.gd`
+pins the tube's ring convention the shader rebuilds from and the uniform's
+presence. No model change; no rebuild.
+
 ## 2026-09-17 — CLOCKWORK the plucked strings leave their soundboxes through brass eyelets
 
 Each harp and rake string used to end in a brass ball sitting on the

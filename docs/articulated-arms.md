@@ -403,6 +403,18 @@ albedo so a red C sings red. `performance.gd` sets it per frame beside
 `disp`/`envelope`. `--view=10` frames the most recently plucked string
 from 45° off its pluck axis to judge all of this; it latches for 1.5 s.
 
+A wire thinner than a pixel or so breaks into dashes and then vanishes from
+the wide shots, the treble strings first. The vertex shader therefore holds
+every tube to a minimum on-screen width (`min_px`, 1.6 px): it works out the
+size of a metre at the bent axis's depth from the view transform and the
+projection's vertical focal length (`abs(PROJECTION_MATRIX[1][1])` — Godot's
+Vulkan projection flips Y, so the raw entry is negative and a naive formula
+silently never engages) and rebuilds the ring at the larger of the true gauge
+and that width, toning the wire's body down by the coverage it would have
+had so a distant string stays a faint but continuous line rather than a
+bold one. The sheath grows with it. `dev/test_performance.gd` pins the
+tube's ring convention the shader relies on and the uniform's presence.
+
 At its foot a plucked string leaves the soundbox through a flanged brass
 eyelet on the mouth of its ferrule (`eyelets` on the manifest, from
 `formlab.layout.eyelet_plan`; see [instrument frames](instrument-frames.md));

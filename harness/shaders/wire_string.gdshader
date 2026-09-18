@@ -27,8 +27,15 @@ uniform vec4 glow : source_color = vec4(1.0, .86, .62, 1.0);
 // minor axis as a fraction of the major one, so the bend and the blur read
 // from a camera in front of the string plane too, not only edge-on.
 uniform float cross_axis = .35;
+// A wire thinner than a pixel or so breaks into dashes and then vanishes from
+// the wide shots — the treble strings first. Below `min_px` of on-screen
+// width the tube is drawn at that width instead, and its body toned down by
+// the coverage it would have had, so a distant string stays a faint but
+// continuous line. Zero disables it (the tube is then its true gauge).
+uniform float min_px = 1.6;
 varying float v_env;
 varying float v_theta;
+varying float v_grow;
 
 float node_value(float u, bool env) {
     float k = clamp(u, 0.0, 1.0) * float(NODES - 1);
@@ -47,14 +54,24 @@ void vertex() {
     float du = (node_value(u + .01, false) - node_value(u - .01, false)) / (.02 * length_m); // dz/dy
     float theta = UV.y * 6.2831853;
     v_theta = theta;
+    // the on-screen size of a metre at the bent axis's depth, from the projection's
+    // vertical focal length (negative under Godot's Vulkan projection, which
+    // flips Y — hence abs); the tube's gauge is held to min_px of that
+    vec4 axis_view = MODELVIEW_MATRIX * vec4(d * cross_axis, VERTEX.y, d, 1.0);
+    float world_per_px = 2.0 * max(-axis_view.z, .05) / (abs(PROJECTION_MATRIX[1][1]) * VIEWPORT_SIZE.y);
+    float r = max(radius, .5 * min_px * world_per_px);
+    v_grow = 1.0 - radius / r;
     if (sheath) {
         float e = node_value(u, true);
         v_env = e;
         // elliptical lens: wide along Z (the pluck), the minor axis across X
-        VERTEX.x = cos(theta) * (radius * 1.15 + e * cross_axis);
-        VERTEX.z = sin(theta) * (radius + e);
+        VERTEX.x = cos(theta) * (r * 1.15 + e * cross_axis);
+        VERTEX.z = sin(theta) * (r + e);
     } else {
         v_env = 0.0;
+        // the mesh ring is (radius cos, y, radius sin): rebuild it at the held gauge
+        VERTEX.x = cos(theta) * r;
+        VERTEX.z = sin(theta) * r;
     }
     VERTEX.z += d;
     VERTEX.x += d * cross_axis;
@@ -69,7 +86,7 @@ void fragment() {
         float edge = abs(sin(v_theta));
         float a = smoothstep(.0008, .004, v_env) * (.14 + .34 * edge * edge);
         ALBEDO = albedo.rgb;
-        ALPHA = a;
+        ALPHA = a * (1.0 - .6 * v_grow);
         METALLIC = 0.0; ROUGHNESS = .6; SPECULAR = .2;
         EMISSION = glow.rgb * mix(vec3(1.0), albedo.rgb, .5) * excitation * .8;
     } else {
@@ -100,13 +117,15 @@ void fragment() {
         }
         // A thin wire in a dark studio would vanish as pure metal: keep a little
         // diffuse body so it reads, and let a sounding string light itself.
-        ALBEDO = albedo.rgb * tone;
+        // A wire held at the minimum width is toned down by the coverage it lost.
+        float cover = 1.0 - .6 * v_grow;
+        ALBEDO = albedo.rgb * tone * cover;
         METALLIC = metal * (1.0 - .35 * excitation);
         ROUGHNESS = rough;
-        SPECULAR = spec;
-        BACKLIGHT = back;
-        RIM = rim; RIM_TINT = .7;
+        SPECULAR = spec * cover;
+        BACKLIGHT = back * cover;
+        RIM = rim * cover; RIM_TINT = .7;
         // tinted by the wire's own colour so a red C stays red when it sings
-        EMISSION = glow.rgb * mix(vec3(1.0), albedo.rgb, .65) * (excitation * excitation) * 1.1 + albedo.rgb * .06;
+        EMISSION = (glow.rgb * mix(vec3(1.0), albedo.rgb, .65) * (excitation * excitation) * 1.1 + albedo.rgb * .06) * cover;
     }
 }
