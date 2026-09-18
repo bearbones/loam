@@ -1,3 +1,23 @@
+## 2026-09-17 — CLOCKWORK oil cups on the arms' elbow forks
+
+Every bearing on a machine of this kind has a lubricator, and the arms had
+none. Each arm's upper link now carries a brass oil cup on its elbow fork's
++X ear rim — a collar, a stem, the cup and its domed hinged lid,
+`formlab.linkage.oil_cup`, cast with the link — standing on the link's line
+beyond the pin, where a rod end's oil hole goes. That puts it in the ear's
+own layer along the pin, where nothing else of the arm's stack lives, so the
+knuckle stack's room table did not change and, since the clearance module
+is untouched, no rail re-planned. `build_forms.py` records each arm's cup
+(`oil_cups`) and `tools/test_oil_cups.py` gives it its room: posed through
+the whole score, every cup keeps 20 mm from every other arm's sweep, every
+rail and rack, every string and every obstacle. The first cut put a cup on
+the lower link's fork too; that fork works at the wrist, and the rake's
+sweep carried its cup to 6 mm from a string — so the wrist has none, and
+the ruler says why. The link extent the Godot ruler checks grew by the cup
+and is recorded from the pieces, so it followed. Scope: the cup is not in
+the arm capsules the planner and the frame-clearance ruler use; its room is
+measured by its own ruler.
+
 ## 2026-09-17 — CLOCKWORK strings hold a minimum on-screen width
 
 In the wide shots the treble strings broke into dashes and the thinnest

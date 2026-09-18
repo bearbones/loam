@@ -885,7 +885,24 @@
         "span": 0.1824,
         "pin_x": 0.1254
       },
-      "link_extent_y": 1.5555999999999999,
+      "link_extent_y": 1.5865999999999998,
+      "oil_cups": [
+        {
+          "part": "upper",
+          "centre": [
+            0.045,
+            1.505,
+            0.0
+          ],
+          "axis": [
+            0,
+            1.0,
+            0
+          ],
+          "r": 0.0105,
+          "h": 0.031
+        }
+      ],
       "upper_pair_separation_m": 0.10914521897818569,
       "lower_pair_separation_m": 0.10797408409972732,
       "self_clearance_m": 0.02433863380557126,
@@ -986,7 +1003,24 @@
         "span": 0.1824,
         "pin_x": 0.1254
       },
-      "link_extent_y": 1.2555999999999998,
+      "link_extent_y": 1.2865999999999997,
+      "oil_cups": [
+        {
+          "part": "upper",
+          "centre": [
+            0.045,
+            1.2049999999999998,
+            0.0
+          ],
+          "axis": [
+            0,
+            1.0,
+            0
+          ],
+          "r": 0.0105,
+          "h": 0.031
+        }
+      ],
       "upper_pair_separation_m": 0.10542448325196796,
       "lower_pair_separation_m": 0.10437034932512854,
       "self_clearance_m": 0.020083662071419636,
@@ -1087,7 +1121,24 @@
         "span": 0.1824,
         "pin_x": 0.1254
       },
-      "link_extent_y": 1.7056,
+      "link_extent_y": 1.7366,
+      "oil_cups": [
+        {
+          "part": "upper",
+          "centre": [
+            0.045,
+            1.655,
+            0.0
+          ],
+          "axis": [
+            0,
+            1.0,
+            0
+          ],
+          "r": 0.0105,
+          "h": 0.031
+        }
+      ],
       "upper_pair_separation_m": 0.1085237391594658,
       "lower_pair_separation_m": 0.10609116704815492,
       "self_clearance_m": 0.025371503217077276,
@@ -1186,7 +1237,24 @@
         "span": 0.1824,
         "pin_x": 0.1254
       },
-      "link_extent_y": 1.2555999999999998,
+      "link_extent_y": 1.2865999999999997,
+      "oil_cups": [
+        {
+          "part": "upper",
+          "centre": [
+            0.045,
+            1.2049999999999998,
+            0.0
+          ],
+          "axis": [
+            0,
+            1.0,
+            0
+          ],
+          "r": 0.0105,
+          "h": 0.031
+        }
+      ],
       "upper_pair_separation_m": 0.10632472587622903,
       "lower_pair_separation_m": 0.09329734508718346,
       "self_clearance_m": 0.04810097221964908,
@@ -1286,7 +1354,24 @@
         "span": 0.1824,
         "pin_x": 0.1254
       },
-      "link_extent_y": 1.7056,
+      "link_extent_y": 1.7366,
+      "oil_cups": [
+        {
+          "part": "upper",
+          "centre": [
+            0.045,
+            1.655,
+            0.0
+          ],
+          "axis": [
+            0,
+            1.0,
+            0
+          ],
+          "r": 0.0105,
+          "h": 0.031
+        }
+      ],
       "upper_pair_separation_m": 0.10742963102791817,
       "lower_pair_separation_m": 0.10940779942206204,
       "self_clearance_m": 0.05073736587540423,
@@ -1386,7 +1471,24 @@
         "span": 0.1824,
         "pin_x": 0.1254
       },
-      "link_extent_y": 1.7056,
+      "link_extent_y": 1.7366,
+      "oil_cups": [
+        {
+          "part": "upper",
+          "centre": [
+            0.045,
+            1.655,
+            0.0
+          ],
+          "axis": [
+            0,
+            1.0,
+            0
+          ],
+          "r": 0.0105,
+          "h": 0.031
+        }
+      ],
       "upper_pair_separation_m": 0.0924466941358746,
       "lower_pair_separation_m": 0.10973270727137245,
       "self_clearance_m": 0.05073736587540428,
@@ -1486,7 +1588,24 @@
         "span": 0.1824,
         "pin_x": 0.1254
       },
-      "link_extent_y": 1.7056,
+      "link_extent_y": 1.7366,
+      "oil_cups": [
+        {
+          "part": "upper",
+          "centre": [
+            0.045,
+            1.655,
+            0.0
+          ],
+          "axis": [
+            0,
+            1.0,
+            0
+          ],
+          "r": 0.0105,
+          "h": 0.031
+        }
+      ],
       "upper_pair_separation_m": 0.10735435982630487,
       "lower_pair_separation_m": 0.10944915015440483,
       "self_clearance_m": 0.05073736587540395,
@@ -1586,7 +1705,24 @@
         "span": 0.1824,
         "pin_x": 0.1254
       },
-      "link_extent_y": 1.7056,
+      "link_extent_y": 1.7366,
+      "oil_cups": [
+        {
+          "part": "upper",
+          "centre": [
+            0.045,
+            1.655,
+            0.0
+          ],
+          "axis": [
+            0,
+            1.0,
+            0
+          ],
+          "r": 0.0105,
+          "h": 0.031
+        }
+      ],
       "upper_pair_separation_m": 0.1008650618572705,
       "lower_pair_separation_m": 0.10981643983774085,
       "self_clearance_m": 0.05073736587540484,
@@ -1684,7 +1820,24 @@
         "span": 0.1824,
         "pin_x": 0.1254
       },
-      "link_extent_y": 1.7056,
+      "link_extent_y": 1.7366,
+      "oil_cups": [
+        {
+          "part": "upper",
+          "centre": [
+            0.045,
+            1.655,
+            0.0
+          ],
+          "axis": [
+            0,
+            1.0,
+            0
+          ],
+          "r": 0.0105,
+          "h": 0.031
+        }
+      ],
       "upper_pair_separation_m": 0.10749971450849084,
       "lower_pair_separation_m": 0.10940754999818961,
       "self_clearance_m": 0.05073736587540395,

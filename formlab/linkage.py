@@ -133,8 +133,22 @@ def fork_end(centre, ear_r, pin_r, thickness, gap, axis=X):
     off = (gap+thickness)/2
     return [ring(c-a*off, pin_r*1.15, ear_r, thickness, axis), ring(c+a*off, pin_r*1.15, ear_r, thickness, axis)]
 
+CUP = dict(base_r=.010, base_h=.004, stem_r=.006, stem_h=.007, r=.010, h=.011, lid=.009, sides=20)
+def oil_cup(centre, axis=Y):
+    """A lubricator on a bearing: a collar on the rim, a short stem, the cup
+    and its domed hinged lid, standing `axis`-wards from `centre` (the rim
+    point it is screwed into). Every bearing on a machine of this kind has
+    one; here they mark the fork ends, where a rod's oil hole goes."""
+    c = CUP; y0 = c['base_h']; y1 = y0+c['stem_h']; y2 = y1+c['h']; top = y2+c['lid']
+    pr = [(0, 0), (c['base_r'], 0), (c['base_r'], y0), (c['stem_r'], y0), (c['stem_r'], y1), (c['r'], y1),
+          (c['r'], y2), (c['r']*1.05, y2), (c['r']*1.05, y2+.003), (c['r']*.7, top-.002), (0, top)]
+    return revolve(pr, axis, centre, c['sides'])
+
+def cup_height():
+    c = CUP; return c['base_h']+c['stem_h']+c['h']+c['lid']
+
 def link(length, width=.034, depth=.062, ear_r=.055, pin_r=.018, ear_t=.028, fork_gap=None,
-         fork_at='B', eye_at='A', layer=0.0, taper=.88, belly=.18):
+         fork_at='B', eye_at='A', layer=0.0, taper=.88, belly=.18, lubricator=True):
     """A complete flat link: bar body, a fork at one pin and an eye at the other.
     `layer` shifts the whole link along the pin axis (stacking). Pin A at the
     origin, pin B at (0, length, 0). Returns dict(pieces, pins)."""
@@ -160,10 +174,17 @@ def link(length, width=.034, depth=.062, ear_r=.055, pin_r=.018, ear_t=.028, for
         c = ends[key]
         if kind == 'fork': pieces += fork_end(c, ear_r, pin_r, ear_t, gap)
         else: pieces += eye_end(c, ear_r*.92, pin_r, width)
+    cup = None
+    if lubricator and fork_at in ends:
+        # the oil cup on the fork's +X ear rim, beyond the pin along the link's
+        # line (a rod end's oil hole), in the ear's own layer along the pin
+        c = ends[fork_at]; sign = 1. if fork_at == 'B' else -1.
+        cup = dict(centre=(c+[(gap+ear_t)/2+layer, sign*ear_r, 0]).tolist(), axis=[0, sign, 0], r=CUP['r']*1.05, h=cup_height())
+        pieces.append(oil_cup(np.array(cup['centre'])-[layer, 0, 0], Y*sign))
     if layer:
         pieces = [transform(p, np.eye(3), (layer, 0, 0)) for p in pieces]
     return dict(pieces=pieces, pins={'A': ends['A']+[layer, 0, 0], 'B': ends['B']+[layer, 0, 0]},
-                fork_gap=gap, ear_t=ear_t, ear_r=ear_r, pin_r=pin_r)
+                fork_gap=gap, ear_t=ear_t, ear_r=ear_r, pin_r=pin_r, cup=cup)
 
 def crosshead(pins, thickness=.012, boss_r=.05, pin_r=.018, web=.05, axis=X, plate=.019, eye=(0,)):
     """The rigid body a parallelogram holds at fixed orientation: two plates
@@ -298,7 +319,9 @@ def parallelogram_arm(l1, l2, o1, o2, spec=None, mount='back'):
     L = default_layers(s); gap = L['gap']; outer = L['outer']; span = L['span']
     head = dict(thickness=s['head_t'], boss_r=s['boss_r'], pin_r=s['pin_r'], web=s['web'], plate=L['plate'])
     upper = link(l1, s['width'], s['depth'], s['ear_r'], s['pin_r'], s['ear_t'], gap, fork_at='B', eye_at='A')
-    lower = link(l2, s['width'], s['depth'], s['ear_r'], s['pin_r'], s['ear_t'], gap, fork_at='B', eye_at='A')
+    # no cup on the lower link's fork: it works at the wrist, where a rake's
+    # sweep would carry a cup beyond the pin to within millimetres of the strings
+    lower = link(l2, s['width'], s['depth'], s['ear_r'], s['pin_r'], s['ear_t'], gap, fork_at='B', eye_at='A', lubricator=False)
     upper2 = link(l1, s['width']*.8, s['depth']*.8, s['ear_r']*.85, s['pin_r'], s['width']*.8, None,
                   fork_at='none', eye_at='A', layer=+outer, taper=1, belly=.1)
     upper2['pieces'] += eye_end(np.array([outer, l1, 0]), s['ear_r']*.78, s['pin_r'], s['width']*.8)
@@ -317,9 +340,9 @@ def parallelogram_arm(l1, l2, o1, o2, spec=None, mount='back'):
     carriage = carriage_body(o1, s, mount, head)
     pins = dict(shoulder=[knuckle_pin(s['pin_r'], L['pin_span'])], elbow=[knuckle_pin(s['pin_r'], L['pin_span'])],
                 wrist=[knuckle_pin(s['pin_r'], L['pin_span'])])
-    return dict(carriage=dict(pieces=carriage), upper=dict(pieces=upper['pieces']),
+    return dict(carriage=dict(pieces=carriage), upper=dict(pieces=upper['pieces'], cup=upper['cup']),
                 upper2=dict(pieces=upper2['pieces']), elbowhead=dict(pieces=elbow),
-                lower=dict(pieces=lower['pieces']), lower2=dict(pieces=lower2['pieces']),
+                lower=dict(pieces=lower['pieces'], cup=lower['cup']), lower2=dict(pieces=lower2['pieces']),
                 wristhead=dict(pieces=wrist), **{k: dict(pieces=v) for k, v in pins.items()},
                 layers=L, spec=s)
 

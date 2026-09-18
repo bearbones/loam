@@ -33,6 +33,7 @@ along the link, the pin axis +X) and never scaled afterwards:
 | carriage | `carriage_body()` | the shoulder crosshead plus bushings on the guide bars, a cheek plate and the pinion's axle — on a bridge behind the bushing when the pinion lies above or below the carriage (see The carriage and its drive) |
 | shoulder, elbow, wrist | `knuckle_pin()` | domed head one side, nut the other; spans the fork ears |
 | tool + shank | `pick_tool(mount)` / `mallet_tool(mount)` | tool origin = contact point; the shank is built to reach its socket under the wrist boss (see Tools) |
+| oil cup | `oil_cup()` (cast with `upper`) | a lubricator on the upper link's elbow fork, +X ear rim, on the link's line beyond the pin — where a rod end's oil hole goes — in the ear's own layer along the pin, so nothing of the arm's own stack shares its space; recorded per arm as `oil_cups` and given its room by `tools/test_oil_cups.py` (20 mm from every other arm, rail, string and obstacle through the whole score). Not on the lower link: its fork works at the wrist, where the rake's sweep carried a cup to 6 mm from a string |
 
 Joints are **knuckle joints**: a fork straddles an eye on a pin (`fork_end`,
 `eye_end`, `ring`, `revolve`). Every layer along the pin has its own room,
@@ -360,6 +361,7 @@ python3 tools/test_formlab.py             # sweeps, frames, layout
 python3 tools/test_form_joints.py         # seamless frame joints
 python3 tools/test_linkage_tools.py       # plectrum, ferrule, swan neck, socket, mallet; the carriage
 python3 tools/test_gantry.py              # rail heads, masts, brackets, racks; arms vs every rail
+python3 tools/test_oil_cups.py            # the fork ends' lubricators and their room
 blender -b -t 2 -P tools/test_form_joint_seats.py
 godot --headless --path harness -s dev/test_clockwork.gd
 godot --headless --path harness -s dev/test_performance.gd

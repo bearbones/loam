@@ -85,6 +85,7 @@ if score_path.exists() and layout.get('arms'):
         upper=np.concatenate([m.vertices for m in parts['upper']['pieces']])
         arms[aid]=dict(o1=o1.round(5).tolist(),o2=o2.round(5).tolist(),layers=layers,
             link_extent_y=float(upper[:,1].max()-upper[:,1].min()),
+            oil_cups=[dict(part=p,**parts[p]['cup']) for p in ('upper','lower') if parts[p].get('cup')],
             upper_pair_separation_m=float(sep1),lower_pair_separation_m=float(sep2),
             self_clearance_m=rep['worst_gap_m'],self_worst=rep['worst_pair'],self_worst_time_s=rep['worst_time_s'],
             string_clearance_m=rep['string_gap_m'],string_worst=list(rep['string_worst']))
