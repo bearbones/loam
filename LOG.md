@@ -1,3 +1,26 @@
+## 2026-09-17 — CLOCKWORK the highlight runs along a string; the winding fades before it shimmers; strings darken at their hardware
+
+The strings read as flat grey lines in the wide shots, and wound, gut and
+nylon differed by colour and gauge only (`docs/plans/string-look-next.md`).
+Now `shaders/wire_string.gdshader` gives the bent tube a tangent along the
+wire (the mesh carries none) and sets Godot's `ANISOTROPY` from a per-family
+uniform `aniso` (`performance.gd` `string_aniso`: wound 0.7, gut 0.45, nylon
+0, plain steel −0.3): a winding or a gut's twist grooves the wire around, so
+the reflection stretches along it; a drawn wire is scratched along its
+length and spreads slightly across. The winding's ridges (and the gut's
+grain) now also rock the normal along the wire, but only while a turn is a
+few pixels wide — `fwidth` of the turn count is turns per pixel, and past
+0.2–0.45 of a turn a pixel the ridges fade to their mean tone, so a bass
+string in the wide shots does not moiré. Where a string passes through an
+eyelet or over a bridge or tuning pin it is darkened 6 mm either side of the
+contact (`contact_m`, by `UV.x` — every tube ends on hardware — so no
+per-string uniforms), so it reads as pulled tight through the hardware.
+`--view=16` frames the harp's lowest string a hand above its eyelet.
+`dev/test_performance.gd` pins each string's and dead length's `aniso` to
+its family and the new uniforms. Godot-only: no asset rebuild. Before/after
+renders of views 6, 12, 14 and 16 differ on the strings only (pixel diff);
+every ruler green. Docs: `docs/articulated-arms.md` "Strings".
+
 ## 2026-09-17 — CLOCKWORK the pawl's roller turns, and the detent rests in a dip at home
 
 The pawl's roller was one mesh with its lever, so it read as a stud; and

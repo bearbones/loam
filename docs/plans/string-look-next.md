@@ -1,5 +1,13 @@
 # String look: wound bass strings, anisotropic highlights, contact shadows
 
+**Status (2026-09-17, late evening):** landed in one pass — the tangent
+and `ANISOTROPY` per family (`string_aniso`), the winding and gut grain as
+normal rocking faded by `fwidth`, and the contact darkening by `UV.x`
+(no per-string uniforms: every tube ends on hardware); `--view=16` is the
+close-up. Not done: per-family specular *tints* (Godot's non-metal
+specular is white; a tint needs the metallic path or a custom BRDF) and a
+frame-time measurement. Judge the result by eye on views 6/12/14/16.
+
 **Where:** `harness/shaders/wire_string.gdshader`, `harness/performance.gd`
 (`_make_string`, `_wire_mesh`, the `family` parameter), `formlab/layout.py`
 (`neck_plan`, eyelets), `dev/test_performance.gd` (the string family and

@@ -447,6 +447,28 @@ glossy. The colour code follows the makers: every C red, every F black on gut
 and wire and blue on nylon. `dev/test_performance.gd` pins the register rule
 and the C/F colours on the built scene.
 
+The highlight runs *along* a string, not across it. A winding or a gut's
+twist grooves the wire around its circumference, so the micro-normals scatter
+along its length and the reflection stretches that way; a plain drawn wire
+is scratched along its length instead, and its highlight spreads slightly
+across. The vertex shader gives the tube a tangent along the wire (the mesh
+carries none; it bends with the shape frame) and the fragment sets Godot's
+`ANISOTROPY` from a per-family uniform `aniso` (`performance.gd`
+`string_aniso`: wound 0.7, gut 0.45, nylon 0, steel −0.3; positive stretches
+along the tangent), on the speaking length and the dead lengths alike. The
+winding's ridges also rock the normal along the wire — but only while a turn
+is a few pixels wide: `fwidth` of the turn count is turns per pixel, and past
+0.2–0.45 of a turn a pixel the ridges (tone and normal) fade to their mean,
+so a bass string in the wide shots does not shimmer or moiré; the gut grain
+fades the same way. Where a string passes through an eyelet or over a
+bridge or tuning pin it is darkened 6 mm either side of the contact
+(`contact_m`; every tube ends on hardware, so the darkening is by `UV.x`
+without per-string uniforms), so it reads as pulled tight through the
+hardware rather than floating past it. `--view=16` frames the harp's lowest
+string a hand above its eyelet for all three. `dev/test_performance.gd`
+pins each string's and dead length's `aniso` to its family and the uniforms'
+presence; the look itself is judged by eye on views 6, 12, 14 and 16.
+
 Two things a still from the front never showed. The pluck axis is world Z,
 straight at a frontal camera, so the bend and the sheath (a lens flat in
 the vibration plane) were edge-on and vanished; a real plucked wire does

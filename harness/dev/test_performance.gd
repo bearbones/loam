@@ -103,6 +103,15 @@ func check_scene() -> void:
 			var family: int=int(mat.get_shader_parameter("family"))
 			var expected: int=1 if midi<60.0 else (3 if midi>=72.0 else 2)
 			if family!=expected: failures.append("string family off its register "+sid)
+			# each family's highlight runs along the string by its own amount (string_aniso),
+			# on the speaking length and on every dead length alike
+			var aniso_want: float=scene.string_aniso(family)
+			if absf(float(mat.get_shader_parameter("aniso"))-aniso_want)>1e-6: failures.append("string highlight anisotropy off its family "+sid)
+			var dead_node: Node3D=scene.find_child(sid+" dead",false,false)
+			if dead_node!=null:
+				for child in dead_node.get_children():
+					if child.material_override is ShaderMaterial and absf(float(child.material_override.get_shader_parameter("aniso"))-aniso_want)>1e-6: failures.append("dead length anisotropy off its family "+sid)
+			if not (aniso_want>0.0 if family in [1,2] else aniso_want<=0.0): failures.append("string_aniso stretches a smooth wire's highlight along it "+sid)
 			var colour: Color=mat.get_shader_parameter("albedo")
 			if s["mid"]=="harp" and int(midi)%12==0 and not (colour.r>.6 and colour.g<.4): failures.append("harp C string not red "+sid)
 			if s["mid"]=="harp" and int(midi)%12==5 and colour.r>.35: failures.append("harp F string not dark "+sid)
@@ -160,6 +169,7 @@ func check_scene() -> void:
 	if pv[0].distance_to(Vector3(.01,0,0))>1e-6 or pv[2].distance_to(Vector3(0,0,.01))>1e-6 or pv[9].distance_to(Vector3(.01,.5,0))>1e-6: failures.append("wire mesh ring convention (x=r cos, z=r sin, +y along the string) changed under the shader")
 	var uniforms: Array=load("res://shaders/wire_string.gdshader").get_shader_uniform_list().map(func(u): return u["name"])
 	if not ("min_px" in uniforms and "radius" in uniforms): failures.append("wire shader lost its minimum on-screen width")
+	if not ("aniso" in uniforms and "contact_m" in uniforms): failures.append("wire shader lost its anisotropic highlight or its hardware contacts")
 	print("  integrated GLB: %d tool contacts; %d rigs" % [contacts,scene.parts.size()])
 	print("PERFORMANCE: PASS" if failures.is_empty() else str(failures))
 	quit(0 if failures.is_empty() else 1)

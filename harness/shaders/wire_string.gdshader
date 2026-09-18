@@ -33,6 +33,17 @@ uniform float cross_axis = .35;
 // the coverage it would have had, so a distant string stays a faint but
 // continuous line. Zero disables it (the tube is then its true gauge).
 uniform float min_px = 1.6;
+// The highlight runs along a string, not across it: a winding or a twist
+// grooves the surface around the wire, so the micro-normals scatter along its
+// length and the reflection stretches that way (positive `aniso`, Godot's
+// convention with the tangent along the wire); a plain drawn wire is scratched
+// along its length instead (negative, slight). Set per family by
+// performance.gd's string_aniso.
+uniform float aniso = 0.0;
+// Where a string passes through an eyelet or over a bridge pin it is darkened
+// this far either side of the contact, so it reads as pulled tight through
+// the hardware rather than floating past it. Every tube ends on hardware.
+uniform float contact_m = .006;
 varying float v_env;
 varying float v_theta;
 varying float v_grow;
@@ -78,6 +89,9 @@ void vertex() {
     // tilt the ring normal with the local slope of the bent wire
     vec3 n = NORMAL;
     NORMAL = normalize(vec3(n.x - du * cross_axis * n.y, n.y - du * n.z, n.z));
+    // the mesh carries no tangents: the wire's own direction, bent with it
+    TANGENT = normalize(vec3(du * cross_axis, 1.0, du));
+    BINORMAL = normalize(cross(NORMAL, TANGENT));
 }
 
 void fragment() {
@@ -96,18 +110,28 @@ void fragment() {
         float spec = .7;
         vec3 back = vec3(0.0);
         float rim = 0.0;
+        float wind = 0.0;
         if (family == 1) {
-            // helical winding: fine periodic ridges catch the light as the wire turns
+            // helical winding: fine periodic ridges catch the light as the wire
+            // turns. A turn narrower than a few pixels on screen would shimmer, so
+            // the ridges fade to their mean tone as they close up (fwidth of the
+            // turn count is turns per pixel), and the normal is only rocked while
+            // they are wide enough to see.
             float turns = UV.x * length_m * wind_pitch + UV.y;
-            float ridge = .5 + .5 * cos(turns * 6.2831853);
+            float fade = 1.0 - smoothstep(.2, .45, fwidth(turns));
+            float ridge = mix(.5, .5 + .5 * cos(turns * 6.2831853), fade);
             tone = .82 + .18 * ridge;
             rough = roughness + .08 * (1.0 - ridge);
+            wind = sin(turns * 6.2831853) * fade;
         } else if (family == 2) {
             // gut: a slow helical grain from the twisted strands, matte, and
             // translucent enough that a string against the light glows at its edges
-            float grain = .5 + .5 * cos((UV.x * length_m * strand_pitch + 2.0 * UV.y) * 6.2831853);
+            float twist = (UV.x * length_m * strand_pitch + 2.0 * UV.y) * 6.2831853;
+            float gfade = 1.0 - smoothstep(.2, .45, fwidth(twist) / 6.2831853);
+            float grain = mix(.5, .5 + .5 * cos(twist), gfade);
             tone = .92 + .08 * grain;
             rough = .52 + .06 * grain;
+            wind = sin(twist) * gfade * .5;
             metal = 0.0; spec = .35;
             back = albedo.rgb * .45; rim = .35;
         } else if (family == 3) {
@@ -119,13 +143,19 @@ void fragment() {
         // diffuse body so it reads, and let a sounding string light itself.
         // A wire held at the minimum width is toned down by the coverage it lost.
         float cover = 1.0 - .6 * v_grow;
-        ALBEDO = albedo.rgb * tone * cover;
+        // the hardware contact at each end: through an eyelet, over a pin
+        float end_m = min(UV.x, 1.0 - UV.x) * length_m;
+        float contact = 1.0 - .5 * (1.0 - smoothstep(0.0, contact_m, end_m));
+        // the winding's ridges rock the normal along the wire
+        if (wind != 0.0) NORMAL = normalize(NORMAL + TANGENT * wind * .55);
+        ALBEDO = albedo.rgb * tone * cover * contact;
         METALLIC = metal * (1.0 - .35 * excitation);
         ROUGHNESS = rough;
-        SPECULAR = spec * cover;
-        BACKLIGHT = back * cover;
-        RIM = rim * cover; RIM_TINT = .7;
+        SPECULAR = spec * cover * contact;
+        ANISOTROPY = aniso; ANISOTROPY_FLOW = vec2(1.0, 0.0);
+        BACKLIGHT = back * cover * contact;
+        RIM = rim * cover * contact; RIM_TINT = .7;
         // tinted by the wire's own colour so a red C stays red when it sings
-        EMISSION = (glow.rgb * mix(vec3(1.0), albedo.rgb, .65) * (excitation * excitation) * 1.1 + albedo.rgb * .06) * cover;
+        EMISSION = (glow.rgb * mix(vec3(1.0), albedo.rgb, .65) * (excitation * excitation) * 1.1 + albedo.rgb * .06 * contact) * cover;
     }
 }

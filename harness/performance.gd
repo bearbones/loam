@@ -155,6 +155,7 @@ func _make_string(sid: String) -> Node3D:
 		var mat := ShaderMaterial.new(); mat.shader=WIRE
 		mat.set_shader_parameter("radius",radius); mat.set_shader_parameter("length_m",length)
 		mat.set_shader_parameter("albedo",colour); mat.set_shader_parameter("family",family)
+		mat.set_shader_parameter("aniso",string_aniso(family))
 		mat.set_shader_parameter("sheath",sheath)
 		var zero := PackedFloat32Array(); zero.resize(STRING_NODES)
 		mat.set_shader_parameter("disp",zero); mat.set_shader_parameter("envelope",zero)
@@ -179,6 +180,7 @@ func _make_dead_length(sid: String, s: Dictionary, radius: float, colour: Color,
 		var mat := ShaderMaterial.new(); mat.shader=WIRE
 		mat.set_shader_parameter("radius",radius); mat.set_shader_parameter("length_m",length)
 		mat.set_shader_parameter("albedo",colour); mat.set_shader_parameter("family",family)
+		mat.set_shader_parameter("aniso",string_aniso(family))
 		mat.set_shader_parameter("sheath",false)
 		var zero := PackedFloat32Array(); zero.resize(STRING_NODES)
 		mat.set_shader_parameter("disp",zero); mat.set_shader_parameter("envelope",zero)
@@ -243,6 +245,16 @@ static func string_family(midi: float) -> int:
 	if midi<60.0: return 1
 	if midi>=72.0: return 3
 	return 2
+
+## How far a family's highlight stretches along the string (the wire shader's
+## `aniso`): a winding or a gut's twist grooves the wire around, so the
+## reflection runs along it; a plain drawn wire is scratched along its length,
+## so its highlight spreads a little across instead; nylon is smooth.
+static func string_aniso(family: int) -> float:
+	if family==1: return .7
+	if family==2: return .45
+	if family==3: return 0.0
+	return -.3
 
 ## Wound strings are silver-plated on the harp and bronze on the rake; gut is
 ## warm ivory, nylon near clear. Every C is red; F is black on gut and wire,
@@ -476,6 +488,18 @@ func _camera_at(t: float) -> void:
 		# mouths along the soundbox, looking down the feet line from the treble end.
 		var e: Vector3=motion.v(layout["eyelets"]["harp07"]["centre"]) if layout.has("eyelets") and layout["eyelets"].has("harp07") else Vector3(0,1.45,0)
 		target=e+Vector3(-.15,.02,0); pos=e+Vector3(.85,.55,-.9)
+	elif chosen==16:
+		# A wound bass string at arm's length: the harp's lowest string a hand above
+		# its eyelet, from the string side, for the winding, the highlight along the
+		# wire and the darkening at the hardware (shaders/wire_string.gdshader).
+		var low := ""; var low_midi := 1e9
+		for sid in layout["strings"]:
+			var s: Dictionary=layout["strings"][sid]
+			if s["mid"]=="harp" and float(s["midi"])<low_midi: low=sid; low_midi=float(s["midi"])
+		if low=="":
+			for sid in layout["strings"]: low=sid; break
+		var a: Vector3=motion.v(layout["strings"][low]["a"]); var b: Vector3=motion.v(layout["strings"][low]["b"])
+		target=a+(b-a)*.12; pos=target+Vector3(.16,.05,-.28)
 	elif chosen==15:
 		# The ratchet's mechanism: the first mallet arm's pinion from behind and
 		# below, with the roller detent pawl under it (formlab.pawl) and the rack above.
