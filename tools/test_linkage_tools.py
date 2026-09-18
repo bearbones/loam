@@ -62,6 +62,97 @@ check(np.allclose(caps['tool'][1], caps['shank'][0]), 'tool and shank capsules m
 check(np.allclose(caps['shank'][1], [0, 1.20-.03, -.1]), 'shank capsule ends inside the wrist boss')
 check(frozenset(('lower', 'tool')) not in adjacent, 'the lower bar is measured against the tool, not excused')
 
+# The wrist socket's clamp collar and set screw (linkage.COLLAR): new metal
+# hanging off the crosshead's lower boss, so it has to be INSIDE the capsule
+# the clearance report measures the shank with — otherwise every margin in the
+# manifest is quietly optimistic — and clear of the fork ear above it.
+from formlab.linkage import socket as make_socket, swan_shank, COLLAR, WRAP, _wound_head
+from formlab.clearance import segment_distance
+tip_w = poses['tip'][0]; wrist_w = poses['wrist'][0]
+mount_rel = tool_mount(wrist_w-tip_w, [0, .10625, .02847])
+shank_mesh, boss, ring_mesh, screw = swan_shank((0, .084, 0), mount_rel, .012, .013)
+boss, ring_mesh, screw = make_socket(mount_rel, shank_r=.013)
+P, Q, r_shank = caps['shank']
+# Radially — the thing the clearance report's capsule radius is actually a
+# promise about — the widest point on the socket is the set screw's 12-gon
+# corner, and it has to be inside that radius.
+for nm, mesh in (('socket boss', boss), ('collar', ring_mesh), ('set screw', screw)):
+    reach = float(np.linalg.norm(mesh.vertices[:, [0, 2]]-mount_rel[[0, 2]], axis=1).max())
+    check(reach <= r_shank+1e-9,
+          f'the {nm} is inside the {r_shank*1000:.0f} mm shank capsule radius (reaches {reach*1000:.1f} mm)')
+
+# AXIALLY the capsule pair is only a two-segment schematic of the swan neck:
+# the shank itself stands 63 mm off the chord from the neck's apex to the
+# socket, so the report's tool margins are loose by that much and have been
+# since the neck was a bezier (see docs/articulated-arms.md, "Tools"). What
+# this ruler can promise is that the new metal adds nothing to that envelope:
+# the collar and its screw stay inside the deviation the shank already has.
+shank_dev = float(segment_distance(tip_w+shank_mesh.vertices, tip_w+shank_mesh.vertices, P[0], Q[0]).max())
+for nm, mesh in (('socket boss', boss), ('collar', ring_mesh), ('set screw', screw)):
+    V2 = tip_w+mesh.vertices
+    dev = float(segment_distance(V2, V2, P[0], Q[0]).max())
+    check(dev <= shank_dev,
+          f'the {nm} adds nothing to the shank capsule\'s {shank_dev*1000:.0f} mm axial slack ({dev*1000:.0f} mm)')
+
+# The lower link's fork straddles the wrist pin: two ears of radius ear_r in
+# the layers at |x| >= gap/2. Nothing on the collar may reach into that band —
+# the set screw points straight at one.
+ear = DEFAULT_SPEC['ear_r']; gap_half = default_layers(DEFAULT_SPEC)['gap']/2
+for nm, mesh in (('collar', ring_mesh), ('set screw', screw)):
+    V2 = tip_w+mesh.vertices
+    in_band = np.abs(V2[:, 0]-wrist_w[0]) >= gap_half
+    radial = np.linalg.norm(V2[:, [1, 2]]-wrist_w[[1, 2]], axis=1)
+    reach_x = float(np.abs(V2[:, 0]-wrist_w[0]).max())
+    check(not bool(np.any(in_band & (radial <= ear))),
+          f'the {nm} never reaches the fork ears\' layer (out to {reach_x*1000:.1f} mm of {gap_half*1000:.0f})')
+wv = tip_w+ring_mesh.vertices
+web_P, web_Q, web_r = caps['wristhead_web']
+web_gap = float(segment_distance(wv, wv, web_P[0], web_Q[0]).min())-web_r
+check(web_gap > .002, f'the collar clears the second bar\'s web by {web_gap*1000:.1f} mm')
+
+# The collar reads as a collar: proud of the socket barrel it grips, knurled
+# with the declared number of ridges, and 25 mm of it.
+axis_r = np.linalg.norm(ring_mesh.vertices[:, [0, 2]]-mount_rel[[0, 2]], axis=1)
+check(axis_r.max() > .017 and abs(np.ptp(ring_mesh.vertices[:, 1])-COLLAR['length']) < 1e-9,
+      f'the collar is proud of the socket ({axis_r.max()*1000:.1f} mm over a 17 mm barrel), {COLLAR["length"]*1000:.0f} mm long')
+# Count the knurl on one swept ring, dropping the end-cap's centre vertex
+# (sweep() adds one at each end, on the axis).
+mouth = ring_mesh.vertices[np.isclose(ring_mesh.vertices[:, 1], ring_mesh.vertices[:, 1].max())]
+ridge_r = np.linalg.norm(mouth[:, [0, 2]]-mount_rel[[0, 2]], axis=1)
+ridge_r = ridge_r[ridge_r > .013*COLLAR['r_mul']*.5]
+peaks = int(np.sum((ridge_r > np.roll(ridge_r, 1)) & (ridge_r >= np.roll(ridge_r, -1))))
+check(peaks == COLLAR['ridges'] and abs(np.ptp(ridge_r)-2*COLLAR['ridge']) < 1e-4,
+      f'the knurl is {peaks} ridges {np.ptp(ridge_r)*1000:.2f} mm peak to trough')
+check(screw.vertices[:, 0].max()-mount_rel[0] > 0 and np.ptp(screw.vertices[:, 0]) > COLLAR['hex_depth'],
+      'the set screw points +X out of the collar and has a recess sunk in its face')
+
+# The mallet's winding: yarn over a core, standing proud, tied off, and never
+# reaching below the contact point the whole rig is measured from.
+core, wrapm, knot = _wound_head(.06)
+core_r = np.linalg.norm(core.vertices-[0, .06, 0], axis=1).max()
+wrap_r = np.linalg.norm(wrapm.vertices-[0, .06, 0], axis=1).max()
+check(wrap_r > core_r and wrap_r-core_r < WRAP['r'], f'the yarn stands {(wrap_r-core_r)*1000:.2f} mm proud of the core')
+check(wrapm.vertices[:, 1].min() > 0 and core.vertices[:, 1].min() == 0,
+      f'the core owns the contact; no yarn below it (lowest yarn {wrapm.vertices[:, 1].min()*1000:.2f} mm)')
+turns = int(round(np.sum(np.diff(np.unwrap(np.arctan2(wrapm.path[:, 2], wrapm.path[:, 0])))) /(2*np.pi)))
+check(abs(turns) == WRAP['turns'], f'the yarn is {abs(turns)} turns across the head')
+knot_c = knot.path.mean(axis=0)
+check(abs(np.linalg.norm(knot_c-[0, .06, 0])-(.06-WRAP['r']*.6)) < WRAP['knot_r'],
+      'the knot is tied on the core\'s surface where the last turn ends')
+
+# The plectrum's ferrule: two slotted screws and a shim lip on its face.
+ptool, _ = pick_tool(mount_rel)
+blade, ferrule = ptool[0], ptool[1]
+screws2 = ptool[2:6]; shim = ptool[6]
+for i in (0, 2):
+    dome, slot = screws2[i], screws2[i+1]
+    check(slot.vertices[:, 2].max() > dome.vertices[:, 2].max()
+          and np.ptp(slot.vertices[:, 0]) > 2*np.ptp(slot.vertices[:, 1]),
+          f'screw {i//2}: the driver slot crosses the dome and stands through its crown')
+check(shim.vertices[:, 2].min() > ferrule.vertices[:, 2].max()-.001
+      and np.ptp(shim.vertices[:, 0]) > np.ptp(ferrule.vertices[:, 0])*.7,
+      'the shim lip runs across the ferrule\'s face')
+
 # the carriage on its guide: bushings on the bars, a cheek outside the fork
 # ears and inside the pin span, the pinion's axle, and an offset that keeps
 # the second-bar boss off the bars

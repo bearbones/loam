@@ -48,6 +48,82 @@ phase moved), so that `test_gantry`'s stale-rails check and `test_pawl`'s
 manifest checks — red between the two — are green again. The concurrent
 session's wrist-and-tool build is still uncommitted in the main tree; its
 next rebuild picks these teeth up from the tree.
+## 2026-09-17 — CLOCKWORK the tool is held on, and the mallet is wound
+
+Three pieces of hand detail the tools were missing
+(`docs/plans/wrist-and-tool-detail.md`).
+
+**A clamp collar on the wrist socket** (`linkage.collar`, `COLLAR`). The
+socket was a plain boss: nothing said the tool comes off. It now carries a
+ring at 1.6× the shank radius — 20.8 mm on a 13 mm shank, the usual
+proportion for a steel clamp collar — 25 mm long, knurled with 32
+longitudinal ridges 1.2 mm peak to trough, and one headless hex-socket set
+screw on a 2 mm pad pinching the shank. The knurl is a *modulated sweep
+profile* rather than 32 pieces of geometry: `sweep()` already takes one ring
+of profile samples, so `cos(32θ)` on the radius is the whole knurl for the
+price of a wider ring. The hex recess is a step in the screw's own revolve
+profile — there are no booleans in `formlab` — which is why it is
+twelve-sided rather than six.
+
+**A wound mallet head** (`_wound_head`, `WRAP`). A mallet is a core with
+yarn over it, not a blob: 2 mm yarn, 14 turns, the helix's centre-line 0.6
+of a yarn radius inside the core so the winding stands 0.73 mm proud and the
+spiral catches raking light, tied off in a knot (a small torus) where the
+last turn ends. The wrap stops 0.35 rad short of the bottom pole so the
+**core still owns the contact point** — the lowest vertex of the whole tool
+is the core's, exactly at the origin, which is the promise every contact in
+the rig is measured against. All three pieces are felt, so a mallet is still
+one surface and `dev/test_performance.gd` did not need touching.
+
+**Slots and a shim lip on the plectrum.** The two ferrule screws have driver
+slots and the ferrule's face carries the lip that makes its shim slot — a
+plectrum is squared up by driving a brass shim in beside it. Neither is a
+cut: both are thin raised pieces, and the creases either side of them are
+what read.
+
+### What the ruler found on the way
+
+Asking "is the new metal inside the capsule the clearance report measures the
+shank with?" turned up something older and larger. **Radially** the capsule
+is now honest: `shank` is 25 mm because the set screw's 12-gon corner
+reaches 24.0 mm, and `tools/test_linkage_tools.py` measures that rather than
+assuming it. **Axially** that capsule pair is a two-segment schematic of a
+curved neck, and a straight chord from the neck's apex to the socket misses
+the *shank itself* by 63 mm. So every margin the manifest reports for a tool
+is loose by up to that much.
+
+It is not academic. The pick and rake arms report a 23 mm string margin;
+measuring the real swan neck as a chain of 26 capsules against the strings'
+rest lines gives **−11 mm** — the neck's lower 50 mm rises along the very
+wire the plectrum is plucking, at the instant of contact, on all four servo
+arms. Whether that is a collision depends on the plucked string's *shape*,
+which the manifest's straight rest segment does not model (the renderer bends
+it; the report does not), so this wants the operator's eye and a plan of its
+own rather than a quiet fix: tightening the capsules means following the neck
+with three or four of them, re-deriving `arm_capsules`' adjacency lists and
+re-planning every rail. The ruler now pins the 63 mm so it cannot quietly get
+worse, and checks that the collar and screw add nothing to it (41 mm and
+33 mm, both inside the shank's own envelope). Recorded in
+`docs/articulated-arms.md`, "Tools".
+
+### Where the detail actually reads
+
+The plan asked for a view-7 close-up. View 7 stands 6.6 m from the machine,
+where a 47 mm collar is ten pixels wide — the plan was optimistic. View 9,
+the joint close-up at 2.6 m, does show it: a pale brass band on the socket
+barrel, the swan neck curving down to the ferrule and the plectrum. The
+knurl and the set screw are sub-pixel even there, so they were checked with
+`tools/preview_form.py`, which renders any list of `formlab` pieces as a
+workbench studio shot in a few seconds; both tools were shown to the
+operator that way, and the view-9 crop beside them. Two different rulers:
+one for "is the geometry right", one for "does it read in the room".
+
+`linkage.py` and `clearance.py` are both hashed into the rail cache key, so
+this replans the rails. Both assets were rebuilt with `--rails=keep` to check
+the geometry integrates (991 closed analytic components, FORMS: PASS) and
+carry `stale_rails` accordingly — `test_gantry` refuses them, as it should.
+The manifests and GLBs land with the single full replan at the end of the
+geometry work, not once per plan.
 
 ## 2026-09-17 — CLOCKWORK --rails=keep now keeps what the asset was built with
 

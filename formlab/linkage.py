@@ -234,20 +234,59 @@ def crosshead(pins, thickness=.012, boss_r=.05, pin_r=.018, web=.05, axis=X, pla
         pieces.append(ring(p, pin_r*1.15, boss_r, 2*plate+.002, axis))
     return pieces
 
-def socket(mount, r=.017, depth=SOCKET_DEPTH, buried=.04):
+# The clamping collar that holds a tool's shank in its socket. A collar is
+# what actually reads as "the tool comes off": a knurled ring you grip and
+# one hex-socket set screw pinching the shank. 1.6x the shank radius is the
+# usual proportion for a steel clamp collar; 25 mm long is two screw
+# diameters, enough metal for the thread. The knurl is 32 shallow ridges,
+# modelled as a per-ring sweep profile rather than geometry cut into one.
+COLLAR = dict(r_mul=1.6, length=.025, top=.047, ridges=32, ridge=.0006,
+              screw_r=.0075, pad=.002, hex_r=.0035, hex_depth=.0028)
+
+def collar(mount, shank_r, spec=COLLAR):
+    """The clamp collar around a tool socket and its set screw, as
+    [collar, screw]. `mount` is the crosshead boss the socket hangs from
+    (clearance.tool_mount); the collar sits on the socket's barrel, below the
+    tenon buried in the boss, so it never fouls the crosshead plates."""
+    m = np.asarray(mount, float)
+    cr = shank_r*spec['r_mul']
+    y1 = -spec['top']; y0 = y1-spec['length']
+    # A knurl is longitudinal ridges: modulate the swept ring's radius by
+    # cos(N*angle). sweep() takes the profile in units of width/depth, so the
+    # modulation is relative and the ridge depth stays the declared 0.6 mm.
+    a = np.arange(spec['ridges']*6)*2*np.pi/(spec['ridges']*6)
+    bump = 1+spec['ridge']/cr*np.cos(spec['ridges']*a)
+    profile = np.c_[np.cos(a)*bump, np.sin(a)*bump]
+    path = np.c_[np.zeros(5), np.linspace(y0, y1, 5), np.zeros(5)]+m
+    ring_mesh = sweep(path, cr, cr, profile=profile)
+    # A hex-socket set screw is headless: a short cylinder sitting all but
+    # flush in the collar, its hex recess sunk into the exposed face. The
+    # recess is part of the screw's own revolve profile (there are no
+    # booleans here): the profile steps down into the socket and back to the
+    # axis at the recess floor.
+    sr = spec['screw_r']; face = cr+spec['pad']; floor = face-spec['hex_depth']
+    pr = [(0, cr*.45), (sr, cr*.45), (sr, face), (spec['hex_r']*1.3, face),
+          (spec['hex_r'], floor), (0, floor)]
+    screw = revolve(pr, X, m+[0, (y0+y1)/2, 0], 12)
+    return [ring_mesh, screw]
+
+def socket(mount, r=.017, depth=SOCKET_DEPTH, buried=.04, shank_r=.012):
     """Tapped socket boss hanging under a crosshead boss (radius .05): a
-    collar with a chamfered mouth, its tenon buried in the boss above."""
+    barrel with a chamfered mouth, its tenon buried in the boss above, plus
+    the clamp collar and set screw that hold the shank in it. Returns
+    [boss, collar, screw]."""
     m = np.asarray(mount, float)
     pr = [(0, -depth-.006), (r*.72, -depth-.006), (r, -depth+.002), (r, -depth+.018),
           (r*.82, -depth+.022), (r*.82, -buried), (0, -buried)]
-    return revolve(pr, Y, m, 20)
+    return [revolve(pr, Y, m, 20)]+collar(mount, shank_r)
 
 def swan_shank(start, mount, r0=.010, r1=.012, rise=.05):
     """Round steel shank along shank_path, thickening toward the socket, plus
-    the socket itself. Returns [shank, socket]."""
+    the socket, its clamp collar and the set screw. Returns
+    [shank, boss, collar, screw]."""
     path = shank_path(start, mount, rise)
     u = np.linspace(0, 1, len(path))
-    return [sweep(path, r0+(r1-r0)*u, r0+(r1-r0)*u, sides=16), socket(mount)]
+    return [sweep(path, r0+(r1-r0)*u, r0+(r1-r0)*u, sides=16)]+socket(mount, shank_r=r1)
 
 def pick_tool(mount, blade_w=.05, blade_h=.07, blade_t=.007, ferrule_w=.04):
     """Plectrum in a clamped ferrule on a swan-neck shank. Origin at the
@@ -270,16 +309,55 @@ def pick_tool(mount, blade_w=.05, blade_h=.07, blade_t=.007, ferrule_w=.04):
     for sx in (-ferrule_w*.28, ferrule_w*.28):
         pr = [(0, ft-.001), (.0035, ft-.001), (.0035, ft+.004), (.0025, ft+.0055), (0, ft+.0055)]
         screws.append(revolve(pr, Z, (sx, fy, 0), 12))
-    tool = [blade, ferrule]+screws
+        # The driver slot. Nothing here is a boolean, so the slot is a thin bar
+        # standing 0.15 mm through the dome rather than a groove cut into it:
+        # the two creases where it meets the crown are what read as the slot.
+        slot = np.c_[np.linspace(-.0037, .0037, 5), np.full(5, fy), np.full(5, ft+.0045)]
+        screws.append(sweep(slot+[sx, 0, 0], .0009, .0011, profile=rounded_rect(.3, 12)))
+    # The ferrule's shim slot: a plectrum is squared up by driving a brass shim
+    # in beside it, and the slot is the gap under this lip across the ferrule's
+    # face. A raised lip, again, not a cut.
+    shim = np.c_[np.linspace(-ferrule_w*.42, ferrule_w*.42, 5), np.full(5, fy-fh*.42), np.full(5, ft+.0008)]
+    tool = [blade, ferrule]+screws+[sweep(shim, .0013, .0015, profile=rounded_rect(.35, 12))]
     return [tool]+[swan_shank((0, fy+fh, 0), mount)]
 
-def mallet_tool(mount, head_r=.06):
-    """Felt mallet head on a steel shank to its socket; origin at the head's
-    lowest point. Returns [[head], [shank, socket]]. The shank starts inside
-    the head, so the felt is threaded on rather than pasted to the rod."""
+# A mallet is not a blob: it is a core with yarn wound over it, the spiral
+# visible in raking light, tied off at the top. 2 mm yarn and 14 turns across
+# the head is a real winding for a 120 mm head; the wrap centre-line runs
+# 0.6 of a yarn radius inside the core's surface, so the yarn stands 0.8 mm
+# proud and the core still owns the lowest point — the contact stays exactly
+# at the origin. The wrap stops short of the bottom pole (WRAP['pole']) so no
+# yarn ever dips below the contact.
+WRAP = dict(r=.002, turns=14, pole=.35, per_turn=18, sides=8, knot_r=.006, knot_t=.0022)
+
+def _wound_head(head_r, spec=WRAP):
+    """The mallet's core, the yarn wound over it and the knot it ties off in,
+    as [core, wrap, knot]. The core is a sphere of radius head_r seated on the
+    origin (centre at (0, head_r, 0))."""
     pr = [(0, 0)]+[(head_r*np.sin(a), head_r*(1-np.cos(a))) for a in np.linspace(.15, np.pi-.15, 14)]+[(0, 2*head_r)]
-    head = revolve(pr, Y, (0, 0, 0), 28)
-    return [[head], swan_shank((0, head_r*1.4, 0), mount, .012, .013)]
+    core = revolve(pr, Y, (0, 0, 0), 28)
+    count = int(spec['turns']*spec['per_turn'])
+    polar = np.linspace(spec['pole'], np.pi-spec['pole'], count)
+    phi = np.linspace(0, 2*np.pi*spec['turns'], count)
+    R = head_r-spec['r']*.6
+    path = np.c_[R*np.sin(polar)*np.cos(phi), head_r-R*np.cos(polar), R*np.sin(polar)*np.sin(phi)]
+    wrap = sweep(path, spec['r'], spec['r'], sides=spec['sides'])
+    # The knot: a small torus lying on the core where the last turn is tied
+    # off, in the plane tangent to the core there.
+    end = path[-1]; n = (end-[0, head_r, 0]); n = n/np.linalg.norm(n)
+    u = np.cross(n, Y); u = u/np.linalg.norm(u) if np.linalg.norm(u) > 1e-9 else X
+    v = np.cross(n, u)
+    ang = np.arange(28)*2*np.pi/28
+    ring = end+np.outer(np.cos(ang), u*spec['knot_r'])+np.outer(np.sin(ang), v*spec['knot_r'])
+    knot = sweep(ring, spec['knot_t'], spec['knot_t'], sides=10, closed=True)
+    return [core, wrap, knot]
+
+def mallet_tool(mount, head_r=.06):
+    """Wound felt mallet head on a steel shank to its socket; origin at the
+    head's lowest point. Returns [[core, wrap, knot], [shank, boss, collar,
+    screw]]. The shank starts inside the head, so the felt is threaded on
+    rather than pasted to the rod."""
+    return [_wound_head(head_r), swan_shank((0, head_r*1.4, 0), mount, .012, .013)]
 
 def carriage_body(o1, spec, mount='back', head=None):
     """The carriage that rides the rail: the shoulder crosshead (pins 0 and

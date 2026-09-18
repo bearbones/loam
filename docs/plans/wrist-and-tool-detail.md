@@ -1,5 +1,13 @@
 # Wrist socket, mallet head and plectrum detail
 
+**Status (2026-09-17, late evening):** landed — the clamp collar with its
+knurl and set screw, the wound mallet head with its knot, and the plectrum's
+driver slots and shim lip. One departure from the acceptance: view 7 is 6.6 m
+out and cannot resolve a 47 mm collar, so the detail was shown with
+`tools/preview_form.py` workbench previews and a view-9 crop. The ruler also
+found the tool/shank capsules to be a 63 mm-loose schematic of a curved neck,
+which wants a plan of its own (`docs/articulated-arms.md`, "Tools").
+
 **Where:** `formlab/linkage.py` (`tool_mount`, `mallet_tool`, `pick_tool`,
 `crosshead`), `tools/build_forms.py` (tool packing and per-piece
 materials), `tools/test_linkage_tools.py`, `dev/test_performance.gd` (the

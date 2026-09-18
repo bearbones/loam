@@ -107,20 +107,69 @@ its crosshead. A tool is now built *to its mount*:
   before the edge bevel so the bevel inherits it, and the Godot look module
   finishes the imported "horn" surface as a dark amber grain. (A voxel-union
   finish forgets faces, so per-piece materials are for profiled objects only.)
+  The two set screws have driver slots, and the ferrule's face carries the
+  lip that makes its **shim slot** — a plectrum is squared up by driving a
+  brass shim in beside it. Neither is a cut: nothing in `formlab` does
+  booleans, so both are thin raised pieces and it is the creases either
+  side of them that read.
 - **Swan-neck shank** (`swan_shank`, `clearance.shank_path`): a round
   steel rod on a cubic Bezier from the ferrule top — rising vertically,
-  curving back, arriving vertically — into a **socket** collar hanging
-  under the wrist pin's boss (chamfered mouth, tenon buried in the boss).
+  curving back, arriving vertically — into a **socket** hanging under the
+  wrist pin's boss (chamfered mouth, tenon buried in the boss).
   `clearance.tool_mount` is that rule; `SOCKET_DEPTH` (0.075 m) is where
   the mouth sits below the boss centre. When the mount is directly above
   (mallets) the same recipe is a straight drop.
-- **Mallet** (`mallet_tool`): a 12 cm felt head with the shank starting
-  inside it — threaded on, not pasted to the rod.
+- **Clamp collar** (`linkage.collar`, `COLLAR`): what actually reads as
+  "the tool comes off". A ring on the socket's barrel at 1.6× the shank
+  radius (20.8 mm on a 13 mm shank — the usual proportion for a steel
+  clamp collar), 25 mm long, **knurled** with 32 longitudinal ridges
+  1.2 mm peak to trough, and one headless **hex-socket set screw** on a
+  2 mm pad pinching the shank. The knurl is a modulated sweep profile
+  (`sweep(..., profile=)` takes one ring of samples and `cos(32θ)`
+  modulates the radius) rather than 32 pieces of geometry; the hex recess
+  is a step in the screw's own revolve profile, which is why it is
+  twelve-sided rather than six. The collar sits *below* the buried tenon
+  and reaches 21.4 mm out, so it never enters the fork ears' layer at
+  34 mm — the set screw points straight at one and stops 11 mm short.
+- **Mallet** (`mallet_tool`, `_wound_head`, `WRAP`): a 12 cm head that is
+  a **core with yarn wound over it** — 2 mm yarn, 14 turns, the centre-line
+  0.6 of a yarn radius inside the core so the winding stands 0.73 mm proud
+  and the spiral catches raking light — tied off in a knot (a small torus)
+  where the last turn ends. The wrap stops 0.35 rad short of the bottom
+  pole so the **core still owns the contact point**: the lowest vertex of
+  the whole tool is the core's, exactly at the origin, which is the promise
+  every contact in the rig is measured against. All three pieces are felt,
+  so a mallet is still one surface. The shank starts inside the head —
+  threaded on, not pasted to the rod.
+
+**What reads at what distance.** The collar is 47 mm tall and the whole tool
+about 190 mm, so a room shot cannot show it: view 7 stands 6.6 m out, where
+the collar is ten pixels wide. View 9 (the joint close-up, 2.6 m) shows it as
+a pale brass band on the socket barrel with the swan neck and plectrum below;
+the knurl's ridges and the set-screw recess are sub-pixel even there. To see
+those, render the pieces alone —
+`blender -b -t 2 -P tools/preview_form.py -- parts.json out.png az el size`
+takes a `{"parts":[{"name","material","pieces"}],"look_at","zoom"}` document
+and gives a workbench studio shot of any `formlab` output in a few seconds.
+That is the right ruler for detail this size; the game frame is the ruler for
+whether it reads *in the room*, which is a different question.
 
 The clearance capsules follow: `tool` runs from the contact point to the
 neck's apex, `shank` from the apex into the socket; the shank is judged
 against the strings like every bar, and the lower bar is measured against
 the tool rather than excused. `tools/test_linkage_tools.py` is the ruler.
+
+**What those two capsules do and do not promise.** Radially they are
+honest: `shank`'s 25 mm contains the widest thing on the shank (the set
+screw's 12-gon corner at 24.0 mm), and the ruler measures that rather than
+assuming it. Axially they are a two-segment schematic of a curved neck, and
+a straight chord from the neck's apex to the socket misses the *shank
+itself* by 63 mm. So every reported margin involving the tool is loose by up
+to that much — the shank could be 63 mm nearer a string than the report
+says. This predates the collar (the ruler now pins it, and checks the new
+metal adds nothing to it), and tightening it means following the neck with
+three or four capsules, re-deriving the adjacency lists and re-planning
+every rail: a plan of its own, not a footnote.
 
 ## Rail gantries
 

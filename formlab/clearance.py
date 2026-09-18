@@ -255,7 +255,14 @@ def arm_capsules(poses, o1, o2, layers, spec, mount='back'):
         'wristhead_web': (wrist, wrist+o2, spec['web']/2),
         'carriage_web': (root, root+o1, spec['web']/2),
         'tool': (tip, apex, .03),
-        'shank': (apex, socket_end, .02),
+        # 25 mm, not the shank's own 13: the socket carries a clamp collar
+        # (linkage.COLLAR, 1.6x the 13 mm shank = 20.8) and a set screw on a
+        # 2 mm pad whose 12-gon corner reaches 24.0 mm off the axis. The
+        # capsule contains the widest thing on the shank, not the average one.
+        # (Radially. Axially this pair is only a two-segment schematic of the
+        # swan neck and the shank stands 63 mm off the chord; see
+        # tools/test_linkage_tools.py and docs/articulated-arms.md, "Tools".)
+        'shank': (apex, socket_end, .025),
     }
     # The carriage on its guide: bushings along the bars, the cheek plate, the
     # pinion's axle (and bridge); the pinion itself as a stack of chords.
