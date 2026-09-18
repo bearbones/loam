@@ -15,8 +15,8 @@ import numpy as np
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from formlab.recipes import harp_frame,soundboard,action_plate,neck_faces,bar_frame,bench_frame,pack,STYLES
 from formlab.layout import bar_frame_plan,bench_plan,bench_elements,neck_plan
-from formlab.linkage import parallelogram_arm,pick_tool,mallet_tool,tool_mount
-from formlab.rig import Rig
+from formlab.linkage import parallelogram_arm,pick_tool,mallet_tool,hammer_tool,tool_mount
+from formlab.rig import Rig,HAMMER
 from formlab.clearance import choose_offset,report,cross_arm_clearance,pinion_mount,rail_keep_clear,bar_pair_separation
 from formlab.gantry import plan_gantries
 from formlab import pawl as pawl_lib
@@ -82,13 +82,27 @@ if score_path.exists() and layout.get('arms'):
             entry['finish']='profiled'; entry['local']=True; objects.append(entry)
         # The tool hangs from the wrist crosshead's lower boss; the shank is built to reach it.
         mount=tool_mount(rig.wrist_offset(cfg),o2)
-        tool=mallet_tool(mount) if cfg['kind']=='mallet' else pick_tool(mount)
+        kind=cfg['kind']; head_mats=None; head_info=None
+        if kind=='hammer':
+            # A hinged hammer's head is a THIRD part with its own origin at the
+            # hinge, because it turns on its own (formlab.rig.head_angle); the
+            # rest angle and the side it lies back on are what place its check.
+            tool,tool_mats,head_mats=hammer_tool(mount,rig.rest_angle(aid),rig.flip_sign(aid))
+            head_info=dict(hinge=[0,round(float(HAMMER['head_l']),5),0],length=float(HAMMER['head_l']),
+                           rest_angle=round(float(rig.rest_angle(aid)),9),sign=float(rig.flip_sign(aid)))
+        elif kind=='mallet': tool,tool_mats=mallet_tool(mount),None
+        else:
+            tool=pick_tool(mount); tool_mats=['horn']+['brass']*(len(tool[0])-1)
         # a plectrum is horn (the blade, first piece) in a brass ferrule with brass screws
-        objects.append(pack(f'{aid}__tool',tool[0],'felt' if cfg['kind']=='mallet' else 'brass','contact tool, origin at contact',
-                            materials=None if cfg['kind']=='mallet' else ['horn']+['brass']*(len(tool[0])-1)))
+        objects.append(pack(f'{aid}__tool',tool[0],{'mallet':'felt','hammer':'steel'}.get(kind,'brass'),
+                            'contact tool, origin at contact',materials=tool_mats))
         objects[-1]['finish']='profiled'; objects[-1]['local']=True
         objects.append(pack(f'{aid}__shank',tool[1],'steel','tool shank to its socket on the wrist crosshead'))
         objects[-1]['finish']='profiled'; objects[-1]['local']=True
+        if head_info:
+            objects.append(pack(f'{aid}__head',tool[2],'felt',
+                                'hinged hammer head, local frame at its hinge, built at the blow',materials=head_mats))
+            objects[-1]['finish']='profiled'; objects[-1]['local']=True
         if pawl_info:
             lever,mats=pawl_lib.lever_pieces(pmount)
             objects.append(pack(f'{aid}__pawl',lever,'steel','roller detent pawl riding the pinion, local frame at its pivot',materials=mats))
@@ -106,6 +120,7 @@ if score_path.exists() and layout.get('arms'):
         all_poses[aid]=poses; layout['arms'][aid].update(o1=arms[aid]['o1'],o2=arms[aid]['o2'],layers=layers,pinion=pmount)
         arms[aid]['pinion']=pmount
         if pawl_info: arms[aid]['pawl']=pawl_info
+        if head_info: arms[aid]['head']=head_info; layout['arms'][aid]['head']=head_info
     # Rail gantries: heads, masts, plinths and (where needed) brackets, placed clear of everything above.
     form_boxes=[(o['name'],(V.min(0),V.max(0))) for o in objects if not o.get('local')
                 for V in [np.concatenate([np.array(p['vertices']) for p in o['pieces']])]]

@@ -1,11 +1,14 @@
-"""Ruler for the arm tools: plectrum, ferrule, swan-neck shank, socket, mallet.
+"""Ruler for the arm tools: plectrum, ferrule, swan-neck shank, socket,
+mallet, and the hinged hammer (flange, pin, check, spring, head).
 python3 tools/test_linkage_tools.py
 """
 import sys
 from pathlib import Path
 import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from formlab.linkage import pick_tool, mallet_tool, tool_mount, shank_path, check_pieces, SOCKET_DEPTH
+from formlab.linkage import (pick_tool, mallet_tool, hammer_tool, hammer_head, tool_mount, shank_path,
+                             check_pieces, SOCKET_DEPTH, HAMMER_FORM as HF)
+from formlab.rig import HAMMER
 from formlab.clearance import arm_capsules, DEFAULT_SPEC, default_layers
 
 failures = []
@@ -52,6 +55,67 @@ for name, wrist, o2, recipe in cases:
     else:
         head = tool[0].vertices
         check(S[:, 1].min() < head[:, 1].max()-.01, 'mallet shank starts inside the felt head')
+
+# ---- the hinged hammer -------------------------------------------------
+# The head turns on its own pin, so the two promises are geometric: the felt
+# face is EXACTLY head_l below the hinge with nothing proud of it there (that
+# is what makes the blow exact), and nothing on the head touches anything on
+# the flange anywhere in the arc it sweeps — except the check, which is
+# supposed to.
+REST = 1.858085; SIGN = -1.0
+parts, hmats, head_mats = hammer_tool(MALLET, REST, SIGN)
+flange, hshank, hhead = parts
+for nm, pcs in (('flange', flange), ('shank', hshank), ('head', hhead)): check_pieces(pcs)
+check(len(hmats) == len(flange) and len(head_mats) == len(hhead),
+      f'hammer: a material a piece ({len(flange)} flange, {len(hhead)} head)')
+H = np.concatenate([p.vertices for p in hhead])
+low = H[:, 1].min(); face = H[H[:, 1] < low+1e-9]
+check(abs(low+HAMMER['head_l']) < 1e-12 and np.linalg.norm(face[:, [0, 2]], axis=1).max() < 1e-12,
+      f'hammer head: the felt face is exactly head_l below the hinge ({low:.12f} m), on the axis')
+check(H[:, 1].max() >= HF['tail']-1e-9, f'hammer head: the tail reaches its {HF["tail"]*1000:.0f} mm behind the pin')
+F = np.concatenate([p.vertices for p in flange])
+check(F[:, 1].min() > -1e-9, "hammer flange: nothing of it hangs below the hinge line into the head's ball")
+check(np.ptp(F[:, 0])/2 > HAMMER['head_r'],
+      "hammer flange: the cheeks stand outboard of the felt head's own radius"
+      f" ({np.ptp(F[:, 0])/2*1000:.0f} mm vs {HAMMER['head_r']*1000:.0f} mm) — it straddles the arc")
+
+def flip(theta):                     # the head's vertices at a flip angle
+    phi = -theta*SIGN; c, s = np.cos(phi), np.sin(phi)
+    return H@np.array([[1., 0, 0], [0, c, s], [0, -s, c]])+[0, HAMMER['head_l'], 0]
+
+# hammer_tool's pieces, in build order: two (cheek, boss) pairs, the bridge,
+# the pin's four, the check's bar and felt pad, the spring's coil and tail.
+pad = flange[10].vertices
+bearing = [1, 3, 5, 6, 7, 8]          # the bosses the eye turns on and the pin through its bore
+clear_of = np.concatenate([p.vertices for i, p in enumerate(flange) if i not in bearing+[10]])
+boss = np.concatenate([flange[i].vertices for i in (1, 3)])
+worst = (9., 0.); worst_pad = (9., 0.)
+for theta in np.linspace(0, REST*(1+HAMMER['cock']), 90):
+    P = flip(theta)
+    d = np.sqrt(((P[:, None, :]-clear_of[None, ::2, :])**2).sum(-1)).min()
+    if d < worst[0]: worst = (d, theta)
+    dp = np.sqrt(((P[:, None, :]-pad[None, :, :])**2).sum(-1)).min()
+    if dp < worst_pad[0]: worst_pad = (dp, theta)
+check(worst[0] > .002, f'hammer: the head clears the flange through the whole arc'
+      f' (least {worst[0]*1000:.1f} mm at {np.degrees(worst[1]):.0f} deg)')
+# the bearing fit is axial and coaxial, so it is read off the extents rather
+# than off vertices that do not line up (40-sided eye, 32-sided bosses)
+fit = np.abs(boss[:, 0]).min()-np.abs(hhead[1].vertices[:, 0]).max()
+check(.0002 < fit < .0015, f'hammer: the eye butts its bosses with a running fit ({fit*1000:.2f} mm axial)')
+check(abs(np.abs(boss[:, 0]).max()-HF['cheek_x']) < 1e-9,
+      'hammer: the bosses reach the cheeks they are cast on')
+check(worst_pad[0] < .001 and abs(np.degrees(worst_pad[1])-np.degrees(REST)) < 6,
+      f'hammer: the tail meets the check exactly at the rest angle'
+      f' ({worst_pad[0]*1000:.2f} mm at {np.degrees(worst_pad[1]):.0f} deg, rest {np.degrees(REST):.0f} deg)')
+# the cock presses into the felt rather than swinging past it: the whole extra
+# swing has to fit inside the pad's thickness at the tail's radius
+press = HF['tail']*REST*HAMMER['cock']
+check(press < HF['felt'], f'hammer: the cock sinks {press*1000:.1f} mm into a {HF["felt"]*1000:.0f} mm felt pad')
+S2 = np.concatenate([p.vertices for p in hshank])
+check(S2[:, 1].min() > HAMMER['head_l']+HF['post']-1e-9,
+      "hammer: the swan neck starts above the flange's bridge")
+check(S2[:, 1].max() <= MALLET[1]-.05+.011 and S2[:, 1].max() >= MALLET[1]-.05-1e-9,
+      'hammer: the socket tenon buries in the wrist boss like every other tool')
 
 # the clearance ruler knows the new tool shape
 poses = dict(t=np.zeros(1), root=np.array([[0, 2.5, -1.0]]), elbow=np.array([[0, 2.2, -.3]]),

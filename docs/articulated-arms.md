@@ -142,6 +142,23 @@ its crosshead. A tool is now built *to its mount*:
   so a mallet is still one surface. The shank starts inside the head —
   threaded on, not pasted to the rod.
 
+- **Hinged hammer** (`hammer_tool`, `hammer_head`, `HAMMER_FORM`): for
+  `kind == 'hammer'` only, a piano-style action in miniature. The tool part
+  is a **flange** — two cheek plates with cast bosses, a bridge over the top,
+  a `knuckle_pin` through all of it, a **check** bar carrying a 7 mm felt pad,
+  and a torsion **coil** on its anchor — and the head is its own part
+  (`{aid}__head`), posed about the hinge by `performance.gd` so it can flip.
+  The head is a tapered rod from a bronze eye to a wound felt ball 120 mm
+  away, with a 30 mm tail behind the pin that lands on the check.
+  Two things about the flange are forced rather than chosen. It **straddles**
+  the head: the cheeks stand at ±50 mm, outboard of the 45 mm felt ball,
+  because the rod sweeps 120 mm forward and the tail 30 mm back, leaving
+  nowhere in the swing plane for a bracket to stand — the same reason a real
+  hammer flange is a fork. And the check is a **bar between the cheeks**, not
+  a post beside them, for the same reason: a first version put a strut in the
+  arc and missed the tail by 0.4 mm. The ruler now walks the whole 0–106°
+  sweep and reports the least gap (3.0 mm, at 78°).
+
 **What reads at what distance.** The collar is 47 mm tall and the whole tool
 about 190 mm, so a room shot cannot show it: view 7 stands 6.6 m out, where
 the collar is ten pixels wide. View 9 (the joint close-up, 2.6 m) shows it as
@@ -170,6 +187,18 @@ says. This predates the collar (the ruler now pins it, and checks the new
 metal adds nothing to it), and tightening it means following the neck with
 three or four capsules, re-deriving the adjacency lists and re-planning
 every rail: a plan of its own, not a footnote.
+
+**A hammer arm's capsules are five, not two.** The flange is short and fat
+(`tool`: hinge to the bridge top, 60 mm radius), the swan neck above it gets
+its own thin `shank`, and the moving head is split three ways — a sphere at
+the felt ball, a thin `head_rod` between it and the pin, and a `head_tail`
+behind the pin — all re-derived per sample from `poses['felt']`, so the
+margins are measured *with the head flipping*. The split is not fussiness:
+one fat capsule from hinge to felt read 11 mm inside the swan neck the head
+actually passes cleanly under. With the plectrum gone, `blocks_arm0`'s worst
+self-clearance tightened from +50.7 mm to +7.0 mm (`lower` against the
+flange) — positive, so the build's guard passes, but only just, and loose in
+the way the paragraph above describes.
 
 ## Rail gantries
 

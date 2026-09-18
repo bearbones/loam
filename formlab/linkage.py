@@ -21,7 +21,7 @@ Real-world grammar, kept honest:
 """
 import numpy as np
 from .sweep import Mesh, sweep, validate_mesh
-from .clearance import bezier, SOCKET_DEPTH, tool_mount, shank_path
+from .clearance import bezier, SOCKET_DEPTH, tool_mount, shank_path, HAMMER_FORM
 
 X, Y, Z = np.eye(3)
 
@@ -351,6 +351,90 @@ def _wound_head(head_r, spec=WRAP):
     ring = end+np.outer(np.cos(ang), u*spec['knot_r'])+np.outer(np.sin(ang), v*spec['knot_r'])
     knot = sweep(ring, spec['knot_t'], spec['knot_t'], sides=10, closed=True)
     return [core, wrap, knot]
+
+# A HINGED HAMMER (formlab.rig.HAMMER, docs/plans/hinged-hammer.md): the arm
+# positions and dips a little; a head on a pin at the shank's end flips, strikes
+# and is caught on the rebound by a felt-faced check, so the sharpest motion in
+# the piece happens in 120 mm of hinged metal rather than in a metre of arm.
+# Three parts, because one of them moves on its own: the FORK, pin, check and
+# return spring ride the tool frame (origin at the contact point, as every tool
+# does); the HEAD is its own local part whose origin is the hinge, so the poser
+# turns it by the flip angle and nothing is ever scaled.
+# The spec is in clearance (it is what the capsules are measured from).
+
+def hammer_head(head_l, head_r, spec=HAMMER_FORM):
+    """The moving head in its own frame: the hinge at the origin, the felt face
+    at (0, -head_l, 0) and the tail up at +y, built at flip angle zero — the
+    instant of the blow. Returns (pieces, materials)."""
+    s = spec; core_top = -head_l+head_r*1.4
+    # one tapered rod from the tail, through the eye boss, into the head
+    rod = sweep(np.c_[np.zeros(9), np.linspace(s['tail'], core_top, 9), np.zeros(9)],
+                np.linspace(s['rod_r']*.8, s['rod_r'], 9), np.linspace(s['rod_r']*.8, s['rod_r'], 9), sides=16)
+    # the eye the hinge pin turns in, a bushed boss across the flange's gap
+    # the eye butts the flange's bosses with a running fit, not into them
+    hx = s['cheek_x']-s['cheek_t']-.006-.0005
+    eye = ring((0, 0, 0), s['pin_r']*1.1, s['ear_r']*.65, 2*hx, X, 40)
+    # the tail's end is a flat pad: what actually meets the check's felt
+    button = revolve([(0, s['tail']-.004), (s['rod_r']*1.6, s['tail']-.004),
+                      (s['rod_r']*1.6, s['tail']), (0, s['tail'])], Y, (0, 0, 0), 20)
+    head = [transform(m, np.eye(3), (0, -head_l, 0)) for m in _wound_head(head_r)]
+    return [rod, eye, button]+head, ['steel', 'bronze', 'steel', 'felt', 'felt', 'felt']
+
+def hammer_tool(mount, rest_angle, sign, head_l=None, head_r=None, spec=HAMMER_FORM):
+    """A hinged hammer: ([fixed, shank, head], fixed materials, head materials).
+    `mount` is the crosshead boss (clearance.tool_mount); `rest_angle` and
+    `sign` are where the head lies back (rig.rest_angle / rig.flip_sign), which
+    is what places the check. The fixed part's origin is the contact point; the
+    head's is the hinge.
+
+    The flange STRADDLES the head: the head's rod and its tail sweep the whole
+    plane of the arc (the tail 48 mm one way, the felt 120 mm the other), so
+    there is nowhere in that plane for a bracket to stand. Two cheek plates
+    outboard of the felt head's own radius carry the hinge on inward bosses, the
+    pin runs right through them, and the swan neck rises off the bridge above —
+    which is how a piano hammer flange is built, for the same reason."""
+    # both imported here, not at module scope: formlab.gantry imports this
+    # module, and formlab.rig is the motion mirror rather than a geometry module.
+    from .rig import HAMMER
+    from .gantry import prism
+    s = spec
+    head_l = HAMMER['head_l'] if head_l is None else head_l
+    head_r = HAMMER['head_r'] if head_r is None else head_r
+    hy = head_l; cx = s['cheek_x']; top = hy+s['post']
+    fixed = []
+    for side in (-1, 1):
+        fixed.append(prism([side*cx, hy-s['ear_r']*1.1, 0], [side*cx, top, 0], s['cheek_t'], s['cheek_z'], .3, 6))
+        # the bearing boss reaching in from the cheek to the head's eye
+        bx = cx-s['cheek_t']-.006
+        fixed.append(ring((side*(cx+bx)/2, hy, 0), s['pin_r']*1.1, s['boss_r'], cx-bx, X, 32))
+    fixed.append(prism([-cx, top, 0], [cx, top, 0], s['cheek_z'], s['cheek_z'], .3, 6))
+    # the pin runs right through both cheeks, its domed head and its nut proud
+    fixed += knuckle_pin(s['pin_r'], 2*(cx+s['cheek_t']+.004), axis=X, centre=(0, hy, 0))
+    # The check: a felt-faced stop out where the tail lies at rest. The head's
+    # frame turns by -rest_angle*sign about +X (rig.head_offset is the same
+    # rotation seen from the felt face), so its tail points here. HAMMER['cock']
+    # is small because THIS is what the cock presses into: the tail sinks a
+    # couple of millimetres into the felt before the head flies.
+    phi = -rest_angle*sign; c, sn = np.cos(phi), np.sin(phi)
+    tail_dir = np.array([0., c, sn]); seat = np.array([0., hy, 0.])+tail_dir*(s['tail']+s['felt']/2)
+    # ...and it is a BAR between the cheeks, not a stalk down the middle: the
+    # tail sweeps the whole plane of the arc, so anything standing in that plane
+    # is in the way (a 0.4 mm miss, measured, before this was a bar).
+    bar = seat+tail_dir*(s['check_r']+s['felt']/2)
+    fixed.append(prism(bar-[cx, 0, 0], bar+[cx, 0, 0], s['check_r'], s['check_r'], .4, 5))
+    fixed.append(revolve([(0, -s['felt']/2), (s['check_r']*1.4, -s['felt']/2), (s['check_r']*1.5, 0),
+                          (s['check_r']*1.4, s['felt']/2), (0, s['felt']/2)], tail_dir, seat, 20))
+    # the return spring: a torsion coil about the hinge pin OUTBOARD of a cheek,
+    # where the head's own radius cannot sweep it, with a tail up the cheek
+    x0 = cx+s['cheek_t']+.002
+    n = int(s['turns']*24)+1; u = np.linspace(0, 1, n); ang = 2*np.pi*s['turns']*u
+    fixed.append(sweep(np.c_[x0+s['coil_len']*u, hy+s['coil_r']*np.cos(ang), s['coil_r']*np.sin(ang)],
+                       s['wire_r'], s['wire_r'], profile=rounded_rect(1, 12)))
+    fixed.append(sweep([[x0, hy+s['coil_r'], 0], [x0*.98, hy+s['coil_r']*1.6, 0], [cx, top-.004, 0]],
+                       s['wire_r'], s['wire_r'], profile=rounded_rect(1, 12)))
+    mats = ['steel', 'bronze']*2+['steel']+['steel', 'brass', 'brass', 'steel']+['steel', 'felt', 'brass', 'brass']
+    head, head_mats = hammer_head(head_l, head_r, s)
+    return [fixed, swan_shank((0, top+s['cheek_z'], 0), mount, .010, .012), head], mats, head_mats
 
 def mallet_tool(mount, head_r=.06):
     """Wound felt mallet head on a steel shank to its socket; origin at the

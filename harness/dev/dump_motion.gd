@@ -2,7 +2,8 @@ extends SceneTree
 ## Print the rendered rig's tool path so tools/test_motion.py can hold
 ## formlab/rig.py to it: one "TIP aid t x y z" line per arm per 1/240 s; the
 ## assembly's shudder off the recoil bus ("SHUD aid t stand rail mast", the rail
-## sag taken at mid-span, per stepped arm per 1/120 s); and the pawl's angle over
+## sag taken at mid-span, per stepped arm per 1/120 s); a hinged hammer's flip
+## angle and felt face ("HEAD aid t angle fx fy fz"); and the pawl's angle over
 ## the rail ("PAWL x angle") for tools/test_pawl.py.
 func _init() -> void:
 	var sd := ScoreDoc.new()
@@ -18,6 +19,13 @@ func _init() -> void:
 			var t := frame/240.0
 			var p := rig.tip_at(aid,t)
 			print("TIP %s %.9f %.9f %.9f %.9f" % [aid,t,p.x,p.y,p.z])
+	# A hinged hammer's flip and the felt face it carries ("HEAD aid t angle fx fy fz").
+	for aid in rig.acts:
+		if not rig.hammer(aid): continue
+		for frame in range(-240,int(sd.total_s*240)):
+			var t := frame/240.0
+			var f := rig.pose(aid,t)
+			print("HEAD %s %.9f %.12f %.9f %.9f %.9f" % [aid,t,f["head"],f["felt"].x,f["felt"].y,f["felt"].z])
 	for aid in rig.acts:
 		if not rig.stepped(aid): continue
 		var span: Array = rig.rail_span(aid)

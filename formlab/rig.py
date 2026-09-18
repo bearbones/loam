@@ -21,6 +21,20 @@ SLEW_S = .4; SCURVE_RAMP = .3
 COCK = .5; COCK_AT = .4
 RECOIL = dict(x=[.004, 11.0, .14], z=[.0025, 17.0, .10], bounce=[.06, 8.0, .16]); RECOIL_GATE = .08
 PAD = .01
+# A HINGED HAMMER (`kind == 'hammer'`, the expanded asset's block arm): the arm
+# positions and dips a little, and a head hinged on a pin at the shank's end
+# does the rest of the blow. The head lies back on a felt-faced check at rest,
+# swings a touch further, falls through its arc, strikes, and the check catches
+# the rebound. `arm_share` of the contact's clearance is the arm's dip; the flip
+# supplies the remainder, and THAT is what sets the rest angle — the head can
+# raise its felt face by head_l*(1 - cos(theta)), so the rise it must cover can
+# never exceed 2*head_l. The angle runs 0 at the blow (felt on the bar) and
+# positive lying back.
+HAMMER = dict(head_l=.12, head_r=.045, arm_share=.30, cock=.02, check=[.10, 12.5, .045])
+# `cock` is small because the check is what it presses into: at rest the
+# head's tail lies on a felt-faced stop, and the cock sinks it a couple of
+# millimetres further in before the head flies. The ARM still cocks its own
+# COCK (a stepped arm's vocabulary); the head's back-swing is the felt's.
 # The blow shakes the ASSEMBLY, not only the arm: [amplitude, Hz, decay s] each,
 # driven from the recoil bus (Rig._bus). The stand and the gantry are fixed
 # forms as far as the rulers are concerned; the RAIL sag moves the carriage and
@@ -66,12 +80,26 @@ def travel(a, b, u, T, clicky):
     p[0] = a[0]+(b[0]-a[0])*ratchet(u, n, T, over)
     return p
 
+def cocked(u, c):
+    """The cocked drop's height profile: 1 at the start, lifted to 1+c at
+    COCK_AT, then falling as 1-v^2 to exactly 0 at the blow. Used for the lift
+    of a stepped arm's tip and, scaled by its rest angle, for a hinged
+    hammer's flip — one profile, so the two stay in phase."""
+    u = min(max(u, 0.0), 1.0)
+    if u < COCK_AT: return 1+c*smooth(u/COCK_AT)
+    v = (u-COCK_AT)/(1-COCK_AT)
+    return (1+c)*(1-v*v)
+
 def strike(origin, first, lift, u, hammer):
     if not hammer: return origin+(first-origin)*quintic(u)+lift*.45*np.sin(np.pi*u)
-    if u < COCK_AT: h = 1+COCK*smooth(u/COCK_AT)
-    else:
-        v = (u-COCK_AT)/(1-COCK_AT); h = (1+COCK)*(1-v*v)
-    return origin+(first+lift-origin)*quintic(u)+lift*(h-1)
+    return origin+(first+lift-origin)*quintic(u)+lift*(cocked(u, COCK)-1)
+
+def head_offset(theta, sign, head_l=HAMMER['head_l']):
+    """Where a hinged head's felt face sits relative to the tool frame's
+    origin, given the flip angle. The hinge is head_l above the origin and the
+    face swings on it, so the face rises head_l*(1-cos) and moves head_l*sin
+    toward the arm's own rail (`sign`). Zero at theta = 0: the blow is exact."""
+    return _v([0.0, head_l*(1-np.cos(theta)), head_l*np.sin(theta)*sign])
 
 def _ring(p, tau): return p[0]*np.exp(-tau/p[2])*np.sin(2*np.pi*p[1]*tau)
 
@@ -101,8 +129,62 @@ class Rig:
 
     def stepped(self, aid): return self.acts[aid]['kind'] in ('mallet', 'hammer')
 
+    def hammer(self, aid): return self.acts[aid]['kind'] == 'hammer'
+
+    def hover(self, aid):
+        """What the TOOL FRAME's origin clears the contact by. For a rigid tool
+        that is the contact's own clearance; a hinged hammer's arm hovers only
+        `arm_share` of it, because the head lying back on its check holds the
+        felt face the rest of the way up."""
+        lift = self.clearance(aid)
+        return lift*HAMMER['arm_share'] if self.hammer(aid) else lift
+
+    def rest_angle(self, aid):
+        """The flip angle at which the head's felt face clears by the whole
+        lift while the arm hovers at `hover`: head_l*(1-cos) = the remainder."""
+        if not self.hammer(aid): return 0.0
+        rise = float(np.linalg.norm(self.clearance(aid)-self.hover(aid)))
+        return float(np.arccos(np.clip(1.0-rise/HAMMER['head_l'], -1.0, 1.0)))
+
+    def flip_sign(self, aid):
+        """Which way the head swings back: toward its own rail, never across
+        the instrument. Derived from the geometry, so both implementations
+        agree without carrying it in the manifest."""
+        cfg = self.geometry['arms'][aid]
+        return 1.0 if float(cfg['root_z']) >= self.contact(self.acts[aid]['home'])[2] else -1.0
+
+    def head_angle(self, aid, t):
+        """The hinged head's flip angle at t: `rest_angle` lying back on its
+        check, cocked a touch further over the strike, exactly 0 at the blow,
+        then the rebound the check catches, and back to rest. Mirrors
+        ClockworkMotion.head_angle."""
+        if not self.hammer(aid): return 0.0
+        rest = self.rest_angle(aid); c = HAMMER['cock']; chk = HAMMER['check']
+        for s in self.sched[aid]:
+            if t < s['go']: return rest
+            if t < s['hit']:
+                # travelling with the head laid back; the flip is the strike itself
+                if s['moving'] and t < s['approach']: return rest
+                start = s['approach'] if s['moving'] else max(s['tm'], s['approach'])
+                u = min(max((t-start)/max(s['hit']-start, 1e-6), 0.0), 1.0)
+                return rest*cocked(u, c)
+            if t <= s['end']: return 0.0
+            if t < s['t_free']:
+                # the head bounces off the bar and the check takes it: |damped
+                # sine| so the felt never passes through the string it just hit,
+                # fading into the lay-back as the arm releases.
+                tau = t-s['end']; w = quintic((t-s['end'])/max(s['t_free']-s['end'], 1e-6))
+                bounce = chk[0]*abs(np.exp(-tau/chk[2])*np.sin(2*np.pi*chk[1]*tau))
+                return rest*w+bounce*(1-w)
+        return rest
+
+    def head_pose(self, aid, t):
+        """(angle, felt-face offset from the tool frame's origin) at t."""
+        theta = self.head_angle(aid, t)
+        return theta, head_offset(theta, self.flip_sign(aid)) if self.hammer(aid) else np.zeros(3)
+
     def _windows(self, aid):
-        lift = self.clearance(aid); act = self.acts[aid]; clicky = self.stepped(aid)
+        lift = self.hover(aid); act = self.acts[aid]; clicky = self.stepped(aid)
         rest = self.contact(act['home'])+lift; free_prev = -np.inf; out = []
         for e in self.plans[aid]:
             tm = float(e['t_move']); hit = float(e['t']); ids = e['strings']
@@ -216,6 +298,9 @@ class Rig:
         """The assembly's shudder after a mallet blow: zero at the blow, rung
         out and gated to nothing by the time the next strike begins."""
         if not self.stepped(aid): return np.zeros(3)
+        # A hinged hammer recoils in its HEAD and its check, not in the whole
+        # arm (Rig.head_angle): the arm holds the contact while the head bounces.
+        if self.hammer(aid): return np.zeros(3)
         hit = -np.inf; gate_end = np.inf
         for s in self.sched[aid]:
             if s['hit'] <= t: hit = s['hit']
@@ -223,14 +308,14 @@ class Rig:
                 gate_end = s['approach']; break
         if hit == -np.inf: return np.zeros(3)
         tau = t-hit; gate = 1.0-smooth((t-(gate_end-RECOIL_GATE))/RECOIL_GATE)
-        lift = self.clearance(aid)
+        lift = self.hover(aid)
         return _v([_ring(RECOIL['x'], tau), lift[1]*abs(_ring(RECOIL['bounce'], tau)), _ring(RECOIL['z'], tau)])*gate
 
     def tip_at(self, aid, t): return self.path_at(aid, t)+self.recoil(aid, t)
 
     def path_at(self, aid, t):
         """The scored path alone: rest, travel, strike, sweep, release, rest."""
-        lift = self.clearance(aid); clicky = self.stepped(aid)
+        lift = self.hover(aid); clicky = self.stepped(aid)
         rest = self.contact(self.acts[aid]['home'])+lift
         for s in self.sched[aid]:
             if t < s['go']: return rest
@@ -284,7 +369,11 @@ class Rig:
         if bend@bend < 1e-5: bend = _v([0, 0, -1])
         bend /= np.linalg.norm(bend)
         elbow = root+direction*along+bend*np.sqrt(max(0, l1*l1-along*along))
-        return dict(root=root, elbow=elbow, wrist=wrist, tip=tip,
+        # A hinged hammer's felt face is not the tool frame's origin: it hangs
+        # on the hinge head_l above it and swings. `tip` stays the tool frame
+        # (the shank, the fork and the check ride it); `felt` is the contact.
+        theta, off = self.head_pose(aid, t)
+        return dict(root=root, elbow=elbow, wrist=wrist, tip=tip, head=theta, felt=tip+off,
                     reachable=abs(l1-l2) <= distance <= l1+l2)
 
     def sample_times(self, hz=120):
@@ -295,7 +384,14 @@ class Rig:
         return np.array(sorted(times))
 
     def poses(self, aid, times=None):
-        """Arrays root/elbow/wrist/tip of shape (T, 3) over the sampled times."""
+        """Arrays root/elbow/wrist/tip/felt of shape (T, 3) over the sampled
+        times, plus `head`, the hinged head's flip angle (zero for rigid tools).
+
+        Every value is an array over `times` and nothing else: gantry._caps
+        subsamples this dict wholesale with `v[::step]`, so a scalar flag in
+        here ("is this a hammer?") is a crash. Ask `hammer(aid)` for that, or
+        read it off the angles — a rigid tool's `head` is all zeros."""
         times = self.sample_times() if times is None else times
         P = [self.pose(aid, t) for t in times]
-        return dict(t=times, **{k: np.array([p[k] for p in P]) for k in ('root', 'elbow', 'wrist', 'tip')})
+        return dict(t=times, head=np.array([p['head'] for p in P]),
+                    **{k: np.array([p[k] for p in P]) for k in ('root', 'elbow', 'wrist', 'tip', 'felt')})

@@ -3,6 +3,11 @@ extends SceneTree
 func _init() -> void:
 	call_deferred("check_scene")
 
+## Where the rendered hammer head's felt face is: the mesh is built at flip zero
+## with the face straight down from the hinge, so the posed basis carries it.
+func felt_face(head: Node3D) -> Vector3:
+	return head.global_position+head.global_basis*Vector3(0,-ClockworkMotion.HEAD_L,0)
+
 func check_scene() -> void:
 	var scene=load("res://performance.tscn").instantiate()
 	root.add_child(scene)
@@ -20,6 +25,13 @@ func check_scene() -> void:
 				var tool: Node3D=scene.parts[e["actuator"]]["tool"]
 				var target: Vector3=scene.motion.contact(e["strings"][k],e.get("pick"))
 				if tool.global_position.distance_to(target)>.00001: failures.append("rendered tool misses contact")
+				# A hinged hammer strikes with its head, not its tool: the flange's origin is
+				# still the contact point, but what must land there is the felt face on the
+				# flipping head, whose mesh carries it at (0,-HEAD_L,0) in the head's own frame.
+				if scene.motion.hammer(e["actuator"]):
+					var head: Node3D=scene.parts[e["actuator"]].get("head")
+					if head==null: failures.append("hammer arm has no rendered head "+str(e["actuator"]))
+					elif felt_face(head).distance_to(target)>.00001: failures.append("rendered felt face misses contact")
 				contacts+=1
 		for aid in scene.parts:
 			var upper: MeshInstance3D=scene.parts[aid]["upper"]
@@ -30,6 +42,17 @@ func check_scene() -> void:
 			var expected: float=float(cfg.get("link_extent_y",cfg["l1"]))
 			if absf(upper.mesh.get_aabb().size.y-expected)>.001: failures.append("imported link mesh extent wrong "+aid)
 			if absf(upper.global_basis.y.length()-1.0)>.0001 or absf(upper.global_basis.x.dot(upper.global_basis.y))>.0001: failures.append("posed link basis not orthonormal "+aid)
+			# Away from the blow the rendered head must track the flip the rig computes,
+			# all the way back onto its check at rest.
+			if scene.motion.hammer(aid):
+				var head2: Node3D=scene.parts[aid].get("head")
+				var hit0: float=float(scene.motion.sched[aid][0]["hit"])
+				for t in [12.0,48.0,hit0-.03,hit0+.02]:
+					scene.evaluate(float(t))
+					var want: Vector3=scene.motion.pose(aid,float(t))["felt"]
+					if head2==null: break
+					if head2.global_position.distance_to(scene.motion.tip_at(aid,float(t))+Vector3(0,ClockworkMotion.HEAD_L,0))>.00001: failures.append("hammer hinge off the shank's end "+aid)
+					if felt_face(head2).distance_to(want)>.00001: failures.append("rendered felt face off its flip %s at %.2f s" % [aid,t])
 			var pose: Dictionary=scene.motion.pose(aid,48.0); scene.evaluate(48.0)
 			var elbow_node: Node3D=scene.parts[aid]["elbow"]
 			if elbow_node.global_position.distance_to(pose["elbow"])>.00001: failures.append("elbow pin off its pose "+aid)
@@ -227,7 +250,8 @@ func check_scene() -> void:
 					if box.position.z<-radius-.0001 or box.end.z>float(w["room"])+.0001 or box.size.z<3.0*radius: failures.append("coil runs past its room on the pin, or does not advance "+sid)
 		# A plectrum is horn in a brass ferrule: the pick arms' tool mesh carries a brass
 		# surface (the object's own slot: ferrule and screws) and a horn one (the blade);
-		# a mallet is one felt surface.
+		# a mallet is one felt surface; a hammer's flange is metal with one felt pad on
+		# its check, and the head that hangs off it is felt on a bronze eye.
 		for aid in scene.parts:
 			var tool: MeshInstance3D=scene.parts[aid]["tool"]; var names: Array=[]
 			for index in tool.mesh.get_surface_count(): names.append(tool.mesh.surface_get_material(index).resource_name.to_lower())
@@ -235,8 +259,16 @@ func check_scene() -> void:
 			for n in names:
 				if n.contains("horn"): horn+=1
 				if n.contains("brass"): brass+=1
-			if scene.layout["arms"][aid]["kind"]=="mallet":
+			var kind: String=str(scene.layout["arms"][aid]["kind"])
+			if kind=="mallet":
 				if names.size()!=1 or not names[0].contains("felt"): failures.append("mallet is not one felt surface "+aid)
+			elif kind=="hammer":
+				if not (names.has("blued steel") and names.has("phosphor bronze") and names.has("satin brass") and names.has("wool felt")): failures.append("hammer flange is not steel, bronze, brass and a felt pad "+aid+" "+str(names))
+				var head: MeshInstance3D=scene.parts[aid].get("head"); var hn: Array=[]
+				if head==null: failures.append("hammer head mesh missing "+aid)
+				else:
+					for index in head.mesh.get_surface_count(): hn.append(head.mesh.surface_get_material(index).resource_name.to_lower())
+					if not (hn.has("wool felt") and hn.has("phosphor bronze") and hn.has("blued steel")): failures.append("hammer head is not felt on a bronze eye "+aid+" "+str(hn))
 			elif names.size()!=2 or horn!=1 or brass!=1: failures.append("plectrum is not horn in a brass ferrule "+aid+" "+str(names))
 		# The chamber's flywheel turns about z once a bar, and the belt pulley with it,
 		# faster by the pulleys' radii (formlab.layout.flywheel_plan).

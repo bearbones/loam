@@ -14,6 +14,7 @@ var gear_home: Dictionary = {}   # each pinion's imported basis: the disc in its
 var pawl_home: Dictionary = {}   # each mallet arm's roller detent pawl (formlab.pawl), imported basis
 var roller_home: Dictionary = {} # the pawl's roller, imported basis
 var wheel_home: Dictionary = {}  # the flywheel, hub and pulleys: node -> imported basis, unspun
+var head_home: Dictionary = {}   # each hinged hammer's head (formlab.linkage.hammer_tool), imported basis
 var stand_nodes: Dictionary = {}    # mid -> the instrument's stand and its imported home
 var shudder_nodes: Dictionary = {}  # aid -> the rail's bars and the gantry it stands on, and the sway pivot
 var strings: Dictionary = {}
@@ -42,6 +43,7 @@ var capture_speed := 1.0         # score seconds a video second: 0.25 is quarter
 var focus := ""                  # --focus=<aid>: frame that arm's mechanism, not the room
 var focus_span := 2.4            # metres of rail across the frame (a minimum)
 var focus_dir := Vector3.ZERO    # --focus_dir=x,y,z: stand-off direction; zero = derive it
+var focus_at := ""               # --focus_at=tip|root|head: frame THAT point, focus_span the true width
 var fixed_time := 48.0
 var clock_started := false
 var silent := false
@@ -97,6 +99,13 @@ func _ready() -> void:
 			if parts[aid][part]==null:
 				push_error("Missing GLB pivot "+aid+"__"+part); get_tree().quit(1); return
 		gear_home[aid]=parts[aid]["gear"].basis
+		# A hinged hammer's head is its own part, turning on the flange's pin
+		# (formlab.linkage.hammer_tool, ClockworkMotion.head_angle).
+		if layout["arms"][aid].has("head"):
+			parts[aid]["head"]=model.find_child(aid+"__head",true,false)
+			if parts[aid]["head"]==null:
+				push_error("Missing GLB pivot "+aid+"__head"); get_tree().quit(1); return
+			head_home[aid]=parts[aid]["head"].basis
 		# A mallet arm's pinion carries a roller detent pawl (formlab.pawl), posed at
 		# its pivot on the carriage and turned to ride the teeth.
 		if layout["arms"][aid].has("pawl"):
@@ -152,6 +161,7 @@ func _ready() -> void:
 	capture_speed=maxf(float(option("speed","1")),.001)
 	focus=option("focus","")
 	focus_span=maxf(float(option("focus_span","2.4")),.1)
+	focus_at=option("focus_at","")
 	var fd: PackedStringArray=option("focus_dir","").split(",",false)
 	if fd.size()==3: focus_dir=Vector3(float(fd[0]),float(fd[1]),float(fd[2]))
 	view=int(option("view","0"))
@@ -458,6 +468,14 @@ func evaluate(t: float) -> void:
 		p["elbowhead"].position=elbow; p["elbow"].position=elbow
 		p["wristhead"].position=wrist; p["wrist"].position=wrist
 		p["tool"].position=pose["tip"]; p["shank"].position=pose["tip"]
+		# A hinged hammer's head turns on the flange's pin, HEAD_L above the tool
+		# frame's origin. The head's mesh is built at the blow (angle 0, the felt
+		# face straight down), and the flip is one rotation about the pin axis:
+		# -angle*sign, the same rotation ClockworkMotion.head_offset applies to
+		# the felt face — which is why the blow lands exactly on the scored point.
+		if p.has("head"):
+			p["head"].position=pose["tip"]+Vector3(0,ClockworkMotion.HEAD_L,0)
+			p["head"].basis=Basis(Vector3.RIGHT,-float(pose["head"])*motion.flip_sign(aid))*head_home[aid]
 		var upper := ClockworkMotion.link_basis(root,elbow)
 		var lower := ClockworkMotion.link_basis(elbow,wrist)
 		p["upper"].transform=Transform3D(upper,root)
@@ -588,7 +606,20 @@ func _camera_at(t: float) -> void:
 		var tan_half: float=maxf(tan(deg_to_rad(camera.fov)/2.0),.001)
 		var half_w: float=maxf(focus_span,absf(root.x-tip.x)+.30)/2.0
 		var half_h: float=(absf(root.y-tip.y)+.30)/2.0
-		var distance: float=maxf(maxf(half_w/(tan_half*aspect),half_h/tan_half),.8)
+		# --focus_at=tip (or root, or head — a hinged hammer's pin, HEAD_L above the
+		# tool frame's origin) drops the whole-arm box and frames ONE end of
+		# it, and then --focus_span is the frame's true width rather than a
+		# minimum: a hinged hammer's head is 200 mm of mechanism on the end of a
+		# 1.6 m arm, and no shot that holds the carriage can also show the check
+		# catch the rebound.
+		if focus_at!="":
+			target=tip if focus_at=="tip" else root
+			if focus_at=="head": target=tip+Vector3(0,ClockworkMotion.HEAD_L,0)   # a hinged head's pin
+			half_w=focus_span/2.0; half_h=focus_span/2.0
+		# The floor of 0.8 m is what keeps a whole-arm --focus shot outside the
+		# mechanism; a --focus_at close-up asks to be inside it, so it gets the
+		# camera's own near plane as its floor instead.
+		var distance: float=maxf(maxf(half_w/(tan_half*aspect),half_h/tan_half),.8 if focus_at=="" else .30)
 		var dir := focus_dir
 		if dir==Vector3.ZERO:
 			var mid: String=str(cfg.get("mid",""))

@@ -53,6 +53,8 @@ func apply(model: Node3D) -> void:
 				if title.contains("rosewood"): replacement=surface(0,"2b100b","7b452a",.33,2,variant)
 			elif title.contains("spruce"):
 				replacement=surface(0,"957344","dcc396",.42,0,variant)
+			elif title.contains("bronze"):   # a bearing metal: pinker and duller than the brass trim
+				replacement=surface(1,"6b452a","b08a5c",.36,0,variant)
 			elif title.contains("brass"):
 				replacement=surface(1,"998354","c9b585",.34,0,variant)
 			elif title.contains("steel") or title.contains("silver"):

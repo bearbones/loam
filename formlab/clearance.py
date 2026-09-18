@@ -190,6 +190,13 @@ def bezier(points, count=24):
 
 SOCKET_DEPTH = .075    # socket mouth this far below the boss centre (boss radius .05 + collar)
 
+# A hinged hammer's flange and head (linkage.hammer_tool builds it, arm_capsules
+# below measures it). It lives here rather than in linkage because both of those
+# need it and linkage already imports this module: the arrow only points one way.
+HAMMER_FORM = dict(ear_r=.020, pin_r=.008, cheek_x=.050, cheek_t=.010, cheek_z=.012,
+                   boss_r=.013, post=.050, tail=.030, rod_r=.0085,
+                   check_r=.009, felt=.007, coil_r=.014, wire_r=.0017, turns=3.5, coil_len=.016)
+
 def tool_mount(wrist_offset, o2):
     """Where a tool hangs from its wrist crosshead, relative to the contact
     point: under the wrist pin's boss, entered from directly below. The
@@ -264,6 +271,40 @@ def arm_capsules(poses, o1, o2, layers, spec, mount='back'):
         # tools/test_linkage_tools.py and docs/articulated-arms.md, "Tools".)
         'shank': (apex, socket_end, .025),
     }
+    # A HINGED HAMMER (rig.HAMMER, linkage.hammer_tool) has two more things to
+    # measure and one fewer: the head turns on its own pin, so it is its own
+    # capsule from the hinge to the felt face and sweeps with the flip; and what
+    # rides the tool frame is the FLANGE that carries the pin, not the air the
+    # head swings in. The flange's radius is its half-width across the pin —
+    # the cheeks have to stand outboard of the felt head's own radius, which is
+    # why it is 60 mm and not 30.
+    # `head` is the flip angle per sample and is all zeros for a rigid tool;
+    # callers that build a poses dict by hand (the rulers) may omit it.
+    if np.any(poses.get('head', 0.0)):
+        # rig is a leaf (numpy only) so this cannot cycle; the fallback is for
+        # Blender, which puts formlab/ on sys.path and imports the modules bare.
+        try: from .rig import HAMMER
+        except ImportError: from rig import HAMMER
+        HF = HAMMER_FORM
+        hinge = tip+[0, HAMMER['head_l'], 0]
+        top = hinge+[0, HF['post']+HF['cheek_z'], 0]
+        caps['tool'] = (hinge-[0, HF['ear_r']*1.1, 0], top, HF['cheek_x']+HF['cheek_t'])
+        # ...and the shank starts its own radius ABOVE the flange's bridge, not
+        # at the 70 mm a rigid tool's ferrule gives it. The neck's lower 25 mm
+        # is inside the flange's 60 mm capsule already; starting the shank at
+        # the bridge instead would put its 25 mm radius down among the pin and
+        # the tail, and read as 13 mm of collision at every blow.
+        caps['shank'] = (top+[0, .025, 0], socket_end, .025)
+        # The head is THREE capsules, not one, because it is a 9 mm rod with a
+        # 90 mm ball on one end and a tail on the other: one fat capsule from
+        # the pin to the face claims the ball's radius all the way up the rod
+        # and reads as 11 mm inside the shank it in fact passes cleanly between.
+        L = HAMMER['head_l']; hr = HAMMER['head_r']; rr = HF['rod_r']
+        dirs = (poses['felt']-hinge)/L
+        ball = poses['felt']-dirs*hr
+        caps['head'] = (ball, ball, hr*1.02)                      # the felt, wrap proud
+        caps['head_rod'] = (hinge, ball-dirs*hr, rr*1.6)          # the moulding
+        caps['head_tail'] = (hinge, hinge-dirs*HF['tail']*1.2, rr*1.7)
     # The carriage on its guide: bushings along the bars, the cheek plate, the
     # pinion's axle (and bridge); the pinion itself as a stack of chords.
     C = CARRIAGE; bx = X*C['bush_len']/2
@@ -284,7 +325,10 @@ def arm_capsules(poses, o1, o2, layers, spec, mount='back'):
         ('upper2', 'elbowhead_web1'), ('upper2', 'carriage_web'), ('upper2', 'elbowhead_web2'),
         ('lower2', 'elbowhead_web2'), ('lower2', 'wristhead_web'), ('lower2', 'elbowhead_web1'), ('lower2', 'shank'),
         ('elbowhead_web1', 'elbowhead_web2'), ('wristhead_web', 'shank'), ('upper', 'wristhead_web'),
-        ('upper2', 'upper'), ('lower2', 'lower'), ('tool', 'shank')]}
+        ('upper2', 'upper'), ('lower2', 'lower'), ('tool', 'shank'),
+        # a hinged head hangs on the flange's own pin, and its three capsules
+        # are one rigid body about that pin
+        *[(a, b) for a in ('head', 'head_rod', 'head_tail') for b in ('head', 'head_rod', 'head_tail', 'tool') if a != b]]}
     return caps, adjacent
 
 def pairwise_clearance(caps, adjacent=frozenset()):

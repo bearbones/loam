@@ -73,9 +73,49 @@ const BLOW_DROP_REF := .33               # a full blow: 0.22 m of lift risen COC
 const SHUDDER_GAIN := 1.0                # ...all three together: the one dial to tune by eye
 const SHUDDER_TAIL := 1.0                # a ring is spent this long after its blow
 const RAIL_OVER := .26                   # the guide bars run this far past the reach window (formlab.gantry)
+# A HINGED HAMMER (kind == "hammer"): the arm positions and dips a little, and a
+# head hinged on a pin at the shank's end does the rest of the blow. It lies
+# back on a felt-faced check at rest, swings a touch further, falls, strikes,
+# and the check catches the rebound. ARM_SHARE of the contact's clearance is the
+# arm's dip; the flip supplies the remainder, which is what sets the rest angle.
+# Mirrors formlab.rig.HAMMER.
+const HEAD_L := .12                      # hinge to the felt face
+const HEAD_R := .045                     # the felt head's radius
+const HEAD_ARM_SHARE := .30              # of the clearance lift the ARM provides
+const HEAD_COCK := .02                   # ...sunk this much further into the check's felt
+const HEAD_CHECK := [.10, 12.5, .045]    # the rebound the check takes: [rad, Hz, decay s]
 
 func stepped(aid: String) -> bool:
 	return String(acts[aid]["kind"]) in ["mallet", "hammer"]
+
+func hammer(aid: String) -> bool:
+	return String(acts[aid]["kind"]) == "hammer"
+
+## What the TOOL FRAME's origin clears the contact by. For a rigid tool that is
+## the contact's own clearance; a hinged hammer's arm hovers only HEAD_ARM_SHARE
+## of it, because the head lying back on its check holds the felt the rest up.
+func hover(aid: String) -> Vector3:
+	var lift := clearance(aid)
+	return lift*HEAD_ARM_SHARE if hammer(aid) else lift
+
+## The flip angle at which the felt face clears by the whole lift while the arm
+## hovers at `hover`: HEAD_L*(1-cos) covers the remainder.
+func rest_angle(aid: String) -> float:
+	if not hammer(aid): return 0.0
+	var rise := (clearance(aid)-hover(aid)).length()
+	return acos(clampf(1.0-rise/HEAD_L, -1.0, 1.0))
+
+## Which way the head swings back: toward its own rail, never across the
+## instrument. Derived from the geometry so both implementations agree.
+func flip_sign(aid: String) -> float:
+	var cfg: Dictionary = geometry["arms"][aid]
+	return 1.0 if float(cfg["root_z"]) >= contact(acts[aid]["home"]).z else -1.0
+
+## Where a hinged head's felt face sits relative to the tool frame's origin.
+## The hinge is HEAD_L above the origin and the face swings on it. Zero at
+## theta = 0, which is why the blow is exact.
+static func head_offset(theta: float, sign: float) -> Vector3:
+	return Vector3(0.0, HEAD_L*(1-cos(theta)), HEAD_L*sin(theta)*sign)
 
 ## Minimum-jerk step: zero velocity and acceleration at both ends.
 func quintic(u: float) -> float:
@@ -135,14 +175,44 @@ func travel(a: Vector3, b: Vector3, u: float, T: float, clicky: bool) -> Vector3
 ## The strike from origin onto first over u in [0,1]: a mallet cocks, then drops
 ## with the acceleration of a fall; a pick winds up away from the string and
 ## sweeps in on a minimum-jerk curve.
-func strike(origin: Vector3, first: Vector3, lift: Vector3, u: float, hammer: bool) -> Vector3:
-	if not hammer: return origin.lerp(first, quintic(u))+lift*.45*sin(PI*u)
-	var h: float
-	if u < COCK_AT: h = 1+COCK*smooth(u/COCK_AT)
-	else:
-		var v := (u-COCK_AT)/(1-COCK_AT)
-		h = (1+COCK)*(1-v*v)
-	return origin.lerp(first+lift, quintic(u))+lift*(h-1)
+func strike(origin: Vector3, first: Vector3, lift: Vector3, u: float, clicky: bool) -> Vector3:
+	if not clicky: return origin.lerp(first, quintic(u))+lift*.45*sin(PI*u)
+	return origin.lerp(first+lift, quintic(u))+lift*(cocked(u, COCK)-1)
+
+## The cocked drop's height profile: 1 at the start, lifted to 1+c at COCK_AT,
+## then falling as 1-v^2 to exactly 0 at the blow. Used for a stepped arm's
+## lift and, scaled by its rest angle, for a hinged hammer's flip — one
+## profile, so the two stay in phase. Mirrors formlab.rig.cocked.
+static func cocked(u: float, c: float) -> float:
+	u = clampf(u, 0, 1)
+	if u < COCK_AT: return 1+c*smooth(u/COCK_AT)
+	var v := (u-COCK_AT)/(1-COCK_AT)
+	return (1+c)*(1-v*v)
+
+## The hinged head's flip angle at t: `rest_angle` lying back on its check,
+## cocked a touch further over the strike, exactly 0 at the blow, then the
+## rebound the check takes, and back to rest. Mirrors formlab.rig.head_angle.
+func head_angle(aid: String, t: float) -> float:
+	if not hammer(aid): return 0.0
+	var rest := rest_angle(aid)
+	for s in sched[aid]:
+		if t < s["go"]: return rest
+		if t < s["hit"]:
+			# travelling with the head laid back; the flip is the strike itself
+			if s["moving"] and t < s["approach"]: return rest
+			var start: float = s["approach"] if s["moving"] else maxf(s["tm"], s["approach"])
+			var u := clampf((t-start)/maxf(s["hit"]-start, .000001), 0.0, 1.0)
+			return rest*cocked(u, HEAD_COCK)
+		if t <= s["end"]: return 0.0
+		if t < s["t_free"]:
+			# the head bounces off the bar and the check takes it: |damped sine|
+			# so the felt never passes through the string it just hit, fading
+			# into the lay-back as the arm releases.
+			var tau: float = t-s["end"]
+			var w := quintic((t-s["end"])/maxf(s["t_free"]-s["end"], .000001))
+			var bounce: float = float(HEAD_CHECK[0])*absf(exp(-tau/float(HEAD_CHECK[2]))*sin(TAU*float(HEAD_CHECK[1])*tau))
+			return rest*w+bounce*(1-w)
+	return rest
 
 static func _ring(p: Array, tau: float) -> float:
 	return float(p[0])*exp(-tau/float(p[2]))*sin(TAU*float(p[1])*tau)
@@ -151,6 +221,9 @@ static func _ring(p: Array, tau: float) -> float:
 ## gated to nothing by the time the next strike begins, so contacts stay exact.
 func recoil(aid: String, t: float) -> Vector3:
 	if not stepped(aid): return Vector3.ZERO
+	# A hinged hammer recoils in its HEAD and its check, not in the whole arm
+	# (head_angle): the arm holds the contact while the head bounces.
+	if hammer(aid): return Vector3.ZERO
 	var hit := -INF
 	var gate_end := INF
 	for s in sched[aid]:
@@ -160,7 +233,7 @@ func recoil(aid: String, t: float) -> Vector3:
 	if hit == -INF: return Vector3.ZERO
 	var tau := t-hit
 	var gate := 1.0-smooth((t-(gate_end-RECOIL_GATE))/RECOIL_GATE)
-	var lift := clearance(aid)
+	var lift := hover(aid)
 	return Vector3(_ring(RECOIL["x"], tau), lift.y*absf(_ring(RECOIL["bounce"], tau)), _ring(RECOIL["z"], tau))*gate
 
 ## Each event's timing as the path uses it. Repositioning starts as soon as
@@ -172,7 +245,7 @@ func recoil(aid: String, t: float) -> Vector3:
 ## g0, since it may start early too) and hovers over its last contact after —
 ## and pushed later until the interval it wants is clear.
 func _windows(aid: String) -> Array:
-	var lift := clearance(aid)
+	var lift := hover(aid)
 	var clicky := stepped(aid)
 	var rest := contact(acts[aid]["home"])+lift
 	var free_prev := -INF
@@ -301,7 +374,7 @@ func tip_at(aid: String, t: float) -> Vector3:
 
 ## The scored path alone: rest, travel, strike, sweep, release, rest.
 func path_at(aid: String, t: float) -> Vector3:
-	var lift := clearance(aid)
+	var lift := hover(aid)
 	var clicky := stepped(aid)
 	var rest := contact(acts[aid]["home"]) + lift
 	for s in sched[aid]:
@@ -380,7 +453,13 @@ func pose(aid: String, t: float) -> Dictionary:
 	if bend.length_squared()<.00001:
 		bend=Vector3.FORWARD
 	var elbow := root + direction*along + bend.normalized()*sqrt(maxf(0,l1*l1-along*along))
-	return {"root":root,"elbow":elbow,"wrist":wrist,"tip":tip,"reachable":distance<=l1+l2 and distance>=absf(l1-l2)}
+	# A hinged hammer's felt face is not the tool frame's origin: it hangs on the
+	# hinge HEAD_L above it and swings. `tip` stays the tool frame (the shank,
+	# the fork and the check ride it); `felt` is the contact.
+	var theta := head_angle(aid,t)
+	var felt := tip if theta==0.0 else tip+head_offset(theta,flip_sign(aid))
+	return {"root":root,"elbow":elbow,"wrist":wrist,"tip":tip,"head":theta,"felt":felt,
+		"reachable":distance<=l1+l2 and distance>=absf(l1-l2)}
 
 ## Link frame: y along the link, x the pin axis (world X projected), z = x × y.
 ## Meshes are built at true length in this frame (formlab.linkage), never scaled.

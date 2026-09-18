@@ -69,8 +69,42 @@ a fall, arriving at the bar at its fastest — so the hit lands exactly on
 the scored time with nothing rubbery about it. The release lifts back on a
 quintic.
 
+**A hammer arm strikes with its head, not its arm.** `kind == 'hammer'`
+(the expanded asset's block arm) is the sharpest motion in the piece, and
+it does not come from a metre of arm: the head hangs on a pin 120 mm under
+the tool's flange and flips. What that changes is the *split* of the
+clearance lift. `Rig.clearance` is still the promise about the CONTACT —
+0.22 m over the bar — but `Rig.hover` is what the arm provides, and for a
+hammer that is `arm_share` = 30 % of it, 66 mm. The other 154 mm is the
+head lying back on its check, and that is what fixes the rest angle:
+`head_l·(1 − cos θ) = 154 mm` gives **106.5°**, nothing to tune. (A
+consequence worth knowing: the rise a flip can supply is at most
+`2·head_l`, so a longer lift needs a longer head, not a bigger angle.)
+
+Over the strike the arm makes its own cocked drop through its 66 mm while
+the head's angle runs `rest·cocked(u, 0.02)` — the same profile, so the two
+stay in phase — to **exactly zero** at the blow. Zero is the felt face
+straight down under the pin, which is the whole reason the contact is still
+exact to 1e-9 m: `head_offset(0) = 0`. The head's own cock is small (2 % of
+the rest angle, 1.1 mm at the tail) because it presses into the check's felt
+rather than swinging past it; the visible cock is the arm's.
+
+After the blow the head **rebounds and the check takes it** — `|damped
+sine|`, 0.10 rad at 12.5 Hz decaying in 45 ms, so the felt bounces twice and
+never passes back through the bar — fading into the lay-back as the arm
+releases. A hammer arm's `recoil` is therefore exactly zero: the recoil
+happens in the head and its check, not in the whole arm. The assembly's
+shudder still fires, because the blow is as hard either way.
+
+The head flips **toward its own rail** (`flip_sign`, from the arm's
+`root_z` against its home contact), never out over the instrument, and the
+flange has to *straddle* the arc: the rod sweeps 120 mm one way and the
+tail 30 mm the other, so there is nowhere in that plane for a bracket to
+stand. Two cheek plates outboard of the felt head's own radius carry the
+pin, which is how a piano hammer flange is built, for the same reason.
+
 **The blow shakes the assembly.** After every hit a *recoil* is added to
-the whole arm: the carriage shudders along the rail (4 mm, 11 Hz, 140 ms
+the whole arm (a mallet's; a hinged hammer's is in its head, above): the carriage shudders along the rail (4 mm, 11 Hz, 140 ms
 decay — the pinion ticks back and forth with it), the mallet rings across
 the bar (2.5 mm, 17 Hz, 100 ms) and bounces above it (6 % of the lift,
 8 Hz, 160 ms, always upward so it never re-enters the bar). All three are
@@ -227,6 +261,15 @@ with 300 mm of air, following it along the rail. `--focus_span` (2.4 m by
 default) is therefore a *minimum* width: narrowing it centres the shot tighter
 but cannot crop the tool out, and widening it past the rail's length frames the
 whole span.
+
+**`--focus_at=tip`** (or `root`, or `head` — a hinged hammer's pin, `HEAD_L`
+above the tool frame's origin) throws that box away and frames one *end* of
+the arm, and then `--focus_span` is the frame's true width rather than a
+minimum. The hinged hammer is what forced it: the flange, the pin, the head
+and its check are 200 mm of mechanism on the end of a 1.6 m arm, and a shot
+that holds the carriage cannot also show the check catch the rebound. Use it
+sparingly — a close-up with no carriage in it stops being a picture of a
+machine.
 
 Which side to stand on is not free. Every arm works behind its instrument, so
 the camera stands on the far side of the carriage from the mechanism's centre

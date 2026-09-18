@@ -1,3 +1,78 @@
+## 2026-09-18 — CLOCKWORK the block hammer strikes with its head
+
+`docs/plans/hinged-hammer.md`: the expanded asset's `blocks_arm0` is scored
+`kind == 'hammer'` and was being posed — and tooled — exactly like a mallet
+arm, down to a plectrum on the end of it (`build_forms` chose `mallet_tool`
+or fell through to `pick_tool`; nothing had ever asked for a third). It now
+has a piano action. The tool part is a **flange**: two cheek plates with cast
+bosses, a bridge, a `knuckle_pin` through all of it, a check bar carrying a
+7 mm felt pad, and a torsion coil on its anchor. The **head** is its own part
+(`{aid}__head`, origin at the hinge, built at flip zero) so `performance.gd`
+can turn it: a tapered rod from a bronze eye to a wound felt ball 120 mm
+away, with a 30 mm tail behind the pin that lands on the check.
+
+The kinematics split the lift rather than adding to it. `Rig.clearance` is
+still the promise about the *contact* (0.22 m over the blocks); `Rig.hover`
+is what the ARM gives, `HEAD_ARM_SHARE` = 30 % of it, 66 mm; the head lying
+back covers the other 154 mm, and `head_l·(1 − cos θ) = 154 mm` fixes the
+rest angle at **106.5°** with nothing to tune. Over the strike the arm makes
+its cocked drop while the head runs `rest·cocked(u, 0.02)` — the same profile,
+so they stay in phase — to exactly zero at the blow, and zero is the felt
+face straight down under the pin, which is why the contact is still exact:
+`head_offset(0) = 0`, measured 0.0e+00 m at all 48 blows. After the blow the
+head rebounds and the **check takes it** (|damped sine|, 0.10 rad at 12.5 Hz
+into 45 ms) and fades into the lay-back; a hammer arm's `recoil` is therefore
+zero — the recoil is in the head, not the whole arm — while the assembly's
+shudder still fires, because the blow is as hard either way.
+
+Two things about the flange were forced by the arc rather than chosen. It
+**straddles** the head (cheeks at ±50 mm, outboard of the 45 mm ball) because
+the rod sweeps 120 mm forward and the tail 30 mm back and there is nowhere in
+that plane for a bracket; and the check is a **bar between the cheeks**, not a
+post beside them — a first version put a strut in the arc and missed the tail
+by 0.4 mm. `clearance.arm_capsules` measures the flange as a short fat `tool`
+capsule, gives the swan neck its own thin `shank` starting above the bridge
+(a rigid tool's 70 mm apex read −53 mm, then the 25 mm radius among the pin
+read −13 mm), and splits the moving head three ways — a sphere at the ball,
+`head_rod`, `head_tail` — because one fat capsule claims the ball's radius all
+the way up the rod and reads 11 mm inside a neck it passes cleanly under. With
+the plectrum gone `blocks_arm0`'s worst self-clearance is +7.0 mm (`lower`
+against the flange), down from +50.7 mm: positive, and loose in the way
+`docs/articulated-arms.md` already documents.
+
+`HAMMER_FORM` lives in `formlab/clearance.py`, not `linkage.py`: both need it,
+linkage already imports clearance, and Blender loads these modules *bare* off
+`sys.path`, where a `from .linkage import` inside `arm_capsules` is an
+`ImportError` that kills the build. The `rig` import beside it carries the
+try/except the rest of `formlab` uses for the same reason.
+
+Rulers: `tools/test_motion.py` gains the HEAD stream (`dev/dump_motion.gd`
+prints the flip and the felt face per hammer arm per 1/240 s) and checks
+parity, the exact landing, the head resting on its check and returning to it,
+that it never swings through the bar, a live rebound over the lay-back
+(62.8 mrad) and the arm's 66-of-220 mm dip; `tools/test_linkage_tools.py`
+gains twelve checks on the flange (least gap through the whole 0–106° sweep
+3.0 mm at 78°, the eye's 0.50 mm running fit, the cock sinking 1.1 mm into a
+7 mm pad); `dev/test_performance.gd` puts the *rendered* felt face on the
+contact at every blow and on the rig's flip away from it.
+
+Three smaller things the head dragged in. `Rig.poses` may hold nothing but
+arrays over its sample times — `gantry._caps` subsamples the dict wholesale
+with `v[::step]` — so "is this a hammer?" is answered by `np.any(poses['head'])`
+rather than by a flag in there. The eye is **bronze**, a bearing metal the
+palette did not have; `build_clockwork` mixes it and `clockwork_look` finishes
+it pinker and duller than the brass trim. And `--focus_at=tip` frames one end
+of an arm instead of its root-to-tip box, making `--focus_span` a true width:
+there is no shot that holds a 1.6 m arm's carriage and also shows a 200 mm
+check catch a rebound.
+
+The clip: `render/clockwork-review/hammer-blow.mp4`, one blow captured at
+120 fps and played at 30, framed with the new `--focus_at`. No asset or
+`.blend` is committed here — a `--rails=keep` rebuild marks the manifest
+`stale_rails` and `test_gantry` refuses it, and the hammer changes the rail
+search's inputs (`clearance.py` is in `GEOMETRY_SOURCES`), so this is one
+more caller for the single full replan `docs/plans/rail-cache-key.md` holds.
+
 ## 2026-09-18 — CLOCKWORK the plummer blocks are split, capped, studded and oiled
 
 Beside the new spoked wheel (view 13) its bearings were the crudest thing in

@@ -3,6 +3,34 @@
 **Claimed 2026-09-17 23:55 PDT** by Claude-Session
 https://claude.ai/code/session_01SfoJujiAJsKYkejLtNGvQf
 
+**Status 2026-09-18 01:25 PDT — done.** `blocks_arm0` has a piano action:
+a flange (straddling cheeks, cast bosses, a pin through, a felt-faced check
+bar, a torsion coil) as `{aid}__tool`, and the head as its own part turning
+on the pin. The lift is SPLIT rather than added to — `Rig.hover` gives the
+arm 30 % of the contact's 0.22 m and the head's lay-back covers the rest,
+which fixes the rest angle at 106.5° with nothing to tune — and the flip is
+exactly zero at the blow, so the contact stays exact (0.0e+00 m at all 48).
+The recoil moved into the head and its check (a damped sine the check takes,
+never through the bar); the assembly's shudder is unchanged.
+
+All rulers green on both assets, mallet arms untouched: `test_motion` (48,
+including the five new hammer checks), `test_linkage_tools` (114, twelve of
+them the flange), `dev/test_{load,clockwork,performance}.gd` — the last now
+puts the *rendered* felt face on the contact at every blow and on the rig's
+flip away from it. The clip is `render/clockwork-review/hammer-blow.mp4`
+(120 fps, played at 30), framed with a new `--focus_at=head`.
+
+Two things acceptance asked for that read differently than written. "Clearance
+margins measured with the flipping head included": done, and the answer is
+that `blocks_arm0`'s worst self-clearance is +7.0 mm (the lower link against
+the flange), down from +50.7 mm with the plectrum it should never have had —
+positive, so the build's guard passes, but the loosest capsule schematic in
+the rig (`docs/articulated-arms.md`, "What those two capsules do and do not
+promise") is now carrying the tightest margin. And a `--rails=keep` rebuild
+marks the manifest `stale_rails`, so no asset is committed here; the hammer
+changes the rail search's own inputs, which makes it one more caller for the
+single full replan `rail-cache-key.md` holds.
+
 **Where:** `formlab/linkage.py` (`mallet_tool`, `tool_mount`),
 `tools/build_forms.py` (tool packing), `harness/clockwork_motion.gd` and
 `formlab/rig.py` (`strike`, a new `hammer_flip`), `harness/performance.gd`

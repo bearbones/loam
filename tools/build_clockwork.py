@@ -39,6 +39,8 @@ spruce=material('Spruce soundboard',(.65,.46,.23),0,.4)
 rose=material('Rosewood',(.3,.085,.035),0,.34)
 felt=material('Wool felt',(.78,.68,.48),0,.9)
 horn=material('Pressed horn',(.40,.24,.09),0,.42)
+# A bearing metal, not trim: the hinged hammer's eye turns on its pin in it.
+bronze=material('Phosphor bronze',(.42,.26,.12),.8,.34)
 wire=material('Silver strings',(.65,.7,.72),.8,.25)
 glass=material('Smoked glass bells',(.16,.46,.4),.55,.18)
 black=material('Charcoal enamel',(.022,.032,.035),.35,.4)
@@ -361,7 +363,7 @@ for sid,n in forms.get('neck',{}).items():
 # Geometry variants share anchors and are selected in Godot with --form or F.
 form_colliders=[]
 for entry in forms['objects']:
-    obj,collider=make_form(entry,{'brass':brass,'wood':wood,'spruce':spruce,'steel':steel,'felt':felt,'horn':horn})
+    obj,collider=make_form(entry,{'brass':brass,'wood':wood,'spruce':spruce,'steel':steel,'felt':felt,'horn':horn,'bronze':bronze})
     if not entry.get('local'): form_colliders.append(collider)
 # Assemble the articulated rigs at their home poses in the editable Blender file.
 # Godot re-poses them every frame with the same rule (clockwork_motion.gd).
@@ -371,7 +373,12 @@ for aid,cfg in manifest['arms'].items():
     p=R.pose(aid,-10.0); o1=Vector(cfg['o1']); o2=Vector(cfg['o2'])
     root,elbow,wrist,tip=(Vector(p[k]) for k in ('root','elbow','wrist','tip'))
     pinion=root+Vector(arm_clearance.pinion_centre(cfg.get('pinion','back')).tolist())    # on its axle, against the rack (formlab.gantry.rack)
-    for part,pos in [('carriage',root),('shoulder',root),('elbowhead',elbow),('elbow',elbow),('wristhead',wrist),('wrist',wrist),('tool',tip),('shank',tip),('gear',pinion)]:
+    places=[('carriage',root),('shoulder',root),('elbowhead',elbow),('elbow',elbow),('wristhead',wrist),('wrist',wrist),('tool',tip),('shank',tip),('gear',pinion)]
+    # A hinged hammer's head hangs on the flange's pin, head_l above the tool
+    # frame's origin (formlab.linkage.hammer_tool); Godot turns it about that
+    # pin every frame. Without this it would sit at the file's origin.
+    if cfg.get('head'): places.append(('head',tip+Vector((0,cfg['head']['length'],0))))
+    for part,pos in places:
         bpy.data.objects[aid+'__'+part].location=vec(pos)
     if cfg.get('pawl'):    # the roller detent pawl on its pivot (formlab.pawl); Godot turns it to ride the teeth
         bpy.data.objects[aid+'__pawl'].location=vec(root+Vector(cfg['pawl']['pivot']))

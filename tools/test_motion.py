@@ -38,11 +38,16 @@ def parity(rig, layout_path, score_path):
     if godot is None: print('  SKIP godot not on PATH: rendered-rig parity unmeasured'); return
     out = subprocess.run([godot, '--headless', '--path', str(ROOT/'harness'), '-s', 'dev/dump_motion.gd', '--',
                           f'--score={score_path}', f'--asset={layout_path.stem}'], capture_output=True, text=True, timeout=600).stdout
-    worst = 0.0; n = 0; shud = 0.0; ns = 0
+    worst = 0.0; n = 0; shud = 0.0; ns = 0; head = 0.0; felt = 0.0; nh = 0
     for line in out.splitlines():
         if line.startswith('TIP '):
             _, aid, t, x, y, z = line.split(); n += 1
             worst = max(worst, float(np.linalg.norm(rig.tip_at(aid, float(t))-np.array([float(x), float(y), float(z)]))))
+        elif line.startswith('HEAD '):
+            _, aid, t, a, fx, fy, fz = line.split(); t = float(t); nh += 1
+            mine = rig.pose(aid, t)
+            head = max(head, abs(mine['head']-float(a)))
+            felt = max(felt, float(np.linalg.norm(mine['felt']-np.array([float(fx), float(fy), float(fz)]))))
         elif line.startswith('SHUD '):
             _, aid, t, stand, sag, sway = line.split(); t = float(t); ns += 1
             lo, hi = rig.rail_span(aid)
@@ -50,6 +55,10 @@ def parity(rig, layout_path, score_path):
             shud = max(shud, float(np.abs(mine-np.array([float(stand), float(sag), float(sway)])).max()))
     check(n > 1000 and worst < 1e-5, f'rendered rig and numpy mirror agree: {n} samples, worst {worst:.2e} m')
     check(ns > 1000 and shud < 1e-9, f'rendered assembly shudder and numpy mirror agree: {ns} samples, worst {shud:.2e}')
+    # the head's angle comes off a Vector3 length in GDScript, so it carries
+    # float32 just as the tip does; the tolerance is the same as TIP's.
+    if nh: check(head < 1e-6 and felt < 1e-5,
+                 f'rendered hinged head and numpy mirror agree: {nh} samples, worst {head:.2e} rad / {felt:.2e} m')
 
 def run(layout_path, score_path):
     print(f'== {layout_path.name} / {score_path.name}')
@@ -97,7 +106,10 @@ def run(layout_path, score_path):
             if stepped and s['moving']:
                 ts = s['approach']+np.arange(0, int((s['hit']-s['approach'])*1000)+1)/1000.0
                 y = np.array([rig.path_at(aid, t)[1] for t in ts])
-                cock_min = min(cock_min, (y.max()-(s['first'][1]+rig.clearance(aid)[1]))/rig.clearance(aid)[1])
+                # ...measured against what the ARM lifts (Rig.hover): a hinged
+                # hammer's arm hovers a third of the clearance and the head's
+                # lay-back holds the felt face the rest of the way up.
+                cock_min = min(cock_min, (y.max()-(s['first'][1]+rig.hover(aid)[1]))/rig.hover(aid)[1])
                 half = len(y)//2; drop_pause += int(np.any(np.diff(y[half:]) > 1e-9))
     check(early > 0, f'{early} moves start before the score\'s t_move (a machine moves, then waits)')
     check(stepped_travels > 0 and detent_min >= .5, f'stepped carriages sit at a detent >= 50% of a travel ({stepped_travels} travels, least {detent_min:.2f}, clicks {sorted(clicks_seen)})')
@@ -110,13 +122,43 @@ def run(layout_path, score_path):
     # recoil: exact zero at blows and by the next strike's start, live in a blow's wake, never toward the bar
     zero_worst = 0.0; live_min = 1.0; into_bar = 0.0
     for aid in rig.acts:
-        if not rig.stepped(aid): continue
+        # a hinged hammer recoils in its head and its check, not in the arm
+        # (checked below); its arm's recoil is exactly zero by design
+        if not rig.stepped(aid) or rig.hammer(aid): continue
         sched = rig.schedule(aid)
         for s in sched:
             zero_worst = max(zero_worst, np.linalg.norm(rig.recoil(aid, s['hit'])), np.linalg.norm(rig.recoil(aid, s['approach'])))
             live_min = min(live_min, max(np.linalg.norm(rig.recoil(aid, s['hit']+dt)) for dt in np.arange(.005, .04, .005)))
         for t in np.arange(0, float(score['total_s']), 1/240):
             into_bar = min(into_bar, rig.tip_at(aid, t)[1]-rig.path_at(aid, t)[1])
+    # A hinged hammer instead: the head lies back at rest, flips to EXACTLY zero
+    # at the blow (which is what puts the felt on the scored contact), never
+    # passes through the bar, and the check takes a live rebound that is spent
+    # before the arm is free.
+    hammers = [a for a in rig.acts if rig.hammer(a)]
+    for aid in hammers:
+        rest = rig.rest_angle(aid)
+        flip_zero = 0.0; flip_rest = 0.0; through = 0.0; bounce_min = 1.0; settled = 0.0; contact = 0.0
+        for s in rig.schedule(aid):
+            flip_zero = max(flip_zero, abs(rig.head_angle(aid, s['hit'])))
+            flip_rest = max(flip_rest, abs(rig.head_angle(aid, s['go'])-rest))
+            contact = max(contact, float(np.linalg.norm(rig.pose(aid, s['hit'])['felt']-s['first'])))
+            # inside the release, where the check's bounce is what moves the
+            # head: past t_free it is lying on its check again and the angle is
+            # the rest angle, which would flatter this check into meaning nothing
+            window = np.arange(.004, min(.05, max(s['t_free']-s['end'], .005)), .004)
+            if len(window): bounce_min = min(bounce_min, max(rig.head_angle(aid, s['end']+dt)-rest*R.quintic(dt/max(s['t_free']-s['end'], 1e-6)) for dt in window))
+            settled = max(settled, abs(rig.head_angle(aid, s['t_free'])-rest))
+            for t in np.arange(s['approach'], s['end']+1e-9, .001):
+                through = min(through, rig.head_angle(aid, t))
+        check(flip_zero < 1e-12 and contact < 1e-9,
+              f'{aid}: the head flips to exactly 0 at every blow, felt on the scored contact (worst {contact:.1e} m)')
+        check(flip_rest < 1e-12 and settled < 1e-9, f'{aid}: the head lies on its check at rest and is back there when the arm is free')
+        check(through > -1e-12, f'{aid}: the head never swings through the bar it just struck')
+        check(bounce_min > .01, f'{aid}: the check takes a live rebound over the lay-back (least peak {bounce_min*1000:.1f} mrad)')
+        arm_lift = float(rig.hover(aid)[1]); full = float(rig.clearance(aid)[1])
+        check(abs(arm_lift/full-R.HAMMER['arm_share']) < 1e-12 and arm_lift < full,
+              f'{aid}: the arm dips {arm_lift*1000:.0f} mm of the {full*1000:.0f} mm clearance ({R.HAMMER["arm_share"]:.0%}); the flip covers the rest')
     check(zero_worst < 1e-12, f'recoil exactly zero at every blow and every strike start (worst {zero_worst:.1e})')
     check(live_min > 1e-3, f'recoil rings in a blow\'s wake (least peak {live_min*1000:.1f} mm)')
     check(into_bar > -1e-12, 'recoil never pushes a mallet toward its bar')
