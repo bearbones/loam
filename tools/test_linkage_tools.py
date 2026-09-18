@@ -230,6 +230,22 @@ for mount, (ny, nz) in MOUNTS.items():
     bush = [v for v in V if abs(v[:, 0].max()-CARRIAGE['bush_len']/2) < 1e-6]
     check(len(bush) == 2 and all(abs(abs(v[:, 1].mean())-CARRIAGE['bar_dy']) < 2e-3 and abs(v[:, 2].mean()) < 2e-3 for v in bush),
           f'{mount}: two bushings, each centred on a guide bar')
+    # each bushing is a housing with a flanged bush at either end and four
+    # bolts through each flange (linkage.bar_bush), and all of it stays inside
+    # the capsule arm_capsules reserves for it: bush_len long, bush_r round,
+    # domed ends — so the bolts standing off the flanges change no clearance
+    for s in (-1, 1):
+        ay = s*CARRIAGE['bar_dy']; rad = lambda v: np.hypot(v[:, 1]-ay, v[:, 2])
+        near = [v for v in V if np.hypot(v[:, 1].mean()-ay, v[:, 2].mean()) < CARRIAGE['bush_r'] and abs(v[:, 0].mean()) < CARRIAGE['bush_len']/2+.02]
+        flanges = [v for v in near if abs(rad(v).max()-CARRIAGE['bush_r']) < 1e-3 and np.ptp(v[:, 0]) < CARRIAGE['flange_t']+1e-6
+                   and abs(abs(v[:, 0]).max()-CARRIAGE['bush_len']/2) < 1e-6]
+        body = [v for v in near if abs(rad(v).max()-CARRIAGE['bush_body_r']) < 1e-3]
+        bolts = [v for v in near if abs(np.hypot(v[:, 1].mean()-ay, v[:, 2].mean())-CARRIAGE['bolt_circle']) < 1e-3]
+        inside = all((np.hypot(np.clip(np.abs(v[:, 0])-CARRIAGE['bush_len']/2, 0, None), rad(v)) <= CARRIAGE['bush_r']+1e-6).all() for v in near)
+        check(len(flanges) == 2 and len(body) == 1 and len(bolts) == 8 and inside and CARRIAGE['bush_body_r'] < CARRIAGE['bush_r']
+              and all(abs(v[:, 0]).max() > CARRIAGE['bush_len']/2 for v in bolts),
+              f'{mount}: bar {"+" if s > 0 else "-"}: a flanged bush at either end of the housing, {len(bolts)} bolts standing off the flanges, '
+              f'all inside the reserved capsule')
     cheek = [v for v in V if abs(v[:, 0].max()-(CARRIAGE['cheek_x']+CARRIAGE['cheek_t']/2)) < 1e-6]
     check(len(cheek) == 1 and cheek[0][:, 0].max() < -layers['plate_out']-.004 and cheek[0][:, 0].min() > -layers['span']/2,
           f'{mount}: the cheek plate clears the crosshead plate and stays inside the pin span')

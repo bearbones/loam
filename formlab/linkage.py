@@ -68,6 +68,11 @@ def revolve(profile, axis=X, centre=(0, 0, 0), sides=32):
     path = np.asarray(centre, float)+axis*np.linspace(pr[0, 1], pr[-1, 1], 3)[:, None]
     return Mesh(vertices, faces, uv, path, np.full(3, pr[:, 0].max()), np.full(3, pr[:, 0].max()))
 
+def bolt_head(centre, axis=(0, 1, 0), r=.011, h=.016):
+    """A hex-ish bolt head standing on a face, along `axis` (sunk 6 mm in)."""
+    pr = [(0, -.006), (r, -.006), (r, h*.7), (r*.6, h), (0, h)]
+    return revolve(pr, axis, centre, 12)
+
 def ring(centre, r_in, r_out, thickness, axis=X, sides=64, corner=.4):
     """A washer / eye / ear: rounded-rectangular section swept around a circle.
     Closed genus-one mesh — the hole is real, no boolean."""
@@ -443,6 +448,24 @@ def mallet_tool(mount, head_r=.06):
     rather than pasted to the rod."""
     return [_wound_head(head_r), swan_shank((0, head_r*1.4, 0), mount, .012, .013)]
 
+def bar_bush(centre, C):
+    """A guide-bar bushing as a linear guide has it: the housing round the bar
+    (bore 2 mm over it, C['bush_body_r']), a flanged bush standing proud of
+    it at either end (C['bush_r'], C['flange_t']) and four bolts through each
+    flange on C['bolt_circle'] — the rail heads' shaft supports (gantry.BUSH)
+    again, on the carriage. Every piece stays inside the capsule
+    clearance.arm_capsules reserves for the bushing (bush_len long, bush_r
+    round, hemispherical ends): a bolt bolt_h tall at bolt_circle sits under
+    the end's dome, so the clearance model is unchanged."""
+    cx, cy, cz = (float(v) for v in centre); L = C['bush_len']; ft = C['flange_t']; bore = C['bar_r']+.002
+    out = [ring((cx, cy, cz), bore, C['bush_body_r'], L-2*ft, X, 48, .3)]
+    for s in (-1, 1):
+        out.append(ring((cx+s*(L-ft)/2, cy, cz), bore, C['bush_r'], ft, X, 48, .3))
+        for k in range(4):
+            a = np.pi/4+k*np.pi/2
+            out.append(bolt_head((cx+s*L/2, cy+C['bolt_circle']*np.cos(a), cz+C['bolt_circle']*np.sin(a)), axis=(s, 0, 0), r=C['bolt_r'], h=C['bolt_h']))
+    return out
+
 def carriage_body(o1, spec, mount='back', head=None):
     """The carriage that rides the rail: the shoulder crosshead (pins 0 and
     o1; the upper link's eye turns between its plates at the shoulder), a
@@ -459,7 +482,7 @@ def carriage_body(o1, spec, mount='back', head=None):
     pieces = crosshead([[0, 0, 0], o1], eye=(0,), **head)
     pieces += stub_pin(o1, +1, L, spec)
     for s in (-1, 1):
-        pieces.append(ring((0, s*C['bar_dy'], 0), C['bar_r']+.002, C['bush_r'], C['bush_len'], X, 48, .3))
+        pieces += bar_bush((0, s*C['bar_dy'], 0), C)
     u = np.linspace(0, 1, 3)[:, None]
     a = np.array([C['cheek_x'], -C['cheek_y'], 0.]); b = np.array([C['cheek_x'], C['cheek_y'], 0.])
     pieces.append(sweep(a+(b-a)*u, C['cheek_t']/2, C['cheek_z'], profile=rounded_rect(.35, 16)))

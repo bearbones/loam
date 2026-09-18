@@ -32,14 +32,14 @@ import numpy as np
 try:
     from .sweep import sweep, validate_mesh
     from .gear import rack_half
-    from .linkage import rounded_rect, revolve, ring
+    from .linkage import rounded_rect, revolve, ring, bolt_head
     from .clearance import (arm_capsules, default_layers, DEFAULT_SPEC, segment_distance, PINION, MOUNTS, pinion_centre, rack_direction,
                             GANTRY, gantry_candidates, foot_level, head_box)
     from .layout_search import box_gap, scene_boxes, pin_shifts, stack_caps, solids_gap
 except ImportError:   # bare import (formlab/ on sys.path)
     from sweep import sweep, validate_mesh
     from gear import rack_half
-    from linkage import rounded_rect, revolve, ring
+    from linkage import rounded_rect, revolve, ring, bolt_head
     from clearance import (arm_capsules, default_layers, DEFAULT_SPEC, segment_distance, PINION, MOUNTS, pinion_centre, rack_direction,
                            GANTRY, gantry_candidates, foot_level, head_box)
     from layout_search import box_gap, scene_boxes, pin_shifts, stack_caps, solids_gap
@@ -78,12 +78,6 @@ def prism(a, b, w, d, corner=.25, count=None):
     n = count or max(3, int(np.linalg.norm(b-a)/.25)+2)
     u = np.linspace(0, 1, n)[:, None]
     return sweep(a+(b-a)*u, w, d, profile=rounded_rect(corner, 16))
-
-
-def bolt_head(centre, axis=(0, 1, 0), r=.011, h=.016):
-    """A hex-ish bolt head standing on a face, along `axis`."""
-    pr = [(0, -.006), (r, -.006), (r, h*.7), (r*.6, h), (0, h)]
-    return revolve(pr, axis, centre, 12)
 
 
 def aabb(pieces):

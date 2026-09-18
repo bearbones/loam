@@ -73,6 +73,25 @@ The clip: `render/clockwork-review/hammer-blow.mp4`, one blow captured at
 search's inputs (`clearance.py` is in `GEOMETRY_SOURCES`), so this is one
 more caller for the single full replan `docs/plans/rail-cache-key.md` holds.
 
+## 2026-09-18 — CLOCKWORK the carriage rides its bars in flanged bushes
+
+With the rail heads ending the guide bars in flanged, bolted bushes, the
+carriage's own bushings — plain steel drums 160 mm long — were the odd
+ones out on the same shaft. `linkage.bar_bush` builds each the way a linear
+guide's is: a housing (`CARRIAGE['bush_body_r']`, 39 mm) with a flanged
+bush standing proud at either end (45 mm, `flange_t` 8 mm) and four bolts
+through each flange on `bolt_circle` (36 mm); `carriage_body` uses it for
+both bars. The envelope is the point: everything stays inside the
+160 × 45 mm capsule `clearance.arm_capsules` already reserves — the bolts
+stand 12 mm off the flange faces at 36 mm radius, under the capsule's
+domed ends — so the rail search, the planner's margins and every clearance
+ruler see exactly what they saw. `bolt_head` moved from gantry.py into
+linkage.py (gantry imports it back) so both ends of a bar use one bolt.
+`tools/test_linkage_tools.py` holds, per bar and mount, two flanges at the
+housing's ends, one housing, eight bolts standing off the flanges, and every
+bushing vertex inside the capsule. linkage.py and clearance.py are in the
+rail cache key: assets rebuilt with `--rails=keep` (still `stale_rails`).
+
 ## 2026-09-18 — CLOCKWORK the guide bars end in flanged bushes on the rail heads
 
 The rail heads — the most repeated hardware in every shot — were brass

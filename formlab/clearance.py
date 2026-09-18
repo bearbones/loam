@@ -41,8 +41,13 @@ def default_layers(spec=DEFAULT_SPEC):
 # block's extent along the mount direction, bridge_z how far back it
 # reaches; the axle stands at axle_z). bar_dy / bar_r are the rail's
 # (tools/build_clockwork.py). The cheek stands 6 mm outside the crosshead's
-# -X plate, inside the pin span.
-CARRIAGE = dict(bar_dy=.075, bar_r=.024, bush_r=.045, bush_len=.16, cheek_t=.02,
+# -X plate, inside the pin span. Each bushing is a housing (bush_body_r)
+# with a flanged bush at either end (bush_r, flange_t) held by four bolts
+# on bolt_circle — the rail heads' shaft supports (gantry.BUSH) again — and
+# all of it lies inside the bush_len × bush_r capsule arm_capsules reserves,
+# the bolts under its domed ends (linkage.bar_bush).
+CARRIAGE = dict(bar_dy=.075, bar_r=.024, bush_r=.045, bush_len=.16, bush_body_r=.039, flange_t=.008,
+                bolt_circle=.036, bolt_r=.0055, bolt_h=.012, cheek_t=.02,
                 cheek_x=-(default_layers()['plate_out']+.006+.01),
                 cheek_y=.12, cheek_z=.045, axle_r=.02, bridge_y=(.085, .125), bridge_z=-.13, bridge_x=.03, axle_z=-.10)
 # The drive pinion (build_clockwork.gear) on its axle, and the rack it rolls

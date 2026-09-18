@@ -375,9 +375,18 @@ bar's axis — the bar ran straight through it.
 `linkage.carriage_body()` builds the carriage a linear guide actually has,
 dimensions in `clearance.CARRIAGE` and `clearance.PINION`:
 
-- a **split bushing** around each guide bar (bore 2 mm over the bar, 45 mm
+- a **bushing** around each guide bar (bore 2 mm over the bar, 45 mm
   outer radius, 160 mm long — inside the knuckle pin's span, so a carriage
-  parked at the rail end still clears the head);
+  parked at the rail end still clears the head). It is built the way a
+  linear guide's is (`linkage.bar_bush`): a housing 39 mm in radius with a
+  **flanged bush** standing proud of it at either end (45 mm, 8 mm thick)
+  and four bolts through each flange on a 36 mm circle — the rail heads'
+  shaft supports again, so the bar reads as one shaft carried the same way
+  at its ends and on the carriage. Everything lies inside the 160 × 45 mm
+  capsule `arm_capsules` reserves for the bushing: the bolts stand 12 mm
+  off the flange faces under the capsule's domed ends, so no clearance
+  changed (`test_linkage_tools` holds the flanges, the eight bolts and the
+  envelope per bar and mount);
 - a **cheek plate** on the −X side tying the two bushings together, 20 mm
   thick, standing 6 mm outside the crosshead's −X plate (the upper link's
   eye turns between the carriage's plates at the shoulder); the +X side is
