@@ -1,3 +1,22 @@
+## 2026-09-17 — CLOCKWORK the pins are held on: washer, hex nut, split pin
+
+Every knuckle pin and every stub pin ended in a turned "hex-ish" nut — a
+chamfered cylinder revolved with the pin. A pin in a machine like this is
+held on by a washer under a hexagonal nut, and the nut is kept by a split pin
+through the pin's end. `formlab.linkage.fastening` now builds those three
+pieces past the last ear of any pin — washer, hex nut chamfered top and
+bottom (a six-sided revolve), split pin crossing the shaft between the nut
+and the tip — and `knuckle_pin` / `stub_pin` run their shaft on through them
+to the tip and return `[pin, washer, nut, cotter]`. Nothing reaches past the
+old nut's tip along the axis or past the washer's radius across it, so the
+knuckle stack's layer table, the arm capsules and `gantry.PIN_X` are what
+they were and no rail re-planned. `tools/test_linkage_tools.py` pins that
+for the knuckle pin and both stub pins: the shaft to the tip, six flats on
+the nut, washer–nut–cotter in order toward the tip, everything inside the
+pin's room, the cotter crossing the shaft along Y and standing out both
+sides. The linkage table and the layer table in
+`docs/articulated-arms.md` say so.
+
 ## 2026-09-17 — CLOCKWORK the strings wind their tuning pins
 
 The dead length ran up over the bridge pin to the tuning pin and stopped

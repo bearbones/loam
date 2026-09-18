@@ -101,27 +101,48 @@ def bar(length, width, depth, taper=.85, belly=.18, yoke=None, sides_profile=Non
         w = w*(1-blend)+full/2*blend
     return sweep(path, w, d, profile=rounded_rect(.4, 24) if sides_profile is None else sides_profile)
 
+FASTENING = dict(washer=.15, nut=(.15, .70), chamfer=.88, cotter=.86, cotter_r=.14, cotter_head=.30)
+def fastening(x0, x1, r, axis=X, centre=(0, 0, 0)):
+    """What holds a pin on: past the last ear at `x0` along `axis`, a washer, a
+    hexagonal nut chamfered top and bottom, and a split pin (cotter) through
+    the pin's end between the nut and the tip at `x1` — the pin's own shaft
+    runs on to `x1` under them. Nothing reaches past `x1` along the axis or
+    past the washer's radius (1.75 r × 1.05) across it, so a pin's room
+    (clearance.default_layers, gantry.PIN_X) is what it was with the old
+    turned nut. `x1` may lie on either side of `x0` (a -X stub pin)."""
+    F = FASTENING; axis = np.asarray(axis, float)/np.linalg.norm(axis); c = np.asarray(centre, float)
+    h = x1-x0; hr = r*1.75; p = lambda f: x0+f*h
+    washer = revolve([(0, p(0)), (hr*1.05, p(0)), (hr*1.05, p(F['washer'])), (0, p(F['washer']))], axis, c, 24)
+    n0, n1 = F['nut']; rc = hr*.98; ch = (n1-n0)*.12
+    nut = revolve([(0, p(n0)), (rc*F['chamfer'], p(n0)), (rc, p(n0+ch)), (rc, p(n1-ch)), (rc*F['chamfer'], p(n1)), (0, p(n1))], axis, c, 6)
+    pv = np.cross(axis, Z)
+    if np.linalg.norm(pv) < .1: pv = np.cross(axis, X)
+    pv /= np.linalg.norm(pv); rc = r*F['cotter_r']; lc = hr*.98; hd = r*F['cotter_head']
+    cotter = revolve([(0, -lc), (rc, -lc), (rc, lc-hd), (rc*1.9, lc-hd), (rc*1.9, lc), (0, lc)], pv, c+axis*p(F['cotter']), 10)
+    return [washer, nut, cotter]
+
 def knuckle_pin(radius, span, head=None, axis=X, centre=(0, 0, 0)):
     """Steel pin along `axis` through a stack of total width `span` (centred),
-    domed head on the -axis side, washer + hex-ish nut on the +axis side."""
+    domed head on the -axis side; on the +axis side the shaft runs on through
+    its washer, hex nut and split pin (`fastening`). Returns [pin, washer, nut,
+    cotter]; the pin alone spans head to tip."""
     h = head or radius*1.9
     hr = radius*1.75
     pr = [(0, -span/2-h), (hr*.55, -span/2-h), (hr*.9, -span/2-h*.55), (hr, -span/2-h*.2), (hr, -span/2),
-          (radius, -span/2), (radius, span/2), (hr*1.05, span/2), (hr*1.05, span/2+h*.18),
-          (hr*.8, span/2+h*.18), (hr*.8, span/2+h*.85), (radius*.6, span/2+h), (0, span/2+h)]
-    return revolve(pr, axis, centre, 24)
+          (radius, -span/2), (radius, span/2+h*.94), (radius*.75, span/2+h), (0, span/2+h)]
+    return [revolve(pr, axis, centre, 24)]+fastening(span/2, span/2+h, radius, axis, centre)
 
 def stub_pin(centre, side, layers, spec):
     """A secondary bar's pin, cast with its crosshead: a shouldered stub from
     the crosshead's mid-plane out to the eye's layer (`side` = ±1 along X),
-    the pin proper the eye turns on, and a nut past it (layers: outer, span
-    from clearance.default_layers)."""
-    c = np.asarray(centre, float); r = spec['pin_r']; hr = r*1.75; h = r*1.9
+    the pin proper the eye turns on, and its washer, hex nut and split pin
+    past it (`fastening`; layers: outer, span from clearance.default_layers).
+    Returns [pin, washer, nut, cotter]."""
+    c = np.asarray(centre, float); r = spec['pin_r']; h = r*1.9
     xs = layers['outer']-spec['width']*.8/2-.002; xe = layers['span']/2
-    pr = [(0, 0), (r*1.6, 0), (r*1.6, xs), (r, xs), (r, xe), (hr*1.05, xe), (hr*1.05, xe+h*.18),
-          (hr*.8, xe+h*.18), (hr*.8, xe+h*.85), (r*.6, xe+h), (0, xe+h)]
+    pr = [(0, 0), (r*1.6, 0), (r*1.6, xs), (r, xs), (r, xe+h*.94), (r*.75, xe+h), (0, xe+h)]
     pts = [(rr, side*x) for rr, x in pr]
-    return revolve(pts[::-1] if side < 0 else pts, X, c, 24)
+    return [revolve(pts[::-1] if side < 0 else pts, X, c, 24)]+fastening(side*xe, side*(xe+h), r, X, c)
 
 def eye_end(centre, ear_r, pin_r, thickness, axis=X):
     """One ear: a ring with a bushing hole. Returns [ring]."""
@@ -274,7 +295,7 @@ def carriage_body(o1, spec, mount='back', head=None):
     if head is None:
         head = dict(thickness=spec['head_t'], boss_r=spec['boss_r'], pin_r=spec['pin_r'], web=spec['web'], plate=L['plate'])
     pieces = crosshead([[0, 0, 0], o1], eye=(0,), **head)
-    pieces.append(stub_pin(o1, +1, L, spec))
+    pieces += stub_pin(o1, +1, L, spec)
     for s in (-1, 1):
         pieces.append(ring((0, s*C['bar_dy'], 0), C['bar_r']+.002, C['bush_r'], C['bush_len'], X, 48, .3))
     u = np.linspace(0, 1, 3)[:, None]
@@ -332,14 +353,14 @@ def parallelogram_arm(l1, l2, o1, o2, spec=None, mount='back'):
     # the lower link's eye turns between the elbowhead's plates at the elbow pin
     elbow = crosshead([[0, 0, 0], o1, o2] if np.linalg.norm(o1-o2) > 1e-6 else [[0, 0, 0], o1], eye=(0,), **head)
     # the secondary bars' eyes turn on stub pins cast with the crosshead
-    elbow += [stub_pin(o1, +1, L, s), stub_pin(o2, -1, L, s)]
+    elbow += stub_pin(o1, +1, L, s)+stub_pin(o2, -1, L, s)
     # the lower link's fork straddles the wristhead: solid at both pins (the
     # tool's socket tenon is buried in the wrist boss)
     wrist = crosshead([[0, 0, 0], o2], eye=(), **head)
-    wrist += [stub_pin(o2, -1, L, s)]
+    wrist += stub_pin(o2, -1, L, s)
     carriage = carriage_body(o1, s, mount, head)
-    pins = dict(shoulder=[knuckle_pin(s['pin_r'], L['pin_span'])], elbow=[knuckle_pin(s['pin_r'], L['pin_span'])],
-                wrist=[knuckle_pin(s['pin_r'], L['pin_span'])])
+    pins = dict(shoulder=knuckle_pin(s['pin_r'], L['pin_span']), elbow=knuckle_pin(s['pin_r'], L['pin_span']),
+                wrist=knuckle_pin(s['pin_r'], L['pin_span']))
     return dict(carriage=dict(pieces=carriage), upper=dict(pieces=upper['pieces'], cup=upper['cup']),
                 upper2=dict(pieces=upper2['pieces']), elbowhead=dict(pieces=elbow),
                 lower=dict(pieces=lower['pieces'], cup=lower['cup']), lower2=dict(pieces=lower2['pieces']),

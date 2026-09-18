@@ -31,7 +31,7 @@ along the link, the pin axis +X) and never scaled afterwards:
 | upper2, lower2 | `link(layer=...)` | the parallel bar, one layer outboard |
 | elbowhead, wristhead | `crosshead()` | two plates, each with a boss at every pin and a web between, tied by a spacer boss at every pin but the one where a primary link's eye turns between them; the secondary bars' stub pins (`stub_pin()`) are cast with it |
 | carriage | `carriage_body()` | the shoulder crosshead plus bushings on the guide bars, a cheek plate and the pinion's axle — on a bridge behind the bushing when the pinion lies above or below the carriage (see The carriage and its drive) |
-| shoulder, elbow, wrist | `knuckle_pin()` | domed head one side, nut the other; spans the fork ears |
+| shoulder, elbow, wrist | `knuckle_pin()` | domed head one side; on the other the shaft runs through a washer, a hexagonal nut chamfered top and bottom, and a split pin through its end (`fastening()`, shared with the crossheads' stub pins) — all inside the room the old turned nut had, so the layer table below and `gantry.PIN_X` stand; spans the fork ears |
 | tool + shank | `pick_tool(mount)` / `mallet_tool(mount)` | tool origin = contact point; the shank is built to reach its socket under the wrist boss (see Tools) |
 | oil cup | `oil_cup()` (cast with `upper`) | a lubricator on the upper link's elbow fork, +X ear rim, on the link's line beyond the pin — where a rod end's oil hole goes — in the ear's own layer along the pin, so nothing of the arm's own stack shares its space; recorded per arm as `oil_cups` and given its room by `tools/test_oil_cups.py` (20 mm from every other arm, rail, string and obstacle through the whole score). Not on the lower link: its fork works at the wrist, where the rake's sweep carried a cup to 6 mm from a string |
 
@@ -47,7 +47,7 @@ mid-plane outward:
 | plates | 19–31 mm | the crosshead's two plates (12 mm each), bosses and webs on both; a solid spacer boss ties them at every other pin |
 | fork ears | 34–56 mm | the next primary link's fork (22 mm ears) straddling the plates; the bar's yoke stops at the ears' rim so the boss turns between the ears, not in the yoke |
 | secondary bar | 62–89 mm | the parallel bar (+X for the upper segment, −X for the lower), its eye turning on a shouldered **stub pin** cast with the crosshead |
-| nut | to 125 mm | the stub pin's nut, the widest thing on the arm (`pin_x`; `gantry.PIN_X`) |
+| nut | to 125 mm | the stub pin's washer, hex nut and split pin, and the pin's tip past them — the widest thing on the arm (`pin_x`; `gantry.PIN_X`); `tools/test_linkage_tools.py` pins every fastening inside that room |
 
 The primary knuckle pin spans only the fork ears (`pin_span`), head and
 nut outside. So at the elbow, read outward: the lower link's eye, the

@@ -120,6 +120,27 @@ u2 = [(v.min(), v.max()) for v in (p.vertices[:, 0] for p in arm['upper2']['piec
 check(all(lo >= layers['ear_out']+.004 and hi <= layers['span']/2-.001 for lo, hi in u2), 'elbow: the upper second bar rides outboard of the ears, inside its nut')
 pin = arm['elbow']['pieces'][0].vertices[:, 0]
 check(abs(pin.max()-pin.min()-(layers['pin_span']+2*DEFAULT_SPEC['pin_r']*1.9)) < 1e-6, 'the primary knuckle pin spans the ears, head and nut outside')
+# What holds a pin on (linkage.fastening): past the ears a washer, a hexagonal
+# nut and a split pin through the pin's end, all inside the room the old turned
+# nut had — nothing past the pin's tip along the axis, nothing past the washer's
+# radius across it — so the layer table and gantry.PIN_X stand.
+from formlab.linkage import knuckle_pin, stub_pin, check_pieces as _cp
+r = DEFAULT_SPEC['pin_r']; hr = r*1.75; h = r*1.9
+for name, pieces, tip in (('knuckle pin', arm['elbow']['pieces'], layers['pin_span']/2+h),
+                          ('+X stub pin', stub_pin(o1, +1, layers, DEFAULT_SPEC), layers['pin_x']),
+                          ('-X stub pin', stub_pin(o2, -1, layers, DEFAULT_SPEC), -layers['pin_x'])):
+    _cp(pieces); shaft, washer, nut, cotter = pieces[:4]; side = 1 if tip > 0 else -1
+    x = side*shaft.vertices[:, 0]; c = shaft.vertices[np.isclose(x, x.max())].mean(0)   # the tip face's centre: on the pin's axis
+    across = lambda m: np.hypot(m.vertices[:, 1]-c[1], m.vertices[:, 2]-c[2])
+    check(abs(c[0]-tip) < 1e-9, f'{name}: the shaft runs to the tip at {tip*1000:+.0f} mm')
+    ang = np.arctan2(nut.vertices[:, 2]-c[2], nut.vertices[:, 1]-c[1])[across(nut) > 1e-6]
+    check(len(np.unique(np.round(ang, 6))) == 6, f'{name}: the nut is hexagonal')
+    order = [side*float(m.vertices[:, 0].mean()) for m in (washer, nut, cotter)]
+    check(order[0] < order[1] < order[2], f'{name}: washer, then nut, then split pin toward the tip')
+    check(all((side*m.vertices[:, 0] <= abs(tip)+1e-9).all() and (across(m) <= hr*1.05+1e-9).all() for m in (washer, nut, cotter)),
+          f'{name}: the fastening stays inside the pin\'s room (tip {abs(tip)*1000:.0f} mm, radius {hr*1.05*1000:.1f} mm)')
+    check((across(cotter) > r*.9).any() and abs(cotter.vertices[:, 2]-c[2]).max() < r*.3,
+          f'{name}: the split pin crosses the shaft along Y and stands out both sides')
 # the rail search screens each rail end on the gantry planner's own bracket
 # grid, cheapest first, with the planner's solids (mast, beams, braces, head)
 from formlab.clearance import GANTRY, gantry_candidates, mast_columns, head_box, bracket_solids, foot_level
