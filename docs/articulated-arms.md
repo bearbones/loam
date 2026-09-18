@@ -78,6 +78,11 @@ root_z)`, swing plane yz, pins along world X. Two rules were added:
   strings; "back" is the universal rule for plucked and raked mechanisms.
   Mallets keep "up".
 
+How the tip *moves* between the score's contacts — ratchet clicks, a cocked
+drop and a recoil for mallet arms; jerk-limited S-curve slews for picks and
+rakes — is `docs/motion-design.md`. The pose is still a pure function of
+time; the vocabularies only change the tip path the IK follows.
+
 The parallel bars are posed with `link_basis(a, b)` at `a + o` — the same
 basis as the primary bar, translated by the constant world offset `o`.
 `choose_offset()` picks `o` (magnitude 0.11 m) to maximise the minimum

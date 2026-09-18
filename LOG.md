@@ -1,3 +1,28 @@
+## 2026-09-17 — CLOCKWORK two motion vocabularies: ratchet and recoil against servo slews
+
+Every arm moved the same way: a smoothstep in exactly the score's window.
+Now a mallet arm is a stepped machine and a pick or rake arm is a servo
+(`docs/motion-design.md`). The mallet carriage advances along the rack in
+ratchet clicks — a tooth a click at 90 ms, a tenth of a tooth of overshoot
+that rings out on the pawl at 14 Hz and fades before the next click — the
+mallet cocks half its lift again and drops with the acceleration of a fall,
+and every blow shakes the assembly: the carriage shudders along the rail
+(the pinion ticking with it), the mallet rings across the bar and bounces
+above it, all zero at the blow and gated to nothing before the next strike
+so contacts stay exact. Pick and rake arms slew on jerk-limited S-curves —
+ramp, cruise, ramp, monotone, no overshoot. Both start a move as soon as the
+arm is free and the move wants, never later than `t_move`: a machine moves,
+then waits. Because the score planner only promised the mechanism's arm
+clearance from `t_move` on, `ClockworkMotion._schedules()` re-applies the
+planner's occupancy model to the earlier window symmetrically (each sibling
+charged with its interval from its own earliest start, padded 10 mm) and
+pushes a move later until its interval is clear; the rendered margin beyond
+the promise stays 56 mm on both assets. `formlab/rig.py` mirrors all of it
+and `tools/test_motion.py` holds the two together through
+`dev/dump_motion.gd` (0.6 µm over 300 000 samples) and checks each
+vocabulary's promises. Every clearance ruler re-measured green: the added
+excursions sit inside centimetre margins.
+
 ## 2026-09-17 — CLOCKWORK the plectra are horn in brass ferrules
 
 The plectrum was brass "for the eye": a bright tear-drop of metal against a

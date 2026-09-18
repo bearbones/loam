@@ -5,6 +5,8 @@ var score: ScoreDoc
 var geometry: Dictionary
 var plans: Dictionary = {}
 var acts: Dictionary = {}
+var mech_of: Dictionary = {}
+var sched: Dictionary = {}
 
 func setup(sd: ScoreDoc, layout: Dictionary) -> void:
 	score = sd
@@ -12,12 +14,14 @@ func setup(sd: ScoreDoc, layout: Dictionary) -> void:
 	for m in sd.mechs:
 		for a in m["actuators"]:
 			acts[a["id"]] = a
+			mech_of[a["id"]] = m["id"]
 			plans[a["id"]] = []
 	for e in sd.events:
 		if e.get("actuator") != null and plans.has(e["actuator"]):
 			plans[e["actuator"]].append(e)
 	for aid in plans:
 		plans[aid].sort_custom(func(a, b): return float(a["t_move"]) < float(b["t_move"]))
+	_schedules()
 
 func v(a: Array) -> Vector3:
 	return Vector3(a[0], a[1], a[2])
@@ -34,38 +38,210 @@ func smooth(u: float) -> float:
 	u = clampf(u, 0, 1)
 	return u*u*(3-2*u)
 
-func tip_at(aid: String, t: float) -> Vector3:
+## Two motion vocabularies (docs/motion-design.md), mirrored in formlab/rig.py.
+## A mallet arm is a stepped machine: its carriage advances along the rack in
+## ratchet clicks (one tooth a click, a little overshoot that rings out on the
+## pawl), the mallet cocks and drops onto the bar, and the blow sets the whole
+## assembly shuddering (recoil). A pick or rake arm is a servo: jerk-limited
+## S-curve slews, no overshoot, nothing rings.
+const PITCH := TAU*.12/16        # the rack's tooth pitch (formlab.clearance.PINION)
+const CLICK_S := .09             # seconds a ratchet click takes when the score allows
+const CLICK_MIN_S := .04         # ...and the least it may take when it does not
+const CLICK_MOVE := .4           # fraction of a click spent moving; the rest rings and holds
+const OVERSHOOT := .10           # of a tooth, past the detent (the pawl's play)
+const RING_HZ := 14.0
+const RING_TAU := .09
+const SLEW_S := .4               # a servo slew takes this long when the score allows
+const SCURVE_RAMP := .3          # fraction of a slew spent accelerating (and decelerating)
+const COCK := .5                 # a mallet rises this much of its lift again before it drops
+const COCK_AT := .4              # ...by this fraction of the strike interval
+# The assembly after a blow: [amplitude, Hz, decay s]; x shakes the carriage along
+# the rail, z the mallet across the bar, and the bounce lifts it (of the lift).
+const RECOIL := {"x": [.004, 11.0, .14], "z": [.0025, 17.0, .10], "bounce": [.06, 8.0, .16]}
+const RECOIL_GATE := .08         # the shudder is gone this long before the next strike begins
+const PAD := .01                 # overshoot and recoil, when an early move is checked for clearance
+
+func stepped(aid: String) -> bool:
+	return String(acts[aid]["kind"]) in ["mallet", "hammer"]
+
+## Minimum-jerk step: zero velocity and acceleration at both ends.
+func quintic(u: float) -> float:
+	u = clampf(u, 0, 1)
+	return u*u*u*(10-15*u+6*u*u)
+
+## Jerk-limited slew: smooth acceleration ramp, constant-velocity cruise, mirror
+## ramp — the profile of a telescope drive. Ramps integrate smoothstep.
+func scurve(u: float) -> float:
+	u = clampf(u, 0, 1)
+	var r := SCURVE_RAMP
+	var s: float
+	if u < r: s = r*_ramp(u/r)
+	elif u <= 1-r: s = r*.5+(u-r)
+	else: s = (1-r)-r*_ramp((1-u)/r)
+	return s/(1-r)
+
+static func _ramp(w: float) -> float:
+	return w*w*w-w*w*w*w*.5
+
+## A carriage travel of dx is this many teeth of the rack...
+func teeth(dx: float) -> int:
+	return maxi(1, int(floor(absf(dx)/PITCH+.5)))
+
+## ...taken one a click, but never faster than CLICK_MIN_S when the window T
+## is short (then a click spans several teeth).
+func clicks(dx: float, T: float) -> int:
+	return mini(teeth(dx), maxi(1, int(floor(T/CLICK_MIN_S))))
+
+## Ratchet advance over u in [0,1] in n clicks: each click moves in its first
+## CLICK_MOVE with a minimum-jerk step to `over` (of a click) past the detent,
+## then rings out on the pawl at RING_HZ and holds. The window is T seconds.
+func ratchet(u: float, n: int, T: float, over: float) -> float:
+	u = clampf(u, 0, 1)
+	var k := mini(int(floor(u*n)), n-1)
+	var w := u*n-k
+	var p: float
+	if w < CLICK_MOVE:
+		p = quintic(w/CLICK_MOVE)*(1+over)
+	else:
+		var tr := (w-CLICK_MOVE)*T/n
+		var fade := 1.0-smooth((w-.7)/.3)
+		p = 1+over*exp(-tr/RING_TAU)*cos(TAU*RING_HZ*tr)*fade
+	return (k+p)/n
+
+## Repositioning from a to b over u in [0,1] (T seconds): clicks along the rail
+## (x) with the arm following in one minimum-jerk move, or one S-curve slew.
+## The overshoot is a tenth of a tooth however many teeth a click spans.
+func travel(a: Vector3, b: Vector3, u: float, T: float, clicky: bool) -> Vector3:
+	if not clicky: return a.lerp(b, scurve(u))
+	var p := a.lerp(b, quintic(u))
+	var n := clicks(b.x-a.x, T)
+	var over := OVERSHOOT*minf(1.0, PITCH*n/maxf(absf(b.x-a.x), .000001))
+	p.x = a.x+(b.x-a.x)*ratchet(u, n, T, over)
+	return p
+
+## The strike from origin onto first over u in [0,1]: a mallet cocks, then drops
+## with the acceleration of a fall; a pick winds up away from the string and
+## sweeps in on a minimum-jerk curve.
+func strike(origin: Vector3, first: Vector3, lift: Vector3, u: float, hammer: bool) -> Vector3:
+	if not hammer: return origin.lerp(first, quintic(u))+lift*.45*sin(PI*u)
+	var h: float
+	if u < COCK_AT: h = 1+COCK*smooth(u/COCK_AT)
+	else:
+		var v := (u-COCK_AT)/(1-COCK_AT)
+		h = (1+COCK)*(1-v*v)
+	return origin.lerp(first+lift, quintic(u))+lift*(h-1)
+
+static func _ring(p: Array, tau: float) -> float:
+	return float(p[0])*exp(-tau/float(p[2]))*sin(TAU*float(p[1])*tau)
+
+## The assembly's shudder after a mallet blow: zero at the blow, rung out and
+## gated to nothing by the time the next strike begins, so contacts stay exact.
+func recoil(aid: String, t: float) -> Vector3:
+	if not stepped(aid): return Vector3.ZERO
+	var hit := -INF
+	var gate_end := INF
+	for s in sched[aid]:
+		if s["hit"] <= t: hit = s["hit"]
+		else:
+			gate_end = s["approach"]; break
+	if hit == -INF: return Vector3.ZERO
+	var tau := t-hit
+	var gate := 1.0-smooth((t-(gate_end-RECOIL_GATE))/RECOIL_GATE)
 	var lift := clearance(aid)
-	var rest := contact(acts[aid]["home"]) + lift
+	return Vector3(_ring(RECOIL["x"], tau), lift.y*absf(_ring(RECOIL["bounce"], tau)), _ring(RECOIL["z"], tau))*gate
+
+## Each event's timing as the path uses it. Repositioning starts as soon as
+## the arm is free and the move wants (`g0`), never later than the score's
+## t_move: a machine moves, then waits. The score planner only promised the
+## mechanism's arm clearance from t_move on, so an earlier start is checked
+## here against the siblings under the planner's own occupancy model — an arm
+## owns the whole x interval it crosses while it may be moving (from its own
+## g0, since it may start early too) and hovers over its last contact after —
+## and pushed later until the interval it wants is clear.
+func _windows(aid: String) -> Array:
+	var lift := clearance(aid)
+	var clicky := stepped(aid)
+	var rest := contact(acts[aid]["home"])+lift
+	var free_prev := -INF
+	var out: Array = []
 	for e in plans[aid]:
 		var tm := float(e["t_move"])
-		if t < tm:
-			return rest
 		var hit := float(e["t"])
 		var ids: Array = e["strings"]
 		var first := contact(ids[0], e.get("pick"))
 		var last := contact(ids[-1], e.get("pick"))
 		var spread := float(e.get("spread_s", 0))
-		var end := hit + spread*(ids.size()-1)
+		var approach := hit-float(acts[aid]["approach_s"])
+		var want := teeth(first.x-rest.x)*CLICK_S if clicky else SLEW_S
+		var g0 := maxf(free_prev, minf(tm, approach-want))
+		var lo := rest.x
+		var hi := rest.x
+		for sid in ids:
+			var x := contact(sid, e.get("pick")).x
+			lo = minf(lo, x); hi = maxf(hi, x)
+		out.append({"event": e, "rest": rest, "first": first, "last": last, "spread": spread, "tm": tm, "g0": g0, "go": g0,
+			"approach": approach, "hit": hit, "end": hit+spread*(ids.size()-1), "t_free": float(e["t_free"]), "lo": lo, "hi": hi, "moving": false})
+		rest = last+lift
+		free_prev = float(e["t_free"])
+	return out
+
+func _schedules() -> void:
+	var win: Dictionary = {}
+	for aid in plans: win[aid] = _windows(aid)
+	for aid in plans:
+		var need := float(geometry["mechanisms"][mech_of[aid]].get("arm_clearance_m", 0.0)) if geometry.has("mechanisms") else 0.0
+		for s in win[aid]:
+			var go: float = s["g0"]
+			if need > 0.0:
+				for other in plans:
+					if other == aid or mech_of[other] != mech_of[aid]: continue
+					var home := contact(acts[other]["home"]).x
+					var segments: Array = [[-INF, win[other][0]["g0"] if win[other].size() > 0 else INF, home, home]]
+					for i in win[other].size():
+						var o: Dictionary = win[other][i]
+						var until: float = win[other][i+1]["g0"] if i+1 < win[other].size() else INF
+						segments.append([o["g0"], o["end"], o["lo"], o["hi"]])
+						segments.append([o["end"], until, o["last"].x, o["last"].x])
+					for seg in segments:
+						if seg[0] >= s["tm"] or seg[1] <= go: continue
+						if maxf(s["lo"]-seg[3], seg[2]-s["hi"])-PAD < need: go = maxf(go, minf(seg[1], s["tm"]))
+			s["go"] = go
+			s["moving"] = s["approach"] > go+.000001
+		sched[aid] = win[aid]
+
+func tip_at(aid: String, t: float) -> Vector3:
+	return path_at(aid, t)+recoil(aid, t)
+
+## The scored path alone: rest, travel, strike, sweep, release, rest.
+func path_at(aid: String, t: float) -> Vector3:
+	var lift := clearance(aid)
+	var clicky := stepped(aid)
+	var rest := contact(acts[aid]["home"]) + lift
+	for s in sched[aid]:
+		if t < s["go"]:
+			return rest
+		var first: Vector3 = s["first"]
+		var hit: float = s["hit"]
+		var approach: float = s["approach"]
+		var e: Dictionary = s["event"]
+		var ids: Array = e["strings"]
 		if t < hit:
-			var approach := hit - float(acts[aid]["approach_s"])
-			# A zero-travel rake still repositions during its approach interval.
-			if approach > tm + .000001 and t < approach:
-				return rest.lerp(first+lift, smooth((t-tm)/(approach-tm)))
-			var start := maxf(tm, approach)
-			var origin := first+lift if approach > tm+.000001 else rest
+			if s["moving"] and t < approach:
+				return travel(rest, first+lift, (t-s["go"])/(approach-s["go"]), approach-s["go"], clicky)
+			var start: float = approach if s["moving"] else maxf(s["tm"], approach)
+			var origin := first+lift if s["moving"] else rest
 			var u := clampf((t-start)/maxf(hit-start,.000001),0,1)
-			return origin.lerp(first,smooth(u)) + lift*.45*sin(PI*u)
-		if t <= end:
-			if ids.size()==1 or spread<=0:
+			return strike(origin, first, lift, u, clicky)
+		if t <= s["end"]:
+			if ids.size()==1 or s["spread"]<=0:
 				return first
-			var index := minf((t-hit)/spread,ids.size()-1)
+			var index := minf((t-hit)/s["spread"],ids.size()-1)
 			var k := mini(int(index),ids.size()-2)
 			# Linear sweep crosses each string at the exact audible sub-onset.
 			return contact(ids[k],e.get("pick")).lerp(contact(ids[k+1],e.get("pick")),index-k)
-		if t < float(e["t_free"]):
-			return last + lift*smooth((t-end)/maxf(float(e["t_free"])-end,.000001))
-		rest = last+lift
+		if t < s["t_free"]:
+			return s["last"] + lift*quintic((t-s["end"])/maxf(s["t_free"]-s["end"],.000001))
+		rest = s["last"]+lift
 	return rest
 
 ## Wrist pin relative to the tool's contact point; older manifests keep 0.15 m above.
