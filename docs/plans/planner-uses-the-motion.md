@@ -1,5 +1,8 @@
 # The score planner derives its timing from the motion vocabularies
 
+**Claimed 2026-09-18 04:15 PDT** by Claude-Session
+https://claude.ai/code/session_01SfoJujiAJsKYkejLtNGvQf
+
 **Where:** `loam/score.py` (`Actuator`, `_Solver.travel`, `_Solver.plan`,
 `_Solver._separated`, `approach_s`), `harness/clockwork_motion.gd` and
 `formlab/rig.py` (the constants; `_windows`, `_schedules`),
