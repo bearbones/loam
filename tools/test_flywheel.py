@@ -12,11 +12,12 @@ pulleys; and the whole assembly keeps clear of every arm's sweep, every rail
 and every obstacle the rail search was promised (except the cabinet face the
 bracket bolts to).
 """
-import json,sys,math
+import json,sys,math,struct
 from pathlib import Path
 import numpy as np
 ROOT=Path(__file__).resolve().parents[1]; sys.path.insert(0,str(ROOT))
-from formlab.layout import flywheel_plan,FLYWHEEL
+from formlab.layout import flywheel_plan,spoke_centre,spoke_section,FLYWHEEL
+from formlab.gear import profile
 from formlab import gantry as G
 from formlab.rig import Rig
 from formlab.clearance import segment_distance
@@ -25,6 +26,28 @@ failures=[]
 def check(ok,msg):
     print(('  PASS ' if ok else '  FAIL ')+msg)
     if not ok: failures.append(msg)
+
+def glb_vertices(path,name):
+    """World-space vertices of the named node's mesh in a binary glTF: the JSON
+    chunk names the node and its accessor, the BIN chunk holds the floats, and
+    the node's own translation/rotation/scale puts them in the scene (the
+    builder parents nothing, so a node's transform is its world placement)."""
+    b=path.read_bytes()
+    if b[:4]!=b'glTF': raise ValueError(f'{path} is not a binary glTF')
+    n=struct.unpack_from('<I',b,12)[0]; js=json.loads(b[20:20+n]); off=20+n
+    m=struct.unpack_from('<I',b,off)[0]; binc=b[off+8:off+8+m]
+    node=next((x for x in js['nodes'] if x.get('name')==name),None)
+    if node is None or 'mesh' not in node: raise KeyError(f'no mesh node {name!r} in {path.name}')
+    V=[]
+    for prim in js['meshes'][node['mesh']]['primitives']:
+        acc=js['accessors'][prim['attributes']['POSITION']]; bv=js['bufferViews'][acc['bufferView']]
+        start=bv.get('byteOffset',0)+acc.get('byteOffset',0); stride=bv.get('byteStride',12)
+        if stride==12: V.append(np.frombuffer(binc,dtype='<f4',count=acc['count']*3,offset=start).reshape(-1,3))
+        else: V.append(np.stack([np.frombuffer(binc,dtype='<f4',count=3,offset=start+k*stride) for k in range(acc['count'])]))
+    V=np.concatenate(V).astype(float)
+    x,y,z,w=node.get('rotation',[0,0,0,1])
+    R=np.array([[1-2*(y*y+z*z),2*(x*y-z*w),2*(x*z+y*w)],[2*(x*y+z*w),1-2*(x*x+z*z),2*(y*z-x*w)],[2*(x*z-y*w),2*(y*z+x*w),1-2*(x*x+y*y)]])
+    return (V*np.array(node.get('scale',[1,1,1])))@R.T+np.array(node.get('translation',[0,0,0]))
 
 def on_axis(p,a,b,r):
     """Distance of point p from the axis of cylinder (a,b) — 0 when it lies on it."""
@@ -52,6 +75,25 @@ def run(layout_path,score_path):
               f'{tag} pedestal from the sole plate up to the block')
         for k in ('l','r'):
             qa,qb,_=C[f'{tag} bolt {k}']; check(abs(qa[1]-(bc[1]+bs[1]/2))<1e-9 and abs(qa[0]-bc[0])<=bs[0]/2,f'{tag} bolt {k} stands on the block top')
+    # the casting: a rim under the teeth's roots, spokes from the hub boss to it, inside the wheel's width
+    S=plan.get('spokes'); check(S is not None,'the plan casts the wheel with spokes')
+    if S is not None:
+        prof=profile(int(plan['teeth']),r); depth=prof['r_hub']-S['r_rim']; span=S['r_rim']-S['r_hub']
+        check(depth>=.04 and span>=.15,f'the rim is {depth*1000:.0f} mm deep under the roots and the spokes span {span*1000:.0f} mm')
+        check(abs(S['r_hub']-C['hub'][2])<1e-9 and S['root'][0]<=S['r_hub'] and max(S['root'][1],S['tip'][1])<=F['width']/2 and S['tip'][0]<=S['root'][0],
+              'spokes rooted in the hub boss, tapering to the rim, inside the wheel\'s width')
+        # the built wheel itself: every vertex between hub and rim lies on a spoke (the disc is gone)
+        glb=layout_path.with_suffix('.glb')
+        if glb.exists():
+            V=glb_vertices(glb,'Chamber flywheel')-c; rho=np.hypot(V[:,0],V[:,1])
+            web=(rho>S['r_hub']+.03)&(rho<S['r_rim']-.03); Q=V[web]; u=(rho[web]-S['r_hub'])/span
+            on=np.zeros(len(Q),bool)
+            for i in range(S['count']):
+                cen=np.array([spoke_centre(S,i,ui) for ui in u]); w=np.array([spoke_section(S,ui)[0] for ui in u])
+                on|=np.hypot(Q[:,0]-cen[:,0],Q[:,1]-cen[:,1])<=w+.012
+            spoked=len(Q)>=S['count']*20
+            check(spoked and on.all() and abs(V[:,2]).max()<=F['width']/2+.002,
+                  f'the built wheel is spoked: {len(Q)} vertices between hub and rim, {int((~on).sum())} off a spoke, {abs(V[:,2]).max()*1000:.0f} mm half-width')
     (sc,ss)=B['sole']; check(abs(sc[1]-ss[1]/2-plan['floor'])<1e-9 and all(abs(B[t+' pedestal'][0][2]-sc[2])+F['pedestal'][1]/2<=ss[2]/2 for t in ('back','front')),
                              'the sole plate lies on the floor under both pedestals')
     # the drive: pulleys in one plane, the belt pulley between its ears on the cabinet's end face

@@ -19,7 +19,7 @@ out = ROOT/'harness/assets'
 sys.path.insert(0,str(ROOT/'tools'))
 from blender_forms import make_form
 sys.path.insert(0,str(ROOT/'formlab'))
-from layout import string_endpoints,bar_frame_plan,board_z,harp_base_plan,bench_plan,bench_elements,flywheel_plan,eyelet_plan,pin_wrap,BAR,BENCH,BELL,BOARD,NECK,FLYWHEEL,EYELET
+from layout import string_endpoints,bar_frame_plan,board_z,harp_base_plan,bench_plan,bench_elements,flywheel_plan,spoke_centre,spoke_section,eyelet_plan,pin_wrap,BAR,BENCH,BELL,BOARD,NECK,FLYWHEEL,EYELET
 # formlab.rig / clearance / layout_search are numpy-only (no SciPy) so they run here too.
 import rig as arm_rig, clearance as arm_clearance, layout_search, gear as tooth_profile
 # Pure Python preparation keeps SciPy and structural logic out of Blender's runtime.
@@ -78,25 +78,62 @@ def tooth(n,p,a,thickness,m,poly):
     ring=[(p[0]+u*c-v*s,p[1]+u*s+v*c) for u,v in poly]
     verts=[tuple(vec((x,y,p[2]+h))) for x,y in ring]+[tuple(vec((x,y,p[2]-h))) for x,y in ring]
     faces=[list(range(k)),[k+i for i in range(k)][::-1]]+[(i,(i+1)%k,k+(i+1)%k,k+i) for i in range(k)]
+    return pydata(n,verts,faces,m,tooth_profile.BEVEL)
+def pydata(n,verts,faces,m,bevel=0):
+    # A mesh from its vertices and faces (Godot coordinates already mapped by
+    # vec), normals made consistent, finished like every other piece.
     mesh=bpy.data.meshes.new(n); mesh.from_pydata(verts,[],faces); mesh.update()
     o=bpy.data.objects.new(n,mesh); bpy.context.collection.objects.link(o)
     bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active=o
     bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.normals_make_consistent(inside=False); bpy.ops.object.mode_set(mode='OBJECT')
-    return finish(o,n,m,tooth_profile.BEVEL)
-def gear(n,p,r_tip,teeth=16):
+    return finish(o,n,m,bevel)
+def ring(n,p,r_in,r_out,h,m,count=96):
+    # A flat annulus about Godot z at p: the flywheel's rim, from the spokes'
+    # ends out to the teeth's roots.
+    verts=[]; faces=[]; prof=((r_in,-h/2),(r_out,-h/2),(r_out,h/2),(r_in,h/2))
+    for r,z in prof:
+        for k in range(count):
+            a=math.tau*k/count; verts.append(tuple(vec((p[0]+r*math.cos(a),p[1]+r*math.sin(a),p[2]+z))))
+    for j in range(len(prof)):
+        for k in range(count):
+            a=j*count+k; b=j*count+(k+1)%count; c=(j+1)%len(prof)*count; faces.append((a,b,c+(k+1)%count,c+k))
+    return pydata(n,verts,faces,m,.009)
+def spoke(n,p,S,i,m,count=14):
+    # One cast spoke of the flywheel (formlab.layout.spoke_centre / spoke_section):
+    # rings of an ellipse — wide in the wheel's plane, thinner along its axis —
+    # carried along the bowed centreline, the ends buried in the hub and the rim.
+    us=[-.1+1.2*k/24 for k in range(25)]; verts=[]; faces=[]
+    for u in us:
+        c=spoke_centre(S,i,u); d=spoke_centre(S,i,u+1e-4); tx,ty=d[0]-c[0],d[1]-c[1]; L=math.hypot(tx,ty); nx,ny=-ty/L,tx/L
+        w,t=spoke_section(S,u)
+        for k in range(count):
+            a=math.tau*k/count; verts.append(tuple(vec((p[0]+c[0]+w*math.cos(a)*nx,p[1]+c[1]+w*math.cos(a)*ny,p[2]+t*math.sin(a)))))
+    for j in range(len(us)-1):
+        for k in range(count):
+            a=j*count+k; b=j*count+(k+1)%count; faces.append((a,b,b+count,a+count))
+    faces.append([k for k in range(count)][::-1]); faces.append([(len(us)-1)*count+k for k in range(count)])
+    return pydata(n,verts,faces,m)
+def gear(n,p,r_tip,teeth=16,spokes=None):
     # One joined mesh: the hub disc out to the teeth's roots and `teeth` involute
     # teeth from formlab.gear reaching r_tip — the pinion's own (16, which the
     # rack and the pawl are cut to) or the flywheel's ring gear (52, the same
     # module). Tooth 0 points along +x in the disc's home frame, as the pawl's
-    # kinematics assume.
+    # kinematics assume. With a `spokes` plan (formlab.layout.flywheel_plan) the
+    # disc is a casting instead: a rim under the roots and curved spokes to the hub.
     prof=tooth_profile.profile(teeth,r_tip); poly=tooth_profile.tooth_polygon(prof)
-    before=set(bpy.data.objects); o=cyl(n,p,prof['r_hub'],.07,brass)
-    o.rotation_euler=(math.pi/2,0,0)
+    before=set(bpy.data.objects)
+    if spokes:
+        o=ring(n,p,spokes['r_rim'],prof['r_hub'],.07,brass)
+        for i in range(spokes['count']): spoke(n+' spoke',p,spokes,i,brass)
+    else:
+        o=cyl(n,p,prof['r_hub'],.07,brass); o.rotation_euler=(math.pi/2,0,0)
     for i in range(teeth):
         tooth(n+' tooth',p,math.tau*i/teeth,.07,brass,poly)
     bpy.ops.object.select_all(action='DESELECT')
     for ob in set(bpy.data.objects)-before: ob.select_set(True)
     bpy.context.view_layer.objects.active=o; bpy.ops.object.join(); o.name=n
+    if spokes:   # the casting's pieces were laid out in world space: the wheel turns about its centre
+        bpy.context.scene.cursor.location=vec(p); bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
     return o
 def bell(n,p):
     # Hollow spun bell: wall profile down to an open lip and back up inside.
@@ -227,8 +264,9 @@ text('Chamber name','L O A M   /   THE CHAMBER',(0,.18,-1.21),.11)
 # (formlab.layout.flywheel_plan); Godot turns the wheel and pulleys a bar a turn.
 fw=flywheel_plan((-2.4,.53,-1.5),.4,cabinet_x=-1.8); manifest['flywheel']=fw
 # The wheel carries a ring gear — the plan's 52 involute teeth at the pinions'
-# module (formlab.gear.profile), so it and they are visibly one family of gears.
-gear('Chamber flywheel',fw['centre'],fw['r'],fw['teeth'])
+# module (formlab.gear.profile), so it and they are visibly one family of gears —
+# on a cast rim, six bowed spokes between it and the hub boss (fw['spokes']).
+gear('Chamber flywheel',fw['centre'],fw['r'],fw['teeth'],fw['spokes'])
 fw_mat={'hub':brass,'axle':steel,'housing':steel,'bolt':brass,'pulley':steel,'stub axle':steel}
 for label,(a,b,r) in fw['cyls'].items():
     beam('Chamber '+label,a,b,r,next((m for k,m in fw_mat.items() if k in label),steel))

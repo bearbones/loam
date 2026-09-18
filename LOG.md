@@ -1,3 +1,27 @@
+## 2026-09-18 — CLOCKWORK the flywheel is a casting: rim, boss and six bowed spokes
+
+With its ring gear cut, the flywheel was still a brass plate — a solid disc
+from the boss to the roots — and a disc turning a bar a turn does not read
+as turning at all. `formlab/layout.FLYWHEEL` now casts it the way an
+engine-house wheel is cast: a rim 90 mm deep from the teeth's tips (61 mm
+under their roots), the hub boss on
+the axle, and six spokes of elliptical section (wide in the wheel's plane,
+thinner along the axis, tapering from boss to rim) bowed tangentially by
+50 mm at mid-length (`spoke_centre`, `spoke_section`, numpy-free; the plan
+records them as `spokes`). The bow is the founder's rule — a cast rim shrinks
+as it cools after the spokes have set, and a curved spoke flexes to let it
+where a straight one cracks at the boss. `tools/build_clockwork.py` gains
+`pydata` (one mesh-from-vertices path the teeth, the rim `ring()` and each
+`spoke()` share), `gear()` takes the spokes plan and joins rim, spokes and
+teeth into the one `Chamber flywheel` mesh with its origin set back to the
+wheel's centre, so `performance.gd` spins it as before. `tools/test_flywheel.py`
+pins the rim's depth and the spokes inside the width, and now reads the built
+GLB (`glb_vertices`: JSON chunk, BIN chunk, the node's own transform) to hold
+that every vertex between boss and rim lies on a spoke's section — the disc
+is gone in the asset, not only in the plan. Both assets rebuilt in a worktree
+with `--rails=keep` (`layout.py` and the builder are outside the rail cache
+key) and committed; `docs/instrument-frames.md` describes the casting.
+
 ## 2026-09-18 — CLOCKWORK the flywheel's rim is a ring gear, and the assets are rebuilt at HEAD
 
 The involute pinions made the flywheel's sixteen bevelled blocks look like a

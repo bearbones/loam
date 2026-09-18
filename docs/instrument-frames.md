@@ -175,10 +175,26 @@ rail moved. The wheel's rim is a ring gear: 52 involute teeth cut by the
 pinions' profile at their module (`formlab.gear.profile`,
 `docs/articulated-arms.md` "The teeth are involute"), so the flywheel and the
 carriages' pinions read as one family of gears — the sixteen bevelled blocks
-it wore before looked like a cog drawn from memory next to them. `tools/test_flywheel.py` pins the axle through the wheel and both
+it wore before looked like a cog drawn from memory next to them.
+
+The wheel is a **casting**, not a disc: a rim 90 mm deep from the teeth's tips
+(61 mm under their roots), the hub boss on the axle, and six spokes between them (`FLYWHEEL['spokes']`,
+recorded on the plan as `spokes`). Each spoke is elliptical in section — wide in
+the wheel's plane, thinner along its axis, tapering from the boss to the rim —
+and **bowed** tangentially by 50 mm at mid-length (`layout.spoke_centre`,
+`layout.spoke_section`; the builder's `spoke()` sweeps rings of the ellipse
+along that line, its ends buried in boss and rim). The bow is the founder's
+rule, not a flourish: a cast rim shrinks as it cools after the spokes have set,
+and a curved spoke flexes to let it while a straight one would crack at the
+boss — which is why every engine-house flywheel of the period has them. A
+disc, besides, hid the wheel's turning: a bar a turn reads only if something
+passes. `tools/test_flywheel.py` pins the axle through the wheel and both
 housings, the housings clear of the wheel and hub, the pedestals on the sole
-plate, the pulleys in one plane, the bands tangent, and the assembly clear of
-every arm sweep, rail and obstacle; `dev/test_performance.gd` checks the wheel
+plate, the pulleys in one plane, the bands tangent, the assembly clear of
+every arm sweep, rail and obstacle, and the casting — the rim's depth under
+the roots, the spokes inside the wheel's width, and, reading the built GLB's
+`Chamber flywheel` mesh, that every vertex between boss and rim lies on a
+spoke's section (the disc is gone); `dev/test_performance.gd` checks the wheel
 turns a quarter turn in a quarter bar about z and the belt pulley by the ratio.
 
 ## The strings leave the soundbox through eyelets

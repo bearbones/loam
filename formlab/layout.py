@@ -118,7 +118,24 @@ FLYWHEEL=dict(width=.07, hub_r=.09, hub_w=.12, axle_r=.03, axle=(-.34,.22), bear
               block=(.20,.06,.11), pedestal=(.14,.10), sole=(.30,.03,.54), bolt_r=.012, bolt_h=.012, bolt_x=.08,
               pulley_z=-.27, pulley_r=.12, pulley_w=.06, belt_pulley_r=.10, belt_w=.05, belt_t=.006,
               ear=(.18,.26,.03), ear_gap=.05, stub_r=.022,
-              teeth=52)   # the rim's ring gear: 52 teeth at the pinions' 15 mm module reach the wheel's radius (formlab.gear.profile)
+              teeth=52,   # the rim's ring gear: 52 teeth at the pinions' 15 mm module reach the wheel's radius (formlab.gear.profile)
+              # The wheel is a casting, not a disc: a rim under the teeth, the hub boss on
+              # the axle, and six spokes between them of elliptical section (half-width in
+              # the wheel's plane, half-thickness along its axis; root → tip), each bowed
+              # tangentially — a founder curves a flywheel's spokes so the rim, shrinking
+              # as it cools, flexes them instead of tearing itself off them.
+              spokes=6, rim=.09, spoke_root=(.028,.024), spoke_tip=(.019,.016), spoke_bow=.05)
+def spoke_section(S,u):
+    """A spoke's half-width in the wheel's plane and half-thickness along its
+    axis at fraction u of its length (0 at the hub, 1 at the rim)."""
+    u=min(max(u,0.0),1.0)
+    return [S['root'][k]+(S['tip'][k]-S['root'][k])*u for k in (0,1)]
+def spoke_centre(S,i,u):
+    """The centreline of spoke i at fraction u, in the wheel's plane relative to
+    its centre: the radial line from the hub's radius to the rim's, bowed
+    tangentially by bow·sin(πu). u a little outside [0, 1] buries the ends."""
+    th=S['angle0']+math.tau*i/S['count']; rho=S['r_hub']+(S['r_rim']-S['r_hub'])*u; e=S['bow']*math.sin(math.pi*u)
+    return [rho*math.cos(th)-e*math.sin(th), rho*math.sin(th)+e*math.cos(th)]
 def flywheel_plan(centre,r,cabinet_x,floor=-.01):
     """Every solid of the flywheel assembly, from the wheel's centre (world),
     its radius, and the x of the cabinet end face the belt pulley's bracket
@@ -126,6 +143,8 @@ def flywheel_plan(centre,r,cabinet_x,floor=-.01):
     cylinders are (a, b, radius) along their axis."""
     F=FLYWHEEL; cx,cy,cz=centre; bz=F['bearing_z']
     plan=dict(centre=list(centre),r=r,teeth=FLYWHEEL['teeth'],boxes={},cyls={},floor=floor)
+    # the casting: rim from r_rim out to the teeth's roots, hub boss, spokes between (spoke_centre / spoke_section)
+    plan['spokes']=dict(count=F['spokes'],r_hub=F['hub_r'],r_rim=r-F['rim'],bow=F['spoke_bow'],root=list(F['spoke_root']),tip=list(F['spoke_tip']),angle0=0.0)
     B=plan['boxes']; C=plan['cyls']
     C['hub']=([cx,cy,cz-F['hub_w']/2],[cx,cy,cz+F['hub_w']/2],F['hub_r'])
     C['axle']=([cx,cy,cz+F['axle'][0]],[cx,cy,cz+F['axle'][1]],F['axle_r'])
