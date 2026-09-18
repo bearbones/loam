@@ -466,7 +466,26 @@ def bar_bush(centre, C):
             out.append(bolt_head((cx+s*L/2, cy+C['bolt_circle']*np.cos(a), cz+C['bolt_circle']*np.sin(a)), axis=(s, 0, 0), r=C['bolt_r'], h=C['bolt_h']))
     return out
 
-def carriage_body(o1, spec, mount='back', head=None):
+def screw_nut(centre, u, S):
+    """The leadscrew's nut on the carriage (docs/plans/leadscrew-servo-drive.md):
+    a bracket arm from the axle boss at `centre` out along `u` (the disc
+    plane's rack_direction) to the screw's axis, a square flange there with
+    four bolts, and the bronze nut body along X on the axis, its ends
+    chamfered. The nut piece is tagged `.material = 'bronze'`."""
+    centre = np.asarray(centre, float); u = np.asarray(u, float); X_ = np.array([1., 0, 0])
+    axis = centre+u*S['s_axis']; t = np.linspace(0, 1, 3)[:, None]
+    pieces = [sweep(centre+(axis-u*S['nut_r']*.6-centre)*t, S['arm_r'], S['arm_r'], profile=rounded_rect(.5, 16))]
+    f0 = axis-u*(S['nut_r']*.8+S['flange_t']); f1 = axis-u*S['nut_r']*.8
+    pieces.append(sweep(f0+(f1-f0)*t, S['flange'], S['flange'], profile=rounded_rect(.15, 16)))
+    w = np.cross(X_, u)              # the flange's other in-plane axis
+    for sx, sw in ((-1, -1), (-1, 1), (1, -1), (1, 1)):
+        pieces.append(bolt_head(f0+X_*sx*S['bolt_circle']+w*sw*S['bolt_circle'], axis=-u, r=.0055, h=.012))
+    L = S['nut_len']/2; r = S['nut_r']
+    nut = revolve([(0, -L), (r*.85, -L), (r, -L+.008), (r, L-.008), (r*.85, L), (0, L)], X_, axis, 24)
+    nut.material = 'bronze'; pieces.append(nut)
+    return pieces
+
+def carriage_body(o1, spec, mount='back', head=None, drive='rack'):
     """The carriage that rides the rail: the shoulder crosshead (pins 0 and
     o1; the upper link's eye turns between its plates at the shoulder), a
     split bushing around each guide bar, a cheek plate on the -X side
@@ -474,8 +493,10 @@ def carriage_body(o1, spec, mount='back', head=None):
     and the pinion's axle: out of the carriage plane for a front/back mount,
     or standing on a bridge back from a bushing for a pinion above or below
     the carriage (formlab.clearance.CARRIAGE / PINION / MOUNTS). One
-    casting; pieces overlap. `head`: crosshead() keywords (parallelogram_arm)."""
-    from .clearance import CARRIAGE as C, PINION as G, MOUNTS, default_layers
+    casting; pieces overlap. `head`: crosshead() keywords (parallelogram_arm).
+    `drive` 'screw' (clearance.drive_kind): no pinion — the axle boss stops
+    at the disc plane and carries the leadscrew's nut (screw_nut)."""
+    from .clearance import CARRIAGE as C, PINION as G, MOUNTS, default_layers, SCREW, rack_direction
     L = default_layers(spec)
     if head is None:
         head = dict(thickness=spec['head_t'], boss_r=spec['boss_r'], pin_r=spec['pin_r'], web=spec['web'], plate=L['plate'])
@@ -492,9 +513,11 @@ def carriage_body(o1, spec, mount='back', head=None):
     # nut and split pin that retain the pinion — `fastening`, as on every
     # pin of the arm — over PINION['retain'] past the boss.
     tip = (G['out'] if nz else G['up'])+h+G['boss_h']; end = tip+G['retain']
+    if drive == 'screw': end = G['out'] if nz else G['up']     # the boss ends in the plane the nut's arm lies in
     if nz:
         z0, z1 = sorted((.03*nz, end*nz))
         pieces.append(revolve([(0, z0), (C['axle_r'], z0), (C['axle_r'], z1), (0, z1)], Z, (0, 0, 0), 20))
+        if drive == 'screw': return pieces+screw_nut((0, 0, nz*end), rack_direction(mount), SCREW)
         pieces += fastening(tip, end, C['axle_r'], (0, 0, nz), (0, 0, 0))
     else:
         b0, b1 = C['bridge_y']; yc = ny*(b0+b1)/2
@@ -502,15 +525,17 @@ def carriage_body(o1, spec, mount='back', head=None):
         pieces.append(sweep(a+(b-a)*u, (b1-b0)/2, C['bridge_x'], profile=rounded_rect(.3, 16)))
         y0, y1 = sorted((ny*(b1-.01), ny*end))
         pieces.append(revolve([(0, y0), (C['axle_r'], y0), (C['axle_r'], y1), (0, y1)], Y, (0, 0, C['axle_z']), 20))
+        if drive == 'screw': return pieces+screw_nut((0, ny*end, C['axle_z']), rack_direction(mount), SCREW)
         pieces += fastening(tip, end, C['axle_r'], (0, ny, 0), (0, 0, C['axle_z']))
     return pieces
 
-def parallelogram_arm(l1, l2, o1, o2, spec=None, mount='back'):
+def parallelogram_arm(l1, l2, o1, o2, spec=None, mount='back', drive='rack'):
     """Double-parallelogram arm parts in their own local frames.
 
     o1, o2: constant world offsets (in the swing plane, x = 0) of the second
     bar of the upper / lower segment; `mount`: where the pinion sits off the
-    carriage (clearance.MOUNTS / pinion_mount). Returns dict name ->
+    carriage (clearance.MOUNTS / pinion_mount); `drive`: 'rack' (a pinion on
+    the carriage) or 'screw' (the leadscrew's nut). Returns dict name ->
     dict(pieces, pins) with these local frames:
       carriage   at the shoulder pin, fixed orientation (holds pins 0 and o1)
       upper      link frame from shoulder pin to elbow pin      (fork at B)
@@ -550,7 +575,7 @@ def parallelogram_arm(l1, l2, o1, o2, spec=None, mount='back'):
     # tool's socket tenon is buried in the wrist boss)
     wrist = crosshead([[0, 0, 0], o2], eye=(), **head)
     wrist += stub_pin(o2, -1, L, s)
-    carriage = carriage_body(o1, s, mount, head)
+    carriage = carriage_body(o1, s, mount, head, drive)
     pins = dict(shoulder=knuckle_pin(s['pin_r'], L['pin_span']), elbow=knuckle_pin(s['pin_r'], L['pin_span']),
                 wrist=knuckle_pin(s['pin_r'], L['pin_span']))
     return dict(carriage=dict(pieces=carriage), upper=dict(pieces=upper['pieces'], cup=upper['cup']),

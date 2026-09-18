@@ -17,7 +17,7 @@ from formlab.recipes import harp_frame,soundboard,action_plate,neck_faces,bar_fr
 from formlab.layout import bar_frame_plan,bench_plan,bench_elements,neck_plan
 from formlab.linkage import parallelogram_arm,pick_tool,mallet_tool,hammer_tool,tool_mount
 from formlab.rig import Rig,HAMMER
-from formlab.clearance import choose_offset,report,cross_arm_clearance,pinion_mount,rail_keep_clear,bar_pair_separation
+from formlab.clearance import choose_offset,report,cross_arm_clearance,pinion_mount,rail_keep_clear,bar_pair_separation,drive_kind
 from formlab.gantry import plan_gantries
 from formlab import pawl as pawl_lib
 ROOT=Path(__file__).resolve().parents[1]
@@ -58,6 +58,9 @@ if score_path.exists() and layout.get('arms'):
     probe=parallelogram_arm(1.0,1.0,[0,-.11,0],[0,0,-.11]); layers,spec=probe['layers'],probe['spec']
     for aid,cfg in layout['arms'].items():
         poses=rig.poses(aid,times)
+        # A stepped arm is driven by rack and pinion, a servo arm by a leadscrew
+        # (formlab.clearance.drive_kind, docs/plans/leadscrew-servo-drive.md).
+        drive=drive_kind(cfg)
         # The rail planner (formlab.layout_search) has already chosen the offsets and the
         # pinion's mount for this rail; keep them (its 30 Hz screen and this 120 Hz pass can
         # break an offset tie differently). Bare layouts get the same rules applied here: the
@@ -67,18 +70,20 @@ if score_path.exists() and layout.get('arms'):
             sep1=float(bar_pair_separation(poses,o1,'upper').min()); sep2=float(bar_pair_separation(poses,o2,'lower').min())
         else:
             o1,sep1,_=choose_offset(poses,'upper',.11,keep_clear=rail_keep_clear()); o2,sep2,_=choose_offset(poses,'lower',.11)
-            pmount,_=pinion_mount(poses,o1,o2,layers,spec)
-        parts=parallelogram_arm(float(cfg['l1']),float(cfg['l2']),o1,o2,mount=pmount)
+            pmount,_=pinion_mount(poses,o1,o2,layers,spec,drive=drive)
+        parts=parallelogram_arm(float(cfg['l1']),float(cfg['l2']),o1,o2,mount=pmount,drive=drive)
         # A stepped (mallet) arm's pinion carries a roller detent pawl (formlab.pawl): its
         # bracket and pin are cast onto the carriage; the pawl itself is a local part.
         pawl_info=pawl_lib.manifest(pmount,float(rig.contact(rig.acts[aid]['home'])[0])) if rig.stepped(aid) and pawl_lib.MOUNTS[pmount][1] else None
         if pawl_info: parts['carriage']['pieces']=parts['carriage']['pieces']+pawl_lib.bracket_pieces(pmount)
         strings={sid:s for sid,s in layout['strings'].items() if s['mid']==cfg['mid']}
-        rep=report(rig,aid,o1,o2,layers,spec,strings,poses=poses,mount=pmount); reports[aid]=rep
+        rep=report(rig,aid,o1,o2,layers,spec,strings,poses=poses,mount=pmount,drive=drive); reports[aid]=rep
         material={'carriage':'steel','elbowhead':'steel','wristhead':'steel','shoulder':'steel','elbow':'steel','wrist':'steel'}
         for part,body in parts.items():
             if part in ('layers','spec'): continue
-            entry=pack(f'{aid}__{part}',body['pieces'],material.get(part,'brass'),'articulated link, local frame')
+            # a piece may name its own material (the leadscrew nut is bronze on a steel carriage)
+            mats=[getattr(p,'material',material.get(part,'brass')) for p in body['pieces']]
+            entry=pack(f'{aid}__{part}',body['pieces'],material.get(part,'brass'),'articulated link, local frame',materials=mats if len(set(mats))>1 else None)
             entry['finish']='profiled'; entry['local']=True; objects.append(entry)
         # The tool hangs from the wrist crosshead's lower boss; the shank is built to reach it.
         mount=tool_mount(rig.wrist_offset(cfg),o2)
@@ -117,8 +122,8 @@ if score_path.exists() and layout.get('arms'):
             upper_pair_separation_m=float(sep1),lower_pair_separation_m=float(sep2),
             self_clearance_m=rep['worst_gap_m'],self_worst=rep['worst_pair'],self_worst_time_s=rep['worst_time_s'],
             string_clearance_m=rep['string_gap_m'],string_worst=list(rep['string_worst']))
-        all_poses[aid]=poses; layout['arms'][aid].update(o1=arms[aid]['o1'],o2=arms[aid]['o2'],layers=layers,pinion=pmount)
-        arms[aid]['pinion']=pmount
+        all_poses[aid]=poses; layout['arms'][aid].update(o1=arms[aid]['o1'],o2=arms[aid]['o2'],layers=layers,pinion=pmount,drive=drive)
+        arms[aid]['pinion']=pmount; arms[aid]['drive']=drive
         if pawl_info: arms[aid]['pawl']=pawl_info
         if head_info: arms[aid]['head']=head_info; layout['arms'][aid]['head']=head_info
     # Rail gantries: heads, masts, plinths and (where needed) brackets, placed clear of everything above.
@@ -128,6 +133,10 @@ if score_path.exists() and layout.get('arms'):
         objects.append(pack(f'form_{aid}_railhead',g['brass'],'brass','rail heads and brackets capturing the guide bars; the pinion\'s rack')); objects[-1]['finish']='profiled'
         objects.append(pack(f'form_{aid}_gantry',g['steel'],'steel','tapered mast, plinth, knee brace, bolts')); objects[-1]['finish']='profiled'
         arms[aid]['gantry']=dict(ends=g['ends'],margin_m=g['margin'],worst=g['worst'],rack=g['rack'])
+        # a servo arm's leadscrew shaft is its own form: Godot spins it about its axis
+        if g.get('shaft'):
+            objects.append(pack(f'form_{aid}_screw',g['shaft'],'steel','leadscrew shaft and thread, turning in the heads\' bearings')); objects[-1]['finish']='profiled'
+            arms[aid]['screw']=g['screw']
     cross={f'{a}/{b}':dict(gap_m=g,parts=list(pair),time_s=float(times[k])) for (a,b),(g,pair,k) in cross_arm_clearance(reports).items()}
     worst_cross=min(cross.values(),key=lambda c:c['gap_m']) if cross else None
     arms['_cross_arm']=cross

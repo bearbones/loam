@@ -401,6 +401,35 @@ check(m_front != 'back' and g_front > .05, f'pinion_mount: a link swinging back 
 check(pinion_mount(swing([0, -.3, -1.0]), [0, 0, .11], [0, .10625, .02847], layers, DEFAULT_SPEC, ['back'])[1] < 0,
       'pinion_mount: forcing the mount the link swings through reports the hit')
 
+# A servo arm's carriage (drive='screw', docs/plans/leadscrew-servo-drive.md)
+# carries no pinion: the axle boss stops at the disc plane and a bracket arm
+# runs out along rack_direction to a flanged, bolted BRONZE nut on the
+# leadscrew's axis — all inside the nut / nut_arm capsules drive_capsules
+# reserves, with no pinion capsule and nothing beyond the plane.
+from formlab.clearance import SCREW, drive_capsules, drive_kind
+check(drive_kind(dict(kind='mallet')) == 'rack' and drive_kind(dict(kind='hammer')) == 'rack' and drive_kind(dict(kind='pick')) == 'screw' and drive_kind(dict(kind='rake')) == 'screw',
+      'drive_kind: mallet and hammer arms keep the rack, pick and rake arms ride a leadscrew')
+for mount in MOUNTS:
+    ny, nz = MOUNTS[mount]; n = np.array([0, ny, nz], float); u = rack_direction(mount)
+    arm = parallelogram_arm(1.0, 1.0, [0, 0, .11], [0, .10625, .02847], mount=mount, drive='screw'); V = [p.vertices for p in arm['carriage']['pieces']]
+    check_pieces(arm['carriage']['pieces'])
+    centre = pinion_centre(mount); axis = centre+u*SCREW['s_axis']; depth = lambda v: (v-centre)@n
+    nut = [p for p in arm['carriage']['pieces'] if getattr(p, 'material', None) == 'bronze']
+    rad = lambda v: np.linalg.norm((v-axis)-np.outer((v-axis)@[1, 0, 0], [1, 0, 0]), axis=1)
+    caps = drive_capsules(np.zeros(3), mount, 'screw')
+    def housed(v):                    # every vertex inside one of the nut capsules
+        ok = np.zeros(len(v), bool)
+        for k in ('nut', 'nut_arm', 'nut_flange'):
+            a, b, r = caps[k]; d = b-a; t = np.clip((v-a)@d/(d@d), 0, 1); ok |= np.linalg.norm(v-a-np.outer(t, d), axis=1) <= r+1e-6
+        return ok.all()
+    # the nut's axis lies in the disc plane, so the nut, flange and bolts straddle it by no more than the flange's half-width
+    beyond = max(depth(v).max() for v in V)
+    drive_pieces = [v for v in V if abs(depth(v)).max() < .06 and (v@u).max() > centre@u+.03]   # the arm, flange, bolts and nut: about the plane and out along u (not the axle's stub)
+    check(len(nut) == 1 and abs(nut[0].vertices.mean(0)-axis).max() < 1e-6 and abs(rad(nut[0].vertices).max()-SCREW['nut_r']) < 1e-6
+          and abs(np.ptp(nut[0].vertices[:, 0])-SCREW['nut_len']) < 1e-6 and beyond <= SCREW['flange']+1e-6 and len(drive_pieces) == 7 and all(housed(v) for v in drive_pieces)
+          and not any(k.startswith('pinion') for k in caps) and {'nut', 'nut_arm', 'nut_flange', 'carriage_axle'} <= set(caps),
+          f'{mount}: a screw carriage — one bronze nut on the screw axis {SCREW["s_axis"]*1000:.0f} mm out, its arm, flange and bolts inside the nut capsules, nothing past the plane but them, no pinion')
+
 # the built pinions carry the boss on their outer face (build_clockwork.gear,
 # cast with the disc so it turns): the gear mesh reaches boss_h past the disc
 # on the mount's side — the side away from the carriage — and no further
@@ -413,6 +442,17 @@ for asset in ('clockwork', 'clockwork_expanded'):
     if not (assets/f'{asset}.glb').exists(): continue
     layout = json.loads((assets/f'{asset}.json').read_text())
     for aid, cfg in layout['arms'].items():
+        # a servo arm is built without a pinion; its leadscrew shaft is its own form
+        if drive_kind(cfg) == 'screw':
+            try: V = glb_vertices(assets/f'{asset}.glb', f'form_{aid}_screw')
+            except Exception: V = None
+            try: gear = glb_vertices(assets/f'{asset}.glb', aid+'__gear')
+            except Exception: gear = None
+            sc = cfg.get('screw', {})
+            check(V is not None and gear is None and cfg.get('drive') == 'screw' and sc and abs(V[:, 1].mean()-sc['y']) < .002 and abs(V[:, 2].mean()-sc['z']) < .002
+                  and V[:, 0].min() < sc['x_thread'][0] and V[:, 0].max() > sc['x_thread'][1] and np.ptp(V[:, 1]) < 2*(SCREW['shaft_r']+2*SCREW['thread_r'])+.001,
+                  f'{asset} {aid}: built with a leadscrew (form_{aid}_screw on its recorded axis, threaded over {sc.get("x_thread")}) and no pinion')
+            continue
         # the exported node carries its home pose, so measure the mesh about
         # itself: its extent along n is disc + boss; the slab at the +n end is
         # boss-sized (a boss on the wrong side would put the disc's rim there)

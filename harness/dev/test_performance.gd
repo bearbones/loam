@@ -61,10 +61,26 @@ func check_scene() -> void:
 			# The pinion sits on its recorded mount (formlab.clearance.MOUNTS) and lies in
 			# the plane that mount implies: upright (thin along z) in front of or behind
 			# the carriage, flat (thin along y) above or below it.
-			var gear: MeshInstance3D=scene.parts[aid]["gear"]
+			# A servo arm has no pinion: its leadscrew shaft (form_<aid>_screw) turns
+			# -2π·x/pitch about its own axis line, which stays put (formlab.gantry.
+			# screw_geometry, performance.gd); a stepped arm still has its gear.
+			var servo: bool=str(cfg.get("drive","rack"))=="screw"
+			var gear_node: Node3D=scene.model.find_child(aid+"__gear",true,false)
+			if servo:
+				var screw: Node3D=scene.model.find_child("form_"+aid+"_screw",true,false)
+				if gear_node!=null: failures.append("servo arm carries a pinion "+aid)
+				if screw==null or not cfg.has("screw"): failures.append("servo arm has no leadscrew "+aid)
+				else:
+					var sc: Dictionary=cfg["screw"]; var c := Vector3(0,float(sc["y"]),float(sc["z"]))
+					var want: float=wrapf(-TAU*pose["root"].x/float(sc["pitch"]),-PI,PI)
+					if (screw.transform*c).distance_to(c)>.00001: failures.append("leadscrew turns off its axis "+aid)
+					if absf(angle_difference(screw.basis.get_euler().x,want))>.0001 or screw.basis.x.distance_to(Vector3.RIGHT)>.0001: failures.append("leadscrew not turned x/pitch "+aid)
+			var gear: MeshInstance3D=gear_node as MeshInstance3D
 			var mount: String=str(cfg.get("pinion","back"))
 			var offsets := {"front": Vector3(0,0,.195), "back": Vector3(0,0,-.195), "up": Vector3(0,.17,-.10), "down": Vector3(0,-.17,-.10)}
-			if not offsets.has(mount): failures.append("unknown pinion mount "+mount+" "+aid)
+			if servo: pass
+			elif not offsets.has(mount): failures.append("unknown pinion mount "+mount+" "+aid)
+			elif gear==null: failures.append("stepped arm has no pinion "+aid)
 			elif gear.global_position.distance_to(pose["root"]+offsets[mount])>.00001: failures.append("pinion off its mount "+aid)
 			else:
 				var box: AABB=gear.global_transform*gear.mesh.get_aabb()

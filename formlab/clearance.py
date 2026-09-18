@@ -64,6 +64,21 @@ CARRIAGE = dict(bar_dy=.075, bar_r=.024, bush_r=.045, bush_len=.16, bush_body_r=
 PINION = dict(out=.195, up=.17, r_pitch=.12, teeth=16, thickness=.07, r_tip=.13, r_hub=.1014, boss_r=.045, boss_h=.03, retain=.05)
 # mount -> disc-plane normal (y, z); preference order for ties
 MOUNTS = dict(back=(0., -1.), up=(1., 0.), down=(-1., 0.), front=(0., 1.))
+# Two drives for two vocabularies (docs/motion-design.md, docs/plans/leadscrew-
+# servo-drive.md): a stepped arm (mallet, hammer) keeps rack, pinion and pawl;
+# a servo arm (pick, rake) rides a LEADSCREW — a threaded shaft the length of
+# the rail on the rack's line (s_axis from the axle line along rack_direction,
+# in the disc's plane), turning in bearings on the head stubs with a finned
+# drive housing at the low end, and a bronze nut on the carriage bracketed to
+# the boss where the pinion's axle stood. The nut takes the pinion's place in
+# the arm's capsules (drive_capsules), the shaft the rack's (gantry.rail_racks).
+SCREW = dict(s_axis=.135, shaft_r=.010, thread_r=.003, pitch=.008, turn_samples=10, thread_sides=16,
+             nut_r=.035, nut_len=.09, arm_r=.02, flange=.045, flange_t=.008, bolt_circle=.032,
+             bearing_r=.03, bearing_len=.04, housing_r=.028, housing_len=.07, fin_r=.034, fin_t=.004)
+
+def drive_kind(cfg):
+    """'rack' for a stepped arm (mallet, hammer), 'screw' for a servo arm."""
+    return 'rack' if cfg.get('kind') in ('mallet', 'hammer') else 'screw'
 # The rail gantry (formlab.gantry builds it; the rail search screens it):
 # bars run rail_over past the reach window into a head (head_len long from
 # head_inset past the bar end, half-height head_h, half-depth head_d) that
@@ -145,21 +160,31 @@ def rack_direction(mount):
     rail above or below its bars)."""
     return np.array([0., 1., 0.]) if MOUNTS[mount][1] else np.array([0., 0., -1.])
 
-def drive_capsules(root, mount):
+def drive_capsules(root, mount, drive='rack'):
     """The pinion (a stack of chords in its plane, shortened by their radius
     so the disc's rim is not overstated toward the rail heads), its axle
     and — for an up/down mount — the bridge the axle stands on. World
-    capsules per pose, name -> (P, Q, r)."""
+    capsules per pose, name -> (P, Q, r). `drive` 'screw': no disc — the
+    axle boss stops at the disc plane and carries the nut's bracket arm out
+    along rack_direction to the leadscrew's nut (SCREW)."""
     C = CARRIAGE; G = PINION; X = np.array([1., 0, 0]); ny, nz = MOUNTS[mount]
     n = np.array([0., ny, nz]); centre = root+pinion_centre(mount); h = G['thickness']/2
     u = rack_direction(mount)          # in-plane axis the chords are stacked along
     caps = {}
+    if drive == 'screw': h = 0.       # the boss reaches the plane the nut's arm lies in
     if nz:
         caps['carriage_axle'] = (root+n*.03, centre-n*h, C['axle_r'])
     else:
         b0, b1 = C['bridge_y']; by = np.array([0., ny*(b0+b1)/2, 0.])
         caps['carriage_bridge'] = (root+by, root+by+[0, 0, C['bridge_z']], (b1-b0)/2+.01)
         caps['carriage_axle'] = (root+[0, ny*b1-ny*.01, C['axle_z']], centre-n*h, C['axle_r'])
+    if drive == 'screw':
+        S = SCREW; axis = centre+u*S['s_axis']; bx = X*S['nut_len']/2
+        caps['nut_arm'] = (centre, axis, S['arm_r']+.005)      # the rounded-rect arm's corners reach arm_r·(1+.5·(√2−1))
+        caps['nut'] = (axis-bx, axis+bx, S['nut_r'])
+        fm = axis-u*(S['nut_r']*.8+S['flange_t']/2); fx = X*S['flange']     # the square flange and its bolt heads
+        caps['nut_flange'] = (fm-fx, fm+fx, S['flange']+.002)
+        return caps
     for k, s in enumerate((-.11, -.07, 0., .07, .11)):
         half = max(np.sqrt(G['r_tip']**2-s*s)-h, .02)
         caps[f'pinion{k}'] = (centre-X*half+u*s, centre+X*half+u*s, h)
@@ -169,19 +194,19 @@ def drive_capsules(root, mount):
 
 MOUNT_COMFORT = .05    # a mount this clear of the links is taken in preference order
 
-def pinion_mount(poses, o1, o2, layers, spec, mounts=None):
+def pinion_mount(poses, o1, o2, layers, spec, mounts=None, drive='rack'):
     """Which mount keeps the drive clear of the arm's own links over the
-    motion. The minimum gap between the pinion, axle and bridge and the
-    links, webs and bars is measured for each mount; the first in MOUNTS
-    order (behind the rail — away from the strings — then above, below, in
-    front) with MOUNT_COMFORT to spare is taken, else the clearest.
-    Returns (mount, gap)."""
+    motion. The minimum gap between the pinion (or the leadscrew's nut and
+    its arm), axle and bridge and the links, webs and bars is measured for
+    each mount; the first in MOUNTS order (behind the rail — away from the
+    strings — then above, below, in front) with MOUNT_COMFORT to spare is
+    taken, else the clearest. Returns (mount, gap)."""
     best = None
     for m in (mounts or MOUNTS):
-        caps, adjacent = arm_capsules(poses, o1, o2, layers, spec, m)
-        drive = [k for k in caps if k.startswith('pinion') or k in ('carriage_axle', 'carriage_bridge')]
+        caps, adjacent = arm_capsules(poses, o1, o2, layers, spec, m, drive)
+        drive_parts = [k for k in caps if k.startswith(('pinion', 'nut')) or k in ('carriage_axle', 'carriage_bridge')]
         gap = 1e9
-        for a in drive:
+        for a in drive_parts:
             for b in ('upper', 'upper2', 'lower', 'lower2', 'carriage_web', 'elbowhead_web1', 'elbowhead_web2'):
                 if frozenset((a, b)) in adjacent: continue
                 P1, Q1, r1 = caps[a]; P2, Q2, r2 = caps[b]
@@ -251,11 +276,12 @@ def link_basis(a, b, pin_axis=(1, 0, 0)):
     x = x/np.linalg.norm(x, axis=-1, keepdims=True)
     return x, y, np.cross(x, y)
 
-def arm_capsules(poses, o1, o2, layers, spec, mount='back'):
+def arm_capsules(poses, o1, o2, layers, spec, mount='back', drive='rack'):
     """World capsules per pose for a parallelogram arm. Returns dict name ->
     (P, Q, r) arrays of shape (T,3),(T,3),scalar, plus the adjacency set
     (pairs that legitimately touch at a shared pin). `mount`: the pinion's
-    (MOUNTS; pinion_mount chooses it)."""
+    (MOUNTS; pinion_mount chooses it); `drive`: 'rack' (pinion) or 'screw'
+    (the leadscrew's nut) — drive_kind."""
     root, elbow, wrist = poses['root'], poses['elbow'], poses['wrist']
     o1 = np.asarray(o1, float); o2 = np.asarray(o2, float); X = np.array([1., 0, 0])
     r_bar = max(spec['width'], spec['depth'])/2; r_bar2 = r_bar*.8; outer = layers['outer']
@@ -324,9 +350,9 @@ def arm_capsules(poses, o1, o2, layers, spec, mount='back'):
         c = root+[0, s*C['bar_dy'], 0]; caps['carriage_bush'+tag] = (c-bx, c+bx, C['bush_r'])
     cx = X*C['cheek_x']; cy = np.array([0., C['cheek_y'], 0])
     caps['carriage_cheek'] = (root+cx-cy, root+cx+cy, C['cheek_z'])
-    caps.update(drive_capsules(root, mount))
+    caps.update(drive_capsules(root, mount, drive))
     carriage = [k for k in caps if k.startswith('carriage_') and k != 'carriage_web']
-    pinion = [f'pinion{k}' for k in range(5)]+['pinion_boss']
+    pinion = [k for k in caps if k.startswith(('pinion', 'nut'))]     # the disc and boss, or the leadscrew's nut and its arm
     adjacent = {frozenset(p) for p in [
         # the carriage's parts meet the links at the shoulder pin; the pinion
         # (disc and hub boss) touches only its axle and its fastening — a link
@@ -394,9 +420,9 @@ def choose_offset(poses, which, magnitude, candidates=72, half_plane=True, keep_
         if best is None or worst > best[1]: best = (o, worst)
     return best[0], best[1], table
 
-def report(rig, aid, o1, o2, layers, spec, strings=None, string_r=.002, poses=None, mount='back'):
+def report(rig, aid, o1, o2, layers, spec, strings=None, string_r=.002, poses=None, mount='back', drive='rack'):
     poses = rig.poses(aid) if poses is None else poses
-    caps, adjacent = arm_capsules(poses, o1, o2, layers, spec, mount)
+    caps, adjacent = arm_capsules(poses, o1, o2, layers, spec, mount, drive)
     gaps = pairwise_clearance(caps, adjacent)
     worst = min(gaps.items(), key=lambda kv: kv[1][0])
     result = dict(arm=aid, samples=len(poses['t']),

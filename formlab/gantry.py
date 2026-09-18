@@ -34,14 +34,14 @@ try:
     from .gear import rack_half
     from .linkage import rounded_rect, revolve, ring, bolt_head
     from .clearance import (arm_capsules, default_layers, DEFAULT_SPEC, segment_distance, PINION, MOUNTS, pinion_centre, rack_direction,
-                            GANTRY, gantry_candidates, foot_level, head_box)
+                            GANTRY, gantry_candidates, foot_level, head_box, SCREW, drive_kind)
     from .layout_search import box_gap, scene_boxes, pin_shifts, stack_caps, solids_gap
 except ImportError:   # bare import (formlab/ on sys.path)
     from sweep import sweep, validate_mesh
     from gear import rack_half
     from linkage import rounded_rect, revolve, ring, bolt_head
     from clearance import (arm_capsules, default_layers, DEFAULT_SPEC, segment_distance, PINION, MOUNTS, pinion_centre, rack_direction,
-                           GANTRY, gantry_candidates, foot_level, head_box)
+                           GANTRY, gantry_candidates, foot_level, head_box, SCREW, drive_kind)
     from layout_search import box_gap, scene_boxes, pin_shifts, stack_caps, solids_gap
 
 # The space model lives in formlab.clearance.GANTRY (the rail search screens
@@ -226,8 +226,84 @@ def rack_boxes(cfg):
     return boxes
 
 
+def screw_geometry(cfg):
+    """A servo arm's leadscrew (clearance.SCREW; docs/plans/leadscrew-servo-
+    drive.md) on the rack's line: `axis` (x = 0) in the disc's plane s_axis
+    out along rack_direction from the axle line; bearings on the head stubs
+    at x_bear; the finned drive housing just inside the low bearing
+    (x_house); the thread between x_thread; the shaft from x_shaft. e1, e2:
+    the thread's frame — right-handed with +X, so the helix is a right-hand
+    thread and +x travel of the nut is a NEGATIVE turn of the screw about
+    +x (harness/performance.gd)."""
+    R = rack_geometry(cfg); S = SCREW; xa, xb = _rack_stub_x(R)
+    axis = R['centre']+R['u']*S['s_axis']; axis[0] = 0.
+    h0 = xa+S['bearing_len']/2+.01; h1 = h0+S['housing_len']
+    e1 = R['u']; e2 = np.cross([1., 0, 0], e1)
+    return dict(R, axis=axis, x_bear=(xa, xb), x_house=(h0, h1), x_thread=(h1+.015, xb-S['bearing_len']/2-.015),
+                x_shaft=(xa-.03, xb+.03), e1=e1, e2=e2, pitch=S['pitch'])
+
+
+def screw(cfg):
+    """The leadscrew's fixed pieces (brass): a pedestal from each rail head
+    to the axis where the rack's stubs stood, a bearing ring on each, and the
+    finned drive housing on the shaft at the low end. Returns (fixed,
+    shaft): `shaft` (steel) — the core and its helical thread — is packed as
+    its own form (`form_<aid>_screw`) so Godot can spin it."""
+    Q = screw_geometry(cfg); S = SCREW; ny, nz = Q['normal']; c = Q['centre']; ax = Q['axis']
+    ry = cfg['root_y']; rz = cfg['root_z']; radial = nz != 0
+    fixed = []
+    for x in Q['x_bear']:
+        if radial:
+            fixed.append(prism((x, ax[1], rz+nz*.05), (x, ax[1], ax[2]), .02, .03, .3, 3))
+        else:
+            y_arm = ny*(PINION['up']+.005)
+            fixed.append(prism((x, ry+ny*(HEAD_H-.02), rz-.05), (x, ry+y_arm+ny*.015, rz-.05), .03, .02, .3, 3))
+            fixed.append(prism((x, ry+y_arm, rz-.05), (x, ry+y_arm, ax[2]), .015, .03, .3, 3))
+        fixed.append(ring((x, ax[1], ax[2]), S['shaft_r']+.002, S['bearing_r'], S['bearing_len'], axis=(1, 0, 0)))
+    h0, h1 = Q['x_house']; hr = S['housing_r']
+    fixed.append(revolve([(0, h0), (hr*.8, h0), (hr, h0+.008), (hr, h1-.008), (hr*.8, h1), (0, h1)], (1, 0, 0), (0, ax[1], ax[2]), 24))
+    for d in (Q['e1'], -Q['e1'], Q['e2'], -Q['e2']):        # four cooling fins, in the disc plane and across it
+        m = ax+d*(hr-.006+S['fin_r'])/2; half = (S['fin_r']-hr+.006)/2
+        w = abs(d[1])*half+abs(d[2])*S['fin_t']/2; dd = abs(d[2])*half+abs(d[1])*S['fin_t']/2   # along ±X the half-widths are (Y, Z)
+        fixed.append(prism((h0+.012, m[1], m[2]), (h1-.012, m[1], m[2]), w, dd, .2, 3))
+    s0, s1 = Q['x_shaft']
+    shaft = [revolve([(0, s0), (S['shaft_r'], s0), (S['shaft_r'], s1), (0, s1)], (1, 0, 0), (0, ax[1], ax[2]), 20)]
+    t0, t1 = Q['x_thread']; n = int(np.ceil((t1-t0)/S['pitch']*S['turn_samples']))
+    x = np.linspace(t0, t1, n); th = 2*np.pi*(x-t0)/S['pitch']
+    path = np.array([0, ax[1], ax[2]])+np.outer(x, [1, 0, 0])+np.outer(np.cos(th), Q['e1'])*S['shaft_r']+np.outer(np.sin(th), Q['e2'])*S['shaft_r']
+    shaft.append(sweep(path, S['thread_r'], S['thread_r'], sides=S['thread_sides']))
+    return fixed, shaft
+
+
+def screw_boxes(cfg):
+    """AABBs of a rail's leadscrew: the shaft with its thread and housing as
+    one box (an obstacle to every other arm's bracket, as the rack is), and
+    the pedestals — named `rack stub` so the planner's exemptions hold."""
+    Q = screw_geometry(cfg); S = SCREW; ny, nz = Q['normal']; ax = Q['axis']; ry = cfg['root_y']; rz = cfg['root_z']
+    r = max(S['bearing_r'], S['fin_r']); s0, s1 = Q['x_shaft']
+    boxes = [('rack', (np.array([s0, ax[1]-r, ax[2]-r]), np.array([s1, ax[1]+r, ax[2]+r])))]
+    for i, x in enumerate(Q['x_bear']):
+        if nz:
+            z_lo, z_hi = sorted((rz+nz*.05, ax[2]))
+            boxes.append((f'rack stub {i}', (np.array([x-.03, ax[1]-.03, z_lo]), np.array([x+.03, ax[1]+.03, z_hi]))))
+        else:
+            y_arm = ny*(PINION['up']+.005); y0, y1 = sorted((ry+ny*(HEAD_H-.02), ry+y_arm+ny*.015))
+            boxes.append((f'rack stub {i} post', (np.array([x-.03, y0, rz-.07]), np.array([x+.03, y1, rz-.03]))))
+            boxes.append((f'rack stub {i} arm', (np.array([x-.03, ry+y_arm-.015, ax[2]-.03]), np.array([x+.03, ry+y_arm+.015, rz-.03]))))
+    return boxes
+
+
+def drive_boxes(cfg):
+    """rack_boxes or screw_boxes by the arm's drive (clearance.drive_kind)."""
+    return screw_boxes(cfg) if drive_kind(cfg) == 'screw' else rack_boxes(cfg)
+
+
 def rail_racks(cfg):
-    """The rack as one capsule (P, Q, r) for the arm rulers."""
+    """The rack — or a servo arm's leadscrew — as one capsule (P, Q, r) for
+    the arm rulers."""
+    if drive_kind(cfg) == 'screw':
+        Q = screw_geometry(cfg); P = Q['axis'].copy(); Qb = Q['axis'].copy(); P[0], Qb[0] = Q['x_shaft']
+        return [(P, Qb, SCREW['shaft_r']+SCREW['thread_r'])]
     R = rack_geometry(cfg); m = R['centre']+R['u']*(R['s_tip']+R['s_top'])/2
     P = m.copy(); Q = m.copy(); P[0] = R['x_a']; Q[0] = R['x_b']
     return [(P, Q, max((R['s_top']-R['s_tip'])/2, R['h']))]
@@ -284,7 +360,7 @@ def _caps(layout, poses, step=1):
     layers = default_layers(DEFAULT_SPEC); out = {}
     for aid, cfg in layout['arms'].items():
         p = {k: v[::step] for k, v in poses[aid].items()}
-        out[aid] = arm_capsules(p, cfg['o1'], cfg['o2'], cfg.get('layers', layers), DEFAULT_SPEC, cfg.get('pinion', 'back'))[0]
+        out[aid] = arm_capsules(p, cfg['o1'], cfg['o2'], cfg.get('layers', layers), DEFAULT_SPEC, cfg.get('pinion', 'back'), drive_kind(cfg))[0]
     return out
 
 
@@ -329,15 +405,15 @@ def plan_gantries(layout, poses, form_boxes=(), verbose=print):
               for aid, cfg in layout['arms'].items()
               for xa, xb in ((cfg['reach_x'][0]-RAIL_OVER-HEAD_INSET-HEAD_LEN, cfg['reach_x'][0]-RAIL_OVER-HEAD_INSET),
                              (cfg['reach_x'][1]+RAIL_OVER+HEAD_INSET, cfg['reach_x'][1]+RAIL_OVER+HEAD_INSET+HEAD_LEN))]
-    # so are the racks: fixed by their rails, so every bracket avoids them
-    placed += [(f'{aid} {name}', geo) for aid, cfg in layout['arms'].items() for name, geo in rack_boxes(cfg)]
+    # so are the racks and leadscrews: fixed by their rails, so every bracket avoids them
+    placed += [(f'{aid} {name}', geo) for aid, cfg in layout['arms'].items() for name, geo in drive_boxes(cfg)]
     for aid, cfg in layout['arms'].items():
         x0, x1 = cfg['reach_x']; behind = behind_sign(cfg, layout['strings'])
         other_bars = [b for b in bars if b[0] != aid]; ends = []
-        # The rack has no placement to search; it must simply clear the OTHER
-        # arms (the rail search keeps them off it), rails, forms and gantries.
+        # The rack (or leadscrew) has no placement to search; it must simply clear
+        # the OTHER arms (the rail search keeps them off it), rails, forms and gantries.
         others = [pl for pl in placed if not pl[0].startswith(f'{aid} ')]
-        rack_gap = min((g for _, geo in rack_boxes(cfg)
+        rack_gap = min((g for _, geo in drive_boxes(cfg)
                         for g in (_gap_arms(('box',)+tuple(geo), {a: st for a, st in full.items() if a != aid}), _gap_fixed(('box',)+tuple(geo), other_bars, boxes, others, ()))),
                        key=lambda g: g[0])
         if rack_gap[0] < MARGIN:
@@ -346,8 +422,16 @@ def plan_gantries(layout, poses, form_boxes=(), verbose=print):
             end = plan_end(aid, cfg, side, x_end, behind, quick, full, other_bars, boxes, placed, verbose)
             end['bar_x'] = x_end+side*(HEAD_INSET+BAR_END)   # where the bar ends, inside the head's flanged bush (build_clockwork reads it)
             placed += [(aid, geo) for kind, geo in solids(end) if kind == 'box']; ends.append(end)
-        out[aid] = dict(behind=behind, brass=sum((e['brass'] for e in ends), rack(cfg)), steel=sum((e['steel'] for e in ends), []),
-                        rack=dict(gap=rack_gap[0], worst=rack_gap[1], mount=cfg.get('pinion', 'back')),
+        # a servo arm's leadscrew: its pedestals, bearings and housing are cast with
+        # the heads; the shaft is its own form (build_forms), spun by the harness
+        if drive_kind(cfg) == 'screw':
+            fixed, shaft = screw(cfg); Q = screw_geometry(cfg)
+            drive = dict(shaft=shaft, screw=dict(y=float(Q['axis'][1]), z=float(Q['axis'][2]), pitch=Q['pitch'], x_thread=[float(v) for v in Q['x_thread']],
+                                                x_bear=[float(v) for v in Q['x_bear']], x_house=[float(v) for v in Q['x_house']]))
+        else:
+            fixed = rack(cfg); drive = {}
+        out[aid] = dict(behind=behind, brass=sum((e['brass'] for e in ends), fixed), steel=sum((e['steel'] for e in ends), []), **drive,
+                        rack=dict(gap=rack_gap[0], worst=rack_gap[1], mount=cfg.get('pinion', 'back'), drive=drive_kind(cfg)),
                         margin=min([e['gap'] for e in ends]+[rack_gap[0]]), worst=min(ends, key=lambda e: e['gap'])['worst'],
                         ends=[dict(side=e['side'], bar_x=e['bar_x'], outreach=e['outreach'], setback=e['setback'], mast_z=e['mast_z'],
                                    x_col=e['x_col'], foot_y=e['foot_y'], height=e['height'], gap=e['gap'], worst=e['worst'])

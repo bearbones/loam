@@ -72,9 +72,9 @@ def run(layout_path, score_path):
         boss = poses[aid]['root']+np.asarray(cfg['o1'])
         g = np.linalg.norm(boss-np.clip(boss, A, B), axis=1)-r-G.DEFAULT_SPEC['boss_r']
         if g.min() < own[0]: own = (float(g.min()), f'{aid} second-bar boss vs its rack')
-        mount = cfg.get('pinion'); best, drive_gap = C.pinion_mount(poses[aid], cfg['o1'], cfg['o2'], cfg['layers'], C.DEFAULT_SPEC)
+        mount = cfg.get('pinion'); best, drive_gap = C.pinion_mount(poses[aid], cfg['o1'], cfg['o2'], cfg['layers'], C.DEFAULT_SPEC, drive=C.drive_kind(cfg))
         check(mount in C.MOUNTS and layout['arms'][aid]['gantry']['rack']['mount'] == mount and drive_gap >= 0
-              and C.pinion_mount(poses[aid], cfg['o1'], cfg['o2'], cfg['layers'], C.DEFAULT_SPEC, [mount])[1] >= min(drive_gap, G.MARGIN)-1e-9,
+              and C.pinion_mount(poses[aid], cfg['o1'], cfg['o2'], cfg['layers'], C.DEFAULT_SPEC, [mount], drive=C.drive_kind(cfg))[1] >= min(drive_gap, G.MARGIN)-1e-9,
               f'{aid}: pinion mounted {mount} (drive {drive_gap*1000:.0f} mm from the links; best {best}), rack recorded with it')
         check(not any(C.offset_hits(cfg['o1'], c, rr) for c, rr in C.rail_keep_clear()),
               f'{aid}: the carriage\'s second-bar boss and web miss the guide bars (o1 {np.round(cfg["o1"], 3).tolist()})')
@@ -102,11 +102,27 @@ def run(layout_path, score_path):
     worst = min(gaps, key=lambda g: g[0]); k_at = int(np.argmin([g[0] for g in gaps]))
     check(worst[0] > .001, f'pinion and rack teeth roll through a pitch without touching: least {worst[0]*1000:.1f} mm '
           f'(rack tooth {worst[1][0]} vs pinion tooth {worst[1][1]} at x = {k_at}/16 of a pitch)')
+    # 2d. a servo arm's leadscrew (formlab.gantry.screw_geometry): the thread
+    #     spans the nut's whole travel with room to spare, the drive housing sits
+    #     beyond the nut's travel inside the low bearing, the bearings stand where
+    #     the rack's stubs stood, the helix is a right-hand thread, and the plan
+    #     records the drive with its axis for the harness
+    for aid, cfg in layout['arms'].items():
+        if C.drive_kind(cfg) != 'screw': continue
+        Q = G.screw_geometry(cfg); S = C.SCREW; x = poses[aid]['root'][:, 0]
+        n0, n1 = x.min()-S['nut_len']/2, x.max()+S['nut_len']/2
+        rec = layout['arms'][aid].get('screw', {}); (A, B, r), = G.rail_racks(cfg)
+        check(Q['x_thread'][0] < n0-.02 and Q['x_thread'][1] > n1+.02 and Q['x_house'][1] < n0-.02 and Q['x_bear'] == G._rack_stub_x(Q)
+              and np.dot(np.cross(Q['e1'], Q['e2']), [1, 0, 0]) > .999 and abs(r-S['shaft_r']-S['thread_r']) < 1e-9
+              and layout['arms'][aid]['gantry']['rack'].get('drive') == 'screw' and abs(rec.get('y', 1e9)-Q['axis'][1]) < 1e-9 and abs(rec.get('z', 1e9)-Q['axis'][2]) < 1e-9
+              and rec.get('pitch') == S['pitch'] and cfg.get('drive') == 'screw',
+              f'{aid}: leadscrew threaded {Q["x_thread"][0]:.2f}..{Q["x_thread"][1]:.2f} m round the nut\'s travel {n0:.2f}..{n1:.2f} m, housing to {Q["x_house"][1]:.2f} m, '
+              f'right-hand thread on the recorded axis (y {Q["axis"][1]:.3f}, z {Q["axis"][2]:.3f}), {S["pitch"]*1000:.0f} mm pitch')
     # 3. the recorded placement is what the search finds, with its margins
     recipe = json.loads((ROOT/'render/form-study/recipe.json').read_text())
     # the recipe is the last build's (the expanded rig's, with its benches): keep the forms of this layout's mechanisms
     form_boxes = [(o['name'], (V.min(0), V.max(0))) for o in recipe['objects']
-                  if not o.get('local') and not o['name'].endswith(('_gantry', '_railhead')) and o['name'].split('_')[1] in layout['mechanisms']
+                  if not o.get('local') and not o['name'].endswith(('_gantry', '_railhead', '_screw')) and o['name'].split('_')[1] in layout['mechanisms']
                   for V in [np.concatenate([np.array(p['vertices']) for p in o['pieces']])]]
     plan = G.plan_gantries(layout, poses, form_boxes, verbose=lambda *a: None)
     for aid, g in plan.items():

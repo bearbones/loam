@@ -56,3 +56,5 @@ drives and why each arm has the one it has.
 re-run every ruler and re-read the clearance report before committing.
 
 **Claimed 2026-09-18 03:02 PDT by session 01UgkC53ynYyk7onQUi3uc2L (Claude Fable 5.1):** staged — rails kept (`--rails=keep`) until the one full replan; stage A is the screw, its bearings, the nut and the posing for the servo arms.
+
+**Status 2026-09-18 (stage A landed):** `clearance.drive_kind` picks the drive from the kind (mallet/hammer → rack, pick/rake → screw); `linkage.carriage_body(drive='screw')` builds the bracket arm, flange, bolts and bronze nut; `gantry.screw` / `screw_geometry` build the shaft, thread, bearings and finned housing and the plan records `arms[aid].screw`; `build_clockwork` casts no pinion for a servo arm; `performance.gd` spins the screw by −2π·x/pitch and `dev/test_performance.gd` holds it; `test_gantry` and `test_linkage_tools` hold the nut's travel, the thread's hand and the carriage. **Remaining:** the rail search still charges the rack-and-pinion capsules for every arm (conservative; it keeps the rail cache) — switch it to the nut capsules at the one full replan (stage B); a view-1 clip of a harp slew.

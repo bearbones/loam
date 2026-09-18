@@ -3,7 +3,9 @@ extends Node3D
 ## Every moving part of one arm, as named in the GLB (aid + "__" + part). The
 ## parallelogram pairs (upper/upper2, lower/lower2) and the crossheads
 ## (carriage, elbowhead, wristhead) are posed from the same IK as the pins.
-const PART_NAMES := ["carriage","upper","upper2","lower","lower2","elbowhead","wristhead","shoulder","elbow","wrist","tool","shank","gear"]
+const PART_NAMES := ["carriage","upper","upper2","lower","lower2","elbowhead","wristhead","shoulder","elbow","wrist","tool","shank"]
+var screw_nodes: Dictionary = {} # each servo arm's leadscrew shaft (form_<aid>_screw), spun about its axis
+var screw_home: Dictionary = {}  # ...and its imported transform
 var score := ScoreDoc.new()
 var motion := ClockworkMotion.new()
 var look := ClockworkLook.new()
@@ -98,7 +100,19 @@ func _ready() -> void:
 			parts[aid][part]=model.find_child(aid+"__"+part,true,false)
 			if parts[aid][part]==null:
 				push_error("Missing GLB pivot "+aid+"__"+part); get_tree().quit(1); return
-		gear_home[aid]=parts[aid]["gear"].basis
+		# A stepped arm's carriage carries a pinion on a rack; a servo arm's rides a
+		# leadscrew (formlab.clearance.drive_kind, docs/plans/leadscrew-servo-drive.md):
+		# the shaft is a world form turned about its own axis as the carriage travels.
+		if str(layout["arms"][aid].get("drive","rack"))=="rack":
+			parts[aid]["gear"]=model.find_child(aid+"__gear",true,false)
+			if parts[aid]["gear"]==null:
+				push_error("Missing GLB pivot "+aid+"__gear"); get_tree().quit(1); return
+			gear_home[aid]=parts[aid]["gear"].basis
+		else:
+			var screw: Node3D=model.find_child("form_"+aid+"_screw",true,false)
+			if screw==null:
+				push_error("Missing GLB leadscrew form_"+aid+"_screw"); get_tree().quit(1); return
+			screw_nodes[aid]=screw; screw_home[aid]=screw.transform
 		# A hinged hammer's head is its own part, turning on the flange's pin
 		# (formlab.linkage.hammer_tool, ClockworkMotion.head_angle).
 		if layout["arms"][aid].has("head"):
@@ -371,10 +385,11 @@ func _set_form(style: String) -> void:
 	form_style=style
 	# Frame variants share a name stem and are switched here; everything else
 	# built by build_forms.py (the stands, soundboards, action plates, the rail
-	# gantries and heads with their racks) is not a variant and stays visible.
+	# gantries and heads with their racks, the servo arms' leadscrews) is not a
+	# variant and stays visible.
 	for node in model.find_children("form_*","Node3D",true,false):
 		var n := String(node.name)
-		node.visible=n.ends_with("_"+style) or n.ends_with("_stand") or n.ends_with("_soundboard") or n.ends_with("_actionplate") or n.ends_with("_gantry") or n.ends_with("_railhead")
+		node.visible=n.ends_with("_"+style) or n.ends_with("_stand") or n.ends_with("_soundboard") or n.ends_with("_actionplate") or n.ends_with("_gantry") or n.ends_with("_railhead") or n.ends_with("_screw")
 
 func _environment() -> void:
 	look.light_rig(self)
@@ -491,6 +506,16 @@ func evaluate(t: float) -> void:
 		# a basis that is a quarter turn about X hits gimbal lock and tilted the disc.
 		var mount: String=str(cfg.get("pinion","back"))
 		var flat := mount=="up" or mount=="down"
+		# A servo arm's leadscrew turns instead: a right-hand thread, so +x travel
+		# of the nut is a negative turn about +x, 2π per pitch (formlab.gantry.
+		# screw_geometry); the shaft's mesh is in world space, so the spin is
+		# taken about the axis line through (0, y, z).
+		if screw_nodes.has(aid):
+			var sc: Dictionary=cfg["screw"]
+			var c := Vector3(0,float(sc["y"]),float(sc["z"]))
+			var turn := Basis(Vector3.RIGHT,wrapf(-TAU*root.x/float(sc["pitch"]),-PI,PI))  # wrapped in double first: a Basis takes a 32-bit angle, and a screw 4 m down its rail has turned ~3000 rad
+			screw_nodes[aid].transform=Transform3D(turn,c-turn*c)*screw_home[aid]
+			continue
 		p["gear"].position=root+(Vector3(0,(.17 if mount=="up" else -.17),-.10) if flat else Vector3(0,0,(.195 if mount=="front" else -.195)))
 		# A pinion with a pawl is spun with a phase (formlab.pawl.dip_offset) that
 		# seats the roller in a dip when the arm parks at its home.

@@ -1127,6 +1127,7 @@
         "shank",
         0.0
       ],
+      "drive": "screw",
       "gantry": {
         "ends": [
           {
@@ -1150,17 +1151,35 @@
             "x_col": 0.2356,
             "foot_y": -0.02,
             "height": 2.55,
-            "gap": 0.08999999999999986,
+            "gap": 0.09100000000000019,
             "worst": "gantry harp_arm0 rack"
           }
         ],
         "margin_m": 0.03459999999999987,
         "worst": "arm harp_arm0 carriage_axle",
         "rack": {
-          "gap": 0.11086034630840307,
+          "gap": 0.11076841441760056,
           "worst": "arm bells_arm1 lower2",
-          "mount": "back"
+          "mount": "back",
+          "drive": "screw"
         }
+      },
+      "screw": {
+        "y": 2.885,
+        "z": -2.445,
+        "pitch": 0.008,
+        "x_thread": [
+          -0.9309999999999999,
+          0.1406
+        ],
+        "x_bear": [
+          -1.046,
+          0.1756
+        ],
+        "x_house": [
+          -1.016,
+          -0.946
+        ]
       }
     },
     "harp_arm1": {
@@ -1247,6 +1266,7 @@
         "shank",
         1.4285714285714286
       ],
+      "drive": "screw",
       "gantry": {
         "ends": [
           {
@@ -1277,10 +1297,28 @@
         "margin_m": 0.034399999999999695,
         "worst": "arm harp_arm0 lower2",
         "rack": {
-          "gap": 0.19029306197418516,
+          "gap": 0.19629306197418517,
           "worst": "arm harp_arm2 upper",
-          "mount": "up"
+          "mount": "up",
+          "drive": "screw"
         }
+      },
+      "screw": {
+        "y": 3.77,
+        "z": -1.2850000000000001,
+        "pitch": 0.008,
+        "x_thread": [
+          -0.4957999999999999,
+          0.5758
+        ],
+        "x_bear": [
+          -0.6108,
+          0.6108
+        ],
+        "x_house": [
+          -0.5808,
+          -0.5107999999999999
+        ]
       }
     },
     "harp_arm2": {
@@ -1367,18 +1405,19 @@
         "shank",
         6.428571428571429
       ],
+      "drive": "screw",
       "gantry": {
         "ends": [
           {
             "side": -1,
             "bar_x": -0.29860000000000003,
             "outreach": 0.0,
-            "setback": 0.55,
-            "mast_z": -2.8,
+            "setback": 0.4,
+            "mast_z": -2.65,
             "x_col": -0.2356,
             "foot_y": -0.02,
             "height": 4.18,
-            "gap": 0.02540000000000031,
+            "gap": 0.020999999999999908,
             "worst": "gantry harp_arm2 rack"
           },
           {
@@ -1394,13 +1433,31 @@
             "worst": "arm harp_arm2 carriage_axle"
           }
         ],
-        "margin_m": 0.02540000000000031,
+        "margin_m": 0.020999999999999908,
         "worst": "gantry harp_arm2 rack",
         "rack": {
-          "gap": 0.7849276271656902,
+          "gap": 0.7805702689080972,
           "worst": "arm blocks_arm0 elbowhead_web1",
-          "mount": "back"
+          "mount": "back",
+          "drive": "screw"
         }
+      },
+      "screw": {
+        "y": 4.234999999999999,
+        "z": -2.445,
+        "pitch": 0.008,
+        "x_thread": [
+          -0.0606,
+          1.0110000000000001
+        ],
+        "x_bear": [
+          -0.1756,
+          1.046
+        ],
+        "x_house": [
+          -0.1456,
+          -0.0756
+        ]
       }
     },
     "rake_arm0": {
@@ -1485,6 +1542,7 @@
         "shank",
         21.42857142857143
       ],
+      "drive": "screw",
       "gantry": {
         "ends": [
           {
@@ -1517,8 +1575,26 @@
         "rack": {
           "gap": 1.0499999999999998,
           "worst": "box obstacle2",
-          "mount": "down"
+          "mount": "down",
+          "drive": "screw"
         }
+      },
+      "screw": {
+        "y": 0.38,
+        "z": -0.7349999999999999,
+        "pitch": 0.008,
+        "x_thread": [
+          -4.84,
+          -3.4799999999999995
+        ],
+        "x_bear": [
+          -4.954999999999999,
+          -3.4449999999999994
+        ],
+        "x_house": [
+          -4.925,
+          -4.8549999999999995
+        ]
       }
     },
     "bars_arm0": {
@@ -1604,6 +1680,7 @@
         "shank",
         45.714285714285715
       ],
+      "drive": "rack",
       "pawl": {
         "mount": "back",
         "pivot": [
@@ -1656,7 +1733,8 @@
         "rack": {
           "gap": 0.1710995401273166,
           "worst": "arm bars_arm1 carriage_cheek",
-          "mount": "back"
+          "mount": "back",
+          "drive": "rack"
         }
       }
     },
@@ -1743,6 +1821,7 @@
         "shank",
         48.214285714285715
       ],
+      "drive": "rack",
       "pawl": {
         "mount": "back",
         "pivot": [
@@ -1795,7 +1874,8 @@
         "rack": {
           "gap": 0.2409400000000001,
           "worst": "arm bars_arm0 upper2",
-          "mount": "back"
+          "mount": "back",
+          "drive": "rack"
         }
       }
     },
@@ -1882,6 +1962,7 @@
         "shank",
         23.571428571428573
       ],
+      "drive": "rack",
       "pawl": {
         "mount": "back",
         "pivot": [
@@ -1934,7 +2015,8 @@
         "rack": {
           "gap": 0.18980087002059,
           "worst": "arm bells_arm1 upper",
-          "mount": "back"
+          "mount": "back",
+          "drive": "rack"
         }
       }
     },
@@ -2021,6 +2103,7 @@
         "shank",
         30.714285714285715
       ],
+      "drive": "rack",
       "pawl": {
         "mount": "back",
         "pivot": [
@@ -2073,7 +2156,8 @@
         "rack": {
           "gap": 0.43046486500061726,
           "worst": "gantry bells_arm0 rack",
-          "mount": "back"
+          "mount": "back",
+          "drive": "rack"
         }
       }
     },
@@ -2158,6 +2242,7 @@
         "shank",
         24.285714285714285
       ],
+      "drive": "rack",
       "pawl": {
         "mount": "back",
         "pivot": [
@@ -2220,7 +2305,8 @@
         "rack": {
           "gap": 1.4370705210573063,
           "worst": "box obstacle5",
-          "mount": "back"
+          "mount": "back",
+          "drive": "rack"
         }
       }
     }
@@ -2278,10 +2364,6 @@
     }
   },
   "gears": [
-    "harp_arm0__gear",
-    "harp_arm1__gear",
-    "harp_arm2__gear",
-    "rake_arm0__gear",
     "bars_arm0__gear",
     "bars_arm1__gear",
     "bells_arm0__gear",
@@ -3607,28 +3689,28 @@
         "time_s": 62.36666666666667
       },
       "harp_arm0/bells_arm0": {
-        "gap_m": 1.1446045273217849,
+        "gap_m": 1.1640239518549433,
         "parts": [
-          "pinion2",
+          "carriage_bush+",
           "lower"
         ],
-        "time_s": 74.30833333333334
+        "time_s": 74.3
       },
       "harp_arm0/bells_arm1": {
-        "gap_m": 0.02172921795013978,
+        "gap_m": 0.10172749593575446,
         "parts": [
-          "pinion_boss",
+          "nut_flange",
           "lower2"
         ],
-        "time_s": 68.58942857142857
+        "time_s": 68.57142857142857
       },
       "harp_arm0/blocks_arm0": {
-        "gap_m": 1.3128677328877407,
+        "gap_m": 1.332038570195563,
         "parts": [
-          "pinion2",
+          "carriage_bush+",
           "lower2"
         ],
-        "time_s": 32.75833333333333
+        "time_s": 32.85714285714286
       },
       "harp_arm1/harp_arm2": {
         "gap_m": 0.1256,
@@ -3663,9 +3745,9 @@
         "time_s": 62.36666666666667
       },
       "harp_arm1/bells_arm0": {
-        "gap_m": 2.063212537808991,
+        "gap_m": 2.048663153858457,
         "parts": [
-          "pinion3",
+          "nut",
           "elbowhead_web2"
         ],
         "time_s": 1.3416666666666666
@@ -3711,20 +3793,20 @@
         "time_s": 51.785714285714285
       },
       "harp_arm2/bells_arm0": {
-        "gap_m": 2.044935191024684,
+        "gap_m": 2.0611677810792206,
         "parts": [
-          "pinion2",
+          "carriage_bush-",
           "upper2"
         ],
         "time_s": 6.341666666666667
       },
       "harp_arm2/bells_arm1": {
-        "gap_m": 0.9976580155915294,
+        "gap_m": 1.0567840439846012,
         "parts": [
-          "pinion1",
-          "upper2"
+          "upper",
+          "elbowhead_web2"
         ],
-        "time_s": 6.341666666666667
+        "time_s": 6.358333333333333
       },
       "harp_arm2/blocks_arm0": {
         "gap_m": 0.4566860040104325,
@@ -3995,12 +4077,16 @@
     "blocks_arm0__roller",
     "form_harp_arm0_railhead",
     "form_harp_arm0_gantry",
+    "form_harp_arm0_screw",
     "form_harp_arm1_railhead",
     "form_harp_arm1_gantry",
+    "form_harp_arm1_screw",
     "form_harp_arm2_railhead",
     "form_harp_arm2_gantry",
+    "form_harp_arm2_screw",
     "form_rake_arm0_railhead",
     "form_rake_arm0_gantry",
+    "form_rake_arm0_screw",
     "form_bars_arm0_railhead",
     "form_bars_arm0_gantry",
     "form_bars_arm1_railhead",

@@ -337,6 +337,9 @@ for aid,cfg in manifest['arms'].items():
     # The pinion's hub boss stands on its outer face — the side away from the carriage
     # (clearance.MOUNTS' normal): in the tilted build frame that is the disc's Godot z
     # side for front/back, which the un-tilt below turns into y for up/down.
+    # A servo (pick, rake) arm has no pinion: it rides a leadscrew, built by
+    # build_forms.py as form_<aid>_screw (formlab.gantry.screw).
+    if arm_clearance.drive_kind(cfg)=='screw': continue
     ny,nz=arm_clearance.MOUNTS[cfg.get('pinion','back')]; P=arm_clearance.PINION
     g=gear(aid+'__gear',(0,0,0),.13,boss=(P['boss_r'],P['boss_h'],nz if nz else ny)); manifest['gears'].append(g.name)
     # A pinion above or below the carriage lies flat (its axle vertical): the disc is built
@@ -389,7 +392,8 @@ for aid,cfg in manifest['arms'].items():
     p=R.pose(aid,-10.0); o1=Vector(cfg['o1']); o2=Vector(cfg['o2'])
     root,elbow,wrist,tip=(Vector(p[k]) for k in ('root','elbow','wrist','tip'))
     pinion=root+Vector(arm_clearance.pinion_centre(cfg.get('pinion','back')).tolist())    # on its axle, against the rack (formlab.gantry.rack)
-    places=[('carriage',root),('shoulder',root),('elbowhead',elbow),('elbow',elbow),('wristhead',wrist),('wrist',wrist),('tool',tip),('shank',tip),('gear',pinion)]
+    places=[('carriage',root),('shoulder',root),('elbowhead',elbow),('elbow',elbow),('wristhead',wrist),('wrist',wrist),('tool',tip),('shank',tip)]
+    if arm_clearance.drive_kind(cfg)=='rack': places.append(('gear',pinion))
     # A hinged hammer's head hangs on the flange's pin, head_l above the tool
     # frame's origin (formlab.linkage.hammer_tool); Godot turns it about that
     # pin every frame. Without this it would sit at the file's origin.

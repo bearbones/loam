@@ -1,3 +1,46 @@
+## 2026-09-18 — CLOCKWORK the servo arms ride a leadscrew
+
+`docs/plans/leadscrew-servo-drive.md`, stage A. Every arm had a rack and
+pinion; only the stepped arms (mallet, hammer) should — the pinion is what the
+roller-detent pawl indexes, and a machine that steps ought to show a
+ratchet. The pick and rake arms slew continuously and a ratchet on a slewing
+carriage is a lie the eye catches. `clearance.drive_kind(cfg)` now picks the
+drive from the scored kind, and a servo arm rides a **leadscrew**: its
+carriage (`linkage.carriage_body(drive='screw')` → `linkage.screw_nut`)
+stops the axle boss at the disc plane and runs a rounded bracket arm out
+along `rack_direction` to a square four-bolted flange and a chamfered
+bronze nut (`clearance.SCREW`: 135 mm out, r 35 mm, 90 mm long); the screw
+(`gantry.screw`, derived in `gantry.screw_geometry`) is a 10 mm steel core on
+the rack's line over the rail's length, a 3 mm right-hand helical thread at
+8 mm pitch swept round it, pedestal-and-ring bearings on each head where the
+rack's stubs stood, and a finned drive housing just inside the low bearing,
+beyond the nut's travel. The plan records `arms[aid].screw` (axis y, z,
+pitch, x_thread, x_bear, x_house); `build_forms` packs the shaft as its own
+profiled form `form_{aid}_screw` and `build_clockwork` casts no pinion for
+a servo arm; `performance.gd` spins the shaft by −2π·x/pitch about the
+recorded axis line so the right-hand thread carries the nut in +x.
+
+Clearance: `drive_capsules(..., 'screw')` reserves `nut_arm`, `nut` and
+`nut_flange` instead of the pinion capsules, so mount choice and every ruler
+charge the nut's swept volume (the flange capsule came out of the ruler: the
+90 mm square flange's corners reach 64 mm off the axis, outside the 35 mm
+nut capsule, and nothing had reserved them). Rulers: `test_gantry` holds the nut's travel inside the
+thread by 20 mm with the housing 20 mm clear, bearings at the stubs, the
+helix right-handed and the plan's record on the derived axis;
+`test_linkage_tools` holds the screw carriage per mount (one bronze nut on
+the axis, arm/flange/bolts inside the capsules, nothing past the plane, no
+pinion capsule) and, per built asset, a `form_{aid}_screw` on its axis and
+no gear node for each servo arm; `dev/test_performance.gd` holds the screws
+on their axes at x/pitch (which caught the rake: its screw 4 m down the
+rail has turned ~3000 rad, and a Godot `Basis` takes a float32 angle — the
+spin is now wrapped into one turn in double first). The first render
+showed nut, bearings and housing and no shaft: `_set_form` hides every
+`form_*` node that is not a style variant or on its whitelist, so `_screw`
+joined `_gantry` and `_railhead` there. Rails kept (`--rails=keep`): the rail search still
+charges the rack-and-pinion capsules for every arm — conservative by a
+pinion's radius — so the cache key is unchanged and `stale_rails` stays the
+only red until the one full replan (stage B).
+
 ## 2026-09-18 — CLOCKWORK the block hammer strikes with its head
 
 `docs/plans/hinged-hammer.md`: the expanded asset's `blocks_arm0` is scored

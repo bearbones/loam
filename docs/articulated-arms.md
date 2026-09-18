@@ -30,7 +30,7 @@ along the link, the pin axis +X) and never scaled afterwards:
 | upper, lower | `link()` | flat fish-belly bar (`bar()` with `belly`, `taper`), eye end at A, fork end at B |
 | upper2, lower2 | `link(layer=...)` | the parallel bar, one layer outboard |
 | elbowhead, wristhead | `crosshead()` | two plates, each with a boss at every pin and a web between, tied by a spacer boss at every pin but the one where a primary link's eye turns between them; the secondary bars' stub pins (`stub_pin()`) are cast with it |
-| carriage | `carriage_body()` | the shoulder crosshead plus bushings on the guide bars, a cheek plate and the pinion's axle — on a bridge behind the bushing when the pinion lies above or below the carriage (see The carriage and its drive) |
+| carriage | `carriage_body()` | the shoulder crosshead plus bushings on the guide bars, a cheek plate and the pinion's axle — on a bridge behind the bushing when the pinion lies above or below the carriage; for a servo arm (`drive='screw'`) the axle stops at the disc plane and a bracket arm carries a flanged bronze nut out to the leadscrew instead (see The carriage and its drive) |
 | shoulder, elbow, wrist | `knuckle_pin()` | domed head one side; on the other the shaft runs through a washer, a hexagonal nut chamfered top and bottom, and a split pin through its end (`fastening()`, shared with the crossheads' stub pins) — all inside the room the old turned nut had, so the layer table below and `gantry.PIN_X` stand; spans the fork ears |
 | tool + shank | `pick_tool(mount)` / `mallet_tool(mount)` | tool origin = contact point; the shank is built to reach its socket under the wrist boss (see Tools) |
 | oil cup | `oil_cup()` (cast with `upper`) | a lubricator on the upper link's elbow fork, +X ear rim, on the link's line beyond the pin — where a rod end's oil hole goes — in the ear's own layer along the pin, so nothing of the arm's own stack shares its space; recorded per arm as `oil_cups` and given its room by `tools/test_oil_cups.py` (20 mm from every other arm, rail, string and obstacle through the whole score). Not on the lower link: its fork works at the wrist, where the rake's sweep carried a cup to 6 mm from a string |
@@ -411,6 +411,64 @@ capsule and the axle reaching the pin's tip, and — on each built asset —
 the gear mesh standing `boss_h` proud of its outer face and no further than
 the disc on the inner one, which is what pins the tilted-versus-flat build
 frame's sign for the up/down mounts.
+
+### Two drives: rack for the stepped arms, leadscrew for the servo arms
+
+An arm has one of two drives, and `clearance.drive_kind(cfg)` says which
+from the arm's scored kind (`docs/plans/leadscrew-servo-drive.md`). The
+**mallet and hammer arms** move in strikes — a whole-string step, then a
+dwell — and keep the rack and pinion below: the pinion is what the
+**roller-detent pawl** (`formlab/pawl.py`) indexes on, and a ratchet is the
+right thing to see on a machine that steps. The **pick and rake arms**
+travel continuously (the harp slews under its S-curve, the rake follows the
+chords) and a ratchet on a slewing carriage is a lie the eye catches; they
+now ride a **leadscrew**, the drive a servo axis actually has. Stage A of
+that plan is landed: the carriage, the screw, its bearings, and the posing.
+
+A servo arm's carriage (`linkage.carriage_body(..., drive='screw')`) stops
+its axle boss at the disc plane — no pinion, no fastening past it — and
+runs a rounded **bracket arm** out along `clearance.rack_direction(mount)`
+(the same line the rack would take: up for an upright mount, back for a
+flat one) to a square, four-bolted **flange** and a chamfered **bronze
+nut** (`linkage.screw_nut`, `clearance.SCREW`: 135 mm out, nut radius 35
+mm, 90 mm long, so the nut's own length spreads the load along the thread
+the way a real bronze nut does). The screw (`gantry.screw`) lies on the
+rack's line: a 10 mm steel core turned over the rail's length, a 3 mm
+right-hand **helical thread** at 8 mm pitch swept round it (sixteen sides,
+so the profiled finish's bevel leaves the tube alone), a pedestal and a
+**bearing ring** on each rail head where the rack's stubs stood, and just
+inside the low bearing a **finned drive housing** — the motor's stand-in —
+kept beyond the nut's travel. The thread runs from the housing to the far
+bearing with 15 mm of plain shaft either side; `gantry.screw_geometry` is
+the one place those x-ranges are derived, the plan records them
+(`arms[aid].screw`: axis y, z, pitch, `x_thread`, `x_bear`, `x_house`) and
+`test_gantry` holds the nut's travel (root x ± half its length) inside the
+thread by 20 mm with the housing 20 mm clear of it, the bearings at the
+stubs' x, and the helix right-handed (`e1 × e2 · X > 0`).
+
+The harness turns the screw, not a pinion: the shaft is its own form
+(`form_{aid}_screw`, built in the disc plane and packed profiled),
+`performance.gd` spins it by **−2π · x / pitch** about the recorded axis
+line (`Transform3D(turn, c − turn·c) · home`, `c` the axis point at x = 0;
+the angle is wrapped into one turn in double precision first — a `Basis`
+takes a 32-bit angle, and a screw 4 m down its rail has turned some 3000
+rad, where a float32 is only good to 2e-4 rad) so a right-hand thread
+turned that way carries the nut in +x; `_set_form` keeps `_screw` forms
+visible across the frame styles like the gantries and heads; and
+`dev/test_performance.gd` holds the servo arms' screws on their axes at that
+angle, with no pinion node, while the stepped arms keep the retained-pinion
+checks. `drive_capsules(root, mount, 'screw')` reserves the bracket arm,
+the nut and the flange with its bolt heads (`nut_arm`, `nut`, `nut_flange`
+— the square flange's corners reach 64 mm off the screw axis, well outside
+the nut's 35 mm, which is what the flange capsule is for) instead of the
+pinion capsules, so mount choice and every clearance ruler charge the nut's
+swept volume; `test_linkage_tools` holds, per mount, every piece about the
+plane inside those three capsules and nothing past the plane but them (the
+axis lies in the plane, so the nut straddles it by its radius and the
+flange by its half-width). The **rail search**
+still charges the old rack-and-pinion capsules for every arm — conservative
+by a pinion's radius, and it keeps `stale_rails` the only red until the one
+full replan (stage B) rather than invalidating the cached rails now.
 
 The **pinion** (build_clockwork's 16-tooth disc, tip radius 130 mm, pitch
 radius 120 mm) now rolls on a **rack**: a toothed brass strip as long as
