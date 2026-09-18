@@ -94,6 +94,49 @@ func check_scene() -> void:
 			for suffix in ["_gantry","_railhead"]:
 				var node: Node3D=scene.model.find_child("form_"+aid+suffix,true,false)
 				if node==null or not node.visible: failures.append("rail "+suffix.substr(1)+" missing or hidden "+aid)
+		# The blow shakes the ASSEMBLY, not only the arm (docs/motion-design.md):
+		# a struck instrument's stand thumps, the striking arm's guide bars sag
+		# and its gantry sways. Measured on the RENDERED nodes: before the first
+		# blow every one of them sits at its imported home, within 40 ms of the
+		# blow at least one has moved, and by the next strike's start they are
+		# home again — the shudder never smears a contact.
+		for aid in scene.parts:
+			if not scene.motion.stepped(aid) or scene.motion.blows_by_arm[aid].is_empty(): continue
+			var mid: String=scene.motion.mech_of[aid]
+			# node -> its imported home transform; the stand is shared by the
+			# instrument's arms, so it is judged from the instrument's first blow.
+			var probe: Array=[]
+			for b in scene.shudder_nodes[aid]["bars"]: probe.append([b["node"],b["home"]])
+			for f in scene.shudder_nodes[aid]["frame"]: probe.append([f["node"],f["home"]])
+			var t_arm: float=float(scene.motion.blows_by_arm[aid][0]["t"])
+			var t_first: float=t_arm
+			if scene.stand_nodes.has(mid):
+				probe.append([scene.stand_nodes[mid]["node"],scene.stand_nodes[mid]["home"]])
+				t_first=minf(t_first,float(scene.motion.blows_by_mech[mid][0]["t"]))
+			if probe.is_empty(): failures.append("no assembly node answers "+aid); continue
+			var away = func(pair: Array) -> float:
+				var now: Transform3D=(pair[0] as Node3D).transform
+				var spin: Quaternion=(now.basis*(pair[1] as Transform3D).basis.inverse()).get_rotation_quaternion()
+				return maxf(now.origin.distance_to((pair[1] as Transform3D).origin),absf(spin.get_angle()))
+			scene.evaluate(maxf(t_first-.5,-1.0))
+			for pair in probe:
+				if away.call(pair)>1e-9: failures.append("the assembly is not at rest before the first blow on "+aid)
+			scene.evaluate(t_arm)
+			for pair in probe:
+				# only this arm's own nodes are promised zero at ITS blow (the
+				# stand answers every arm of the instrument)
+				if pair[0]!=scene.stand_nodes.get(mid,{}).get("node") and away.call(pair)>1e-9: failures.append("the assembly is not at rest at the blow it answers "+aid)
+			var moved := 0.0
+			for dt in [.01,.02,.03,.04]:
+				scene.evaluate(t_arm+dt)
+				for pair in probe: moved=maxf(moved,away.call(pair))
+			if moved<1e-7: failures.append("the assembly does not answer a blow "+aid)
+			if scene.motion.blows_by_arm[aid].size()>1:
+				var gate: float=float(scene.motion.blows_by_arm[aid][0]["gate_end"])
+				if is_finite(gate):
+					scene.evaluate(gate)
+					for pair in probe:
+						if pair[0]!=scene.stand_nodes.get(mid,{}).get("node") and away.call(pair)>1e-9: failures.append("the assembly still rings into the next strike "+aid)
 		# Strings are strung by register like a harp: wound wire below C4, gut in the
 		# middle, nylon from C5; every harp C is red and every harp F dark.
 		for sid in scene.strings:

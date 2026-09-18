@@ -61,6 +61,77 @@ zero at the blow itself and gated to zero 80 ms before the next strike
 begins, so every scored contact is still exact to 1e-9 m and the ring
 never smears a hit. The bars' own bounce (`performance.gd`) plays under it.
 
+**And it shakes the assembly around the arm.** The arm alone answering its
+own blow left the instrument stand, the guide bars and the gantry rigid — a
+felt head on a 5 kg bar over a wooden trestle, and nothing under it moves.
+Every blow now goes on a **recoil bus** (`ClockworkMotion._bus`,
+`Rig._bus`): one entry a hit, carrying where it landed along the rail and
+how hard (the score's amplitude times the cocked drop's height, 1.0 for a
+full-amplitude mallet) and the moment its arm's next strike begins, which
+gates its ring exactly as `recoil` is gated. Three rigid-body shudders read
+that bus, all `_ring` damped sinusoids and so all exactly zero at the blow
+they answer:
+
+- the **stand** (`form_bars_stand`, `form_<mid>_stand`) thumps vertically,
+  **1.5 mm at 9 Hz over 120 ms**, summed over every blow on that instrument;
+  the bars keep their own bounce under it. A walnut trestle carrying the
+  bars' mass sits in the high single figures of Hz and rings about once
+  visibly; the amplitude is the dial the operator will turn.
+- the **rail** sags. A guide bar is 24 mm steel over about a 2 m span pinned
+  in its two heads, so the shudder is that beam's **first bending mode**: a
+  half sine over the span, zero at the heads, excited in proportion to how
+  central the blow was (`sin(pi*u_hit)`) and read out at whatever x you ask
+  for (`sin(pi*u_x)`). A blow at mid-span therefore sags the rail by
+  **1 mm at 12 Hz over 150 ms** and a blow under a head barely moves it,
+  which is what a beam does. The pair of bars alone rings near 22 Hz; with
+  the carriage's and the arm's mass at mid-span a loaded-beam estimate puts
+  it near 16 Hz, and 12 Hz is chosen so one ring reads at 60 fps. The
+  amplitude is frankly exaggerated: the same estimate gives about 0.1 mm
+  of deflection for the impulse a felt head delivers, and 1 mm is an order
+  of magnitude over it for the same reason the string displacement is
+  exaggerated — it has to be visible. **The carriage follows the sag at its
+  own x** (`pose()` adds it to `root.y`), so the links, the pinion and the
+  pawl ride down with the bar; the tip is the scored path and its own
+  recoil, untouched, so every contact stays exact. The two guide bars are
+  rigid meshes and carry the sag at mid-span instead of bending, so the
+  carriage and the rendered bar diverge by at most **0.18 mm** over either
+  piece — inside the 4 mm `offset_hits` margin and the 9 mm the second-bar
+  boss keeps from the guide bars, so nothing new touches.
+- the **gantry** (`form_<aid>_gantry`, `form_<aid>_railhead`) sways
+  **0.3 mrad at 6 Hz over 300 ms** — 0.6 mm at the head of a 2.05 m mast.
+  The tilt is *across* the rail, about world X through the line between
+  both plinth feet: the knee braces stiffen the gantry along the rail, and
+  putting the axis through the feet means no mast gains a lever arm down
+  the span. Steel in a bolted joint damps slowly, hence the long decay.
+
+The harp's and the rake's frames are deliberately **not** on the bus: those
+are servo arms and nothing there is struck. The stand and the masts are
+fixed forms as far as the offline rulers are concerned (1.5 mm and 0.6 mm
+are inside every margin those rulers measure, which are centimetres); the
+rail sag is mirrored in `formlab/rig.py` because it moves the carriage and
+so every capsule of the arm. `tools/test_motion.py` checks each shudder is
+exactly zero at its blow, live 10–40 ms later, spent before the next strike
+begins, never over its named amplitude, and agrees with the rendered
+GDScript to 1.3e-10 over 52 200 samples; `dev/test_performance.gd` checks
+the rendered nodes are at rest before the first blow, answer it within
+40 ms and are home again by the next strike. Every amplitude is a named
+constant at the top of both motion files, and `SHUDDER_GAIN` (1.0) scales all
+three together — one number to tune by eye, mirrored in both files so the
+rendered rig and the rulers never disagree.
+
+**How much of this you can actually see.** Measured, not asserted: the same
+frame rendered with the three amplitudes and with them zeroed differs in
+0.42 % of its pixels from view 3 and 0.08 % from a 1.1 m `--focus` close-up,
+peak 81 of 255 — a sub-pixel shimmer along the edges of the stand, the bars
+and the masts, which reads in motion (the eye is far better at coherent
+sub-pixel motion than a still frame suggests) but is not the assembly visibly
+answering the blow. That is the honest consequence of a millimetre on a stage
+four metres wide, and it is why `SHUDDER_GAIN` exists: the physical estimates
+are the default, and if the operator wants the blow *seen* rather than
+*implied*, one number takes it to six or eight the way the strings are already
+exaggerated for inspection. Nothing else has to move with it — the rulers
+sample `Rig` and re-measure the gain they are given.
+
 ## Servo: pick and rake arms
 
 **Slews are S-curves.** A reposition is a jerk-limited profile: a smooth
@@ -108,8 +179,50 @@ motion and the rulers re-measured them against the new.
 
 ## Rendering clips
 
-`godot --path harness -- --capture=DIR --start=T --seconds=N --fps=60
---camera=manual --view=V --silent` writes `DIR/%05d.png`;
-`ffmpeg -framerate 60 -i DIR/%05d.png -c:v libx264 -pix_fmt yuv420p out.mp4`.
-View 3 frames the bars (stepped), view 1 the harp (servo). A frame renders
-in about 0.8 s, so a 5 s clip at 60 fps takes four minutes.
+The contrast between the two vocabularies is the point, so making the reel
+that shows it is one command:
+
+```sh
+tools/contrast_reel.sh START SECONDS [FPS] [OUT.mp4]
+tools/contrast_reel.sh 52.1 4                       # a mallet arm beside a pick arm
+SPEED=.25 SPAN=1.1 tools/contrast_reel.sh 52.1 .5   # one click, quarter speed, close
+LEFT=view:3 RIGHT=view:1 tools/contrast_reel.sh 45.5 6
+ASSET=expanded AUDIO=1 tools/contrast_reel.sh 52.1 4
+```
+
+It captures the same score window twice, encodes each, stacks them side by
+side with a caption naming the vocabulary, and `show`s the result. The two
+captures run concurrently under `setsid nohup` with a done-marker (a frame
+costs about 0.8 s, so a 4 s 60 fps reel is about three minutes of wall clock
+rather than six). `LEFT`/`RIGHT` take `view:N` or `focus:<aid>`; with neither
+set it reads the manifest and picks the first stepped arm against the first
+servo one, so the command works on a clean checkout and on either asset.
+Captions need a font file, which `fc-match` supplies and the script drops the
+caption if it cannot.
+
+Two pieces of the harness make that possible:
+
+**`--focus=<aid>`** frames one arm's own mechanism instead of the room: the
+camera sits square in front of the rail, a little above, at the distance that
+puts `--focus_span` metres of rail (2.4 by default) across the frame, centred
+on the carriage and following it, looking at the midpoint between the carriage
+and the tool so a whole cocked drop or slew is in shot. Narrow the span for a
+click close-up — at 1.1 m the pawl's 95 mm lever is a sixth of the frame and
+the 47 mm click is half that — or widen it past the rail's length to frame the
+whole span.
+
+**`--speed=S`** runs score time at S seconds a video second during a capture,
+so `--fps=60 --speed=0.25` fills 22 frames with a 90 ms click. `--seconds`
+stays the *score* window, so the frame count (and the render) grows as the
+speed falls.
+
+The raw capture is still there when a single shot is what is wanted:
+
+```sh
+godot --path harness -- --capture=DIR --start=T --seconds=N --fps=60 \
+    --camera=manual --view=V --silent --clean       # writes DIR/%05d.png
+ffmpeg -framerate 60 -i DIR/%05d.png -c:v libx264 -pix_fmt yuv420p out.mp4
+```
+
+View 3 frames the bars (stepped), view 1 the harp (servo), view 15 the
+ratchet's pinion and pawl.

@@ -7,6 +7,8 @@ var plans: Dictionary = {}
 var acts: Dictionary = {}
 var mech_of: Dictionary = {}
 var sched: Dictionary = {}
+var blows_by_arm: Dictionary = {}    # the recoil bus, per striking arm
+var blows_by_mech: Dictionary = {}   # ...and per instrument, for its stand
 
 func setup(sd: ScoreDoc, layout: Dictionary) -> void:
 	score = sd
@@ -34,7 +36,7 @@ func contact(sid: String, pick = null) -> Vector3:
 func clearance(aid: String) -> Vector3:
 	return Vector3(0, .22, 0) if geometry["strings"][acts[aid]["home"]]["struck"] else Vector3(0, 0, -.22)
 
-func smooth(u: float) -> float:
+static func smooth(u: float) -> float:
 	u = clampf(u, 0, 1)
 	return u*u*(3-2*u)
 
@@ -60,6 +62,17 @@ const COCK_AT := .4              # ...by this fraction of the strike interval
 const RECOIL := {"x": [.004, 11.0, .14], "z": [.0025, 17.0, .10], "bounce": [.06, 8.0, .16]}
 const RECOIL_GATE := .08         # the shudder is gone this long before the next strike begins
 const PAD := .01                 # overshoot and recoil, when an early move is checked for clearance
+# The blow shakes the ASSEMBLY, not only the arm (docs/motion-design.md, "The
+# blow shakes the assembly"): [amplitude, Hz, decay s] each, driven from the
+# recoil bus below. Every amplitude is a named constant because the operator
+# tunes them by eye. Reasoning for the numbers is in the doc.
+const STAND_THUMP := [.0015, 9.0, .12]   # the instrument's stand, vertically (m)
+const RAIL_SAG := [.001, 12.0, .15]      # the rail's first bending mode, at mid-span (m)
+const MAST_SWAY := [.0003, 6.0, .30]     # the gantry swaying about its plinths (rad)
+const BLOW_DROP_REF := .33               # a full blow: 0.22 m of lift risen COCK again
+const SHUDDER_GAIN := 1.0                # ...all three together: the one dial to tune by eye
+const SHUDDER_TAIL := 1.0                # a ring is spent this long after its blow
+const RAIL_OVER := .26                   # the guide bars run this far past the reach window (formlab.gantry)
 
 func stepped(aid: String) -> bool:
 	return String(acts[aid]["kind"]) in ["mallet", "hammer"]
@@ -208,6 +221,80 @@ func _schedules() -> void:
 			s["go"] = go
 			s["moving"] = s["approach"] > go+.000001
 		sched[aid] = win[aid]
+	_bus()
+
+## The recoil bus: one entry a blow, shared by every rigid-body shudder so the
+## stand, the rail and the gantry answer the same hits the arm's own recoil does.
+## A blow records where it landed along the rail and how hard — the score's
+## amplitude times the cocked drop's height, 1.0 for a full-amplitude mallet —
+## and the time its arm's NEXT strike begins, which gates its ring to nothing.
+func _bus() -> void:
+	blows_by_arm.clear(); blows_by_mech.clear()
+	for aid in plans:
+		if not stepped(aid): continue
+		var energy_scale: float = clearance(aid).y*(1+COCK)/BLOW_DROP_REF
+		var mid: String = mech_of[aid]
+		var list: Array = []
+		for i in sched[aid].size():
+			var s: Dictionary = sched[aid][i]
+			list.append({"t": float(s["hit"]), "aid": aid, "mid": mid, "x": float(s["first"].x),
+				"energy": float(s["event"].get("amp", 1.0))*energy_scale,
+				"gate_end": float(sched[aid][i+1]["approach"]) if i+1 < sched[aid].size() else INF})
+		blows_by_arm[aid] = list
+		if not blows_by_mech.has(mid): blows_by_mech[mid] = []
+		blows_by_mech[mid].append_array(list)
+	for mid in blows_by_mech:
+		blows_by_mech[mid].sort_custom(func(a, b): return float(a["t"]) < float(b["t"]))
+
+## A blow's ring is gated exactly as `recoil` is: full until RECOIL_GATE before
+## its arm's next strike begins, nothing after — so no ring smears a contact.
+static func _blow_gate(b: Dictionary, t: float) -> float:
+	return 1.0-smooth((t-(float(b["gate_end"])-RECOIL_GATE))/RECOIL_GATE)
+
+## One bus's rings summed at t: a damped sinusoid a blow, weighted by the blow's
+## energy and by `shape` (a mode shape — the rail's; 1.0 for a rigid body), and
+## negative-going first because a blow pushes down. Zero at each blow itself
+## (`_ring` starts at zero), so a shudder never displaces its own contact.
+func _shudder(list: Array, t: float, p: Array, shape: Callable) -> float:
+	var total := 0.0
+	for i in range(list.size()-1, -1, -1):
+		var b: Dictionary = list[i]
+		var tau: float = t-float(b["t"])
+		if tau < 0.0: continue
+		if tau > SHUDDER_TAIL: break
+		total += -_ring(p, tau)*float(b["energy"])*float(shape.call(b))*_blow_gate(b, t)
+	return total*SHUDDER_GAIN
+
+## The rail's two guide bars run RAIL_OVER past the reach window into their heads.
+func rail_span(aid: String) -> Array:
+	var rx: Array = geometry["arms"][aid]["reach_x"]
+	return [float(rx[0])-RAIL_OVER, float(rx[1])+RAIL_OVER]
+
+## The instrument's stand answers every blow on it with a short vertical thump —
+## a felt head on a 5 kg bar over a wooden trestle. Summed over its arms.
+func stand_thump(mid: String, t: float) -> float:
+	if not blows_by_mech.has(mid): return 0.0
+	return _shudder(blows_by_mech[mid], t, STAND_THUMP, func(_b): return 1.0)
+
+## The rail's vertical deflection at rail position x: a steel bar pinned in its
+## two heads, rung in its first bending mode — a half sine over the span, zero
+## at the heads — by a blow whose own position along the rail sets how much of
+## that mode it excites. So a blow at mid-span sags the rail by RAIL_SAG and a
+## blow under a head barely moves it, which is what a beam does.
+func rail_sag(aid: String, t: float, x: float) -> float:
+	if not blows_by_arm.has(aid): return 0.0
+	var span := rail_span(aid)
+	var L: float = maxf(span[1]-span[0], .001)
+	var here := sin(PI*clampf((x-span[0])/L, 0, 1))
+	return _shudder(blows_by_arm[aid], t, RAIL_SAG, func(b):
+		return here*sin(PI*clampf((float(b["x"])-span[0])/L, 0, 1)))
+
+## The gantry sways about its plinths after a blow: a tilt across the rail (the
+## axis the knee braces do not stiffen), applied to the whole gantry about the
+## line through both plinth feet, so no mast gains a lever arm along the rail.
+func mast_sway(aid: String, t: float) -> float:
+	if not blows_by_arm.has(aid): return 0.0
+	return _shudder(blows_by_arm[aid], t, MAST_SWAY, func(_b): return 1.0)
 
 func tip_at(aid: String, t: float) -> Vector3:
 	return path_at(aid, t)+recoil(aid, t)
@@ -257,7 +344,10 @@ func bend_hint(cfg: Dictionary) -> Vector3:
 func pose(aid: String, t: float) -> Dictionary:
 	var cfg: Dictionary = geometry["arms"][aid]
 	var tip := tip_at(aid,t)
-	var root := Vector3(tip.x,float(cfg["root_y"]),float(cfg["root_z"]))
+	# The carriage rides the rail, so it follows the rail's sag at its own x: the
+	# links and the pawl move with the bar. The tool's tip is the scored path and
+	# its own recoil, untouched — every contact stays exact.
+	var root := Vector3(tip.x,float(cfg["root_y"])+rail_sag(aid,t,tip.x),float(cfg["root_z"]))
 	var wrist := tip+wrist_offset(cfg)
 	var delta := wrist-root
 	var distance := delta.length()

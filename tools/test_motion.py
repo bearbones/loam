@@ -16,6 +16,9 @@ checks what each vocabulary promises:
   - a servo arm slews on an S-curve: monotone (no overshoot), landing
     exactly, cruising at ~1/(1-ramp) of its mean speed, with a continuous
     acceleration (jerk-limited);
+  - a blow shakes the assembly: the instrument's stand, the arm's rail and its
+    gantry each answer every blow, are exactly zero at the blow itself, live
+    in its wake and back to rest before the arm's next strike begins.
   - arms of one mechanism keep the planner's x clearance at every moment.
 """
 import json, shutil, subprocess, sys
@@ -35,12 +38,18 @@ def parity(rig, layout_path, score_path):
     if godot is None: print('  SKIP godot not on PATH: rendered-rig parity unmeasured'); return
     out = subprocess.run([godot, '--headless', '--path', str(ROOT/'harness'), '-s', 'dev/dump_motion.gd', '--',
                           f'--score={score_path}', f'--asset={layout_path.stem}'], capture_output=True, text=True, timeout=600).stdout
-    worst = 0.0; n = 0
+    worst = 0.0; n = 0; shud = 0.0; ns = 0
     for line in out.splitlines():
-        if not line.startswith('TIP '): continue
-        _, aid, t, x, y, z = line.split(); n += 1
-        worst = max(worst, float(np.linalg.norm(rig.tip_at(aid, float(t))-np.array([float(x), float(y), float(z)]))))
+        if line.startswith('TIP '):
+            _, aid, t, x, y, z = line.split(); n += 1
+            worst = max(worst, float(np.linalg.norm(rig.tip_at(aid, float(t))-np.array([float(x), float(y), float(z)]))))
+        elif line.startswith('SHUD '):
+            _, aid, t, stand, sag, sway = line.split(); t = float(t); ns += 1
+            lo, hi = rig.rail_span(aid)
+            mine = np.array([rig.stand_thump(rig.mech_of[aid], t), rig.rail_sag(aid, t, (lo+hi)/2), rig.mast_sway(aid, t)])
+            shud = max(shud, float(np.abs(mine-np.array([float(stand), float(sag), float(sway)])).max()))
     check(n > 1000 and worst < 1e-5, f'rendered rig and numpy mirror agree: {n} samples, worst {worst:.2e} m')
+    check(ns > 1000 and shud < 1e-9, f'rendered assembly shudder and numpy mirror agree: {ns} samples, worst {shud:.2e}')
 
 def run(layout_path, score_path):
     print(f'== {layout_path.name} / {score_path.name}')
@@ -111,6 +120,45 @@ def run(layout_path, score_path):
     check(zero_worst < 1e-12, f'recoil exactly zero at every blow and every strike start (worst {zero_worst:.1e})')
     check(live_min > 1e-3, f'recoil rings in a blow\'s wake (least peak {live_min*1000:.1f} mm)')
     check(into_bar > -1e-12, 'recoil never pushes a mallet toward its bar')
+    # the assembly's shudder: the stand, the rail and the gantry, off the recoil
+    # bus. Each must be exactly zero at its own blow (so nothing displaces the
+    # contact it answers), live 10-40 ms later, and back to rest before the
+    # arm's next strike begins. The stand sums an instrument's arms, so it is
+    # measured with one blow's own contribution.
+    own_zero = 0.0; own_live = {}; gated = 0.0; peaks = {}
+    for aid in rig.acts:
+        if not rig.stepped(aid): continue
+        lo, hi = rig.rail_span(aid); mid_x = (lo+hi)/2
+        buses = {'stand': lambda t: rig._shudder([b], t, R.STAND_THUMP, lambda _b: 1.0),
+                 'rail': lambda t: rig.rail_sag(aid, t, mid_x),
+                 'mast': lambda t: rig.mast_sway(aid, t)}
+        sched = rig.schedule(aid)
+        for i, s in enumerate(sched):
+            b = rig.blows_by_arm[aid][i]
+            for name, f in buses.items():
+                own_zero = max(own_zero, abs(f(s['hit'])))
+                live = max(abs(f(s['hit']+dt)) for dt in np.arange(.010, .041, .005))
+                own_live[name] = min(own_live.get(name, 1e9), live); peaks[name] = max(peaks.get(name, 0.0), live)
+                if i+1 < len(sched): gated = max(gated, abs(f(sched[i+1]['approach'])))
+    check(own_zero < 1e-12, f'every shudder is exactly zero at its blow (worst {own_zero:.1e})')
+    check(all(v > 0 for v in own_live.values()),
+          'every blow shakes the stand, the rail and the gantry 10-40 ms later (least '
+          + ', '.join(f'{k} {own_live[k]*1000:.3f}' for k in ('stand', 'rail', 'mast'))+' mm/mrad)')
+    check(gated < 1e-12, f'every shudder is gated to rest before the next strike begins (worst {gated:.1e})')
+    named = [a[0]*R.SHUDDER_GAIN for a in (R.STAND_THUMP, R.RAIL_SAG, R.MAST_SWAY)]
+    check(all(peaks[k] <= named[i]+1e-12 for i, k in enumerate(('stand', 'rail', 'mast'))),
+          f'no shudder exceeds its named amplitude x gain {R.SHUDDER_GAIN:g} (peaks '
+          + ', '.join(f'{k} {peaks[k]*1000:.3f}/{named[i]*1000:.2f}' for i, k in enumerate(('stand', 'rail', 'mast')))+')')
+    # ...and the carriage rides the sagging rail while its tool stays exact
+    sag_seen = 0.0; reach_ok = True
+    for aid in rig.acts:
+        if not rig.stepped(aid): continue
+        for s in rig.schedule(aid):
+            for dt in np.arange(.010, .041, .005):
+                t = s['hit']+dt; p = rig.pose(aid, t)
+                sag_seen = max(sag_seen, abs(p['root'][1]-layout['arms'][aid]['root_y']))
+                reach_ok &= bool(p['reachable'])
+    check(sag_seen > 1e-5 and reach_ok, f'the carriage follows the rail\'s sag ({sag_seen*1000:.2f} mm) and stays in reach')
     # the planner's x clearance between arms of one mechanism, at every moment
     worst_gap = np.inf; times = rig.sample_times()
     arms = list(rig.acts)

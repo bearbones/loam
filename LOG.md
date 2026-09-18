@@ -1,3 +1,58 @@
+## 2026-09-17 — CLOCKWORK a blow shakes the assembly, not just the arm
+
+The recoil was the arm's alone: the mallet kicked back and the machine it is
+bolted to did not notice (`docs/plans/assembly-shudder.md`). Three shudders
+now answer every stepped blow, each a damped sine driven by the same drop
+energy the recoil is driven by (`clearance(aid).y*(1+COCK)`, normalised by
+`BLOW_DROP_REF`, scaled by the event's `amp`):
+
+- the **stand** drops and rings — 1.5 mm at 9 Hz, gone in 120 ms — and it
+  rings for *every* arm of that mechanism, so two mallets on one stand beat
+  against each other's blows (`blows_by_mech`, one sorted list a mechanism);
+- the **rail** sags between its heads in its first beam mode — 1 mm at 12 Hz,
+  150 ms — shaped `sin(pi*u)` twice over: once at the blow's x, once at the x
+  being posed, so a strike at the middle of the rail sags the middle and a
+  strike at a head sags nothing;
+- the **masts** sway — 0.3 mrad at 6 Hz, 300 ms, 0.6 mm at the head, the
+  slowest and longest of the three because they are the tallest and the least
+  stiff.
+
+`docs/motion-design.md` carries the reasoning for each amplitude and rate,
+including the honest part: the bare guide-bar pair computes to about 22 Hz
+and the loaded rail to ~16 Hz, and 12 Hz was chosen because a 16 Hz ring is
+under three frames at 60 fps; the 1 mm amplitude is an order of magnitude
+over the ~0.1 mm a real rail would move.
+
+**Contacts stay exact.** The sag enters `pose()` at `root.y` only — the tip
+is still `path_at + recoil`, so a tool contact cannot move by construction.
+And each shudder is *itself* exactly zero at every blow it is measured
+against: `_ring(p, 0) = 0` kills the blow being struck, and `RECOIL_GATE`
+smooths the previous blows' rings to nothing before the next approach
+begins. The rulers check exactly that rather than trusting the argument —
+contacts worst 0.000000000 m, every shudder zero at its blow to 0.0e+00.
+
+The parity is the usual pair: `harness/clockwork_motion.gd` renders it,
+`formlab/rig.py` mirrors it in numpy, and `tools/test_motion.py` holds them
+together through new SHUD lines in `harness/dev/dump_motion.gd` (120 Hz, the
+stepped arms). `harness/performance.gd` poses the stand and the rail
+furniture from the same functions — storing each node's whole home
+*transform*, not its position, because the guide-bar beams carry their own
+`to_track_quat` rotation and reconstructing `Transform3D(Basis(), home)`
+silently unrotated them.
+
+Two things measured and left as they are. The guide bars are rigid meshes
+carrying the mid-span sag while the carriage follows the sag at its own x, so
+the two disagree by at most 0.176 mm — inside the 4 mm `offset_hits` margin
+and the 9 mm boss-to-bar gap, so nothing new touches; `performance.gd`
+already looks for an optional `form_<aid>_rack` node, so splitting the rack
+off the pinned heads later needs no harness change. And at the plan's
+physical amplitudes this is a sub-pixel shimmer: against zeroed amplitudes it
+moves 0.42 % of pixels at view 3 and 0.076–0.093 % at a 1.1 m close-up (max
+delta 81/255). So there is one mirrored `SHUDDER_GAIN` dial at the top of
+both motion files — default 1.0, the physical answer, and mirrored so the
+rendered rig and the rulers can never disagree about it. A 1x/6x comparison
+went to the operator to pick by eye.
+
 ## 2026-09-17 — CLOCKWORK the rail cache re-plans when the motion or the linkage changes
 
 The rail search is an hour an asset, so each mechanism's answer is cached

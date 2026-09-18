@@ -21,6 +21,17 @@ SLEW_S = .4; SCURVE_RAMP = .3
 COCK = .5; COCK_AT = .4
 RECOIL = dict(x=[.004, 11.0, .14], z=[.0025, 17.0, .10], bounce=[.06, 8.0, .16]); RECOIL_GATE = .08
 PAD = .01
+# The blow shakes the ASSEMBLY, not only the arm: [amplitude, Hz, decay s] each,
+# driven from the recoil bus (Rig._bus). The stand and the gantry are fixed
+# forms as far as the rulers are concerned; the RAIL sag moves the carriage and
+# so every capsule of the arm, which is why it is mirrored here.
+STAND_THUMP = [.0015, 9.0, .12]   # the instrument's stand, vertically (m)
+RAIL_SAG = [.001, 12.0, .15]      # the rail's first bending mode, at mid-span (m)
+MAST_SWAY = [.0003, 6.0, .30]     # the gantry swaying about its plinths (rad)
+BLOW_DROP_REF = .33               # a full blow: 0.22 m of lift risen COCK again
+SHUDDER_GAIN = 1.0                # ...all three together: the one dial to tune by eye
+SHUDDER_TAIL = 1.0                # a ring is spent this long after its blow
+RAIL_OVER = .26                   # the guide bars run this far past the reach window (formlab.gantry)
 
 def quintic(u):
     u = min(max(u, 0.0), 1.0)
@@ -135,6 +146,69 @@ class Rig:
                             if max(s['lo']-hi, lo-s['hi'])-PAD < need: go = max(go, min(t1, s['tm']))
                 s['go'] = go; s['moving'] = s['approach'] > go+1e-6
         self.sched = win
+        self._bus()
+
+    def _bus(self):
+        """The recoil bus: one entry a blow, shared by every rigid-body shudder
+        so the stand, the rail and the gantry answer the same hits the arm's own
+        recoil does. A blow records where it landed along the rail and how hard
+        (the score's amplitude times the cocked drop's height, 1.0 for a
+        full-amplitude mallet) and the time its arm's NEXT strike begins, which
+        gates its ring to nothing. Mirrors ClockworkMotion._bus."""
+        self.blows_by_arm = {}; self.blows_by_mech = {}
+        for aid in self.plans:
+            if not self.stepped(aid): continue
+            scale = self.clearance(aid)[1]*(1+COCK)/BLOW_DROP_REF; mid = self.mech_of[aid]
+            sched = self.sched[aid]
+            self.blows_by_arm[aid] = [dict(t=float(s['hit']), aid=aid, mid=mid, x=float(s['first'][0]),
+                                           energy=float(s['event'].get('amp', 1.0))*scale,
+                                           gate_end=float(sched[i+1]['approach']) if i+1 < len(sched) else np.inf)
+                                      for i, s in enumerate(sched)]
+            self.blows_by_mech.setdefault(mid, []).extend(self.blows_by_arm[aid])
+        for mid in self.blows_by_mech: self.blows_by_mech[mid].sort(key=lambda b: b['t'])
+
+    @staticmethod
+    def _blow_gate(b, t):
+        """A blow's ring is gated exactly as `recoil` is: full until RECOIL_GATE
+        before its arm's next strike begins, nothing after."""
+        return 1.0-smooth((t-(b['gate_end']-RECOIL_GATE))/RECOIL_GATE)
+
+    def _shudder(self, blows, t, p, shape):
+        """One bus's rings summed at t: a damped sinusoid a blow, weighted by the
+        blow's energy and by `shape` (a mode shape; 1.0 for a rigid body) and
+        negative-going first, because a blow pushes down."""
+        total = 0.0
+        for b in reversed(blows):
+            tau = t-b['t']
+            if tau < 0.0: continue
+            if tau > SHUDDER_TAIL: break
+            total += -_ring(p, tau)*b['energy']*shape(b)*self._blow_gate(b, t)
+        return total*SHUDDER_GAIN
+
+    def rail_span(self, aid):
+        """The rail's guide bars run RAIL_OVER past the reach window into their heads."""
+        lo, hi = self.geometry['arms'][aid]['reach_x']
+        return float(lo)-RAIL_OVER, float(hi)+RAIL_OVER
+
+    def stand_thump(self, mid, t):
+        """The instrument's stand answers every blow on it with a short vertical thump."""
+        if mid not in self.blows_by_mech: return 0.0
+        return self._shudder(self.blows_by_mech[mid], t, STAND_THUMP, lambda b: 1.0)
+
+    def rail_sag(self, aid, t, x):
+        """The rail's vertical deflection at rail position x: a steel bar pinned
+        in its two heads, rung in its first bending mode (a half sine over the
+        span) by a blow whose own position sets how much of that mode it excites."""
+        if aid not in self.blows_by_arm: return 0.0
+        lo, hi = self.rail_span(aid); L = max(hi-lo, .001)
+        here = np.sin(np.pi*min(max((x-lo)/L, 0.0), 1.0))
+        return self._shudder(self.blows_by_arm[aid], t, RAIL_SAG,
+                             lambda b: here*np.sin(np.pi*min(max((b['x']-lo)/L, 0.0), 1.0)))
+
+    def mast_sway(self, aid, t):
+        """The gantry sways about its plinths after a blow: a tilt across the rail."""
+        if aid not in self.blows_by_arm: return 0.0
+        return self._shudder(self.blows_by_arm[aid], t, MAST_SWAY, lambda b: 1.0)
 
     def schedule(self, aid): return self.sched[aid]
 
@@ -196,7 +270,10 @@ class Rig:
 
     def pose(self, aid, t):
         cfg = self.geometry['arms'][aid]; tip = self.tip_at(aid, t)
-        root = _v([tip[0], cfg['root_y'], cfg['root_z']])
+        # The carriage rides the rail, so it follows the rail's sag at its own x:
+        # the links and the pawl move with the bar. The tip is the scored path
+        # and its own recoil, untouched — every contact stays exact.
+        root = _v([tip[0], cfg['root_y']+self.rail_sag(aid, t, tip[0]), cfg['root_z']])
         wrist = tip+self.wrist_offset(cfg)
         delta = wrist-root; distance = np.linalg.norm(delta)
         l1 = float(cfg['l1']); l2 = float(cfg['l2'])

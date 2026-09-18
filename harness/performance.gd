@@ -14,6 +14,8 @@ var gear_home: Dictionary = {}   # each pinion's imported basis: the disc in its
 var pawl_home: Dictionary = {}   # each mallet arm's roller detent pawl (formlab.pawl), imported basis
 var roller_home: Dictionary = {} # the pawl's roller, imported basis
 var wheel_home: Dictionary = {}  # the flywheel, hub and pulleys: node -> imported basis, unspun
+var stand_nodes: Dictionary = {}    # mid -> the instrument's stand and its imported home
+var shudder_nodes: Dictionary = {}  # aid -> the rail's bars and the gantry it stands on, and the sway pivot
 var strings: Dictionary = {}
 var hits: Dictionary = {}
 var camera: Camera3D
@@ -36,6 +38,9 @@ var warmup_frames := 0
 var capture_start := 45.5
 var capture_seconds := 8.0
 var capture_fps := 30.0
+var capture_speed := 1.0         # score seconds a video second: 0.25 is quarter speed
+var focus := ""                  # --focus=<aid>: frame that arm's mechanism, not the room
+var focus_span := 2.4            # metres of rail across the frame
 var fixed_time := 48.0
 var clock_started := false
 var silent := false
@@ -98,6 +103,7 @@ func _ready() -> void:
 	for label in ["Chamber flywheel","Chamber hub","Chamber drive pulley","Chamber belt pulley"]:
 		var node: Node3D=model.find_child(label,true,false)
 		if node!=null: wheel_home[node]=node.basis
+	_assembly_nodes()
 	for sid in layout["strings"]:
 		hits[sid]=[]
 		if not layout["strings"][sid]["struck"]:
@@ -122,6 +128,12 @@ func _ready() -> void:
 	capture_start=float(option("start","45.5"))
 	capture_seconds=float(option("seconds","8"))
 	capture_fps=float(option("fps","30"))
+	# A slow-motion capture takes capture_fps frames a VIDEO second while score
+	# time runs at capture_speed: at 60 fps and 0.25, a 90 ms click fills 22
+	# frames. --seconds stays the score window, so the frame count grows.
+	capture_speed=maxf(float(option("speed","1")),.001)
+	focus=option("focus","")
+	focus_span=maxf(float(option("focus_span","2.4")),.1)
 	view=int(option("view","0"))
 	auto_camera=option("camera","auto")=="auto"
 	silent=OS.get_cmdline_user_args().has("--silent")
@@ -129,6 +141,35 @@ func _ready() -> void:
 	if capture_dir!="":
 		DirAccess.make_dir_recursive_absolute(capture_dir); playing=false; time=capture_start
 	print("CLOCKWORK: loaded ",score.events.size()," events, ",parts.size()," rigs; ",audio_mode," audio")
+
+## The blow shakes the ASSEMBLY, not only the arm (docs/motion-design.md): the
+## nodes the recoil bus moves, cached with their imported homes. A struck
+## instrument's stand thumps vertically; the arm's two guide bars (and its rack,
+## where the build packs it as a form of its own) carry the rail's sag; the
+## gantry and its heads sway about the line through the plinth feet. The harp's
+## and the rake's frames are NOT on the bus: those are servo arms and nothing
+## there is struck.
+func _assembly_nodes() -> void:
+	for mid in layout.get("mechanisms",{}):
+		var stand: Node3D=model.find_child("form_"+mid+"_stand",true,false)
+		if stand!=null: stand_nodes[mid]={"node":stand,"home":stand.transform}
+	for aid in layout["arms"]:
+		if not motion.stepped(aid): continue
+		var bars: Array=[]
+		# Both guide bars are exported as "<aid> rail" and "<aid> rail_001"; each
+		# carries the beam's own rotation, so the whole transform is the home.
+		for node in model.find_children(aid+" rail*","Node3D",true,false): bars.append({"node":node,"home":node.transform})
+		var rack: Node3D=model.find_child("form_"+aid+"_rack",true,false)
+		if rack!=null: bars.append({"node":rack,"home":rack.transform})
+		var frame: Array=[]
+		for label in ["form_"+aid+"_gantry","form_"+aid+"_railhead"]:
+			var node: Node3D=model.find_child(label,true,false)
+			if node!=null: frame.append({"node":node,"home":node.transform})
+		var ends: Array=layout["arms"][aid].get("gantry",{}).get("ends",[])
+		var pivot := Vector3.ZERO
+		for e in ends: pivot+=Vector3(float(e["x_col"]),float(e["foot_y"]),float(e["mast_z"]))
+		if ends.size()>0: pivot/=float(ends.size())
+		shudder_nodes[aid]={"bars":bars,"frame":frame,"pivot":pivot}
 
 const WIRE := preload("res://shaders/wire_string.gdshader")
 const STRING_NODES := 24
@@ -382,6 +423,30 @@ func evaluate(t: float) -> void:
 			p["pawl"].basis=swing*pawl_home[aid]
 			p["roller"].position=p["pawl"].position+swing*motion.v(cfg["pawl"]["nose"])
 			p["roller"].basis=swing*Basis(Vector3(0,0,1),float(cfg["pawl"].get("roller_spin",0.0))*root.x)*roller_home[aid]
+	# The blow shakes the assembly, not only the arm: the stand thumps, the rail
+	# sags under the carriage and rings, and the gantry sways about its plinths.
+	# All three come off the same recoil bus the arm's own recoil does and are
+	# exactly zero at the blow they answer (ClockworkMotion._shudder).
+	for mid in stand_nodes:
+		var st: Dictionary=stand_nodes[mid]
+		var sh: Transform3D=st["home"]
+		st["node"].transform=Transform3D(sh.basis,sh.origin+Vector3(0,motion.stand_thump(mid,t),0))
+	for aid in shudder_nodes:
+		var sh: Dictionary=shudder_nodes[aid]
+		var span: Array=motion.rail_span(aid)
+		# The guide bars are rigid meshes, so they carry the sag at mid-span; the
+		# deflection's SHAPE lives in the carriage, which follows the sag at its
+		# own x (ClockworkMotion.pose), so links and pawl move with the bar.
+		var sag := motion.rail_sag(aid,t,(span[0]+span[1])/2.0)
+		for b in sh["bars"]:
+			var bh: Transform3D=b["home"]
+			b["node"].transform=Transform3D(bh.basis,bh.origin+Vector3(0,sag,0))
+		# A sway is a tilt ACROSS the rail (about world X, through both plinth
+		# feet): the braces stiffen the gantry along the rail, and a rotation on
+		# that axis gives no mast a lever arm down the span.
+		var tilt := Basis(Vector3.RIGHT,motion.mast_sway(aid,t))
+		var pivot: Vector3=sh["pivot"]
+		for f in sh["frame"]: f["node"].transform=Transform3D(tilt,pivot-tilt*pivot)*f["home"]
 	# The flywheel turns once a bar; the belt pulley turns with it, faster by the
 	# pulleys' radii, the same way round (an open belt).
 	var spin: float=flywheel_angle(t)
@@ -432,6 +497,27 @@ func _camera_at(t: float) -> void:
 	var target := Vector3(0,1.55,.2)
 	var pos := Vector3(7.8,5.8,12.8)
 	var chosen := view
+	# --focus=<aid> overrides every view: frame one arm's own mechanism so a clip
+	# reads the carriage, the rack, the pawl and the tool rather than the room.
+	# The camera sits square in front of the rail (looking along -z, a little
+	# above) at the distance that puts focus_span metres of rail across the
+	# frame, centred on the carriage and following it, and looks at the midpoint
+	# between the carriage and the tool so a whole cocked drop or slew is in
+	# shot. Narrow the span for a click close-up; widen it past the rail's
+	# length to frame the whole span.
+	if focus!="" and layout.get("arms",{}).has(focus):
+		var cfg: Dictionary=layout["arms"][focus]
+		var pose := motion.pose(focus,t)
+		var x0: float=float(cfg["reach_x"][0])-ClockworkMotion.RAIL_OVER
+		var x1: float=float(cfg["reach_x"][1])+ClockworkMotion.RAIL_OVER
+		var half: float=minf(focus_span,x1-x0)/2.0
+		var cx: float=clampf(pose["root"].x,x0+half,x1-half) if x1-x0>2.0*half else (x0+x1)/2.0
+		target=Vector3(cx,(pose["root"].y+pose["tip"].y)/2.0,float(cfg["root_z"]))
+		var size := get_viewport().get_visible_rect().size
+		var aspect: float=size.x/maxf(size.y,1.0)
+		var distance: float=maxf(half/maxf(tan(deg_to_rad(camera.fov)/2.0)*aspect,.001),.8)
+		camera.look_at_from_position(target+Vector3(0,.12*half,distance),target,Vector3.UP)
+		return
 	if auto_camera:
 		var cue := "wide-dark"
 		for c in score.cues:
@@ -522,7 +608,7 @@ func _process(dt: float) -> void:
 			if p.playing: time=maxf(time,p.get_playback_position()+AudioServer.get_time_since_last_mix()-AudioServer.get_output_latency())
 			else: time=score.total_s
 		if time>=score.total_s: time=score.total_s; playing=false
-	if capture_dir!="": time=capture_start+frame/capture_fps
+	if capture_dir!="": time=capture_start+frame*capture_speed/capture_fps
 	evaluate(time)
 	var section := "pre-roll"
 	for c in score.cues:
@@ -538,7 +624,7 @@ func _process(dt: float) -> void:
 		var path := shot if shot!="" else capture_dir.path_join("%05d.png" % frame)
 		get_viewport().get_texture().get_image().save_png(path)
 		frame+=1
-		if shot!="" or frame>=int(capture_seconds*capture_fps): get_tree().quit()
+		if shot!="" or frame>=int(capture_seconds*capture_fps/capture_speed): get_tree().quit()
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo: return
