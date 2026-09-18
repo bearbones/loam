@@ -171,7 +171,11 @@ builds it from the plan and records the plan on the manifest (`flywheel`);
 score's tempo and the belt pulley with them, faster by the pulleys' radii, the
 same way round as an open belt does. The assembly stands beyond the cabinet's
 end, outside every obstacle and every arm's reach, so no promise changed and no
-rail moved. `tools/test_flywheel.py` pins the axle through the wheel and both
+rail moved. The wheel's rim is a ring gear: 52 involute teeth cut by the
+pinions' profile at their module (`formlab.gear.profile`,
+`docs/articulated-arms.md` "The teeth are involute"), so the flywheel and the
+carriages' pinions read as one family of gears — the sixteen bevelled blocks
+it wore before looked like a cog drawn from memory next to them. `tools/test_flywheel.py` pins the axle through the wheel and both
 housings, the housings clear of the wheel and hub, the pedestals on the sole
 plate, the pulleys in one plane, the bands tangent, and the assembly clear of
 every arm sweep, rail and obstacle; `dev/test_performance.gd` checks the wheel

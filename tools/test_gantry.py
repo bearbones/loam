@@ -85,6 +85,17 @@ def run(layout_path, score_path):
     check(R['s_tip'] > P['r_hub'] and R['s_root'] > P['r_tip'] and tip_land > .008 and rack_land > .008 and 2*T.BEVEL < min(tip_land, rack_land)
           and P['r_tip']+G.MARGIN <= G.RAIL_OVER+G.HEAD_INSET,
           f'rack teeth pitched to the pinion: pitch {R["pitch"]*1000:.1f} mm, tip lands {tip_land*1000:.1f} / {rack_land*1000:.1f} mm past their corners, clearances {G.RACK_GAP*1000:.0f} mm; the disc clears the heads')
+    # 2b. one profile for every gear: `gear.profile()` is the pinion's constants
+    #     exactly, and the flywheel's ring gear (52 teeth to the wheel's radius, the
+    #     same module) cuts a convex tooth with a land and corners of its own
+    prof = T.profile(); fly = T.profile(int(layout['flywheel'].get('teeth', 52)), float(layout['flywheel']['r']))
+    same = all(abs(prof[k]-v) < 1e-12 for k, v in dict(r_pitch=T.R_PITCH, r_tip=T.R_TIP, r_hub=T.R_HUB, r_base=T.R_BASE, root=T.ROOT, pitch=T.PITCH, psi_pitch=T.PSI_PITCH).items())
+    fp = T.tooth_polygon(fly); e = np.roll(fp, -1, 0)-fp; turn = e[:, 0]*np.roll(e, -1, 0)[:, 1]-e[:, 1]*np.roll(e, -1, 0)[:, 0]
+    fly_land = 2*fly['r_tip']*np.sin(T.half_angle(fly['r_tip'], fly))
+    check(same and np.allclose(T.tooth_polygon(), T.tooth_polygon(prof)) and abs(fly['module']-T.MODULE) < 1e-9 and (turn > -1e-12).all()
+          and fly_land > 2*T.BEVEL and fly['root'] < fly['r_hub'] < fly['r_pitch'] < fly['r_tip'] and np.isfinite(T.inset(fp, T.BEVEL)).all(),
+          f'one profile cuts every gear: the pinion\'s is the module\'s, the flywheel\'s {fly["teeth"]} teeth at {fly["module"]*1000:.0f} mm module '
+          f'are convex with a {fly_land*1000:.1f} mm land (hub {fly["r_hub"]*1000:.0f} mm, tip {fly["r_tip"]*1000:.0f} mm)')
     # 2c. the teeth mesh: rolled through a pitch, no pinion tooth overlaps a rack
     #     tooth (formlab.gear.mesh_gap, a separating-axis test between the polygons)
     gaps = [T.mesh_gap(x, R['s_tip'], R['s_root']) for x in np.linspace(0, R['pitch'], 16, endpoint=False)]

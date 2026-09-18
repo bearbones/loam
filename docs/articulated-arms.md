@@ -365,9 +365,12 @@ below it, 3 mm of backlash at the pitch line, 4 mm corners — a 12 mm tip
 land, 24 mm at the base. The rack's teeth are the involute's conjugate, which
 for a rack is a straight line: trapezoids at the pressure angle, 10 mm at the
 tip, 32 mm at the root on the strip (`gear.rack_half`). One profile feeds
-four places: `build_clockwork.gear(profile='involute')` extrudes the polygon
-per tooth (the flywheel keeps its box teeth — it is decorative and a
-different radius), `gantry.rack` cuts the rack by `rack_half`, the pawl's
+four places: `build_clockwork.gear` extrudes the polygon per tooth — for the
+pinions and, through `gear.profile(n, r_tip)`, for the flywheel's ring gear
+(52 teeth to the wheel's 400 mm, the same 15 mm module: a gear's proportions
+are its module's, so the one profile scales to any count; a gear of many
+teeth has its base circle inside its hub, so its involute starts just above
+the root with no radial run) — `gantry.rack` cuts the rack by `rack_half`, the pawl's
 distance field is the polygon inset by its bevel (below), and
 `tools/test_gantry.py` rolls the two through a pitch at sixteen positions
 and asserts no pinion tooth overlaps a rack tooth (`gear.mesh_gap`, a

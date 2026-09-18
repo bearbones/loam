@@ -6,7 +6,9 @@ conjugate: a rack's involute is a straight line at the pressure angle, so the
 rack's teeth are trapezoids. The one profile feeds four places:
 
   - tools/build_clockwork.gear extrudes `tooth_polygon` for each tooth of a
-    pinion (the flywheel keeps its decorative box teeth);
+    pinion — and, through `profile(n, r_tip)`, for the flywheel's ring gear
+    (52 teeth on a 780 mm pitch circle, the same 15 mm module: a gear's
+    proportions are its module's, so one profile scales to any count);
   - formlab.gantry.rack cuts the rack's teeth by `rack_half`;
   - formlab.pawl.tooth_distance measures the roller against `tooth_polygon`
     inset by the bevel (so its corners are round, as the built tooth's are);
@@ -34,20 +36,39 @@ ROOT = R_HUB-.003                   # the tooth reaches this far into the hub, s
 FLANK_SAMPLES = 6
 PSI_PITCH = (PITCH/4-BACKLASH/2)/R_PITCH   # half the tooth's angular thickness at the pitch circle
 
+MODULE = 2*R_PITCH/TEETH        # 15 mm: pitch diameter a tooth. Addendum and dedendum are the pinion's, in modules
+ADDENDUM = (R_TIP-R_PITCH)/MODULE
+DEDENDUM = (R_PITCH-R_HUB)/MODULE
+
+def profile(n=TEETH, r_tip=R_TIP):
+    """A gear of n teeth whose tips reach r_tip, cut to the pinion's module
+    proportions (addendum, dedendum, pressure angle): the radii the tooth
+    polygon needs. The default is the pinion itself, matching the module
+    constants exactly (tools/test_gantry.py holds it)."""
+    m = r_tip/(n/2+ADDENDUM); r_pitch = n*m/2; r_hub = r_pitch-DEDENDUM*m; pitch = 2*np.pi*r_pitch/n
+    return dict(teeth=n, module=m, r_pitch=r_pitch, r_tip=r_tip, r_hub=r_hub, r_base=r_pitch*np.cos(PRESSURE),
+                root=r_hub-.003, pitch=pitch, psi_pitch=(pitch/4-BACKLASH/2)/r_pitch)
+
 def _inv(a): return np.tan(a)-a
 
-def half_angle(rho):
-    """Half the tooth's angular thickness at radius rho (>= R_BASE): the involute's polar equation."""
-    a = np.arccos(np.clip(R_BASE/np.asarray(rho, float), -1, 1))
-    return PSI_PITCH+_inv(PRESSURE)-_inv(a)
+def half_angle(rho, prof=None):
+    """Half the tooth's angular thickness at radius rho (>= the base circle): the involute's polar equation."""
+    r_base, psi = (R_BASE, PSI_PITCH) if prof is None else (prof['r_base'], prof['psi_pitch'])
+    a = np.arccos(np.clip(r_base/np.asarray(rho, float), -1, 1))
+    return psi+_inv(PRESSURE)-_inv(a)
 
-def tooth_polygon():
+def tooth_polygon(prof=None):
     """One tooth as a convex counter-clockwise polygon (N, 2) in its frame:
     the root edge inside the hub, a radial run up to the base circle, the
-    involute flank sampled to the tip, the tip land, and down the other side."""
-    rho = np.linspace(R_BASE, R_TIP, FLANK_SAMPLES); ps = half_angle(rho); pb = ps[0]
+    involute flank sampled to the tip, the tip land, and down the other side.
+    The pinion's by default; any `profile(n, r_tip)`'s."""
+    r_base, r_tip, root = (R_BASE, R_TIP, ROOT) if prof is None else (prof['r_base'], prof['r_tip'], prof['root'])
+    # A gear of many teeth has its base circle inside its hub (the dedendum is
+    # fixed in modules, the pitch-to-base drop grows with the radius): the
+    # involute then starts just above the root, and there is no radial run.
+    rho = np.linspace(max(r_base, root+.001), r_tip, FLANK_SAMPLES); ps = half_angle(rho, prof); pb = ps[0]
     right = np.c_[rho*np.cos(ps), -rho*np.sin(ps)]; left = right[::-1]*[1, -1]
-    return np.vstack([[ROOT*np.cos(pb), -ROOT*np.sin(pb)], right, left, [ROOT*np.cos(pb), ROOT*np.sin(pb)]])
+    return np.vstack([[root*np.cos(pb), -root*np.sin(pb)], right, left, [root*np.cos(pb), root*np.sin(pb)]])
 
 def inset(poly, b):
     """A convex counter-clockwise polygon offset inward by b: each edge's line

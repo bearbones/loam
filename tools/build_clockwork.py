@@ -69,12 +69,12 @@ def text(n,body,p,size=.12,yaw=0.):
     bpy.ops.object.text_add(location=vec(p)); o=bpy.context.object; o.name=n; o.data.body=body; o.data.align_x='CENTER'; o.data.size=size; o.data.extrude=.001
     o.rotation_euler=(math.pi/2,0,yaw); o.data.materials.append(brass)
     bpy.ops.object.convert(target='MESH')
-def tooth(n,p,a,thickness,m):
+def tooth(n,p,a,thickness,m,poly):
     # One involute tooth (formlab.gear.tooth_polygon: u radial, v tangential in the
     # disc's plane — Godot x-y) at angle a about the disc's centre p, extruded
     # through the disc's thickness along Godot z, its corners bevelled as the
     # distance field the pawl rides assumes (gear.BEVEL).
-    poly=tooth_profile.tooth_polygon(); c=math.cos(a); s=math.sin(a); h=thickness/2; k=len(poly)
+    c=math.cos(a); s=math.sin(a); h=thickness/2; k=len(poly)
     ring=[(p[0]+u*c-v*s,p[1]+u*s+v*c) for u,v in poly]
     verts=[tuple(vec((x,y,p[2]+h))) for x,y in ring]+[tuple(vec((x,y,p[2]-h))) for x,y in ring]
     faces=[list(range(k)),[k+i for i in range(k)][::-1]]+[(i,(i+1)%k,k+(i+1)%k,k+i) for i in range(k)]
@@ -83,19 +83,17 @@ def tooth(n,p,a,thickness,m):
     bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active=o
     bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.normals_make_consistent(inside=False); bpy.ops.object.mode_set(mode='OBJECT')
     return finish(o,n,m,tooth_profile.BEVEL)
-def gear(n,p,r=.15,profile='box'):
-    # One joined mesh: hub, toothed perimeter, and a contrasting axle remain visible.
-    # 'box': sixteen bevelled blocks (the flywheel's, decorative); 'involute': the
-    # pinion's real teeth from formlab.gear, which the rack and the pawl are cut to.
-    before=set(bpy.data.objects); o=cyl(n,p,r*.78,.07,brass)
+def gear(n,p,r_tip,teeth=16):
+    # One joined mesh: the hub disc out to the teeth's roots and `teeth` involute
+    # teeth from formlab.gear reaching r_tip — the pinion's own (16, which the
+    # rack and the pawl are cut to) or the flywheel's ring gear (52, the same
+    # module). Tooth 0 points along +x in the disc's home frame, as the pawl's
+    # kinematics assume.
+    prof=tooth_profile.profile(teeth,r_tip); poly=tooth_profile.tooth_polygon(prof)
+    before=set(bpy.data.objects); o=cyl(n,p,prof['r_hub'],.07,brass)
     o.rotation_euler=(math.pi/2,0,0)
-    for i in range(16):
-        a=math.tau*i/16
-        if profile=='involute':
-            assert abs(r-tooth_profile.R_TIP)<1e-9, 'the involute profile is cut for the pinion (formlab.clearance.PINION)'
-            tooth(n+' tooth',p,a,.07,brass); continue
-        t=box(n+' tooth',(p[0]+r*.86*math.cos(a),p[1]+r*.86*math.sin(a),p[2]),(r*.28,r*.22,.07),brass,.008)
-        t.rotation_euler[1]=-a
+    for i in range(teeth):
+        tooth(n+' tooth',p,math.tau*i/teeth,.07,brass,poly)
     bpy.ops.object.select_all(action='DESELECT')
     for ob in set(bpy.data.objects)-before: ob.select_set(True)
     bpy.context.view_layer.objects.active=o; bpy.ops.object.join(); o.name=n
@@ -228,7 +226,9 @@ text('Chamber name','L O A M   /   THE CHAMBER',(0,.18,-1.21),.11)
 # axle's back end and a flat belt to a pulley on a bracket at the cabinet's end
 # (formlab.layout.flywheel_plan); Godot turns the wheel and pulleys a bar a turn.
 fw=flywheel_plan((-2.4,.53,-1.5),.4,cabinet_x=-1.8); manifest['flywheel']=fw
-gear('Chamber flywheel',fw['centre'],fw['r'])
+# The wheel carries a ring gear — 52 involute teeth at the pinions' module
+# (formlab.gear.profile), so it and they are visibly one family of gears.
+gear('Chamber flywheel',fw['centre'],fw['r'],52); manifest['flywheel']['teeth']=52
 fw_mat={'hub':brass,'axle':steel,'housing':steel,'bolt':brass,'pulley':steel,'stub axle':steel}
 for label,(a,b,r) in fw['cyls'].items():
     beam('Chamber '+label,a,b,r,next((m for k,m in fw_mat.items() if k in label),steel))
@@ -281,7 +281,7 @@ for aid,cfg in manifest['arms'].items():
     # 0.26 m past the window into the rail heads; heads, masts and plinths are
     # formlab.gantry objects placed by build_forms.py (see docs/articulated-arms.md).
     for dy in (-.075,.075): beam(aid+' rail',(x0-.26,ry+dy,rz),(x1+.26,ry+dy,rz),.024,steel)
-    g=gear(aid+'__gear',(0,0,0),.13,'involute'); manifest['gears'].append(g.name)
+    g=gear(aid+'__gear',(0,0,0),.13); manifest['gears'].append(g.name)
     # A pinion above or below the carriage lies flat (its axle vertical): the disc is built
     # upright in the Godot x-y plane, so undo the cylinder's tilt for those mounts.
     if cfg.get('pinion','back') in ('up','down'): g.rotation_euler=(0,0,0)
