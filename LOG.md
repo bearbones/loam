@@ -1,3 +1,44 @@
+## 2026-09-17 — CLOCKWORK the contrast reel is one command
+
+`tools/contrast_reel.sh START SECONDS [FPS] [OUT]` captures the same score
+window twice — a stepped mechanism and a servo one — encodes each, stacks
+them side by side with a caption naming the vocabulary, and shows the result
+(`docs/plans/contrast-reel.md`). The two captures run concurrently under
+`setsid nohup` with a done-marker file, because a frame costs about 0.8 s and
+there is no reason to pay for it twice in series. With no `LEFT`/`RIGHT` set
+it reads the manifest for the first stepped arm and the first servo one, so
+it works on a clean checkout and on either asset.
+
+Making it actually *show* the contrast took three fixes beyond the script.
+
+**The focus camera framed the rail, not the mechanism.** An arm is about a
+metre from its carriage down to its tool, and the shot has to hold both ends
+— the pawl riding the pinion at the top, the mallet's cocked drop at the
+bottom. `--focus` now frames the arm's own root-to-tip box with 300 mm of
+air, so `--focus_span` is a *minimum* width: narrowing it for a close-up
+cannot crop the tool out any more.
+
+**It stood on the wrong side.** Every arm works behind its instrument, so a
+pick arm shot from the front is a photograph of the strings it is hiding
+behind — the first reel's servo half was two strings and a dark wall. The
+camera now stands on the far side of the carriage from the mechanism's
+centre, a little above. `--focus_dir=x,y,z` overrides it, because the room
+has masts and resonators an automatic camera cannot know about.
+
+**The moment was wrong too.** At 52.1 s `bars_arm0` is parked at a rail head
+with a mast in front of it and strikes the same tooth twice, so there was no
+travel to see. The reel is now shot at 55.95 s, where that arm steps
+3.54 → 3.92 → 4.31 m mid-rail while `harp_arm0` slews −0.60 → −0.38: both
+vocabularies moving, both clear of their gantry heads. `Rig.sched` is what
+says so — `approach`, `hit` and `first` per event — and
+`docs/motion-design.md` now records that picking the moment is half the shot.
+
+Also: captions go through `drawtext`'s `textfile=` rather than an escaped
+`text=`. A filter argument is parsed for `'`, `,` and `:` before the text
+ever reaches the renderer, and captions are prose.
+
+The reel at 55.95 s +0.55 s, quarter speed, 1.4 m span went to the operator.
+
 ## 2026-09-17 — CLOCKWORK a blow shakes the assembly, not just the arm
 
 The recoil was the arm's alone: the mallet kicked back and the machine it is

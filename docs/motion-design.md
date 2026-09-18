@@ -185,7 +185,7 @@ that shows it is one command:
 ```sh
 tools/contrast_reel.sh START SECONDS [FPS] [OUT.mp4]
 tools/contrast_reel.sh 52.1 4                       # a mallet arm beside a pick arm
-SPEED=.25 SPAN=1.1 tools/contrast_reel.sh 52.1 .5   # one click, quarter speed, close
+SPEED=.25 SPAN=1.4 tools/contrast_reel.sh 55.95 .55 # one step, quarter speed, close
 LEFT=view:3 RIGHT=view:1 tools/contrast_reel.sh 45.5 6
 ASSET=expanded AUDIO=1 tools/contrast_reel.sh 52.1 4
 ```
@@ -202,14 +202,30 @@ caption if it cannot.
 
 Two pieces of the harness make that possible:
 
-**`--focus=<aid>`** frames one arm's own mechanism instead of the room: the
-camera sits square in front of the rail, a little above, at the distance that
-puts `--focus_span` metres of rail (2.4 by default) across the frame, centred
-on the carriage and following it, looking at the midpoint between the carriage
-and the tool so a whole cocked drop or slew is in shot. Narrow the span for a
-click close-up — at 1.1 m the pawl's 95 mm lever is a sixth of the frame and
-the 47 mm click is half that — or widen it past the rail's length to frame the
+**`--focus=<aid>`** frames one arm's own mechanism instead of the room. An
+arm is about a metre from its carriage down to its tool and a click close-up
+has to hold both ends — the pawl riding the pinion at the top, the mallet's
+cocked drop at the bottom — so the camera frames the arm's own root-to-tip box
+with 300 mm of air, following it along the rail. `--focus_span` (2.4 m by
+default) is therefore a *minimum* width: narrowing it centres the shot tighter
+but cannot crop the tool out, and widening it past the rail's length frames the
 whole span.
+
+Which side to stand on is not free. Every arm works behind its instrument, so
+the camera stands on the far side of the carriage from the mechanism's centre
+and a little above; standing in front of a pick arm photographs the strings it
+is hiding behind. `--focus_dir=x,y,z` overrides that when a shot wants a
+particular angle — the room has furniture an automatic camera cannot know
+about, and a mast or a resonator will occasionally land in the middle of the
+frame.
+
+**Pick the moment, not just the angle.** A close-up of an arm parked at a rail
+head is a picture of a mast, and a strike that repeats on the same tooth shows
+no travel at all. The reel above is shot at 55.95 s because `bars_arm0` steps
+3.54 → 3.92 → 4.31 m there, mid-rail, while `harp_arm0` slews −0.60 → −0.38:
+both vocabularies moving, both away from their gantry heads. The schedule that
+says so is `formlab.rig.Rig.sched` — each entry's `approach`, `hit` and `first`
+are the window, the contact and the x it happens at.
 
 **`--speed=S`** runs score time at S seconds a video second during a capture,
 so `--fps=60 --speed=0.25` fills 22 frames with a 90 ms click. `--seconds`

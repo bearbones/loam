@@ -40,7 +40,8 @@ var capture_seconds := 8.0
 var capture_fps := 30.0
 var capture_speed := 1.0         # score seconds a video second: 0.25 is quarter speed
 var focus := ""                  # --focus=<aid>: frame that arm's mechanism, not the room
-var focus_span := 2.4            # metres of rail across the frame
+var focus_span := 2.4            # metres of rail across the frame (a minimum)
+var focus_dir := Vector3.ZERO    # --focus_dir=x,y,z: stand-off direction; zero = derive it
 var fixed_time := 48.0
 var clock_started := false
 var silent := false
@@ -134,6 +135,8 @@ func _ready() -> void:
 	capture_speed=maxf(float(option("speed","1")),.001)
 	focus=option("focus","")
 	focus_span=maxf(float(option("focus_span","2.4")),.1)
+	var fd: PackedStringArray=option("focus_dir","").split(",",false)
+	if fd.size()==3: focus_dir=Vector3(float(fd[0]),float(fd[1]),float(fd[2]))
 	view=int(option("view","0"))
 	auto_camera=option("camera","auto")=="auto"
 	silent=OS.get_cmdline_user_args().has("--silent")
@@ -499,24 +502,40 @@ func _camera_at(t: float) -> void:
 	var chosen := view
 	# --focus=<aid> overrides every view: frame one arm's own mechanism so a clip
 	# reads the carriage, the rack, the pawl and the tool rather than the room.
-	# The camera sits square in front of the rail (looking along -z, a little
-	# above) at the distance that puts focus_span metres of rail across the
-	# frame, centred on the carriage and following it, and looks at the midpoint
-	# between the carriage and the tool so a whole cocked drop or slew is in
-	# shot. Narrow the span for a click close-up; widen it past the rail's
-	# length to frame the whole span.
+	#
+	# An arm is about a metre from its carriage down to its tool, and a click
+	# close-up has to hold BOTH ends — the pawl riding the pinion at the top and
+	# the mallet's cocked drop at the bottom. So the frame covers the arm's own
+	# root-to-tip box with a margin and `--focus_span` is a MINIMUM width, not
+	# the answer: narrowing it past the arm's height only centres the shot
+	# tighter, it cannot crop the tool out.
+	#
+	# Which side to stand on is not free either. The arms work behind their
+	# instrument's string plane (see view 9), so the camera stands on the far
+	# side of the carriage from the instrument's centre — otherwise a pick arm's
+	# close-up is a picture of the strings it is hiding behind. `--focus_dir`
+	# overrides the direction when a shot wants a particular angle.
 	if focus!="" and layout.get("arms",{}).has(focus):
 		var cfg: Dictionary=layout["arms"][focus]
 		var pose := motion.pose(focus,t)
-		var x0: float=float(cfg["reach_x"][0])-ClockworkMotion.RAIL_OVER
-		var x1: float=float(cfg["reach_x"][1])+ClockworkMotion.RAIL_OVER
-		var half: float=minf(focus_span,x1-x0)/2.0
-		var cx: float=clampf(pose["root"].x,x0+half,x1-half) if x1-x0>2.0*half else (x0+x1)/2.0
-		target=Vector3(cx,(pose["root"].y+pose["tip"].y)/2.0,float(cfg["root_z"]))
+		var root: Vector3=pose["root"]; var tip: Vector3=pose["tip"]
+		target=(root+tip)/2.0
 		var size := get_viewport().get_visible_rect().size
 		var aspect: float=size.x/maxf(size.y,1.0)
-		var distance: float=maxf(half/maxf(tan(deg_to_rad(camera.fov)/2.0)*aspect,.001),.8)
-		camera.look_at_from_position(target+Vector3(0,.12*half,distance),target,Vector3.UP)
+		var tan_half: float=maxf(tan(deg_to_rad(camera.fov)/2.0),.001)
+		var half_w: float=maxf(focus_span,absf(root.x-tip.x)+.30)/2.0
+		var half_h: float=(absf(root.y-tip.y)+.30)/2.0
+		var distance: float=maxf(maxf(half_w/(tan_half*aspect),half_h/tan_half),.8)
+		var dir := focus_dir
+		if dir==Vector3.ZERO:
+			var mid: String=str(cfg.get("mid",""))
+			var away := Vector3(0,0,1)
+			if layout.get("mechanisms",{}).has(mid):
+				var c := motion.v(layout["mechanisms"][mid]["center"])
+				away=Vector3(root.x-c.x,0,root.z-c.z)
+				if away.length()<.05: away=Vector3(0,0,1)
+			dir=(away.normalized()+Vector3(0,.18,0)).normalized()
+		camera.look_at_from_position(target+dir.normalized()*distance,target,Vector3.UP)
 		return
 	if auto_camera:
 		var cue := "wide-dark"
