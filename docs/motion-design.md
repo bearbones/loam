@@ -196,26 +196,45 @@ the lift) on a minimum-jerk curve. Nothing rings.
 
 ## A machine moves, then waits
 
-The score planner sets `t_move`, the *latest* start that makes the hit.
-Both vocabularies now start repositioning as soon as the arm is free and
-the move wants (`teeth × 90 ms` for a ratchet, 0.4 s for a slew), never
-later than `t_move` — the stepper clicks into place during the rest and
-waits over the bar; the servo slews unhurriedly instead of snapping in the
-last 50 ms. 300 of the 316 moves in the piece start early.
+`t_move` is when the arm leaves — the one answer, decided once, in the
+planner. It starts repositioning the moment it is free and the move wants,
+and then waits over the bar: the stepper clicks into place during the rest,
+the servo slews unhurriedly instead of snapping in the last 50 ms.
 
-That early start needs the planner's clearance promise re-checked. The
-planner (`loam/score.py`, `_Solver._separated`) promises two arms of one
-mechanism stay `arm_clearance_m` apart along x by charging a moving arm
-with the whole interval it crosses *from `t_move`* and a resting arm with a
-point over its last contact. `ClockworkMotion._schedules()` applies the
-same occupancy model to the earlier window, symmetrically: every sibling is
-charged with its interval from its *own* earliest start (it may start early
-too), padded by the overshoot and recoil (10 mm), and a move that would
-come within the clearance is pushed later until the interval it wants is
-clear — at worst back to `t_move`, where the planner's promise takes over.
-`dev/test_clockwork.gd` and `test_motion` measure the rendered result: the
-margin beyond the promise is unchanged at 56 mm on both assets (an early
-draft without the check was 129 mm inside it).
+What the move *wants* is `loam/motion_timing.py`, and both worlds ask that
+one module. A stepped arm wants a click a tooth (`teeth(dx) × 90 ms`); a
+servo wants its S-curve's ramps (0.4 s) or longer if the distance needs it
+at the carriage's rate. The planner charges each reposition that time over
+the distance the contact geometry gives it — `_Solver.travel`, the score's
+axis coordinates times `WORLD_SCALE` — and an arm that does not have the
+room is charged everything the score left it instead, down to a hard floor:
+a ratchet click may not come faster than `CLICK_MIN_S` nor span more than
+`CLICK_TEETH_MAX` teeth, a servo may not beat `SERVO_V_MAX`. Below that the
+contact is refused and the composer hears about it. `Actuator.travel_s`
+survives only as a per-index floor for a mechanism with no usable spacing.
+
+Because `t_move` is now physical, there is **one occupancy model**, not
+two. The planner (`_Solver._separated`) promises two arms of one mechanism
+stay `arm_clearance_m` apart along x in three phases a contact: while it
+crosses, an arm owns the whole interval between where it left and where it
+lands; on arrival it owns only the strings it is playing; afterwards a
+point over its last contact. A candidate whose crossing is in a sibling's
+way is not refused but *delayed* — `_Solver._push` waits and crosses in
+what is left, down to the floor. `formlab.rig._schedules` and
+`ClockworkMotion._schedules` re-check exactly that model, padded by the
+overshoot and recoil (10 mm), and `Rig.pushed` records any start they have
+to move; `test_motion` insists it is empty, which is what "one model"
+means in practice. `dev/test_clockwork.gd` and `test_motion` measure the
+rendered result against the promise itself.
+
+The bill for honesty is notes. Before this, the Chamber's plan asked a
+harp carriage for 5.4 m/s and a mallet for a single click spanning
+sixteen teeth — 0.75 m of rail in 40 ms. Holding the plan to the machine
+costs nine of 239 intended notes (3.8 %, the composer's own ruler allows
+5 %), and cost the marimba run in `songs/chamber.py` its sixteenths: those
+bars are 0.386 m apart in the world and a ratchet crosses that in three or
+four clicks, not one sixteenth. The expanded arrangement re-plans with no
+refusals at all.
 
 ## What the space accounting saw
 
@@ -225,8 +244,10 @@ gantries, oil cups, eyelets, flywheel, neck and form-clearance rulers
 measure. They all pass unchanged: the added excursions (11 cm up over a
 bar that already had 22 cm of lift, 5 mm along the rail, 2.5 mm across the
 bar) stay well inside margins measured in centimetres. The rail search
-cache does not hash `rig.py`; the rails were planned against the old
-motion and the rulers re-measured them against the new.
+cache hashes the motion's constants and the plan's own event times
+(`layout_search._mech_key`), so a change to either — the travel timing
+above, say — costs both assets a full rail replan; there is no keeping a
+cache that was planned for a different machine.
 
 ## Rendering clips
 

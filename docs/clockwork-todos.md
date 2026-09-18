@@ -44,9 +44,15 @@ Observed during the September 2026 clockwork build. Each task is sized for a mid
 
 ## P2 — Use physical trajectory limits in playability
 
+*Half done: the motion half shipped as `docs/plans/planner-uses-the-motion.md`
+(2026-09-18) — travel time now comes from `loam/motion_timing.py` over the world
+distance, with a hard floor per vocabulary, and both worlds share one occupancy
+model. What remains below is the swept-volume half: link and tool collisions, and
+obstacles beyond the other arms.*
+
 **Where:** `Actuator`, `_Solver.travel`, instrument geometry, `harness/clockwork_motion.gd`.
 
-**Problem:** travel is a per-string-index duration. It ignores actual distance, pick-position changes, acceleration, tool size and collisions. The renderer's IK is reachable for these fixtures, but reachable endpoints do not prove collision-free linkage travel. Zero `travel_s` on a rake currently delegates carriage repositioning to its approach interval.
+**Problem:** travel was a per-string-index duration, ignoring actual distance, pick-position changes, acceleration, tool size and collisions. Distance and speed limits are in; acceleration, tool size and swept-volume collisions are not. The renderer's IK is reachable for these fixtures, but reachable endpoints do not prove collision-free linkage travel. Zero `travel_s` on a rake currently delegates carriage repositioning to its approach interval.
 
 **Work:** define stroke/rail units, calibrated speed/acceleration and tool envelope. Derive minimum travel time from world distance. Add explicit sweep speed constraints and a separate geometry validation pass for swept link/tool volumes. Keep aesthetic bend decisions in the rig, with validation against the same geometry manifest.
 

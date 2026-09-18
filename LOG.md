@@ -1,3 +1,79 @@
+## 2026-09-18 — CLOCKWORK the planner pays what the motion costs
+
+`docs/plans/planner-uses-the-motion.md`. The score planner charged a
+reposition `|index difference| x travel_s`, a per-actuator constant with no
+geometry in it; the rig then moved `teeth(dx)` teeth of the rack at ninety
+milliseconds each, or slewed. Measured against the shipped plan, the gap was
+not a rounding error: the Chamber asked a harp carriage for **5.44 m/s** and
+asked a mallet to make one ratchet click span **sixteen to twenty-five
+teeth** — three quarters of a metre of rail inside forty milliseconds. The
+planner was writing cheques the machine could only cash by teleporting.
+
+What a travel costs now lives in **`loam/motion_timing.py`**, plain Python
+with no dependencies, and all three worlds ask it: `loam/score.py` charges
+it, `formlab/rig.py` loads it by path (so `formlab` stays numpy-only for
+Blender) and `harness/clockwork_motion.gd` mirrors its seven numbers by
+hand, with `tools/test_motion.py` holding the mirror to the original. A
+stepped arm wants a click a tooth; a servo wants its S-curve's ramps
+(`SLEW_S`) or longer if the distance needs it at `SERVO_V_MAX`. An arm with
+the room takes the unhurried time; one without is charged everything the
+score left it, down to a floor that is the machine itself — a click no
+faster than `CLICK_MIN_S` and spanning no more than `CLICK_TEETH_MAX = 4`
+teeth, a slew no faster than `SERVO_V_MAX = 3 m/s`. Below that the contact
+is refused and the composer hears about it. `Actuator.travel_s` survives
+only as a per-index floor for a mechanism whose strings share a coordinate.
+
+Because `t_move` is physical it is also final: **one occupancy model, not
+two.** The planner used to promise arm clearance from `t_move` while the rig
+started as early as the arm was free and re-checked the siblings itself,
+pushing blocked starts later. `_Solver._push` does that pushing now, where
+the plan is made, and `Rig._windows` takes `g0 = t_move` as given. The model
+both sides check gained a third phase, because the interval an arm CROSSED
+is not where it stands: it owns everything between where it left and where
+it lands until it arrives, then only the strings it is playing, then a
+point. `Rig.pushed` records any start the rig still has to move and
+`test_motion` insists it is empty — that is what "one model" means in
+practice.
+
+The bill for honesty is notes, and it fell on the score rather than the
+physics, which is the Animusic workflow and this module's own docstring. The
+Chamber drops nine of 239 intended notes (3.8 %; its ruler allows 5 %) with
+zero conflicts, and the expanded arrangement re-plans with no refusals at
+all. Two edits in `songs/chamber.py` paid for it: the run up the marimba is
+eighths, because those bars are 0.386 m apart in the world and a ratchet
+crosses that in three or four clicks rather than one sixteenth; and the
+answer voice takes the neighbour BELOW when it cannot reach H[7], because
+H[8] parked arm1 exactly where the beat-three answer wanted to land and two
+arms 0.27 m wide cannot stand a string apart.
+
+The plan asked for one thing this arrangement cannot give: *every mallet
+travel clicking at ninety milliseconds a tooth*. It is out of reach at this
+tempo — `blocks_arm0` must cross 0.825 m, seventeen teeth and 1.58 s
+unhurried, inside a 1.07 s window, and a `bars` reposition that wants 0.72 s
+gets 0.059 s. `test_motion` reports 105 of the Chamber's 174 repositions
+running unhurried, the fastest click 45 ms wide 3.2 teeth, the fastest slew
+2.82 m/s. The rulers assert what is true and physical instead, and report
+how many travels run unhurried.
+
+`layout_search._mech_key` hashes both the plan's event times and
+`formlab.rig`'s constants, so every rail cache entry died with this change:
+both assets were rebuilt with a full replan (twenty-four minutes for the
+Chamber, half an hour for the expanded piece). Every ruler is green on both.
+The search chose shorter links for two harp arms (1.6 m becomes 1.45 and
+1.15), which had two consequences worth writing down. Godot never re-imports
+on a game run, so the harness posed the *cached* meshes at the old length
+until `godot --headless --path harness --import` ran — `test_performance`'s
+`link_extent_y` check is what caught it, and `docs/articulated-arms.md` now
+says so next to the ruler list. And the new harp rails broke
+`plan_gantries`, which brackets arms greedily in layout order: `harp_arm0`
+took the room and `harp_arm1` had nowhere to stand. That is a property of
+the order, not of the scene, so `gantry.Blocked` now carries the arm that
+found nothing and `plan_gantries` brackets it first and tries again — once
+per arm, so it terminates. `harp_arm1` fits on the second pass and
+`harp_arm0` does not even have to move. Chamber rail fine margins
+0.023-0.045 m, cross-arm worst harp_arm1/harp_arm2 at 0.126 m; the expanded
+asset's worst is harp_arm0/bells_arm1 at 0.191 m.
+
 ## 2026-09-18 — CLOCKWORK the leadscrew has a cut thread
 
 The first leadscrew's thread was a 3 mm round wire swept along the helix

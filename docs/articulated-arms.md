@@ -655,7 +655,7 @@ whole piece.
 ## Rulers
 
 ```sh
-python3 tools/test_score_plan.py          # planner clearance rule, neck fan
+python3 tools/test_score_plan.py          # planner clearance and travel-timing rules, neck fan
 python3 tools/test_formlab.py             # sweeps, frames, layout
 python3 tools/test_form_joints.py         # seamless frame joints
 python3 tools/test_linkage_tools.py       # plectrum, ferrule, swan neck, socket, mallet; the carriage
@@ -667,6 +667,19 @@ blender -b -t 2 -P tools/test_form_joint_seats.py
 godot --headless --path harness -s dev/test_clockwork.gd
 godot --headless --path harness -s dev/test_performance.gd
 ```
+
+After a rebuild, **re-import the asset before the two godot rulers**:
+
+```sh
+godot --headless --path harness --import    # a game run never re-imports
+```
+
+Godot only re-imports in editor mode; `-s script` and the harness itself load
+whatever `.godot/imported/` already holds, checking nothing. So a freshly built
+`.glb` is invisible to them until this runs, and the harness silently poses the
+*previous* geometry. It is not a hypothetical: a replan that shortens an arm's
+links leaves the cached mesh at the old length, which is exactly what
+`test_performance`'s `link_extent_y` check compares the imported mesh against.
 
 `tools/preview_form.py` renders any parts JSON with Blender's workbench for
 a quick look at a joint (`blender -b -t 2 -P tools/preview_form.py -- in.json out.png [az] [el]`).

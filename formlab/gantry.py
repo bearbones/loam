@@ -370,6 +370,16 @@ def _stacks(layout, poses, step=1):
     return {aid: stack_caps(caps, pin_shifts(caps, PIN_X)) for aid, caps in _caps(layout, poses, step).items()}
 
 
+class Blocked(ValueError):
+    """No bracket clears the scene for one rail end. Carries the arm and the
+    candidates tried, so `plan_gantries` can re-order and try again before it
+    gives up (and dump the list when it does)."""
+
+    def __init__(self, aid, side, tried):
+        self.aid = aid; self.side = side; self.tried = tried
+        super().__init__(f'no gantry placement clears the scene for {aid} ({"low" if side < 0 else "high"} end)')
+
+
 def plan_end(aid, cfg, side, x_end, behind, quick, full, other_bars, boxes, placed, verbose=print):
     """Cheapest bracket (outreach along X, setback along Z) for one rail end
     whose solids clear everything; screened at 30 Hz, confirmed at 120 Hz."""
@@ -387,9 +397,7 @@ def plan_end(aid, cfg, side, x_end, behind, quick, full, other_bars, boxes, plac
         if gap >= MARGIN:
             end.update(gap=gap, worst=what, side=side, tried=tried); return end
         tried.append((outreach, sb, gap, what))
-    for outreach, sb, gap, what in tried:
-        verbose(f'  gantry {aid} {"low" if side < 0 else "high"} end: out {outreach:.2f} back {sb:.2f} blocked by {what} ({gap:+.3f} m)')
-    raise ValueError(f'no gantry placement clears the scene for {aid} ({"low" if side < 0 else "high"} end)')
+    raise Blocked(aid, side, tried)
 
 
 def plan_gantries(layout, poses, form_boxes=(), verbose=print):
@@ -400,44 +408,68 @@ def plan_gantries(layout, poses, form_boxes=(), verbose=print):
     quick = _stacks(layout, poses, 4); full = _stacks(layout, poses, 1)
     boxes = [(f'obstacle{i}', b) for i, b in enumerate(scene_boxes(layout)[1:])]+list(form_boxes)
     bars = [(aid, b) for aid, cfg in layout['arms'].items() for b in rail_bars(cfg)]
-    out = {}
     # every head is fixed by its rail: reserve them all before any bracket is chosen
-    placed = [(f'{aid} head', (np.array([xa, cfg['root_y']-HEAD_H, cfg['root_z']-HEAD_D]), np.array([xb, cfg['root_y']+HEAD_H, cfg['root_z']+HEAD_D])))
-              for aid, cfg in layout['arms'].items()
-              for xa, xb in ((cfg['reach_x'][0]-RAIL_OVER-HEAD_INSET-HEAD_LEN, cfg['reach_x'][0]-RAIL_OVER-HEAD_INSET),
-                             (cfg['reach_x'][1]+RAIL_OVER+HEAD_INSET, cfg['reach_x'][1]+RAIL_OVER+HEAD_INSET+HEAD_LEN))]
+    reserved = [(f'{aid} head', (np.array([xa, cfg['root_y']-HEAD_H, cfg['root_z']-HEAD_D]), np.array([xb, cfg['root_y']+HEAD_H, cfg['root_z']+HEAD_D])))
+                for aid, cfg in layout['arms'].items()
+                for xa, xb in ((cfg['reach_x'][0]-RAIL_OVER-HEAD_INSET-HEAD_LEN, cfg['reach_x'][0]-RAIL_OVER-HEAD_INSET),
+                               (cfg['reach_x'][1]+RAIL_OVER+HEAD_INSET, cfg['reach_x'][1]+RAIL_OVER+HEAD_INSET+HEAD_LEN))]
     # so are the racks and leadscrews: fixed by their rails, so every bracket avoids them
-    placed += [(f'{aid} {name}', geo) for aid, cfg in layout['arms'].items() for name, geo in drive_boxes(cfg)]
-    for aid, cfg in layout['arms'].items():
-        x0, x1 = cfg['reach_x']; behind = behind_sign(cfg, layout['strings'])
-        other_bars = [b for b in bars if b[0] != aid]; ends = []
-        # The rack (or leadscrew) has no placement to search; it must simply clear
-        # the OTHER arms (the rail search keeps them off it), rails, forms and gantries.
-        others = [pl for pl in placed if not pl[0].startswith(f'{aid} ')]
-        rack_gap = min((g for _, geo in drive_boxes(cfg)
-                        for g in (_gap_arms(('box',)+tuple(geo), {a: st for a, st in full.items() if a != aid}), _gap_fixed(('box',)+tuple(geo), other_bars, boxes, others, ()))),
-                       key=lambda g: g[0])
-        if rack_gap[0] < MARGIN:
-            raise ValueError(f'rack of {aid} blocked by {rack_gap[1]} ({rack_gap[0]:+.3f} m)')
-        for side, x_end in ((-1, x0-RAIL_OVER), (1, x1+RAIL_OVER)):
-            end = plan_end(aid, cfg, side, x_end, behind, quick, full, other_bars, boxes, placed, verbose)
-            end['bar_x'] = x_end+side*(HEAD_INSET+BAR_END)   # where the bar ends, inside the head's flanged bush (build_clockwork reads it)
-            placed += [(aid, geo) for kind, geo in solids(end) if kind == 'box']; ends.append(end)
-        # a servo arm's leadscrew: its pedestals, bearings and housing are cast with
-        # the heads; the shaft is its own form (build_forms), spun by the harness
-        if drive_kind(cfg) == 'screw':
-            fixed, shaft = screw(cfg); Q = screw_geometry(cfg)
-            drive = dict(shaft=shaft, screw=dict(y=float(Q['axis'][1]), z=float(Q['axis'][2]), pitch=Q['pitch'], x_thread=[float(v) for v in Q['x_thread']],
-                                                x_bear=[float(v) for v in Q['x_bear']], x_house=[float(v) for v in Q['x_house']]))
-        else:
-            fixed = rack(cfg); drive = {}
-        out[aid] = dict(behind=behind, brass=sum((e['brass'] for e in ends), fixed), steel=sum((e['steel'] for e in ends), []), **drive,
-                        rack=dict(gap=rack_gap[0], worst=rack_gap[1], mount=cfg.get('pinion', 'back'), drive=drive_kind(cfg)),
-                        margin=min([e['gap'] for e in ends]+[rack_gap[0]]), worst=min(ends, key=lambda e: e['gap'])['worst'],
-                        ends=[dict(side=e['side'], bar_x=e['bar_x'], outreach=e['outreach'], setback=e['setback'], mast_z=e['mast_z'],
-                                   x_col=e['x_col'], foot_y=e['foot_y'], height=e['height'], gap=e['gap'], worst=e['worst'])
-                              for e in ends])
-        verbose('  gantry %s: %s; margin %.3f m (%s)' % (aid, ', '.join(
-            f'{"low" if e["side"] < 0 else "high"} end out {e["outreach"]:.2f} back {e["setback"]:.2f} mast {e["height"]:.2f} m' for e in ends),
-            out[aid]['margin'], out[aid]['worst']))
-    return out
+    reserved += [(f'{aid} {name}', geo) for aid, cfg in layout['arms'].items() for name, geo in drive_boxes(cfg)]
+
+    def place(order):
+        """Bracket every arm in `order`, each clear of the ones placed before it."""
+        out = {}; placed = list(reserved)
+        for aid in order:
+            cfg = layout['arms'][aid]
+            x0, x1 = cfg['reach_x']; behind = behind_sign(cfg, layout['strings'])
+            other_bars = [b for b in bars if b[0] != aid]; ends = []
+            # The rack (or leadscrew) has no placement to search; it must simply clear
+            # the OTHER arms (the rail search keeps them off it), rails, forms and gantries.
+            others = [pl for pl in placed if not pl[0].startswith(f'{aid} ')]
+            rack_gap = min((g for _, geo in drive_boxes(cfg)
+                            for g in (_gap_arms(('box',)+tuple(geo), {a: st for a, st in full.items() if a != aid}), _gap_fixed(('box',)+tuple(geo), other_bars, boxes, others, ()))),
+                           key=lambda g: g[0])
+            if rack_gap[0] < MARGIN:
+                raise ValueError(f'rack of {aid} blocked by {rack_gap[1]} ({rack_gap[0]:+.3f} m)')
+            for side, x_end in ((-1, x0-RAIL_OVER), (1, x1+RAIL_OVER)):
+                end = plan_end(aid, cfg, side, x_end, behind, quick, full, other_bars, boxes, placed, verbose)
+                end['bar_x'] = x_end+side*(HEAD_INSET+BAR_END)   # where the bar ends, inside the head's flanged bush (build_clockwork reads it)
+                placed += [(aid, geo) for kind, geo in solids(end) if kind == 'box']; ends.append(end)
+            # a servo arm's leadscrew: its pedestals, bearings and housing are cast with
+            # the heads; the shaft is its own form (build_forms), spun by the harness
+            if drive_kind(cfg) == 'screw':
+                fixed, shaft = screw(cfg); Q = screw_geometry(cfg)
+                drive = dict(shaft=shaft, screw=dict(y=float(Q['axis'][1]), z=float(Q['axis'][2]), pitch=Q['pitch'], x_thread=[float(v) for v in Q['x_thread']],
+                                                    x_bear=[float(v) for v in Q['x_bear']], x_house=[float(v) for v in Q['x_house']]))
+            else:
+                fixed = rack(cfg); drive = {}
+            out[aid] = dict(behind=behind, brass=sum((e['brass'] for e in ends), fixed), steel=sum((e['steel'] for e in ends), []), **drive,
+                            rack=dict(gap=rack_gap[0], worst=rack_gap[1], mount=cfg.get('pinion', 'back'), drive=drive_kind(cfg)),
+                            margin=min([e['gap'] for e in ends]+[rack_gap[0]]), worst=min(ends, key=lambda e: e['gap'])['worst'],
+                            ends=[dict(side=e['side'], bar_x=e['bar_x'], outreach=e['outreach'], setback=e['setback'], mast_z=e['mast_z'],
+                                       x_col=e['x_col'], foot_y=e['foot_y'], height=e['height'], gap=e['gap'], worst=e['worst'])
+                                  for e in ends])
+            verbose('  gantry %s: %s; margin %.3f m (%s)' % (aid, ', '.join(
+                f'{"low" if e["side"] < 0 else "high"} end out {e["outreach"]:.2f} back {e["setback"]:.2f} mast {e["height"]:.2f} m' for e in ends),
+                out[aid]['margin'], out[aid]['worst']))
+        return {aid: out[aid] for aid in layout['arms']}   # the layout's order, whatever the placement order was
+
+    # Greedy: whoever is bracketed first takes the room, and an arm placed later
+    # can be left with nowhere to stand — which is a property of the ORDER, not
+    # of the scene. So when an arm finds nothing, let it choose before the ones
+    # that boxed it in and bracket everything again. Each arm is promoted at
+    # most once, so this terminates; an arm that fails even from the front is a
+    # scene with no room in it, and then the candidate list is worth printing.
+    order = list(layout['arms']); front = []
+    while True:
+        try:
+            return place(order)
+        except Blocked as blocked:
+            if blocked.aid in front:
+                for outreach, sb, gap, what in blocked.tried:
+                    verbose(f'  gantry {blocked.aid} {"low" if blocked.side < 0 else "high"} end: '
+                            f'out {outreach:.2f} back {sb:.2f} blocked by {what} ({gap:+.3f} m)')
+                raise
+            verbose(f'  gantry {blocked.aid}: nothing clears it in this order; bracketing it first')
+            front.insert(0, blocked.aid)
+            order = front+[aid for aid in layout['arms'] if aid not in front]

@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """The planner's arm-clearance rule: two arms of one mechanism are real
 objects that keep `arm_clearance` apart along the axis at every moment —
-hovering, travelling, playing. Also the neck fan that puts the string
-spacing the model uses into the score itself."""
+hovering, travelling, playing. Its travel rule: what a reposition costs
+comes from the arm's motion vocabulary over the world distance it has to
+cross (loam/motion_timing.py), not from a per-actuator constant. Also the
+neck fan that puts the string spacing the model uses into the score."""
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import numpy as np
 from loam.score import Mechanism, _Solver
+from loam import motion_timing as mt
 
 fails = []
 def check(name, cond, detail=""):
@@ -65,6 +68,42 @@ check("h06 after arm0 has settled at h02 (0.4 away) is allowed", p is not None a
 
 # options() counts only feasible arms under both rules.
 check("options honour clearance", s.options(3.0, ["h05"]) == 0 and s.options(3.3, ["h06"]) == 1)
+
+# ---- what a reposition costs -------------------------------------------------
+# A mallet mechanism whose neighbouring bars are 12 teeth of the rack apart
+# (0.566 m in the world). The vocabulary wants a click a tooth — 1.08 s — and
+# the ratchet cannot cross it in less than ceil(12/4) clicks at CLICK_MIN_S.
+# The old planner charged |index diff| x travel_s and would have said 0.02 s.
+step_u = 12*mt.PITCH/mt.WORLD_SCALE
+mm = Mechanism.build("m", "struck", "rosewood", [60, 62, 64, 65], arms=1, span=3*step_u,
+        arm_kind="mallet", approach_s=0.1, recover_s=0.05, travel_s=0.02)
+mm.actuators[0].home = "m00"
+arm = mm.actuators[0]
+check("neighbouring bars are 12 teeth apart", mt.teeth(_Solver(mm).span_m("m00", "m01")) == 12,
+      f"{_Solver(mm).span_m('m00', 'm01'):.3f} m")
+
+def after_m00(t, sid="m01"):
+    """Plan `sid` at t with the arm having just played m00 at 0."""
+    sv = _Solver(mm); sv.commit(0.0, ["m00"], arm, dict(t_move=-0.1, t_free=0.05, travel_s=0.0, from_string="m00"))
+    return sv.plan(t, [sid])
+
+p = after_m00(0.05 + 1.08 + 0.1)          # the whole unhurried want, and then some
+check("an unhurried mallet clicks a tooth at a time", p is not None and np.isclose(p[1]["travel_s"], 12*mt.CLICK_S),
+      str(p and round(p[1]["travel_s"], 4)))
+p = after_m00(0.05 + 0.3 + 0.1)           # the plan's case: 12 teeth, 0.3 s of window
+check("a 12-tooth reposition in 0.3 s is re-timed, not charged 0.02 s",
+      p is not None and np.isclose(p[1]["travel_s"], 0.3) and np.isclose(p[1]["t_move"], 0.05),
+      str(p and {k: round(v, 4) for k, v in p[1].items() if k in ("t_move", "travel_s")}))
+p = after_m00(0.05 + 0.1 + 0.1)           # under ceil(12/4) clicks at CLICK_MIN_S
+check("and refused below the ratchet's own floor (0.1 s < 0.12 s)", p is None, str(p))
+# A servo arm has no ratchet to coarsen: its floor is the carriage's top rate.
+ss = Mechanism.build("s", "plucked", "steel", [60, 62], arms=1, span=mt.SERVO_V_MAX/mt.WORLD_SCALE,
+        approach_s=0.1, recover_s=0.05, travel_s=0.02)   # the two strings a second's travel apart
+ss.actuators[0].home = "s00"
+sv = _Solver(ss); sv.commit(0.0, ["s00"], ss.actuators[0], dict(t_move=-0.1, t_free=0.05, travel_s=0.0, from_string="s00"))
+check("a servo slew of V_MAX metres needs its second",
+      sv.plan(0.05 + 0.99 + 0.1, ["s01"]) is None and sv.plan(0.05 + 1.01 + 0.1, ["s01"]) is not None,
+      f"{sv.span_m('s00', 's01'):.2f} m at {mt.SERVO_V_MAX:g} m/s")
 
 # The fan: log-spaced by length with the treble compressed; positions monotone and inside the width.
 h = Mechanism.build("harp", "plucked", "steel", [50, 52, 53, 55, 57, 59, 60, 62], span=1.6, length_max=0.6)

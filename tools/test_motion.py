@@ -38,9 +38,11 @@ def parity(rig, layout_path, score_path):
     if godot is None: print('  SKIP godot not on PATH: rendered-rig parity unmeasured'); return
     out = subprocess.run([godot, '--headless', '--path', str(ROOT/'harness'), '-s', 'dev/dump_motion.gd', '--',
                           f'--score={score_path}', f'--asset={layout_path.stem}'], capture_output=True, text=True, timeout=600).stdout
-    worst = 0.0; n = 0; shud = 0.0; ns = 0; head = 0.0; felt = 0.0; nh = 0
+    worst = 0.0; n = 0; shud = 0.0; ns = 0; head = 0.0; felt = 0.0; nh = 0; consts = {}
     for line in out.splitlines():
-        if line.startswith('TIP '):
+        if line.startswith('CONST '):
+            _, name, value = line.split(); consts[name] = float(value)
+        elif line.startswith('TIP '):
             _, aid, t, x, y, z = line.split(); n += 1
             worst = max(worst, float(np.linalg.norm(rig.tip_at(aid, float(t))-np.array([float(x), float(y), float(z)]))))
         elif line.startswith('HEAD '):
@@ -53,6 +55,14 @@ def parity(rig, layout_path, score_path):
             lo, hi = rig.rail_span(aid)
             mine = np.array([rig.stand_thump(rig.mech_of[aid], t), rig.rail_sag(aid, t, (lo+hi)/2), rig.mast_sway(aid, t)])
             shud = max(shud, float(np.abs(mine-np.array([float(stand), float(sag), float(sway)])).max()))
+    # What a reposition costs is one module's business (loam/motion_timing.py);
+    # the planner charges it, formlab.rig imports it and the harness mirrors
+    # the numbers by hand. A drift here is two machines, not one.
+    mine = R.motion_timing.constants()
+    bad = [f'{k} {consts.get(k)} vs {v}' for k, v in mine.items() if abs(consts.get(k, np.nan)-v) > 1e-9]
+    check(len(consts) == len(mine) and not bad,
+          f'rendered rig mirrors every travel-timing constant: {len(consts)}/{len(mine)}'
+          + (' — '+', '.join(bad) if bad else ''))
     check(n > 1000 and worst < 1e-5, f'rendered rig and numpy mirror agree: {n} samples, worst {worst:.2e} m')
     check(ns > 1000 and shud < 1e-9, f'rendered assembly shudder and numpy mirror agree: {ns} samples, worst {shud:.2e}')
     # the head's angle comes off a Vector3 length in GDScript, so it carries
@@ -76,12 +86,16 @@ def run(layout_path, score_path):
     check(worst_contact < 1e-9, f'every contact exact (worst {worst_contact:.1e} m)')
     check(worst_step < 1e-3, f'no jump at a score boundary (worst {worst_step:.1e} m)')
     stepped_travels = servo_travels = 0; clicks_seen = set(); early = 0
+    per_click = []; servo_rate = []; wanted = hurried = 0
     detent_min = 1.0; over_max = 0.0; over_min = 1.0; land_worst = 0.0
     cock_min = 1.0; drop_pause = 0; monotone = jerk = cruise = True; ratios = []
     for aid in rig.acts:
         stepped = rig.stepped(aid)
         for s in rig.schedule(aid):
             early += int(s['go'] < s['tm']-1e-9)
+            # what the move wanted unhurried against the window it got
+            if s['moving']:
+                wanted += 1; hurried += int(s['want'] > s['approach']-s['go']+1e-9)
             if s['moving'] and abs(s['first'][0]-s['rest'][0]) > .02:
                 T = s['approach']-s['go']; ts = s['go']+np.arange(0, int(T*1000)+1)/1000.0
                 x = np.array([rig.path_at(aid, t)[0] for t in ts]); dx = np.diff(x)
@@ -89,6 +103,7 @@ def run(layout_path, score_path):
                 land_worst = max(land_worst, abs(rig.path_at(aid, s['approach'])[0]-s['first'][0]))
                 if stepped:
                     stepped_travels += 1; n = R.clicks(s['first'][0]-s['rest'][0], T); clicks_seen.add(n)
+                    per_click.append((T/n, R.teeth(s['first'][0]-s['rest'][0])/n))
                     # near a detent (within the pawl's play) most of the way, not in transit
                     step = span/n; near = np.abs((sign*(x-s['rest'][0])/step)-np.round(sign*(x-s['rest'][0])/step)) < R.OVERSHOOT*1.01
                     detent_min = min(detent_min, np.mean(near))
@@ -97,7 +112,7 @@ def run(layout_path, score_path):
                     steps = sign*(x-s['rest'][0])/step; crossings = int(np.sum(np.diff(np.floor(steps+.5)) != 0))
                     if crossings != n: check(False, f'{aid} travel at {s["go"]:.2f}s: {crossings} clicks for {n} planned')
                 else:
-                    servo_travels += 1
+                    servo_travels += 1; servo_rate.append(span/T)
                     monotone &= bool(np.all(sign*dx >= -1e-12))
                     v = dx/1e-3; a = np.diff(v)/1e-3
                     if T > .8*R.SLEW_S: ratios.append(np.abs(v).max()/(span/T))
@@ -111,7 +126,25 @@ def run(layout_path, score_path):
                 # lay-back holds the felt face the rest of the way up.
                 cock_min = min(cock_min, (y.max()-(s['first'][1]+rig.hover(aid)[1]))/rig.hover(aid)[1])
                 half = len(y)//2; drop_pause += int(np.any(np.diff(y[half:]) > 1e-9))
-    check(early > 0, f'{early} moves start before the score\'s t_move (a machine moves, then waits)')
+    # One occupancy model, not two: the planner charges each reposition what
+    # the vocabulary costs and checks the clearance from the instant the arm
+    # really leaves, so the rig has nothing to start early and nothing to push.
+    check(early == 0 and not rig.pushed,
+          f'every move starts exactly where the score planned it: {early} early, {len(rig.pushed)} pushed')
+    # ...and what it does in that window is inside the machine's limits. A
+    # travel the score hurried clicks faster than CLICK_S and spans more than
+    # one tooth a click; it may never beat the ratchet's own floor.
+    slow = min(p for p, _ in per_click); wide = max(w for _, w in per_click)
+    unhurried = sum(1 for p, _ in per_click if p > R.CLICK_S-1e-9)
+    check(slow >= R.CLICK_MIN_S-1e-9 and wide <= R.CLICK_TEETH_MAX+1e-9,
+          f'no click comes faster than {R.CLICK_MIN_S*1000:.0f} ms or spans more than {R.CLICK_TEETH_MAX} teeth '
+          f'(fastest {slow*1000:.0f} ms, widest {wide:.2f} teeth; {unhurried}/{len(per_click)} travels click at '
+          f'{R.CLICK_S*1000:.0f} ms a tooth)')
+    check(wanted > 0, f'{wanted-hurried}/{wanted} repositions get the whole time the vocabulary wants '
+                     f'({hurried} are hurried by the score and cross in what it left)')
+    fast = max(servo_rate) if servo_rate else 0.0
+    check(fast <= R.SERVO_V_MAX+1e-9,
+          f'no servo slew crosses faster than {R.SERVO_V_MAX:g} m/s (fastest {fast:.2f} m/s over {len(servo_rate)} slews)')
     check(stepped_travels > 0 and detent_min >= .5, f'stepped carriages sit at a detent >= 50% of a travel ({stepped_travels} travels, least {detent_min:.2f}, clicks {sorted(clicks_seen)})')
     check(0 < over_max <= R.OVERSHOOT*R.PITCH*1.01 and over_min > .3*R.OVERSHOOT*R.PITCH, f'ratchet overshoot within a tenth of a tooth ({over_min*1000:.1f}..{over_max*1000:.1f} mm)')
     check(land_worst < 1e-9, f'every travel lands on its target (worst {land_worst:.1e} m)')
@@ -215,7 +248,8 @@ def run(layout_path, score_path):
     check(worst_gap > -1e-6, f'arms of one mechanism keep their planned x clearance ({worst_gap*1000:.0f} mm to spare)')
 
 if __name__ == '__main__':
-    if len(sys.argv) > 2: pairs = [(Path(sys.argv[1]), Path(sys.argv[2]))]
+    # resolved: the paths are handed to godot, which does not share this cwd
+    if len(sys.argv) > 2: pairs = [(Path(sys.argv[1]).resolve(), Path(sys.argv[2]).resolve())]
     else: pairs = [(ROOT/'harness/assets/clockwork.json', ROOT/'render/chamber/score.json'),
                    (ROOT/'harness/assets/clockwork_expanded.json', ROOT/'render/clockwork/score.json')]
     for lp, sp in pairs: run(lp, sp)

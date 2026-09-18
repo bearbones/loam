@@ -15,9 +15,23 @@ def smooth(u):
 # profile mirror ClockworkMotion. A mallet arm is a stepped machine (ratchet
 # clicks along the rack, a cocked drop, the assembly shuddering after the blow);
 # a pick or rake arm is a servo (S-curve slews, no overshoot, nothing rings).
-PITCH = 2*np.pi*.12/16
-CLICK_S = .09; CLICK_MIN_S = .04; CLICK_MOVE = .4; OVERSHOOT = .10; RING_HZ = 14.0; RING_TAU = .09
-SLEW_S = .4; SCURVE_RAMP = .3
+#
+# What a travel COSTS lives in loam/motion_timing.py, because the score planner
+# decides its schedule from the same numbers (docs/plans/planner-uses-the-motion).
+# It is loaded by PATH rather than imported: `import loam` would pull the synth
+# package in, and this module must stay numpy-only so Blender can run it.
+import importlib.util as _ilu
+_mt_spec = _ilu.spec_from_file_location(
+    'loam_motion_timing',
+    __import__('pathlib').Path(__file__).resolve().parents[1]/'loam'/'motion_timing.py')
+motion_timing = _ilu.module_from_spec(_mt_spec); _mt_spec.loader.exec_module(motion_timing)
+PITCH = motion_timing.PITCH
+CLICK_S = motion_timing.CLICK_S; CLICK_MIN_S = motion_timing.CLICK_MIN_S
+SLEW_S = motion_timing.SLEW_S
+CLICK_TEETH_MAX = motion_timing.CLICK_TEETH_MAX; SERVO_V_MAX = motion_timing.SERVO_V_MAX
+WORLD_SCALE = motion_timing.WORLD_SCALE
+CLICK_MOVE = .4; OVERSHOOT = .10; RING_HZ = 14.0; RING_TAU = .09
+SCURVE_RAMP = .3
 COCK = .5; COCK_AT = .4
 RECOIL = dict(x=[.004, 11.0, .14], z=[.0025, 17.0, .10], bounce=[.06, 8.0, .16]); RECOIL_GATE = .08
 PAD = .01
@@ -183,33 +197,57 @@ class Rig:
         theta = self.head_angle(aid, t)
         return theta, head_offset(theta, self.flip_sign(aid)) if self.hammer(aid) else np.zeros(3)
 
+    def _segments(self, aid, win):
+        """One arm's whole occupancy of the rail as (t0, t1, lo, hi) spans.
+        Three phases a contact, because the interval an arm CROSSED is not
+        where it stands: it owns everything between where it left and where
+        it lands until it arrives, then only the strings it is playing, then
+        the one it hovers over. Mirrors loam.score._Solver's model exactly —
+        that is the point of the plan it is checking."""
+        home = self.contact(self.acts[aid]['home'])[0]
+        segs = [(-np.inf, win[0]['go'] if win else np.inf, home, home)]
+        for i, o in enumerate(win):
+            until = win[i+1]['go'] if i+1 < len(win) else np.inf
+            segs.append((o['go'], o['approach'], o['mlo'], o['mhi']))
+            segs.append((o['approach'], o['end'], o['plo'], o['phi']))
+            segs.append((o['end'], until, o['last'][0], o['last'][0]))
+        return segs
+
     def _windows(self, aid):
-        lift = self.hover(aid); act = self.acts[aid]; clicky = self.stepped(aid)
+        lift = self.hover(aid); act = self.acts[aid]
         rest = self.contact(act['home'])+lift; free_prev = -np.inf; out = []
         for e in self.plans[aid]:
             tm = float(e['t_move']); hit = float(e['t']); ids = e['strings']
             first = self.contact(ids[0], e.get('pick')); last = self.contact(ids[-1], e.get('pick'))
             spread = float(e.get('spread_s', 0)); approach = hit-float(act['approach_s'])
-            want = teeth(first[0]-rest[0])*CLICK_S if clicky else SLEW_S
-            g0 = max(free_prev, min(tm, approach-want))
+            # `want` is what this move would take unhurried, by the same
+            # function the planner charged it with (loam.motion_timing) but
+            # over the distance the rendered arm really crosses. The planner
+            # already gave it everything it could, so the start is the
+            # score's; `want` is kept for the rulers to compare against.
+            want = motion_timing.travel_s(act['kind'], first[0]-rest[0])
+            g0 = max(free_prev, tm)
             xs = [rest[0]]+[self.contact(sid, e.get('pick'))[0] for sid in ids]
+            ps = [self.contact(sid, e.get('pick'))[0] for sid in ids]
             out.append(dict(event=e, rest=rest, first=first, last=last, spread=spread, tm=tm, g0=g0, go=g0, approach=approach,
-                            hit=hit, end=hit+spread*(len(ids)-1), t_free=float(e['t_free']), lo=min(xs), hi=max(xs), moving=False))
+                            hit=hit, end=hit+spread*(len(ids)-1), t_free=float(e['t_free']), lo=min(xs), hi=max(xs), want=want,
+                            mlo=min(rest[0], first[0]), mhi=max(rest[0], first[0]), plo=min(ps), phi=max(ps), moving=False))
             rest = last+lift; free_prev = float(e['t_free'])
         return out
 
     def _schedules(self):
         """Each event's timing as the path uses it. Repositioning starts as
-        soon as the arm is free and the move wants (`g0`), never later than the
-        score's t_move: a machine moves, then waits. The score planner only
-        promised the mechanism's arm clearance from t_move on, so an earlier
-        start is checked here against the siblings under the planner's own
-        occupancy model — an arm owns the whole x interval it crosses while it
-        may be moving (from its own g0, since it may start early too) and
-        hovers over its last contact after — and pushed later until the
-        interval it wants is clear."""
+        soon as the arm is free and the move wants: a machine moves, then
+        waits. That instant is the score's own `t_move` now — the planner
+        charges each reposition what the vocabulary costs (loam.motion_timing)
+        and hands over the start it checked, so there is nothing left here to
+        second-guess. The sweep below is the assertion that it is so: the same
+        three-phase occupancy loam.score._Solver planned under, and every start
+        it has to push counts in `self.pushed` for tools/test_motion.py to
+        insist on none."""
         win = {aid: self._windows(aid) for aid in self.plans}
         mechs = self.geometry.get('mechanisms', {})
+        self.pushed = []
         for aid in self.plans:
             need = float(mechs.get(self.mech_of[aid], {}).get('arm_clearance_m', 0.0))
             for s in win[aid]:
@@ -217,15 +255,10 @@ class Rig:
                 if need > 0.0:
                     for other in self.plans:
                         if other == aid or self.mech_of[other] != self.mech_of[aid]: continue
-                        home = self.contact(self.acts[other]['home'])[0]
-                        segments = [(-np.inf, win[other][0]['g0'] if win[other] else np.inf, home, home)]
-                        for i, o in enumerate(win[other]):
-                            until = win[other][i+1]['g0'] if i+1 < len(win[other]) else np.inf
-                            segments.append((o['g0'], o['end'], o['lo'], o['hi']))
-                            segments.append((o['end'], until, o['last'][0], o['last'][0]))
-                        for t0, t1, lo, hi in segments:
-                            if t0 >= s['tm'] or t1 <= go: continue
-                            if max(s['lo']-hi, lo-s['hi'])-PAD < need: go = max(go, min(t1, s['tm']))
+                        for t0, t1, lo, hi in self._segments(other, win[other]):
+                            if t0 >= s['approach'] or t1 <= go: continue
+                            if max(s['mlo']-hi, lo-s['mhi'])-PAD < need: go = max(go, min(t1, s['approach']))
+                if go > s['g0']+1e-9: self.pushed.append((aid, s['g0'], go))
                 s['go'] = go; s['moving'] = s['approach'] > go+1e-6
         self.sched = win
         self._bus()

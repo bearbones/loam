@@ -54,6 +54,9 @@ const OVERSHOOT := .10           # of a tooth, past the detent (the pawl's play)
 const RING_HZ := 14.0
 const RING_TAU := .09
 const SLEW_S := .4               # a servo slew takes this long when the score allows
+const CLICK_TEETH_MAX := 4       # ...and a hurried click spans no more teeth than this
+const SERVO_V_MAX := 3.0         # m/s: the fastest a servo carriage runs
+const WORLD_SCALE := 3.0         # score position units -> rig metres (tools/build_clockwork.py)
 const SCURVE_RAMP := .3          # fraction of a slew spent accelerating (and decelerating)
 const COCK := .5                 # a mallet rises this much of its lift again before it drops
 const COCK_AT := .4              # ...by this fraction of the strike interval
@@ -144,6 +147,25 @@ func teeth(dx: float) -> int:
 ## is short (then a click spans several teeth).
 func clicks(dx: float, T: float) -> int:
 	return mini(teeth(dx), maxi(1, int(floor(T/CLICK_MIN_S))))
+
+## What a reposition of dx WANTS, by vocabulary — the mirror of
+## loam.motion_timing.travel_s, which is what the score planner charged this
+## move. A stepped arm clicks a tooth at a time; a servo needs its S-curve's
+## ramps however short the move, and its top speed however long.
+func travel_want(kind: String, dx: float) -> float:
+	if absf(dx) <= 0.0: return 0.0
+	if kind == "mallet" or kind == "hammer": return teeth(dx)*CLICK_S
+	return maxf(SLEW_S, absf(dx)/SERVO_V_MAX)
+
+## The least time that reposition can take: the ratchet cannot click faster
+## than CLICK_MIN_S nor span more than CLICK_TEETH_MAX teeth at once, and a
+## servo has only its top speed. Below this there is no machine (the planner
+## refuses the contact; loam.motion_timing.floor_s).
+func travel_floor(kind: String, dx: float) -> float:
+	if absf(dx) <= 0.0: return 0.0
+	if kind == "mallet" or kind == "hammer":
+		return ceil(float(teeth(dx))/float(CLICK_TEETH_MAX))*CLICK_MIN_S
+	return absf(dx)/SERVO_V_MAX
 
 ## Ratchet advance over u in [0,1] in n clicks: each click moves in its first
 ## CLICK_MOVE with a minimum-jerk step to `over` (of a click) past the detent,
@@ -243,10 +265,11 @@ func recoil(aid: String, t: float) -> Vector3:
 ## here against the siblings under the planner's own occupancy model — an arm
 ## owns the whole x interval it crosses while it may be moving (from its own
 ## g0, since it may start early too) and hovers over its last contact after —
-## and pushed later until the interval it wants is clear.
+## and pushed later until the interval it wants is clear. The planner charges
+## the same travel from the same numbers now, so `g0 == tm` and this sweep has
+## nothing left to push; formlab/rig.py counts the exceptions for the ruler.
 func _windows(aid: String) -> Array:
 	var lift := hover(aid)
-	var clicky := stepped(aid)
 	var rest := contact(acts[aid]["home"])+lift
 	var free_prev := -INF
 	var out: Array = []
@@ -258,18 +281,41 @@ func _windows(aid: String) -> Array:
 		var last := contact(ids[-1], e.get("pick"))
 		var spread := float(e.get("spread_s", 0))
 		var approach := hit-float(acts[aid]["approach_s"])
-		var want := teeth(first.x-rest.x)*CLICK_S if clicky else SLEW_S
-		var g0 := maxf(free_prev, minf(tm, approach-want))
+		# `want` is what this move would take unhurried, by the same function
+		# the planner charged it with (loam.motion_timing) but over the
+		# distance the rendered arm really crosses. The planner already gave
+		# it everything it could, so the start is the score's.
+		var want := travel_want(acts[aid]["kind"], first.x-rest.x)
+		var g0 := maxf(free_prev, tm)
 		var lo := rest.x
 		var hi := rest.x
+		var plo := first.x
+		var phi := first.x
 		for sid in ids:
 			var x := contact(sid, e.get("pick")).x
-			lo = minf(lo, x); hi = maxf(hi, x)
+			lo = minf(lo, x); hi = maxf(hi, x); plo = minf(plo, x); phi = maxf(phi, x)
 		out.append({"event": e, "rest": rest, "first": first, "last": last, "spread": spread, "tm": tm, "g0": g0, "go": g0,
-			"approach": approach, "hit": hit, "end": hit+spread*(ids.size()-1), "t_free": float(e["t_free"]), "lo": lo, "hi": hi, "moving": false})
+			"approach": approach, "hit": hit, "end": hit+spread*(ids.size()-1), "t_free": float(e["t_free"]), "lo": lo, "hi": hi,
+			"want": want, "mlo": minf(rest.x, first.x), "mhi": maxf(rest.x, first.x), "plo": plo, "phi": phi, "moving": false})
 		rest = last+lift
 		free_prev = float(e["t_free"])
 	return out
+
+## One arm's whole occupancy of the rail as [t0, t1, lo, hi] spans. Three phases
+## a contact, because the interval an arm CROSSED is not where it stands: it
+## owns everything between where it left and where it lands until it arrives,
+## then only the strings it is playing, then the one it hovers over. Mirrors
+## loam.score._Solver's model exactly — that is the point of the plan it checks.
+func _segments(aid: String, win: Array) -> Array:
+	var home := contact(acts[aid]["home"]).x
+	var segs: Array = [[-INF, win[0]["go"] if win.size() > 0 else INF, home, home]]
+	for i in win.size():
+		var o: Dictionary = win[i]
+		var until: float = win[i+1]["go"] if i+1 < win.size() else INF
+		segs.append([o["go"], o["approach"], o["mlo"], o["mhi"]])
+		segs.append([o["approach"], o["end"], o["plo"], o["phi"]])
+		segs.append([o["end"], until, o["last"].x, o["last"].x])
+	return segs
 
 func _schedules() -> void:
 	var win: Dictionary = {}
@@ -281,16 +327,9 @@ func _schedules() -> void:
 			if need > 0.0:
 				for other in plans:
 					if other == aid or mech_of[other] != mech_of[aid]: continue
-					var home := contact(acts[other]["home"]).x
-					var segments: Array = [[-INF, win[other][0]["g0"] if win[other].size() > 0 else INF, home, home]]
-					for i in win[other].size():
-						var o: Dictionary = win[other][i]
-						var until: float = win[other][i+1]["g0"] if i+1 < win[other].size() else INF
-						segments.append([o["g0"], o["end"], o["lo"], o["hi"]])
-						segments.append([o["end"], until, o["last"].x, o["last"].x])
-					for seg in segments:
-						if seg[0] >= s["tm"] or seg[1] <= go: continue
-						if maxf(s["lo"]-seg[3], seg[2]-s["hi"])-PAD < need: go = maxf(go, minf(seg[1], s["tm"]))
+					for seg in _segments(other, win[other]):
+						if seg[0] >= s["approach"] or seg[1] <= go: continue
+						if maxf(s["mlo"]-seg[3], seg[2]-s["mhi"])-PAD < need: go = maxf(go, minf(seg[1], s["approach"]))
 			s["go"] = go
 			s["moving"] = s["approach"] > go+.000001
 		sched[aid] = win[aid]

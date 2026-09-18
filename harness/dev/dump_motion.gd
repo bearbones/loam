@@ -33,6 +33,14 @@ func _init() -> void:
 		for frame in range(-120,int(sd.total_s*120)):
 			var t := frame/120.0
 			print("SHUD %s %.9f %.12f %.12f %.12f" % [aid,t,rig.stand_thump(rig.mech_of[aid],t),rig.rail_sag(aid,t,mid),rig.mast_sway(aid,t)])
+	# The travel-timing constants the harness mirrors by hand, so
+	# tools/test_motion.py can hold them to loam/motion_timing.py — the module
+	# the score planner charged every reposition with ("CONST name value").
+	for pair in [["PITCH", ClockworkMotion.PITCH], ["CLICK_S", ClockworkMotion.CLICK_S],
+			["CLICK_MIN_S", ClockworkMotion.CLICK_MIN_S], ["CLICK_TEETH_MAX", float(ClockworkMotion.CLICK_TEETH_MAX)],
+			["SLEW_S", ClockworkMotion.SLEW_S], ["SERVO_V_MAX", ClockworkMotion.SERVO_V_MAX],
+			["WORLD_SCALE", ClockworkMotion.WORLD_SCALE]]:
+		print("CONST %s %.12f" % pair)
 	for k in range(4001):
 		var x := -.2+k*.0001
 		print("PAWL %.9f %.12f" % [x,ClockworkMotion.pawl_angle(x)])

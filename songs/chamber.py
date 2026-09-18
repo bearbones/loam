@@ -162,7 +162,10 @@ for bar in range(0, 8):
                     pick=0.22)
     if bar >= 2:                        # arm1 answers, mid register
         a = 0.6 + 0.1 * (bar % 2)
-        ask_pluck("harp", beat(bar, 1), H[7], a, "answer", alt=H[8],
+        # the neighbour BELOW when arm1 cannot reach H[7]: H[8] is as good
+        # an answer, but it parks arm1 where the beat-3 answer wants to
+        # land, and two arms 0.27 m wide cannot stand a string apart
+        ask_pluck("harp", beat(bar, 1), H[7], a, "answer", alt=H[6],
                 pick=pick_for(a))
         ask_pluck("harp", beat(bar, 3), H[9 if bar % 2 else 11], a,
                 "answer", alt=H[10], pick=pick_for(a))
@@ -214,12 +217,19 @@ for bar in range(16, 24):
                     pick=0.2)
         bi_ = tune[step] + (1 if bar % 4 == 2 else 0)
         bi_ = min(bi_, 7)
-        if not (bar % 4 == 3 and step >= 4):
+        if bar % 4 != 3:                 # the fourth bar belongs to the run
             ask_pluck("bars", t, B[bi_], 0.6 + 0.25 * (step % 4 == 0),
                     "mallets", alt=B[max(bi_ - 1, 0)])
-    if bar % 4 == 3:                     # a 16th run up the bars, beats 3-4
+    if bar % 4 == 3:
+        # A run up the whole marimba, an eighth a bar. It was sixteenths
+        # over two beats until the planner started charging what the
+        # motion costs: these bars sit 0.386 m apart in the world and a
+        # mallet arm crosses that in ratchet clicks, so a sixteenth at
+        # this tempo asked the carriage for 6.5 m/s and the machine said
+        # no (loam/motion_timing.py). Eighths cross it in three or four
+        # clicks and the sweep reads as one long gesture instead.
         for k in range(8):
-            ask_pluck("bars", beat(bar, 2.0 + 0.25 * k), B[k],
+            ask_pluck("bars", beat(bar, 0.5 * k), B[k],
                     0.5 + 0.05 * k, "run", alt=B[min(k + 1, 7)])
     ask_rake(beat(bar, 0), up=True, amp=0.75)
     ask_rake(beat(bar, 2), up=False, amp=0.65)

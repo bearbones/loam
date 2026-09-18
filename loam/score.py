@@ -22,10 +22,20 @@ the arm lands, 0..0.5 — is the same number in both.
 The playability solver: Animusic edited MIDI until their machine
 could play it. Here the machine is a constraint the composer ASKS
 before writing a note (`can_play`). Per actuator: busy until
-`t0 + recover_s` after a contact, then travel `|i_from - i_to| *
-travel_s` (string index distance) and wind up for `approach_s`:
+`t0 + recover_s` after a contact, then travel the world distance to
+the next string and wind up for `approach_s`:
 
-    feasible  iff  t - approach_s - travel >= free_at
+    feasible  iff  travel available >= what the vocabulary needs
+
+What a travel COSTS is not the planner's invention any more. It comes
+from `loam.motion_timing`, the same module `formlab/rig.py` and
+`harness/clockwork_motion.gd` move by: a stepped arm clicks along a
+rack tooth by tooth, a servo slews. An arm that has the room takes the
+unhurried time; one that does not is charged everything the score left
+it and refused outright below `motion_timing.floor_s` — the plan and
+the motion are now one model rather than two that disagreed by a
+factor of twenty. `Actuator.travel_s` survives as a per-index floor
+for a mechanism whose strings carry no usable geometry.
 
 Least travel wins, ties to the earliest free. A string refuses a
 re-strike inside `restrike_s` (the pick must clear it). Every event
@@ -44,6 +54,7 @@ import numpy as np
 from . import SR, hz, stereo, write_wav
 from . import strings as _strings
 from . import modal as _modal
+from . import motion_timing as _mt
 
 FORMAT = "loam-score/1"
 
@@ -79,8 +90,12 @@ class StringDef:
 @dataclass
 class Actuator:
     """An arm. reach = ids it can strike; home = id it rests over.
-    Times in seconds: approach (wind-up before contact), recover
-    (dead time after), travel (per string index moved)."""
+    Times in seconds: approach (wind-up before contact), recover (dead
+    time after). `travel_s` is a per-string-index FLOOR, not the travel
+    itself: what a reposition costs comes from the arm's motion
+    vocabulary and the distance it has to cross (`loam.motion_timing`,
+    via `_Solver.travel`). It is what a mechanism laid out with no
+    usable spacing still charges."""
     id: str
     kind: str = "pick"          # pick | hammer | mallet | rake
     reach: list = field(default_factory=list)
@@ -181,7 +196,7 @@ class Mechanism:
     def build(cls, id: str, kind: str, material: str, midis,
             arms: int = 1, overlap: int = 0, span: float = 1.0,
             pos=None, axis=None, restrike_s: float = 0.05,
-            arm_kind: str = "pick", approach_s: float = 0.12,
+            arm_kind: str = "pick", approach_s: float = None,
             recover_s: float = 0.06, travel_s: float = 0.03,
             pick_default: float = 0.2, length_max: float = 0.6):
         """Lay out strings evenly along the axis, lengths ∝ 1/f
@@ -191,6 +206,11 @@ class Mechanism:
         passage needs a second arm to be free."""
         midis = list(midis)
         n = len(midis)
+        # The wind-up is a property of the arm kind unless a score names
+        # its own (they all do today); motion_timing holds the defaults
+        # so the rig and the planner cannot drift apart on them.
+        if approach_s is None:
+            approach_s = _mt.approach_s(arm_kind)
         axis = list(axis or [1.0, 0.0, 0.0])
         f_lo = min(hz(m) for m in midis)
         strs = []
@@ -242,16 +262,34 @@ class _Solver:
         self.at = {a.id: a.home for a in mech.actuators}
         self.last_hit = {}
         self.last_t = -np.inf
-        # Occupancy timeline per arm: (t0, t1, lo, hi) — while moving
-        # the arm is charged with the whole axis interval it crosses;
-        # between moves it hovers over the string it last played.
+        # Occupancy timeline per arm, one entry a contact:
+        # (t_move, t_arrive, t_last, travel interval, contact interval,
+        # where it comes to rest). An arm crossing the rail is charged
+        # the whole interval between where it left and where it lands,
+        # because the plan does not model the profile in between; once
+        # it has ARRIVED it is charged only the strings it is playing,
+        # and afterwards the one it hovers over. Three phases, not two:
+        # the interval it crossed is not where it stands.
         self.moves = {a.id: [] for a in mech.actuators}
 
+    def span_m(self, s_from: str, s_to: str) -> float:
+        """World metres along the rail between two strings' contacts.
+        The mechanism's axis coordinate is in score units and the build
+        places the instrument at `motion_timing.WORLD_SCALE` times
+        those, which is the scale the arm actually has to move at."""
+        m = self.mech
+        return abs(m.axis_pos(s_from) - m.axis_pos(s_to)) * _mt.WORLD_SCALE
+
     def travel(self, act: Actuator, s_from: str, s_to: str) -> float:
+        """What an unhurried reposition costs this arm: its vocabulary's
+        time over the world distance (clicks for a stepped arm, a slew
+        for a servo), never below the per-index floor `act.travel_s`
+        keeps for a mechanism whose strings share a coordinate."""
         if not s_from:
             return 0.0
-        return abs(self.mech.index(s_from) - self.mech.index(s_to)) \
+        floor = abs(self.mech.index(s_from) - self.mech.index(s_to)) \
             * act.travel_s
+        return max(_mt.travel_s(act.kind, self.span_m(s_from, s_to)), floor)
 
     def _range_at(self, aid: str, t: float):
         """Axis interval arm `aid` occupies at time t under the plan
@@ -260,39 +298,57 @@ class _Solver:
         home before any)."""
         hover = self.mech.axis_pos(self.mech.actuator(aid).home)
         latest = -np.inf
-        for t0, t1, lo, hi, dest in self.moves[aid]:
-            if t0 <= t <= t1:
-                return lo, hi
+        for t0, t_arr, t1, mv, pl, dest in self.moves[aid]:
+            if t0 <= t < t_arr:
+                return mv
+            if t_arr <= t <= t1:
+                return pl
             if t1 < t and t1 > latest:
                 latest, hover = t1, dest
         return hover, hover
 
-    def _separated(self, act: Actuator, t_move: float, t_last: float,
-            sids) -> bool:
+    def _spans(self, act: Actuator, sids):
+        """((lo, hi) crossed on the way, (lo, hi) played on arrival)."""
+        m = self.mech
+        xs = [m.axis_pos(s) for s in sids]
+        played = (min(xs), max(xs))
+        s_from = self.at[act.id]
+        if not s_from:
+            return played, played
+        x0 = m.axis_pos(s_from)
+        return (min(x0, xs[0]), max(x0, xs[0])), played
+
+    def _separated(self, act: Actuator, t_move: float, t_arrive: float,
+            t_last: float, sids) -> bool:
         """The candidate move keeps `arm_clearance` from every other arm
-        of the mechanism for all time from t_move on: during its
-        travel it owns the whole interval it crosses, afterwards it
-        hovers over sids[-1]. Ranges are piecewise constant in time,
-        so testing every breakpoint plus the midpoints between them is
-        exact for this occupancy model."""
+        of the mechanism for all time from t_move on, in the three
+        phases `self.moves` records: the interval it crosses until it
+        arrives, the strings it plays until t_last, then a point over
+        sids[-1]. Ranges are piecewise constant in time, so testing
+        every breakpoint plus the midpoints between them is exact.
+
+        There is only the one model. `_feasible` charges a hurried arm
+        from the moment it comes free, so t_move is the instant the
+        carriage really starts and the rig has no earlier start to
+        reconcile (`formlab.rig._schedules`, which now only logs if it
+        ever has to push one later)."""
         w = float(self.mech.arm_clearance)
         if w <= 0.0:
             return True
         m = self.mech
-        xs = [m.axis_pos(s) for s in sids]
-        if self.at[act.id]:
-            xs.append(m.axis_pos(self.at[act.id]))
-        lo, hi = min(xs), max(xs)
+        moving, played = self._spans(act, sids)
         rest = m.axis_pos(sids[-1])
 
         def mine(t):
-            return (lo, hi) if t <= t_last else (rest, rest)
+            if t < t_arrive:
+                return moving
+            return played if t <= t_last else (rest, rest)
         for other in m.actuators:
             if other.id == act.id:
                 continue
-            times = {t_move, t_last, t_last + 1e-6}
-            for t0, t1, _, _, _ in self.moves[other.id]:
-                for tb in (t0, t1):
+            times = {t_move, t_arrive, t_last, t_last + 1e-6}
+            for t0, t_arr, t1, _, _, _ in self.moves[other.id]:
+                for tb in (t0, t_arr, t1):
                     if tb >= t_move:
                         times.add(tb)
                     times.add(max(t_move, tb))
@@ -306,19 +362,71 @@ class _Solver:
                     return False
         return True
 
+    def _push(self, act: Actuator, t0: float, t_hi: float,
+            t_arrive: float, t_last: float, sids) -> float:
+        """The earliest start in [t0, t_hi] whose whole occupancy is clear
+        of the siblings, or None if the arm cannot get across at all.
+
+        A blocked arm waits and then moves in what is left rather than
+        losing the note: that is what `formlab.rig._schedules` used to do
+        after the fact, on a schedule the planner had not checked. It is
+        done here now, where the plan is made, and the rig inherits the
+        answer. Sibling ranges are piecewise constant in time, so a start
+        that clears at all clears at t0 or at the instant one of them next
+        changes."""
+        # t_hi is always worth trying: leaving at the last possible moment
+        # is the shortest crossing there is, so it is the start least
+        # likely to sit in anyone's way.
+        cands = {t0, t_hi}
+        for other in self.mech.actuators:
+            if other.id == act.id:
+                continue
+            for seg in self.moves[other.id]:
+                for tb in (seg[0] + 1e-9, seg[1] + 1e-9):
+                    if t0 < tb <= t_hi:
+                        cands.add(tb)
+        for start in sorted(cands):
+            if self._separated(act, start, t_arrive, t_last, sids):
+                return start
+        return None
+
     def _feasible(self, a: Actuator, t: float, sids, spread_s: float):
-        """(t_move, travel, t_last) if arm `a` can take the contact
-        under the busy rule and the clearance rule, else None."""
+        """(t_move, travel, t_last, dx) if arm `a` can take the contact
+        under the busy rule and the clearance rule, else None.
+
+        `dx` is the world distance the arm has to cross (what "least
+        travel wins" is decided on) and `travel` what the score actually
+        leaves for the crossing. An arm with room takes the whole
+        unhurried want; one without is charged everything between the
+        moment it comes free and the wind-up, and leaves at that moment.
+        `t_move` is therefore the instant the carriage really starts, and
+        `formlab.rig._windows` takes it as given rather than deriving a
+        second, earlier one of its own.
+
+        Below `motion_timing.floor_s` there is no plan at all: the
+        carriage would have to cross the distance faster than the
+        ratchet can click or the servo can run, so the contact is
+        refused and the composer hears about it. Between the two, a
+        sibling in the way costs time rather than the note — `_push`
+        waits and crosses in what is left."""
         if any(s not in a.reach for s in sids):
             return None
-        tr = self.travel(a, self.at[a.id], sids[0])
-        t_move = t - a.approach_s - tr
-        if t_move < self.free_at[a.id]:
+        s_from = self.at[a.id]
+        dx = self.span_m(s_from, sids[0]) if s_from else 0.0
+        want = self.travel(a, s_from, sids[0])
+        room = t - a.approach_s - self.free_at[a.id]
+        if room < 0.0:
+            return None
+        tr = want if room >= want else room
+        flr = _mt.floor_s(a.kind, dx) if s_from else 0.0
+        if tr < flr - 1e-9:
             return None
         t_last = t + spread_s * (len(sids) - 1)
-        if not self._separated(a, t_move, t_last, sids):
+        t_move = self._push(a, t - a.approach_s - tr,
+                t - a.approach_s - flr, t - a.approach_s, t_last, sids)
+        if t_move is None:
             return None
-        return t_move, tr, t_last
+        return t_move, t - a.approach_s - t_move, t_last, dx
 
     def plan(self, t: float, sids, spread_s: float = 0.0):
         """Best feasible actuator for a contact at t on sids (a run
@@ -334,8 +442,14 @@ class _Solver:
             f = self._feasible(a, t, sids, spread_s)
             if f is None:
                 continue
-            t_move, tr, t_last = f
-            key = (tr, self.free_at[a.id])
+            t_move, tr, t_last, dx = f
+            # Least travel wins on the DISTANCE, not on the time: a
+            # servo's time is SLEW_S for nearly every move on a
+            # mechanism this size, so timing it ties every arm and
+            # hands the note to whichever is idle. Distance still
+            # separates them, and a hurried arm charged less than it
+            # wanted does not masquerade as the nearer one.
+            key = (dx, self.free_at[a.id])
             if best is None or key < best[0]:
                 best = (key, a, t_move, tr, t_last)
         if best is None:
@@ -353,12 +467,10 @@ class _Solver:
 
     def commit(self, t: float, sids, act: Actuator, p: dict) -> None:
         m = self.mech
-        xs = [m.axis_pos(s) for s in sids]
-        if self.at[act.id]:
-            xs.append(m.axis_pos(self.at[act.id]))
+        moving, played = self._spans(act, sids)
         t_last = p["t_free"] - act.recover_s
-        self.moves[act.id].append((p["t_move"], t_last, min(xs), max(xs),
-                m.axis_pos(sids[-1])))
+        self.moves[act.id].append((p["t_move"], t - act.approach_s, t_last,
+                moving, played, m.axis_pos(sids[-1])))
         self.free_at[act.id] = p["t_free"]
         self.at[act.id] = sids[-1]
         for s in sids:
