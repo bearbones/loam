@@ -162,9 +162,18 @@ carried on an axle in two plummer blocks — split bearing housings bolted to
 pedestals on a sole plate — one either side of the wheel, and it drives
 something. `layout.flywheel_plan` (numpy-free) lays that out from the wheel's
 centre and radius: hub, axle, the two housings in their blocks on pedestals
-standing on the sole plate on the floor, bolt heads, a drive pulley on the
+standing on the sole plate on the floor, a drive pulley on the
 axle's back end, and a flat belt to a pulley on a stub axle between two ears
-bracketed to the chamber cabinet's end face. The belt's bands are the true
+bracketed to the chamber cabinet's end face. Each block is **split at the
+axle's height**, as a plummer block is so the shaft can be laid in: the base
+casts the lower half of the seat and its top is the flange's underside; a
+**cap** (`FLYWHEEL['cap']`, recorded as `caps`) — a D-section, the half-disc
+of the wall 12 mm proud of the housing over a flange as wide as the studs —
+closes it; two **studs** rise out of the base through the flange to hex
+**nuts** outside the cap's wall, and an **oil cup** with its lid stands on the
+cap's crown to feed the bearing. (Before, the housing was a bare cylinder on
+the block with two bolt stubs beside it — a bearing nobody could have
+assembled.) The belt's bands are the true
 outer tangents of the two pulleys, with a wrap round each. `build_clockwork.py`
 builds it from the plan and records the plan on the manifest (`flywheel`);
 `performance.gd` turns the wheel, hub and drive pulley once a bar of the
@@ -190,7 +199,10 @@ boss — which is why every engine-house flywheel of the period has them. A
 disc, besides, hid the wheel's turning: a bar a turn reads only if something
 passes. `tools/test_flywheel.py` pins the axle through the wheel and both
 housings, the housings clear of the wheel and hub, the pedestals on the sole
-plate, the pulleys in one plane, the bands tangent, the assembly clear of
+plate, each cap on its housing with the flange's underside at the block's top
+and the split at the axle, the studs through the flange outside the cap's
+wall with their nuts on the flange, the oil cups on the crowns, the pulleys in
+one plane, the bands tangent, the assembly clear of
 every arm sweep, rail and obstacle, and the casting — the rim's depth under
 the roots, the spokes inside the wheel's width, and, reading the built GLB's
 `Chamber flywheel` mesh, that every vertex between boss and rim lies on a

@@ -57,12 +57,13 @@ def finish(o,n,m,bevel=0):
     return o
 def box(n,p,s,m,bevel=.025):
     bpy.ops.mesh.primitive_cube_add(size=1,location=vec(p)); o=bpy.context.object; o.scale=(s[0],s[2],s[1]); return finish(o,n,m,bevel)
-def cyl(n,p,r,h,m):
-    bpy.ops.mesh.primitive_cylinder_add(vertices=24,radius=r,depth=h,location=vec(p)); return finish(bpy.context.object,n,m,.009)
+def cyl(n,p,r,h,m,vertices=24):
+    # vertices=6 is a hex nut (r its circumradius)
+    bpy.ops.mesh.primitive_cylinder_add(vertices=vertices,radius=r,depth=h,location=vec(p)); return finish(bpy.context.object,n,m,.009 if vertices>6 else .003)
 def ball(n,p,r,m):
     bpy.ops.mesh.primitive_uv_sphere_add(segments=20,ring_count=12,radius=r,location=vec(p)); return finish(bpy.context.object,n,m)
-def beam(n,a,b,r,m):
-    o=cyl(n,(Vector(a)+Vector(b))/2,r,(Vector(b)-Vector(a)).length,m)
+def beam(n,a,b,r,m,vertices=24):
+    o=cyl(n,(Vector(a)+Vector(b))/2,r,(Vector(b)-Vector(a)).length,m,vertices)
     o.rotation_mode='QUATERNION'; o.rotation_quaternion=(vec(b)-vec(a)).to_track_quat('Z','Y'); return o
 def text(n,body,p,size=.12,yaw=0.):
     # Upright, facing +z; yaw turns it about the vertical (Godot radians, +x toward -z) to lie on an angled face.
@@ -267,11 +268,22 @@ fw=flywheel_plan((-2.4,.53,-1.5),.4,cabinet_x=-1.8); manifest['flywheel']=fw
 # module (formlab.gear.profile), so it and they are visibly one family of gears —
 # on a cast rim, six bowed spokes between it and the hub boss (fw['spokes']).
 gear('Chamber flywheel',fw['centre'],fw['r'],fw['teeth'],fw['spokes'])
-fw_mat={'hub':brass,'axle':steel,'housing':steel,'bolt':brass,'pulley':steel,'stub axle':steel}
+fw_mat={'hub':brass,'axle':steel,'housing':steel,'nut':brass,'oil cup':brass,'stud':steel,'pulley':steel,'stub axle':steel}
 for label,(a,b,r) in fw['cyls'].items():
-    beam('Chamber '+label,a,b,r,next((m for k,m in fw_mat.items() if k in label),steel))
+    beam('Chamber '+label,a,b,r,next((m for k,m in fw_mat.items() if k in label),steel),6 if 'nut' in label else 24)
 for label,(c,s) in fw['boxes'].items():
     box('Chamber '+label,c,s,black,.012 if 'ear' in label or 'block' in label else .02)
+def cap(n,K,m):
+    # A plummer block's cap (formlab.layout.flywheel_plan 'caps'): the half-disc of
+    # the wall over the flange strip, one D-section in the wheel's plane extruded
+    # along the axle; the flange's underside is the block's top.
+    cx,cy,cz=K['centre']; R=K['r']; fx,ft=K['flange']; a0=math.asin(ft/2/R); arc=[a0+(math.pi-2*a0)*k/24 for k in range(25)]
+    poly=[(cx+fx,cy-ft/2),(cx+fx,cy+ft/2)]+[(cx+R*math.cos(a),cy+R*math.sin(a)) for a in arc]+[(cx-fx,cy+ft/2),(cx-fx,cy-ft/2)]
+    k=len(poly); h=K['w']/2
+    verts=[tuple(vec((x,y,cz+h))) for x,y in poly]+[tuple(vec((x,y,cz-h))) for x,y in poly]
+    faces=[list(range(k)),[k+i for i in range(k)][::-1]]+[(i,(i+1)%k,k+(i+1)%k,k+i) for i in range(k)]
+    return pydata(n,verts,faces,m,.006)
+for tag,K in fw['caps'].items(): cap(f'Chamber {tag} cap',K,black)
 for i,band in enumerate(fw['belt']):
     a=Vector(band['a']); b=Vector(band['b'])
     band_box=box(f'Chamber belt band {i}',(a+b)/2,(band['length'],FLYWHEEL['belt_t'],FLYWHEEL['belt_w']),black,.002)

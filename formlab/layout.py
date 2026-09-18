@@ -115,7 +115,15 @@ def board_z(plan,x):
 # back end and a flat belt to a pulley on a bracket at the chamber cabinet's end.
 # The wheel's axis is world z (it faces the house); Godot turns it a bar a turn.
 FLYWHEEL=dict(width=.07, hub_r=.09, hub_w=.12, axle_r=.03, axle=(-.34,.22), bearing_z=.16, housing_r=.065, housing_w=.10,
-              block=(.20,.06,.11), pedestal=(.14,.10), sole=(.30,.03,.54), bolt_r=.012, bolt_h=.012, bolt_x=.08,
+              block=(.20,.075,.11), pedestal=(.14,.10), sole=(.30,.03,.54),
+              # A plummer block is split at the axle's height: the base casts the lower
+              # half of the seat, a cap (wall proud of the housing, on a flange as wide
+              # as the studs) closes it, two studs up through the flange take hex nuts,
+              # and an oil cup on the cap's crown feeds the bearing.
+              cap=(.012,.12,.02),        # wall proud of the housing; flange half-width; flange thickness
+              stud=(.009,.095,.03,.012), # radius; x from the axle; below the block's top; above the nut
+              nut=(.017,.014),           # circumradius (hex); height
+              oil_cup=(.011,.035,.015,.007),   # cup radius, height; lid radius, height
               pulley_z=-.27, pulley_r=.12, pulley_w=.06, belt_pulley_r=.10, belt_w=.05, belt_t=.006,
               ear=(.18,.26,.03), ear_gap=.05, stub_r=.022,
               teeth=52,   # the rim's ring gear: 52 teeth at the pinions' 15 mm module reach the wheel's radius (formlab.gear.profile)
@@ -145,7 +153,7 @@ def flywheel_plan(centre,r,cabinet_x,floor=-.01):
     plan=dict(centre=list(centre),r=r,teeth=FLYWHEEL['teeth'],boxes={},cyls={},floor=floor)
     # the casting: rim from r_rim out to the teeth's roots, hub boss, spokes between (spoke_centre / spoke_section)
     plan['spokes']=dict(count=F['spokes'],r_hub=F['hub_r'],r_rim=r-F['rim'],bow=F['spoke_bow'],root=list(F['spoke_root']),tip=list(F['spoke_tip']),angle0=0.0)
-    B=plan['boxes']; C=plan['cyls']
+    B=plan['boxes']; C=plan['cyls']; plan['caps']={}
     C['hub']=([cx,cy,cz-F['hub_w']/2],[cx,cy,cz+F['hub_w']/2],F['hub_r'])
     C['axle']=([cx,cy,cz+F['axle'][0]],[cx,cy,cz+F['axle'][1]],F['axle_r'])
     for side in (-1,1):
@@ -154,8 +162,17 @@ def flywheel_plan(centre,r,cabinet_x,floor=-.01):
         bw,bh,bl=F['block']; B[tag+' block']=([cx,cy-F['housing_r']+bh/2-.02,z],[bw,bh,bl])
         top=cy-F['housing_r']+bh-.02-bh   # the block's underside
         pw,pl=F['pedestal']; B[tag+' pedestal']=([cx,(floor+F['sole'][1]+top)/2,z],[pw,top-floor-F['sole'][1],pl])
+        # the split: the block's top is the flange's underside; the cap's D-section
+        # (half-disc over the flange strip) is extruded along the axle
+        cw,fx,ft=F['cap']; R=F['housing_r']+cw
+        plan['caps'][tag]=dict(centre=[cx,cy,z],r=R,w=F['housing_w']+cw,flange=[fx,ft],split=top+bh)
+        sr,sx_,s_below,s_above=F['stud']; nr,nh=F['nut']
         for sx in (-1,1):
-            C[f'{tag} bolt {"l" if sx<0 else "r"}']=([cx+sx*F['bolt_x'],top+bh,z],[cx+sx*F['bolt_x'],top+bh+F['bolt_h'],z],F['bolt_r'])
+            k='l' if sx<0 else 'r'; x=cx+sx*sx_
+            C[f'{tag} nut {k}']=([x,cy+ft/2,z],[x,cy+ft/2+nh,z],nr)
+            C[f'{tag} stud {k}']=([x,top+bh-s_below,z],[x,cy+ft/2+nh+s_above,z],sr)
+        cr,ch,lr,lh=F['oil_cup']
+        C[tag+' oil cup']=([cx,cy+R,z],[cx,cy+R+ch,z],cr); C[tag+' oil cup lid']=([cx,cy+R+ch,z],[cx,cy+R+ch+lh,z],lr)
     B['sole']=([cx,floor+F['sole'][1]/2,cz],list(F['sole']))
     pz=cz+F['pulley_z']; C['drive pulley']=([cx,cy,pz-F['pulley_w']/2],[cx,cy,pz+F['pulley_w']/2],F['pulley_r'])
     # the belt pulley on its bracket: two ears standing off the cabinet's end face, a stub axle between them
@@ -185,6 +202,7 @@ def _plan_bounds(plan):
     for a,b,r in plan['cyls'].values():
         for p in (a,b): take(p,[r]*3)
     for (p,r) in plan['wraps']: take(p,[r,r,FLYWHEEL['belt_w']/2])
+    for cap in plan['caps'].values(): take(cap['centre'],[max(cap['r'],cap['flange'][0]),cap['r'],cap['w']/2])
     return [lo,hi]
 
 

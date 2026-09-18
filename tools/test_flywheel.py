@@ -73,8 +73,25 @@ def run(layout_path,score_path):
         check(abs(bc[2]-z)<1e-9 and bc[1]+bs[1]/2>ha[1]-hr and bc[1]+bs[1]/2<ha[1],f'{tag} block under the housing, its top inside the housing\'s circle')
         check(abs(pc[2]-z)<1e-9 and abs((pc[1]+ps[1]/2)-(bc[1]-bs[1]/2))<1e-9 and abs((pc[1]-ps[1]/2)-(plan['floor']+F['sole'][1]))<1e-9,
               f'{tag} pedestal from the sole plate up to the block')
+        # the split housing: the cap's D-section closes the seat over the flange whose
+        # underside is the block's top; studs up through the flange, nuts on them,
+        # the oil cup on the cap's crown
+        cap=plan.get('caps',{}).get(tag); top=bc[1]+bs[1]/2
+        check(cap is not None,f'{tag} block has a cap');
+        if cap is None: continue
+        fx,ft=cap['flange']
+        check(abs(cap['centre'][0]-ha[0])<1e-9 and abs(cap['centre'][1]-ha[1])<1e-9 and abs(cap['centre'][2]-z)<1e-9 and cap['r']>hr and cap['w']>=F['housing_w'],
+              f'{tag} cap sits on the housing, its wall {(cap["r"]-hr)*1000:.0f} mm proud')
+        check(abs(cap['split']-top)<1e-9 and abs((ha[1]-ft/2)-top)<1e-9 and fx<=bs[0]/2+.03,f'{tag} flange underside is the block top, split at the axle')
         for k in ('l','r'):
-            qa,qb,_=C[f'{tag} bolt {k}']; check(abs(qa[1]-(bc[1]+bs[1]/2))<1e-9 and abs(qa[0]-bc[0])<=bs[0]/2,f'{tag} bolt {k} stands on the block top')
+            sa,sb,sr=C[f'{tag} stud {k}']; na,nb,nr=C[f'{tag} nut {k}']
+            clear=math.sqrt(cap['r']**2-(ft/2)**2)
+            check(abs(sa[0]-sb[0])<1e-9 and sa[1]<top and sb[1]>nb[1] and clear+sr<abs(sa[0]-bc[0])<=fx-sr and abs(sa[0]-bc[0])<=bs[0]/2 and abs(sa[2]-z)<1e-9,
+                  f'{tag} stud {k} rises out of the block through the flange, outside the cap\'s wall')
+            check(abs(na[0]-sa[0])<1e-9 and abs(na[2]-sa[2])<1e-9 and abs(na[1]-(ha[1]+ft/2))<1e-9 and nb[1]>na[1] and nr>sr,f'{tag} nut {k} sits on the flange round its stud')
+        oa,ob,orr=C[tag+' oil cup']; la,lb,lr=C[tag+' oil cup lid']
+        check(abs(oa[0]-ha[0])<1e-9 and abs(oa[2]-z)<1e-9 and abs(oa[1]-(ha[1]+cap['r']))<1e-9 and ob[1]>oa[1] and abs(la[1]-ob[1])<1e-9 and lb[1]>la[1] and lr>orr,
+              f'{tag} oil cup stands on the cap\'s crown under its lid')
     # the casting: a rim under the teeth's roots, spokes from the hub boss to it, inside the wheel's width
     S=plan.get('spokes'); check(S is not None,'the plan casts the wheel with spokes')
     if S is not None:

@@ -1,3 +1,20 @@
+## 2026-09-18 — CLOCKWORK the plummer blocks are split, capped, studded and oiled
+
+Beside the new spoked wheel (view 13) its bearings were the crudest thing in
+the shot: a bare cylinder on a box with two bolt stubs beside it — a bearing
+nobody could have laid a shaft into. `formlab/layout.flywheel_plan` now
+splits each block at the axle's height the way a plummer block is split: the
+base's top is the flange's underside, a cap (`FLYWHEEL['cap']`, recorded as
+`caps`: a D-section — the half-disc of the wall 12 mm proud of the housing
+over a 240 mm flange, extruded along the axle by the builder's `cap()`)
+closes the seat, two studs rise out of the base through the flange to hex
+nuts (`cyl(..., vertices=6)`) outside the cap's wall, and an oil cup with its
+lid stands on the crown. `tools/test_flywheel.py` pins the cap on the
+housing with the split at the axle, the studs through the flange clear of the
+wall and inside the block, the nuts on the flange, the cups on the crowns;
+the plan's bounds take the caps in. Both assets rebuilt in a worktree with
+`--rails=keep` and committed; `docs/instrument-frames.md` says how.
+
 ## 2026-09-18 — CLOCKWORK the flywheel is a casting: rim, boss and six bowed spokes
 
 With its ring gear cut, the flywheel was still a brass plate — a solid disc
