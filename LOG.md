@@ -1,3 +1,24 @@
+## 2026-09-17 — CLOCKWORK the plectra are horn in brass ferrules
+
+The plectrum was brass "for the eye": a bright tear-drop of metal against a
+wire, where a plucking machine would wear horn or hard leather. The blade
+is now horn and only the ferrule and its set screws stay brass. That took a
+material per piece through the pipeline: `recipes.pack(materials=)` names
+one per piece (`piece_materials` on the recipe object),
+`blender_forms.make_form` gives each piece's faces their own material slot
+before the edge bevel so the bevel inherits it (profiled finish only — a
+voxel union forgets its faces, and the adapter refuses the combination;
+and the slots go on the mesh before the faces are assigned, because Blender
+clamps a face's index to the slots the mesh has — the first build cleared
+the slot list at the end and every face came out brass),
+`build_clockwork.py` adds a "Pressed horn" material, and the Godot look
+module finishes an imported "horn" surface as a dark amber grain streaked
+along the blade. `tools/test_linkage_tools.py` reads the built recipe and
+checks every plectrum is a horn blade in a brass ferrule and every mallet
+one felt object; `dev/test_performance.gd` checks the imported tool mesh of
+each pick arm carries a horn surface then a brass one, and each mallet a
+single felt surface. Geometry is untouched, so nothing re-measured.
+
 ## 2026-09-17 — CLOCKWORK the pins are held on: washer, hex nut, split pin
 
 Every knuckle pin and every stub pin ended in a turned "hex-ish" nut — a

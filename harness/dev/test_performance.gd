@@ -82,6 +82,19 @@ func check_scene() -> void:
 					if coil.global_position.distance_to(scene.motion.v(w["centre"]))>.00001: failures.append("coil not on its tuning pin "+sid)
 					if absf(box.size.x-2.0*(float(w["r"])+2.0*radius))>.002 or absf(box.size.y-2.0*(float(w["r"])+2.0*radius))>.002: failures.append("coil not wound on the pin "+sid)
 					if box.position.z<-radius-.0001 or box.end.z>float(w["room"])+.0001 or box.size.z<3.0*radius: failures.append("coil runs past its room on the pin, or does not advance "+sid)
+		# A plectrum is horn in a brass ferrule: the pick arms' tool mesh carries a brass
+		# surface (the object's own slot: ferrule and screws) and a horn one (the blade);
+		# a mallet is one felt surface.
+		for aid in scene.parts:
+			var tool: MeshInstance3D=scene.parts[aid]["tool"]; var names: Array=[]
+			for index in tool.mesh.get_surface_count(): names.append(tool.mesh.surface_get_material(index).resource_name.to_lower())
+			var horn: int=0; var brass: int=0
+			for n in names:
+				if n.contains("horn"): horn+=1
+				if n.contains("brass"): brass+=1
+			if scene.layout["arms"][aid]["kind"]=="mallet":
+				if names.size()!=1 or not names[0].contains("felt"): failures.append("mallet is not one felt surface "+aid)
+			elif names.size()!=2 or horn!=1 or brass!=1: failures.append("plectrum is not horn in a brass ferrule "+aid+" "+str(names))
 		# The chamber's flywheel turns about z once a bar, and the belt pulley with it,
 		# faster by the pulleys' radii (formlab.layout.flywheel_plan).
 		var wheel: Node3D=scene.model.find_child("Chamber flywheel",true,false)

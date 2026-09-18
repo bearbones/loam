@@ -59,6 +59,8 @@ func apply(model: Node3D) -> void:
 				replacement=surface(2,"202f37","627681",.27,1,variant)
 			elif title.contains("felt"):
 				replacement=surface(3,"9b917b","e5dac4",.94,0,variant)
+			elif title.contains("horn"):   # a plectrum blade: dark amber, streaked along its length
+				replacement=surface(0,"3a1f08","b47a34",.40,1,variant)
 			elif title.contains("glass"):
 				replacement=lamp_material if label=="chamber__lamp" else glass
 			elif title.contains("enamel"):

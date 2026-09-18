@@ -33,6 +33,7 @@ wood=material('Oiled walnut',(.13,.048,.022),0,.32)
 spruce=material('Spruce soundboard',(.65,.46,.23),0,.4)
 rose=material('Rosewood',(.3,.085,.035),0,.34)
 felt=material('Wool felt',(.78,.68,.48),0,.9)
+horn=material('Pressed horn',(.40,.24,.09),0,.42)
 wire=material('Silver strings',(.65,.7,.72),.8,.25)
 glass=material('Smoked glass bells',(.16,.46,.4),.55,.18)
 black=material('Charcoal enamel',(.022,.032,.035),.35,.4)
@@ -274,7 +275,7 @@ for sid,n in forms.get('neck',{}).items():
 # Geometry variants share anchors and are selected in Godot with --form or F.
 form_colliders=[]
 for entry in forms['objects']:
-    obj,collider=make_form(entry,{'brass':brass,'wood':wood,'spruce':spruce,'steel':steel,'felt':felt}[entry['material']])
+    obj,collider=make_form(entry,{'brass':brass,'wood':wood,'spruce':spruce,'steel':steel,'felt':felt,'horn':horn})
     if not entry.get('local'): form_colliders.append(collider)
 # Assemble the articulated rigs at their home poses in the editable Blender file.
 # Godot re-poses them every frame with the same rule (clockwork_motion.gd).

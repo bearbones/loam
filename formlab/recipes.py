@@ -143,11 +143,18 @@ def bar_frame(plan):
     pieces.append(_timber([[x0,b['y'],z0],[(x0+x1)/2,b['y'],(z0+z1)/2],[x1,b['y'],z1]],BOARD['half_y'],BOARD['half_z']))
     return pieces
 
-def pack(name,pieces,material,classification):
+def pack(name,pieces,material,classification,materials=None):
+    """One recipe object. `material` names the object's material; `materials`
+    (optional, one name per piece) gives pieces their own — a horn plectrum in
+    a brass ferrule — as material slots on the one mesh (blender_forms.make_form,
+    profiled finish only)."""
     reports=[validate_mesh(m) for m in pieces]
     if not all(r['ok'] for r in reports): raise ValueError((name,reports))
-    return dict(name=name,material=material,classification=classification,
-                pieces=[m.to_dict() for m in pieces],component_checks=reports)
+    if materials is not None and len(materials)!=len(pieces): raise ValueError((name,'one material per piece',len(materials),len(pieces)))
+    entry=dict(name=name,material=material,classification=classification,
+               pieces=[m.to_dict() for m in pieces],component_checks=reports)
+    if materials is not None: entry['piece_materials']=list(materials)
+    return entry
 
 def bench_frame(plan):
     """Trestle-bench construction from formlab.layout.bench_plan: two rails, a

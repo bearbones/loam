@@ -95,8 +95,13 @@ its crosshead. A tool is now built *to its mount*:
 - **Plectrum** (`pick_tool`): a tear-drop blade 50 × 70 × 7 mm, its face
   toward the string (wide across the pin axis, thin along the pluck — the
   old blade was swept edge-on, which is why it read as a needle), clamped at
-  its top in a **ferrule** block with two set screws. Brass, for the eye;
-  a real mechanism would use horn or hard leather.
+  its top in a **ferrule** block with two set screws. The blade is **horn**
+  — what a plucking machine would actually wear against a wire — in a brass
+  ferrule: the recipe names a material per piece (`recipes.pack(materials=)`),
+  `blender_forms.make_form` gives each piece's faces their own material slot
+  before the edge bevel so the bevel inherits it, and the Godot look module
+  finishes the imported "horn" surface as a dark amber grain. (A voxel-union
+  finish forgets faces, so per-piece materials are for profiled objects only.)
 - **Swan-neck shank** (`swan_shank`, `clearance.shank_path`): a round
   steel rod on a cubic Bezier from the ferrule top — rising vertically,
   curving back, arriving vertically — into a **socket** collar hanging

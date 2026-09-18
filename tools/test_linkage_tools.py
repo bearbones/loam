@@ -120,6 +120,17 @@ u2 = [(v.min(), v.max()) for v in (p.vertices[:, 0] for p in arm['upper2']['piec
 check(all(lo >= layers['ear_out']+.004 and hi <= layers['span']/2-.001 for lo, hi in u2), 'elbow: the upper second bar rides outboard of the ears, inside its nut')
 pin = arm['elbow']['pieces'][0].vertices[:, 0]
 check(abs(pin.max()-pin.min()-(layers['pin_span']+2*DEFAULT_SPEC['pin_r']*1.9)) < 1e-6, 'the primary knuckle pin spans the ears, head and nut outside')
+# A plectrum is horn in a brass ferrule: the built recipe names a material per
+# piece of every pick arm's tool — the blade (first) horn, the rest brass — and
+# a mallet's felt head names none (recipes.pack, blender_forms.make_form).
+import json
+recipe_path = Path(__file__).resolve().parents[1]/'render/form-study/recipe.json'
+if recipe_path.exists():
+    tools = [o for o in json.loads(recipe_path.read_text())['objects'] if o['name'].endswith('__tool')]
+    picks = [o for o in tools if o['material'] == 'brass']; mallets = [o for o in tools if o['material'] == 'felt']
+    check(picks and all(o.get('piece_materials', [None])[0] == 'horn' and o['piece_materials'][1:] == ['brass']*(len(o['pieces'])-1) for o in picks),
+          f'recipe: every plectrum ({len(picks)}) is a horn blade in a brass ferrule')
+    check(all('piece_materials' not in o for o in mallets), f'recipe: every mallet ({len(mallets)}) is one felt object')
 # What holds a pin on (linkage.fastening): past the ears a washer, a hexagonal
 # nut and a split pin through the pin's end, all inside the room the old turned
 # nut had — nothing past the pin's tip along the axis, nothing past the washer's

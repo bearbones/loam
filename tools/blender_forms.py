@@ -6,12 +6,22 @@ import numpy as np
 from mathutils import Vector, kdtree
 
 def convert(p): return (p[0],-p[2],p[1])
-def make_form(entry,material):
-    vertices=[]; faces=[]; samples=[]; source_uv=[]
-    for component in entry['pieces']:
+def make_form(entry,materials):
+    """Union the entry's pieces into one Blender object. `materials`: name ->
+    bpy material; the object wears entry['material'], and where the entry names
+    `piece_materials` (recipes.pack) each piece's faces get their own slot —
+    assigned before the finish, so the bevel inherits it (profiled finish only:
+    a voxel remesh forgets faces)."""
+    material=materials[entry['material']]
+    vertices=[]; faces=[]; samples=[]; source_uv=[]; face_slot=[]
+    slots=[entry['material']]
+    for k,component in enumerate(entry['pieces']):
         offset=len(vertices); vertices.extend(convert(p) for p in component['vertices'])
         source_uv.extend(component['uv'])
         faces.extend(tuple(offset+i for i in f) for f in component['faces'])
+        name=entry.get('piece_materials',[entry['material']]*len(entry['pieces']))[k]
+        if name not in slots: slots.append(name)
+        face_slot.extend([slots.index(name)]*len(component['faces']))
         path=np.array(component['path']); tangent=np.gradient(path,axis=0); tangent/=np.linalg.norm(tangent,axis=1)[:,None]
         arc=np.r_[0,np.cumsum(np.linalg.norm(np.diff(path,axis=0),axis=1))]
         for p,t,u in zip(path,tangent,arc):
@@ -20,6 +30,12 @@ def make_form(entry,material):
             normal/=np.linalg.norm(normal); binormal=np.cross(t,normal)
             samples.append((Vector(convert(p)),Vector(convert(t)),Vector(convert(normal)),Vector(convert(binormal)),float(u)))
     data=bpy.data.meshes.new(entry['name']); data.from_pydata(vertices,[],faces); data.update()
+    # slots first, faces after: Blender clamps a face's material index to the
+    # slots the mesh has, so clearing or shrinking the slot list later zeroes it
+    for name in slots: data.materials.append(materials[name])
+    if len(slots)>1:
+        if entry.get('finish')!='profiled': raise ValueError((entry['name'],'per-piece materials need the profiled finish'))
+        for polygon,slot in zip(data.polygons,face_slot): polygon.material_index=slot
     if entry.get('finish')=='profiled':
         uv=data.uv_layers.new(name='Authored sweep grain')
         for loop in data.loops: uv.data[loop.index].uv=source_uv[loop.vertex_index]
@@ -44,7 +60,7 @@ def make_form(entry,material):
         decimate=obj.modifiers.new('Render mesh budget','DECIMATE'); decimate.ratio=.24
         bpy.ops.object.modifier_apply(modifier=decimate.name)
     for polygon in obj.data.polygons: polygon.use_smooth=True
-    obj.data.materials.clear(); obj.data.materials.append(material)
+    assert [m.name for m in obj.data.materials]==[materials[n].name for n in slots], (entry['name'],'material slots changed under the finish')
     if entry.get('finish')!='profiled':
         tree=kdtree.KDTree(len(samples))
         for i,s in enumerate(samples): tree.insert(s[0],i)

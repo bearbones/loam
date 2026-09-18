@@ -78,7 +78,9 @@ if score_path.exists() and layout.get('arms'):
         # The tool hangs from the wrist crosshead's lower boss; the shank is built to reach it.
         mount=tool_mount(rig.wrist_offset(cfg),o2)
         tool=mallet_tool(mount) if cfg['kind']=='mallet' else pick_tool(mount)
-        objects.append(pack(f'{aid}__tool',tool[0],'felt' if cfg['kind']=='mallet' else 'brass','contact tool, origin at contact'))
+        # a plectrum is horn (the blade, first piece) in a brass ferrule with brass screws
+        objects.append(pack(f'{aid}__tool',tool[0],'felt' if cfg['kind']=='mallet' else 'brass','contact tool, origin at contact',
+                            materials=None if cfg['kind']=='mallet' else ['horn']+['brass']*(len(tool[0])-1)))
         objects[-1]['finish']='profiled'; objects[-1]['local']=True
         objects.append(pack(f'{aid}__shank',tool[1],'steel','tool shank to its socket on the wrist crosshead'))
         objects[-1]['finish']='profiled'; objects[-1]['local']=True
