@@ -94,6 +94,42 @@ func check_scene() -> void:
 			for suffix in ["_gantry","_railhead"]:
 				var node: Node3D=scene.model.find_child("form_"+aid+suffix,true,false)
 				if node==null or not node.visible: failures.append("rail "+suffix.substr(1)+" missing or hidden "+aid)
+		# The click has a sound (docs/motion-design.md): every pawl carries a player
+		# on its roller with the synthesised sample, CLICK_DB under the instruments;
+		# the arm's clicks number the schedule's clicks(dx, T) per travel, each lands
+		# inside its travel, no two come closer than CLICK_MIN_S, and a servo arm
+		# never clicks. The sample itself is a tick that decays.
+		var clicked := 0
+		for aid in scene.parts:
+			var cfg: Dictionary=scene.layout["arms"][aid]
+			var list: Array=scene.motion.click_times(aid)
+			if not scene.motion.stepped(aid) and not list.is_empty(): failures.append("a servo arm clicks "+aid)
+			if not cfg.has("pawl"): continue
+			var cp: AudioStreamPlayer3D=scene.click_players.get(aid)
+			if cp==null or cp.get_parent()!=scene.parts[aid]["roller"]: failures.append("no click player on the roller "+aid); continue
+			if cp.volume_db>scene.CLICK_DB+1e-6 or cp.volume_db<scene.CLICK_DB-6.0: failures.append("click not mixed under the instruments "+aid)
+			var wav: AudioStreamWAV=cp.stream
+			if wav==null or wav.get_length()<.05 or wav.get_length()>.3 or wav.format!=AudioStreamWAV.FORMAT_16_BITS: failures.append("click sample missing or the wrong shape "+aid)
+			else:
+				var early := 0.0; var late := 0.0; var n: int=wav.data.size()/2; var tail: int=int(.01*wav.mix_rate)
+				for i in mini(int(.005*wav.mix_rate),n): early=maxf(early,absf(wav.data.decode_s16(i*2))/32767.0)
+				for i in range(n-tail,n): late=maxf(late,absf(wav.data.decode_s16(i*2))/32767.0)
+				if early<.5 or late>.05: failures.append("click sample is not a tick that decays %s (%.2f, %.2f)" % [aid,early,late])
+			var want := 0
+			for s in scene.motion.sched[aid]:
+				if s["moving"]: want+=scene.motion.clicks(float(s["first"].x)-float(s["rest"].x),float(s["approach"])-float(s["go"]))
+			if list.size()!=want: failures.append("click count off the schedule %s (%d vs %d)" % [aid,list.size(),want])
+			var prev := -INF
+			for c in list:
+				var t: float=float(c["t"])
+				if t-prev<ClockworkMotion.CLICK_MIN_S-1e-9: failures.append("clicks faster than the floor %s at %.3f s" % [aid,t])
+				prev=t
+				var inside := false
+				for s in scene.motion.sched[aid]:
+					if s["moving"] and t>=float(s["go"]) and t<=float(s["approach"]): inside=true; break
+				if not inside: failures.append("a click outside every travel %s at %.3f s" % [aid,t])
+			clicked+=list.size()
+		if clicked==0: failures.append("no mallet arm clicks in the piece")
 		# The blow shakes the ASSEMBLY, not only the arm (docs/motion-design.md):
 		# a struck instrument's stand thumps, the striking arm's guide bars sag
 		# and its gantry sways. Measured on the RENDERED nodes: before the first

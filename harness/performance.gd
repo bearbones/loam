@@ -48,6 +48,15 @@ var silent := false
 var audio_mode := "master"
 var follow_sid := ""
 var follow_since := -1e9
+# The ratchet's click has a sound (docs/plans/pawl-follow-ups.md, item 2): one
+# sample, synthesised once, played from each pawl's roller at every click the
+# rig makes (ClockworkMotion.click_times), CLICK_DB under the instruments.
+const CLICK_DB := -12.0
+var click_stream: AudioStreamWAV
+var clicks: Dictionary = {}        # aid -> the arm's clicks, in time order
+var click_players: Dictionary = {} # aid -> AudioStreamPlayer3D on the roller
+var click_next: Dictionary = {}    # aid -> index of the first click not yet played
+var prev_time := -1.0
 
 func option(key: String, fallback: String) -> String:
 	for a in OS.get_cmdline_user_args():
@@ -99,6 +108,14 @@ func _ready() -> void:
 			if parts[aid]["roller"]==null:
 				push_error("Missing GLB pivot "+aid+"__roller"); get_tree().quit(1); return
 			roller_home[aid]=parts[aid]["roller"].basis
+			# ...and a click: the sample on a player that rides with the roller, so the
+			# sound comes from the pawl wherever the carriage is along its rail.
+			if click_stream==null: click_stream=click_sample()
+			clicks[aid]=motion.click_times(aid)
+			var cp := AudioStreamPlayer3D.new()
+			cp.name="click"; cp.stream=click_stream; cp.volume_db=CLICK_DB
+			cp.attenuation_model=AudioStreamPlayer3D.ATTENUATION_DISABLED; cp.max_polyphony=4
+			parts[aid]["roller"].add_child(cp); click_players[aid]=cp; click_next[aid]=0
 	# The chamber's flywheel, its axle pulley and the belt pulley turn about z
 	# (formlab.layout.flywheel_plan); their imported bases are the unspun home.
 	for label in ["Chamber flywheel","Chamber hub","Chamber drive pulley","Chamber belt pulley"]:
@@ -375,6 +392,47 @@ func _seek(t: float) -> void:
 	time=clampf(t,-1,score.total_s); clock_started=false
 	player.stop()
 	for p in stem_players: p.stop()
+	prev_time=time
+	for aid in clicks:
+		var i := 0
+		while i<clicks[aid].size() and float(clicks[aid][i]["t"])<=time: i+=1
+		click_next[aid]=i
+
+## Play every click that landed in (t0, t1]: the clock advanced from t0 to t1.
+func _play_clicks(t0: float, t1: float) -> void:
+	for aid in clicks:
+		var list: Array=clicks[aid]
+		var i: int=click_next[aid]
+		while i<list.size() and float(list[i]["t"])<=t1:
+			if float(list[i]["t"])>t0: click_players[aid].play()
+			i+=1
+		click_next[aid]=i
+
+## A ratchet's click: the pawl's roller dropping onto the next tooth. A 3 ms
+## metallic tick — three inharmonic partials of a small steel part, each rung
+## for a couple of milliseconds over a grain of noise — and under it the pawl's
+## spring and lever ringing out against the carriage at RING_HZ: a low thump
+## that beats at the ring rate and dies in RING_TAU, the ring the carriage's
+## overshoot makes in ClockworkMotion.ratchet. Mono 16-bit at `rate`.
+static func click_sample(rate: int = 44100) -> AudioStreamWAV:
+	var n := int(.12*rate)
+	var samples := PackedFloat32Array(); samples.resize(n)
+	var rng := RandomNumberGenerator.new(); rng.seed=7
+	var peak := 0.0
+	for i in n:
+		var t := float(i)/rate
+		var tick := 0.0
+		for p in [[3150.0,1.0],[4720.0,.6],[7060.0,.35]]:
+			tick += p[1]*sin(TAU*p[0]*t)*exp(-t/.0012)
+		tick += rng.randf_range(-1,1)*exp(-t/.0006)*.8
+		var thump := sin(TAU*95.0*t)*exp(-t/ClockworkMotion.RING_TAU)*(1.0+.5*cos(TAU*ClockworkMotion.RING_HZ*t))*.35*(1.0-exp(-t/.002))
+		samples[i]=tick+thump
+		peak=maxf(peak,absf(samples[i]))
+	var data := PackedByteArray(); data.resize(n*2)
+	for i in n: data.encode_s16(i*2,int(round(samples[i]/peak*.8*32767.0)))
+	var wav := AudioStreamWAV.new()
+	wav.format=AudioStreamWAV.FORMAT_16_BITS; wav.mix_rate=rate; wav.stereo=false; wav.data=data
+	return wav
 
 func _start_audio() -> void:
 	if audio_mode=="master": player.play(maxf(time,0))
@@ -633,6 +691,10 @@ func _process(dt: float) -> void:
 			else: time=score.total_s
 		if time>=score.total_s: time=score.total_s; playing=false
 	if capture_dir!="": time=capture_start+frame*capture_speed/capture_fps
+	# The clicks that landed since the last frame sound now; a shot or a capture
+	# (no audio) and --silent (no audio at all) stay quiet like the master does.
+	if playing and not silent and shot=="" and capture_dir=="": _play_clicks(prev_time,time)
+	prev_time=time
 	evaluate(time)
 	var section := "pre-roll"
 	for c in score.cues:

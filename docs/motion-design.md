@@ -33,17 +33,34 @@ overshoot stays within 4.7 mm and that every travel lands exactly.
 **The click has a mechanism.** Under each mallet arm's pinion a sprung
 roller detent pawl rides the teeth (`formlab/pawl.py`; `docs/articulated-arms.md`,
 "The carriage and its drive"): as the carriage clicks a tooth along the rack
-the disc turns a tooth and the roller rides over a tip and dips 9.5 mm into
+the disc turns a tooth and the roller rides over a tip and dips 15.5 mm into
 the next gap, so every click is a visible drop of the pawl, and the recoil's
 shudder along the rail ticks it back and forth. `ClockworkMotion.pawl_angle`
 mirrors `pawl.angle` (5e-13 rad) and `performance.gd` poses the part. The
-roller turns as it rolls on the tips (3.4 rad a tooth, the other way from
+roller turns as it rolls on the tips (2.8 rad a tooth, the other way from
 the disc), and the pinion is spun with a phase that seats the roller in a
 dip when the arm parks at its home — a detent rests in a dip. The score's
 other rests are wherever its contacts put the carriage, so away from home
 the pawl parks on a tip or a flank as often as in a gap; that is honest
 (the tool must reach the contact), and `tools/test_pawl.py` counts how many
-rests seat anyway. The click is still silent (`docs/plans/pawl-follow-ups.md`).
+rests seat anyway.
+
+**The click has a sound.** `ClockworkMotion.click_times(aid)` lists a
+stepped arm's clicks — one at the landing of each of a travel's `n` clicks,
+`go + (k + CLICK_MOVE)·T/n`, the moment the roller drops onto the next tooth
+in `ratchet` — and `performance.gd` plays a click sample from a player that
+rides on each pawl's roller (so the sound comes from wherever the carriage
+is), 12 dB under the instruments, gated by `--silent` and quiet in shots
+and captures like the master. The sample is synthesised at load
+(`click_sample`): a 3 ms metallic tick, three inharmonic partials over a
+grain of noise, and under it the pawl's spring ringing against the
+carriage at `RING_HZ` — a low thump beating at the ring rate that dies in
+`RING_TAU`, the same ring the carriage's overshoot makes. `dev/dump_clicks.gd`
+prints the clicks and writes the sample so `tools/click_mix.py` can lay them
+under a passage of the master for listening outside the harness.
+`test_performance` holds each pawl's player to its roller and the mix level,
+every click inside its travel and no two closer than `CLICK_MIN_S`, and the
+count to the schedule's `clicks(dx, T)` per travel.
 
 **The strike is a cocked drop.** Over the score's approach interval the
 mallet first rises half its lift again (to 0.33 m over the bar, by 40 % of

@@ -331,6 +331,25 @@ func path_at(aid: String, t: float) -> Vector3:
 		rest = s["last"]+lift
 	return rest
 
+## When a stepped arm's ratchet clicks: one entry a click, at the moment the
+## click's move lands on its detent and the pawl drops (go + (k+CLICK_MOVE)·T/n
+## for the k-th of n clicks in a travel of T seconds — the same division
+## `ratchet` makes), with the teeth that click spanned. The harness plays the
+## click sample here (performance.gd); a servo arm never clicks.
+func click_times(aid: String) -> Array:
+	var out: Array = []
+	if not stepped(aid): return out
+	for s in sched[aid]:
+		if not s["moving"]: continue
+		var go: float = s["go"]
+		var T: float = s["approach"]-go
+		var dx: float = s["first"].x-s["rest"].x
+		var n := clicks(dx, T)
+		var spanned := teeth(dx)
+		for k in n:
+			out.append({"t": go+(k+CLICK_MOVE)*T/n, "teeth": float(spanned)/n, "aid": aid})
+	return out
+
 ## Wrist pin relative to the tool's contact point; older manifests keep 0.15 m above.
 func wrist_offset(cfg: Dictionary) -> Vector3:
 	return v(cfg["wrist_offset"]) if cfg.has("wrist_offset") else Vector3(0,.15,0)

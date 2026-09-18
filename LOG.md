@@ -1,3 +1,33 @@
+## 2026-09-18 — CLOCKWORK the ratchet's click has a sound
+
+The operator asked for sharp, clicky stepped motion against smooth servo
+motion (`docs/motion-design.md`), and the click was silent: the score's audio
+is the instruments, the chamber's own mechanism made no sound. Now
+`ClockworkMotion.click_times(aid)` lists a stepped arm's clicks — one at the
+landing of each of a travel's `n` clicks, `go + (k + CLICK_MOVE)·T/n`, the
+same division `ratchet` makes and the moment the roller drops onto the next
+tooth — and `performance.gd` plays a click from an `AudioStreamPlayer3D`
+that rides on each pawl's roller (the sound comes from wherever the carriage
+is on its rail), 12 dB under the instruments, quiet under `--silent` and in
+shots and captures like the master. The sample is synthesised at load
+(`performance.click_sample`, mono 16-bit, 120 ms; nothing to export beside
+`chamber.wav`): a 3 ms metallic tick — three inharmonic partials of a small
+steel part over a grain of noise — and under it the pawl's spring ringing
+against the carriage at `RING_HZ`, a low thump beating at the ring rate that
+dies in `RING_TAU`, the ring the carriage's overshoot already makes.
+`dev/dump_clicks.gd` prints the clicks (the Chamber: 489, on the two mallet
+arms) and writes the sample; `tools/click_mix.py` lays them under a passage
+of the master for listening outside the harness (the clip shown to the
+operator: 144 clicks in ten seconds from 44 s). `test_performance` holds
+each pawl's player to its roller and the mix level, the sample to a tick
+that decays, every click inside its travel and no two closer than
+`CLICK_MIN_S`, the count to the schedule's `clicks(dx, T)` per travel, and
+servo arms to silence. No `formlab/rig.py` mirror (it is in the rail cache
+key; the clicks are the harness's own reading of `sched`). Closes
+`docs/plans/pawl-follow-ups.md`. `docs/motion-design.md` gains "The click
+has a sound" and its pawl paragraph now says 15.5 mm of dip and 2.8 rad a
+tooth, the numbers the involute teeth left.
+
 ## 2026-09-18 — CLOCKWORK the pinion's teeth are involutes, the rack's their conjugate, and the two are rolled together by a ruler
 
 The pinion's sixteen teeth were bevelled boxes and the rack's matched them

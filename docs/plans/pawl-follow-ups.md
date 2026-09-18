@@ -3,7 +3,15 @@
 **Status (2026-09-17, later the same evening):** items 1 and 3 are landed
 (`{aid}__roller` rolls by `pawl.ROLLER_SPIN`; the pinion phase
 `pawl.dip_offset` seats the home rest; `test_pawl` reports the seated
-fraction of the other rests). Item 2 — the click sample — remains.
+fraction of the other rests). **Item 2 landed 2026-09-18 (small hours):**
+`ClockworkMotion.click_times(aid)`, a sample synthesised in GDScript
+(`performance.click_sample`, no file beside `chamber.wav`) on an
+`AudioStreamPlayer3D` riding each pawl's roller, −12 dB, gated by
+`--silent`; `dev/dump_clicks.gd` + `tools/click_mix.py` make a listening mix
+outside the harness. Departure: no `formlab/rig.py` mirror of the click
+times — `rig.py` is in the rail cache key, and the clicks are a harness
+concern (they are derived from `sched` the same way `ratchet` divides a
+travel, which `test_motion` already holds to the mirror). All three done.
 
 **Where:** `formlab/pawl.py`, `tools/build_forms.py`, `harness/performance.gd`,
 `harness/clockwork_motion.gd`, `formlab/rig.py`, `loam/score.py`
