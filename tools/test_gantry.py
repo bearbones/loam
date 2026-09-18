@@ -88,7 +88,7 @@ def run(layout_path, score_path):
     # 2b. one profile for every gear: `gear.profile()` is the pinion's constants
     #     exactly, and the flywheel's ring gear (52 teeth to the wheel's radius, the
     #     same module) cuts a convex tooth with a land and corners of its own
-    prof = T.profile(); fly = T.profile(int(layout['flywheel'].get('teeth', 52)), float(layout['flywheel']['r']))
+    prof = T.profile(); fly = T.profile(int(layout['flywheel']['teeth']), float(layout['flywheel']['r']))
     same = all(abs(prof[k]-v) < 1e-12 for k, v in dict(r_pitch=T.R_PITCH, r_tip=T.R_TIP, r_hub=T.R_HUB, r_base=T.R_BASE, root=T.ROOT, pitch=T.PITCH, psi_pitch=T.PSI_PITCH).items())
     fp = T.tooth_polygon(fly); e = np.roll(fp, -1, 0)-fp; turn = e[:, 0]*np.roll(e, -1, 0)[:, 1]-e[:, 1]*np.roll(e, -1, 0)[:, 0]
     fly_land = 2*fly['r_tip']*np.sin(T.half_angle(fly['r_tip'], fly))

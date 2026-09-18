@@ -226,9 +226,9 @@ text('Chamber name','L O A M   /   THE CHAMBER',(0,.18,-1.21),.11)
 # axle's back end and a flat belt to a pulley on a bracket at the cabinet's end
 # (formlab.layout.flywheel_plan); Godot turns the wheel and pulleys a bar a turn.
 fw=flywheel_plan((-2.4,.53,-1.5),.4,cabinet_x=-1.8); manifest['flywheel']=fw
-# The wheel carries a ring gear — 52 involute teeth at the pinions' module
-# (formlab.gear.profile), so it and they are visibly one family of gears.
-gear('Chamber flywheel',fw['centre'],fw['r'],52); manifest['flywheel']['teeth']=52
+# The wheel carries a ring gear — the plan's 52 involute teeth at the pinions'
+# module (formlab.gear.profile), so it and they are visibly one family of gears.
+gear('Chamber flywheel',fw['centre'],fw['r'],fw['teeth'])
 fw_mat={'hub':brass,'axle':steel,'housing':steel,'bolt':brass,'pulley':steel,'stub axle':steel}
 for label,(a,b,r) in fw['cyls'].items():
     beam('Chamber '+label,a,b,r,next((m for k,m in fw_mat.items() if k in label),steel))

@@ -117,14 +117,15 @@ def board_z(plan,x):
 FLYWHEEL=dict(width=.07, hub_r=.09, hub_w=.12, axle_r=.03, axle=(-.34,.22), bearing_z=.16, housing_r=.065, housing_w=.10,
               block=(.20,.06,.11), pedestal=(.14,.10), sole=(.30,.03,.54), bolt_r=.012, bolt_h=.012, bolt_x=.08,
               pulley_z=-.27, pulley_r=.12, pulley_w=.06, belt_pulley_r=.10, belt_w=.05, belt_t=.006,
-              ear=(.18,.26,.03), ear_gap=.05, stub_r=.022)
+              ear=(.18,.26,.03), ear_gap=.05, stub_r=.022,
+              teeth=52)   # the rim's ring gear: 52 teeth at the pinions' 15 mm module reach the wheel's radius (formlab.gear.profile)
 def flywheel_plan(centre,r,cabinet_x,floor=-.01):
     """Every solid of the flywheel assembly, from the wheel's centre (world),
     its radius, and the x of the cabinet end face the belt pulley's bracket
     bolts to (the wheel stands beyond that face). Boxes are (centre, size);
     cylinders are (a, b, radius) along their axis."""
     F=FLYWHEEL; cx,cy,cz=centre; bz=F['bearing_z']
-    plan=dict(centre=list(centre),r=r,boxes={},cyls={},floor=floor)
+    plan=dict(centre=list(centre),r=r,teeth=FLYWHEEL['teeth'],boxes={},cyls={},floor=floor)
     B=plan['boxes']; C=plan['cyls']
     C['hub']=([cx,cy,cz-F['hub_w']/2],[cx,cy,cz+F['hub_w']/2],F['hub_r'])
     C['axle']=([cx,cy,cz+F['axle'][0]],[cx,cy,cz+F['axle'][1]],F['axle_r'])
