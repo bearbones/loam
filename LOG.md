@@ -1,3 +1,35 @@
+## 2026-09-18 — CLOCKWORK the flywheel's rim is a ring gear, and the assets are rebuilt at HEAD
+
+The involute pinions made the flywheel's sixteen bevelled blocks look like a
+cog drawn from memory (view 7, the wheel beside the harp). A gear's
+proportions are its module's, so `formlab/gear.py` now has
+`profile(n, r_tip)`: any count of teeth to any tip radius at the pinion's
+addendum, dedendum and pressure angle, the default being the pinion's
+constants exactly (`test_gantry` holds it, and that `tooth_polygon()` is
+unchanged). The flywheel's 400 mm rim takes 52 teeth at the same 15 mm
+module (`build_clockwork.gear(n, p, r_tip, teeth)`; the hub disc now reaches
+the roots). One thing the generalisation taught: a gear of many teeth has
+its base circle *inside* its hub — the dedendum is fixed in modules while the
+pitch-to-base drop grows with the radius — so the involute starts just above
+the root with no radial run; the first 52-tooth polygon folded there and
+came out concave. `test_gantry` cuts the flywheel's tooth and holds it
+convex, landed (13 mm) and bevelled; the count lives in the plan
+(`layout.FLYWHEEL['teeth']`, recorded by `flywheel_plan`, so
+`test_flywheel`'s recorded-equals-fresh check holds). `docs/articulated-arms.md`
+and `docs/instrument-frames.md` say so.
+
+The rulers were red at the tick's start for a reason that was not the tree's
+code: the assets in the tree recorded the *old* pawl (15 mm roller, level
+lever, the old phase and spin) while `formlab/pawl.py` was at the involute
+commit — so `test_pawl`'s manifest checks and `test_performance`'s "roller
+riding the teeth" failed on every pawl arm. Both assets were rebuilt in a
+worktree of this commit with `--rails=keep` (`gear.py` and
+`build_clockwork.py` are not in the rail cache key; the rails stay as
+planned, marked `stale_rails` under the concurrent session's policy of one
+full replan at the end of the geometry plans) and imported; the rulers there
+are green but for that stale-rails mark, and the assets are committed from
+there.
+
 ## 2026-09-18 — CLOCKWORK the ratchet's click has a sound
 
 The operator asked for sharp, clicky stepped motion against smooth servo
