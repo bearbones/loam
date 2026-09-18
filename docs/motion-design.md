@@ -36,7 +36,14 @@ roller detent pawl rides the teeth (`formlab/pawl.py`; `docs/articulated-arms.md
 the disc turns a tooth and the roller rides over a tip and dips 9.5 mm into
 the next gap, so every click is a visible drop of the pawl, and the recoil's
 shudder along the rail ticks it back and forth. `ClockworkMotion.pawl_angle`
-mirrors `pawl.angle` (5e-13 rad) and `performance.gd` poses the part.
+mirrors `pawl.angle` (5e-13 rad) and `performance.gd` poses the part. The
+roller turns as it rolls on the tips (3.4 rad a tooth, the other way from
+the disc), and the pinion is spun with a phase that seats the roller in a
+dip when the arm parks at its home — a detent rests in a dip. The score's
+other rests are wherever its contacts put the carriage, so away from home
+the pawl parks on a tip or a flank as often as in a gap; that is honest
+(the tool must reach the contact), and `tools/test_pawl.py` counts how many
+rests seat anyway. The click is still silent (`docs/plans/pawl-follow-ups.md`).
 
 **The strike is a cocked drop.** Over the score's approach interval the
 mallet first rises half its lift again (to 0.33 m over the bar, by 40 % of

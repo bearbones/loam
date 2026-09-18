@@ -71,7 +71,7 @@ if score_path.exists() and layout.get('arms'):
         parts=parallelogram_arm(float(cfg['l1']),float(cfg['l2']),o1,o2,mount=pmount)
         # A stepped (mallet) arm's pinion carries a roller detent pawl (formlab.pawl): its
         # bracket and pin are cast onto the carriage; the pawl itself is a local part.
-        pawl_info=pawl_lib.manifest(pmount) if rig.stepped(aid) and pawl_lib.MOUNTS[pmount][1] else None
+        pawl_info=pawl_lib.manifest(pmount,float(rig.contact(rig.acts[aid]['home'])[0])) if rig.stepped(aid) and pawl_lib.MOUNTS[pmount][1] else None
         if pawl_info: parts['carriage']['pieces']=parts['carriage']['pieces']+pawl_lib.bracket_pieces(pmount)
         strings={sid:s for sid,s in layout['strings'].items() if s['mid']==cfg['mid']}
         rep=report(rig,aid,o1,o2,layers,spec,strings,poses=poses,mount=pmount); reports[aid]=rep
@@ -92,6 +92,9 @@ if score_path.exists() and layout.get('arms'):
         if pawl_info:
             lever,mats=pawl_lib.lever_pieces(pmount)
             objects.append(pack(f'{aid}__pawl',lever,'steel','roller detent pawl riding the pinion, local frame at its pivot',materials=mats))
+            objects[-1]['finish']='profiled'; objects[-1]['local']=True
+            drum,mats=pawl_lib.roller_pieces(pmount)
+            objects.append(pack(f'{aid}__roller',drum,'steel','the pawl\'s roller, local frame on its axle',materials=mats))
             objects[-1]['finish']='profiled'; objects[-1]['local']=True
         upper=np.concatenate([m.vertices for m in parts['upper']['pieces']])
         arms[aid]=dict(o1=o1.round(5).tolist(),o2=o2.round(5).tolist(),layers=layers,

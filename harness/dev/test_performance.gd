@@ -55,14 +55,40 @@ func check_scene() -> void:
 				var pawl: MeshInstance3D=scene.parts[aid].get("pawl")
 				if pawl==null: failures.append("pawl missing "+aid)
 				else:
-					for t in [12.0,48.0,48.02,48.05,48.1,100.0]:
+					# The pinion is spun with the pawl's phase (formlab.pawl.dip_offset) so the
+					# roller seats in a dip at the arm's home; the roller is its own part on
+					# the pawl's axle and rolls on the tips by ROLLER_SPIN a metre of rail.
+					var phase: float=float(cfg["pawl"].get("phase",0.0))
+					var roller: MeshInstance3D=scene.parts[aid].get("roller")
+					if roller==null: failures.append("pawl roller missing "+aid)
+					var turned: Array=[]
+					var moments: Array=[12.0,48.0,48.02,48.05,48.1,100.0]
+					for s in scene.motion.sched[aid].slice(0,8): moments.append(float(s["hit"]))   # the arm surely moves between some of its contacts
+					for t in moments:
 						scene.evaluate(t); var pz: Dictionary=scene.motion.pose(aid,t)
 						if pawl.global_position.distance_to(pz["root"]+scene.motion.v(cfg["pawl"]["pivot"]))>.00001: failures.append("pawl off its pivot "+aid)
-						var nose: Vector3=pawl.global_position+(pawl.global_basis*scene.pawl_home[aid].inverse())*scene.motion.v(cfg["pawl"]["nose"])
+						var swing: Basis=pawl.global_basis*scene.pawl_home[aid].inverse()
+						var nose: Vector3=pawl.global_position+swing*scene.motion.v(cfg["pawl"]["nose"])
 						var q: Vector3=nose-gear.global_position
-						if absf(ClockworkMotion.tooth_distance(q.x,q.y,pz["root"].x)-float(cfg["pawl"]["nose_r"]))>.00002 or absf(q.z)>.0001: failures.append("pawl roller not riding the teeth %s at %.2f s" % [aid,t])
+						if absf(ClockworkMotion.tooth_distance(q.x,q.y,pz["root"].x+phase)-float(cfg["pawl"]["nose_r"]))>.00002 or absf(q.z)>.0001: failures.append("pawl roller not riding the teeth %s at %.2f s" % [aid,t])
+						if roller!=null:
+							if roller.global_position.distance_to(nose)>.00001: failures.append("roller off the pawl's axle %s at %.2f s" % [aid,t])
+							turned.append([pz["root"].x,swing.inverse()*roller.global_basis*scene.roller_home[aid].inverse()])
+					if roller!=null:
+						# between the two moments farthest apart along the rail the roller has
+						# turned about the pawl's axle by ROLLER_SPIN times the rail travelled
+						# (the swing taken out)
+						var far: int=0
+						for i in turned.size(): if absf(turned[i][0]-turned[0][0])>absf(turned[far][0]-turned[0][0]): far=i
+						var dx: float=turned[far][0]-turned[0][0]
+						var rel: Basis=turned[far][1]*turned[0][1].inverse()
+						var want: float=wrapf(float(cfg["pawl"].get("roller_spin",0.0))*dx,-PI,PI)
+						var got: float=atan2(rel.x.y,rel.x.x)
+						if absf(dx)<.001: failures.append("roller turn unmeasured (carriage did not move) "+aid)
+						elif absf(wrapf(got-want,-PI,PI))>.0005 or absf(rel.z.z-1.0)>.0001: failures.append("roller does not roll on the tips %s (%.4f vs %.4f rad over %.3f m)" % [aid,got,want,dx])
 					var pbox: AABB=pawl.mesh.get_aabb()
-					if pbox.position.x>-float(cfg["pawl"]["lever"])-float(cfg["pawl"]["nose_r"])+.001 or pbox.end.x<.02 or pbox.end.y<float(cfg["pawl"]["finger"])+float(cfg["pawl"]["nose_r"])-.001: failures.append("pawl mesh does not reach from its pivot to the roller "+aid)
+					# the lever's mesh runs from the eye past the yoke, and its tongues rise to the axle
+					if pbox.position.x>-float(cfg["pawl"]["lever"])-.009 or pbox.end.x<.02 or pbox.end.y<float(cfg["pawl"]["finger"])+.003: failures.append("pawl mesh does not reach from its pivot to the roller's axle "+aid)
 			elif scene.layout["arms"][aid]["kind"]=="mallet" and str(cfg.get("pinion","back")) in ["front","back"]: failures.append("mallet arm without a pawl "+aid)
 			# Rail gantries, heads and racks are forms that are not frame variants: visible.
 			for suffix in ["_gantry","_railhead"]:

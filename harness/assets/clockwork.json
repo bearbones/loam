@@ -1499,7 +1499,10 @@
         "lever": 0.1,
         "finger": 0.03,
         "nose_r": 0.015,
-        "drop": 0.02
+        "drop": 0.02,
+        "phase": 0.01826,
+        "home_x": 3.921429,
+        "roller_spin": -72.222222
       },
       "gantry": {
         "ends": [
@@ -1633,7 +1636,10 @@
         "lever": 0.1,
         "finger": 0.03,
         "nose_r": 0.015,
-        "drop": 0.02
+        "drop": 0.02,
+        "phase": -0.00791,
+        "home_x": 5.078571,
+        "roller_spin": -72.222222
       },
       "gantry": {
         "ends": [
@@ -3012,6 +3018,7 @@
     "bars_arm0__tool",
     "bars_arm0__shank",
     "bars_arm0__pawl",
+    "bars_arm0__roller",
     "bars_arm1__carriage",
     "bars_arm1__upper",
     "bars_arm1__upper2",
@@ -3025,6 +3032,7 @@
     "bars_arm1__tool",
     "bars_arm1__shank",
     "bars_arm1__pawl",
+    "bars_arm1__roller",
     "form_harp_arm0_railhead",
     "form_harp_arm0_gantry",
     "form_harp_arm1_railhead",

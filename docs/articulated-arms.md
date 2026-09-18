@@ -323,14 +323,29 @@ the three nearest bevelled box teeth, `pawl.tooth_distance`);
 `ClockworkMotion.pawl_angle` mirrors it to 5e-13 rad and `performance.gd`
 poses the part (`{aid}__pawl`, a local part at its pivot, `pawl` in the
 manifest) every frame, so the recoil's shudder ticks the pawl too. The
-score's rest positions are not quantised to the teeth, so the pawl comes to
-rest wherever the tooth under it leaves it. `tools/test_pawl.py` holds the
+roller is its own part (`{aid}__roller`, `pawl.roller_pieces`: a steel drum
+with a brass grease plug let into each face off the axis, so it can be seen
+to turn) on the pawl's axle, and rolls on the tips as the carriage moves —
+the disc's rim at the tips runs `r_tip / r_pitch` times the rail speed, and
+the roller turns that arc over its own radius, the other way from the disc
+(`pawl.ROLLER_SPIN`, −72 rad a metre; a tooth pitch turns it 3.4 rad). The
+score's rest positions are not quantised to the teeth, so the pawl would
+come to rest wherever the tooth under it left it; instead each pinion is
+spun with a **phase** (`pawl.dip_offset`, `pawl.phase` in the manifest, in
+metres of rail: the disc turns by `(x + phase) / r_pitch`) chosen so the
+roller sits at the bottom of a dip when the arm parks at its home contact.
+The other rests fall where the score's contacts put them (`test_pawl`
+reports how many seat within 15 % of a dip); seating every rest would need a
+compliant wrist that reaches the contact from a parked detent, which is a
+larger plan (`docs/plans/pawl-follow-ups.md`). `tools/test_pawl.py` holds the
 kinematics (touching everywhere, one dip a tooth, no jump, the body 8 mm off
-the teeth), the pieces, the two implementations, and the pawl's space over
+the teeth), the pieces, the two implementations, the phase (seated at home
+for any home x), and the pawl's space over
 the score against the arm's own links, every sibling arm, every other rail's
 bars and rack, its own rack and guide bars, and the forms and furniture;
 `dev/test_performance.gd` checks the rendered roller sits exactly its radius
-from the spun disc.
+from the spun disc, on the pawl's axle, and has turned by the rail
+travelled between two moments.
 
 `tools/test_gantry.py` measures all of it on the built rigs: every arm's
 capsules (pinion included) against every other rail's rack, each carriage

@@ -289,6 +289,7 @@ for aid,cfg in manifest['arms'].items():
         bpy.data.objects[aid+'__'+part].location=vec(pos)
     if cfg.get('pawl'):    # the roller detent pawl on its pivot (formlab.pawl); Godot turns it to ride the teeth
         bpy.data.objects[aid+'__pawl'].location=vec(root+Vector(cfg['pawl']['pivot']))
+        bpy.data.objects[aid+'__roller'].location=vec(root+Vector(cfg['pawl']['pivot'])+Vector(cfg['pawl']['nose']))
     for part,a,b,o in [('upper',root,elbow,Vector((0,0,0))),('upper2',root,elbow,o1),('lower',elbow,wrist,Vector((0,0,0))),('lower2',elbow,wrist,o2)]:
         x,y,z=arm_clearance.link_basis(np.array([a]),np.array([b]))
         B=Matrix(((x[0][0],y[0][0],z[0][0]),(x[0][1],y[0][1],z[0][1]),(x[0][2],y[0][2],z[0][2])))

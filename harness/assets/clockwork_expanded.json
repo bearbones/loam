@@ -1611,7 +1611,10 @@
         "lever": 0.1,
         "finger": 0.03,
         "nose_r": 0.015,
-        "drop": 0.02
+        "drop": 0.02,
+        "phase": 0.01826,
+        "home_x": 3.921429,
+        "roller_spin": -72.222222
       },
       "gantry": {
         "ends": [
@@ -1745,7 +1748,10 @@
         "lever": 0.1,
         "finger": 0.03,
         "nose_r": 0.015,
-        "drop": 0.02
+        "drop": 0.02,
+        "phase": -0.00791,
+        "home_x": 5.078571,
+        "roller_spin": -72.222222
       },
       "gantry": {
         "ends": [
@@ -1879,7 +1885,10 @@
         "lever": 0.1,
         "finger": 0.03,
         "nose_r": 0.015,
-        "drop": 0.02
+        "drop": 0.02,
+        "phase": -0.014294,
+        "home_x": -2.125,
+        "roller_spin": -72.222222
       },
       "gantry": {
         "ends": [
@@ -2013,7 +2022,10 @@
         "lever": 0.1,
         "finger": 0.03,
         "nose_r": 0.015,
-        "drop": 0.02
+        "drop": 0.02,
+        "phase": 0.005175,
+        "home_x": -0.825,
+        "roller_spin": -72.222222
       },
       "gantry": {
         "ends": [
@@ -2145,7 +2157,10 @@
         "lever": 0.1,
         "finger": 0.03,
         "nose_r": 0.015,
-        "drop": 0.02
+        "drop": 0.02,
+        "phase": 0.001856,
+        "home_x": 2.1,
+        "roller_spin": -72.222222
       },
       "gantry": {
         "ends": [
@@ -3741,6 +3756,7 @@
     "bars_arm0__tool",
     "bars_arm0__shank",
     "bars_arm0__pawl",
+    "bars_arm0__roller",
     "bars_arm1__carriage",
     "bars_arm1__upper",
     "bars_arm1__upper2",
@@ -3754,6 +3770,7 @@
     "bars_arm1__tool",
     "bars_arm1__shank",
     "bars_arm1__pawl",
+    "bars_arm1__roller",
     "bells_arm0__carriage",
     "bells_arm0__upper",
     "bells_arm0__upper2",
@@ -3767,6 +3784,7 @@
     "bells_arm0__tool",
     "bells_arm0__shank",
     "bells_arm0__pawl",
+    "bells_arm0__roller",
     "bells_arm1__carriage",
     "bells_arm1__upper",
     "bells_arm1__upper2",
@@ -3780,6 +3798,7 @@
     "bells_arm1__tool",
     "bells_arm1__shank",
     "bells_arm1__pawl",
+    "bells_arm1__roller",
     "blocks_arm0__carriage",
     "blocks_arm0__upper",
     "blocks_arm0__upper2",
@@ -3793,6 +3812,7 @@
     "blocks_arm0__tool",
     "blocks_arm0__shank",
     "blocks_arm0__pawl",
+    "blocks_arm0__roller",
     "form_harp_arm0_railhead",
     "form_harp_arm0_gantry",
     "form_harp_arm1_railhead",

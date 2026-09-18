@@ -21,6 +21,11 @@ which the roller is still clear of the teeth, found by bisection on the
 exact distance to the toothed disc (`tooth_distance`). ClockworkMotion.pawl_angle
 mirrors it and tools/test_pawl.py holds the two together.
 
+The roller is its own part (`roller_pieces`, origin on its axle) so the rig can
+turn it as it rolls on the tips (`ROLLER_SPIN` radians a metre of rail), and
+each pinion is spun with a phase (`dip_offset`) chosen so the roller sits at
+the bottom of a dip when the arm parks at its home.
+
 Only a front or back mount carries a pawl (every mallet arm's pinion is behind
 its carriage); an up/down disc lies flat over the rail and has no free rim.
 """
@@ -98,6 +103,27 @@ def nose_radius(x):
     P = np.array([PAWL['lever'], -(PINION['r_tip']+PAWL['drop']+PAWL['finger'])]); n = nose_at(angle(x))
     return np.hypot(P[0]+n[..., 0], P[1]+n[..., 1])
 
+PITCH = 2*np.pi*PINION['r_pitch']/TEETH
+# The roller rolls on the tips: the disc's rim at the tips moves r_tip/r_pitch
+# as fast as the carriage, and the roller — under the disc, turning the other
+# way — turns that arc over its own radius. Radians of roller per metre of rail.
+ROLLER_SPIN = -PINION['r_tip']/(PINION['r_pitch']*PAWL['nose_r'])
+
+def dip_offset(x_home):
+    """The rail offset, in (-PITCH/2, PITCH/2], that puts the roller at the
+    bottom of a dip when the carriage stands at `x_home`: the pinion is spun
+    by (x + offset) / r_pitch instead of x / r_pitch, so a stepped arm parks
+    with its pawl seated at its home. The other rests fall where the score's
+    contacts put them (docs/motion-design.md)."""
+    xs = np.arange(0, PITCH, PITCH/720); k = int(np.argmin(nose_radius(xs)))
+    return float((xs[k]-x_home+PITCH/2) % PITCH-PITCH/2)
+
+def seating(x, phase=0.):
+    """How far down its dip the roller sits for carriages at x: 0 at the bottom
+    of a dip, 1 on a tip. Vectorised."""
+    xs = np.arange(0, PITCH, PITCH/720); r = nose_radius(xs)
+    return (nose_radius(np.asarray(x, float)+phase)-r.min())/(r.max()-r.min())
+
 def _side(mount):
     """+1 when the carriage lies at +Z of the disc (a back mount), else -1:
     the pin's ear, the spring and the bracket stack toward the carriage."""
@@ -117,7 +143,6 @@ def lever_pieces(mount='back'):
     yoke = prism([-L+.016, 0, 0], [-L-.010, 0, 0], .012, hl+.005, .3, 5)
     tongues = [prism([-L, -.004, s_*(hl+.0025)], [-L, F+.004, s_*(hl+.0025)], .010, .0025, .5, 5) for s_ in (-1, 1)]
     axle = revolve([(0, -hl-.008), (P['axle_r']*.7, -hl-.008), (P['axle_r'], -hl-.006), (P['axle_r'], hl+.006), (P['axle_r']*.7, hl+.008), (0, hl+.008)], Z, (-L, F, 0), 16)
-    roller = revolve([(0, -hl), (R-.002, -hl), (R, -hl+.002), (R, hl-.002), (R-.002, hl), (0, hl)], Z, (-L, F, 0), 40)
     # the spring: coil_turns about the pin from the eye's face toward the ear,
     # starting at +X (its fixed tail) and ending at -X (its moving tail)
     z0 = s*(w/2+.002); z1 = z0+s*P['coil_len']; n = int(P['coil_turns']*24)+1
@@ -126,8 +151,18 @@ def lever_pieces(mount='back'):
     fixed = sweep([[P['coil_r'], -.002, z0], [P['coil_r'], .014, z0], [P['coil_r'], .03, z0]], P['wire_r'], P['wire_r'], profile=rounded_rect(1, 12))
     under = -.012-P['wire_r']
     moving = sweep([[-P['coil_r']+.002, 0, z1], [-.045, -.009, (z1+0)/2], [-.052, under, 0]], P['wire_r'], P['wire_r'], profile=rounded_rect(1, 12))
-    pieces = [eye, lever, yoke, *tongues, axle, roller, coil, fixed, moving]
-    return pieces, ['steel']*7+['brass']*3
+    pieces = [eye, lever, yoke, *tongues, axle, coil, fixed, moving]
+    return pieces, ['steel']*6+['brass']*3
+
+def roller_pieces(mount='back'):
+    """The roller in its own frame (origin on its axle, at `nose_rest()` in
+    the pawl's frame): a steel drum on the axle, with a brass grease plug
+    let into each face off the axis — so it can be seen to turn. Returns
+    (pieces, materials)."""
+    P = PAWL; R = P['nose_r']; hl = P['roller_len']/2
+    drum = revolve([(0, -hl), (R-.002, -hl), (R, -hl+.002), (R, hl-.002), (R-.002, hl), (0, hl)], Z, (0, 0, 0), 40)
+    plugs = [revolve([(0, s_*(hl-.002)), (.003, s_*(hl-.002)), (.003, s_*(hl+.0008)), (0, s_*(hl+.0008))], Z, (0, R*.6, 0), 16) for s_ in (-1, 1)]
+    return [drum, *plugs], ['steel', 'brass', 'brass']
 
 def post_centre(mount='back'):
     """The bracket's spring post, pawl-frame (x, y): the fixed tail bears on it."""
@@ -154,18 +189,21 @@ def bracket_pieces(mount='back'):
     pin = knuckle_pin(P['pivot_r'], span, axis=(0, 0, -s), centre=centre)
     return [ear, arm, strut, post]+pin
 
-def manifest(mount='back'):
-    """What the model manifest records for an arm's pawl (performance.gd poses
-    the part at root + pivot, turned by pawl_angle about Z)."""
+def manifest(mount='back', x_home=0.):
+    """What the model manifest records for an arm's pawl: performance.gd poses
+    the pawl at root + pivot, turned by pawl_angle(x + phase) about Z, the
+    roller at the pawl's nose turned by ROLLER_SPIN·x, and spins the pinion
+    by (x + phase) / r_pitch so the pawl rests in a dip at x_home."""
     return dict(mount=mount, pivot=pivot(mount).round(6).tolist(), nose=nose_rest().round(6).tolist(),
-                lever=PAWL['lever'], finger=PAWL['finger'], nose_r=PAWL['nose_r'], drop=PAWL['drop'])
+                lever=PAWL['lever'], finger=PAWL['finger'], nose_r=PAWL['nose_r'], drop=PAWL['drop'],
+                phase=round(dip_offset(x_home), 6), home_x=round(float(x_home), 6), roller_spin=round(ROLLER_SPIN, 6))
 
-def capsules(root, mount='back'):
+def capsules(root, mount='back', phase=0.):
     """World capsules per pose for the rulers, name -> (P, Q, r): the lever,
-    yoke, tongues and roller (turned by angle(x)); the eye, spring, ear, pin, post, arm
+    yoke, tongues and roller (turned by angle(x + phase)); the eye, spring, ear, pin, post, arm
     and strut. `root`: (T, 3) shoulder-pin positions."""
     root = np.asarray(root, float); P = PAWL; s = _side(mount); pv = pivot(mount); ze = ear_offset(mount)
-    al = angle(root[:, 0]); c = np.cos(al)[:, None]; sn = np.sin(al)[:, None]
+    al = angle(root[:, 0]+phase); c = np.cos(al)[:, None]; sn = np.sin(al)[:, None]
     def turn(p):                                          # pawl-frame point -> world, per pose
         p = np.asarray(p, float); q = np.stack([p[0]*c[:, 0]+p[1]*sn[:, 0], -p[0]*sn[:, 0]+p[1]*c[:, 0], np.full(len(al), p[2])], axis=-1)
         return root+pv+q

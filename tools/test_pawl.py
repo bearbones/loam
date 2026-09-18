@@ -68,7 +68,14 @@ def kinematics():
             if g[k] < worst[0]: worst = (float(g[k]), f'{name} at x={xs[k]:.4f}')
     check(worst[0] > .003, f'the pawl\'s body keeps off the teeth ({worst[0]*1000:.1f} mm, {worst[1]})')
     lever, mats = W.lever_pieces('back'); check_pieces(lever); check_pieces(W.bracket_pieces('back'))
-    check(len(mats) == len(lever), f'{len(lever)} pawl pieces and {len(W.bracket_pieces("back"))} bracket pieces are closed meshes')
+    drum, dmats = W.roller_pieces('back'); check_pieces(drum)
+    check(len(mats) == len(lever) and len(dmats) == len(drum), f'{len(lever)} pawl pieces, {len(drum)} roller pieces and {len(W.bracket_pieces("back"))} bracket pieces are closed meshes')
+    V = np.concatenate([m.vertices for m in drum]); rr = np.hypot(V[:, 0], V[:, 1]).max(); zz = abs(V[:, 2]).max()
+    check(abs(rr-W.PAWL['nose_r']) < 1e-6 and zz <= W.PAWL['roller_len']/2+.001, f'the roller is a drum of radius nose_r on its own axle ({rr*1000:.1f} mm, {2*zz*1000:.1f} mm long)')
+    # the phase seats the roller at the bottom of a dip at any home, and the dips repeat a pitch
+    for xh in (0., .1234, -2.71):
+        ph = W.dip_offset(xh); check(abs(ph) <= W.PITCH/2+1e-9 and W.seating(xh, ph) < .02, f'dip_offset seats the roller at home x={xh} (phase {ph*1000:.2f} mm, seating {W.seating(xh, ph):.3f})')
+    check(abs(W.ROLLER_SPIN+C.PINION['r_tip']/(C.PINION['r_pitch']*W.PAWL['nose_r'])) < 1e-12 and W.ROLLER_SPIN < 0, f'the roller rolls the other way from the disc at {W.ROLLER_SPIN:.2f} rad a metre')
     for mount in ('up', 'down'):
         try: W.pivot(mount); check(False, f'a {mount} mount refused a pawl')
         except ValueError: pass
@@ -87,7 +94,14 @@ def run(layout_path, score_path):
         cfg = layout['arms'][aid]; mount = cfg['pinion']; rec = cfg['pawl']
         check(np.allclose(rec['pivot'], W.pivot(mount), atol=1e-6) and np.allclose(rec['nose'], W.nose_rest(), atol=1e-6)
               and rec['nose_r'] == W.PAWL['nose_r'] and rec['mount'] == mount, f'{aid}: the manifest records the pawl where formlab.pawl puts it')
-        caps = W.capsules(poses[aid]['root'], mount)
+        # the pinion's phase seats the pawl in a dip at the arm's home; the score's
+        # other rests fall where its contacts put them — count how many seat anyway
+        home = float(rig.contact(rig.acts[aid]['home'])[0]); phase = float(rec.get('phase', 0.))
+        check(abs(rec.get('home_x', np.nan)-home) < 1e-6 and abs(phase-W.dip_offset(home)) < 1e-6 and abs(rec.get('roller_spin', 0)-W.ROLLER_SPIN) < 1e-6,
+              f'{aid}: the manifest records the phase for home x={home:.4f} ({phase*1000:+.2f} mm) and the roller spin')
+        rests = np.array([home]+[float(s['last'][0]) for s in rig.schedule(aid)]); seat = W.seating(rests, phase)
+        check(seat[0] < .02, f'{aid}: the pawl rests in a dip at home (seating {seat[0]:.3f}); {int((seat < .15).sum())} of {len(rests)} rests seat within 15 %')
+        caps = W.capsules(poses[aid]['root'], mount, phase)
         # its own links and tool (the carriage and pinion are what it is mounted to)
         own = (1e9, '')
         for pname, (P, Q, r) in caps.items():

@@ -12,6 +12,7 @@ var model: Node3D
 var parts: Dictionary = {}
 var gear_home: Dictionary = {}   # each pinion's imported basis: the disc in its mount's plane, unspun
 var pawl_home: Dictionary = {}   # each mallet arm's roller detent pawl (formlab.pawl), imported basis
+var roller_home: Dictionary = {} # the pawl's roller, imported basis
 var wheel_home: Dictionary = {}  # the flywheel, hub and pulleys: node -> imported basis, unspun
 var strings: Dictionary = {}
 var hits: Dictionary = {}
@@ -88,6 +89,10 @@ func _ready() -> void:
 			if parts[aid]["pawl"]==null:
 				push_error("Missing GLB pivot "+aid+"__pawl"); get_tree().quit(1); return
 			pawl_home[aid]=parts[aid]["pawl"].basis
+			parts[aid]["roller"]=model.find_child(aid+"__roller",true,false)
+			if parts[aid]["roller"]==null:
+				push_error("Missing GLB pivot "+aid+"__roller"); get_tree().quit(1); return
+			roller_home[aid]=parts[aid]["roller"].basis
 	# The chamber's flywheel, its axle pulley and the belt pulley turn about z
 	# (formlab.layout.flywheel_plan); their imported bases are the unspun home.
 	for label in ["Chamber flywheel","Chamber hub","Chamber drive pulley","Chamber belt pulley"]:
@@ -350,13 +355,21 @@ func evaluate(t: float) -> void:
 		var mount: String=str(cfg.get("pinion","back"))
 		var flat := mount=="up" or mount=="down"
 		p["gear"].position=root+(Vector3(0,(.17 if mount=="up" else -.17),-.10) if flat else Vector3(0,0,(.195 if mount=="front" else -.195)))
-		p["gear"].basis=Basis(Vector3.UP if flat else Vector3(0,0,1),root.x/.12)*gear_home[aid]
+		# A pinion with a pawl is spun with a phase (formlab.pawl.dip_offset) that
+		# seats the roller in a dip when the arm parks at its home.
+		var phase: float=float(cfg["pawl"].get("phase",0.0)) if cfg.has("pawl") else 0.0
+		p["gear"].basis=Basis(Vector3.UP if flat else Vector3(0,0,1),(root.x+phase)/.12)*gear_home[aid]
 		# The roller detent pawl (formlab.pawl) hangs on its pivot off the carriage
 		# and turns about z so its roller rides the spun teeth: lifted (positive
 		# angle) on a tip, dropped into the gap between. The mirror of pawl.angle.
+		# The roller sits on the pawl's axle and rolls on the tips: ROLLER_SPIN
+		# radians a metre of rail, the other way from the disc.
 		if p.has("pawl"):
+			var swing := Basis(Vector3(0,0,1),-ClockworkMotion.pawl_angle(root.x+phase))
 			p["pawl"].position=root+motion.v(cfg["pawl"]["pivot"])
-			p["pawl"].basis=Basis(Vector3(0,0,1),-ClockworkMotion.pawl_angle(root.x))*pawl_home[aid]
+			p["pawl"].basis=swing*pawl_home[aid]
+			p["roller"].position=p["pawl"].position+swing*motion.v(cfg["pawl"]["nose"])
+			p["roller"].basis=swing*Basis(Vector3(0,0,1),float(cfg["pawl"].get("roller_spin",0.0))*root.x)*roller_home[aid]
 	# The flywheel turns once a bar; the belt pulley turns with it, faster by the
 	# pulleys' radii, the same way round (an open belt).
 	var spin: float=flywheel_angle(t)

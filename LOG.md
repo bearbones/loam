@@ -1,3 +1,27 @@
+## 2026-09-17 — CLOCKWORK the pawl's roller turns, and the detent rests in a dip at home
+
+The pawl's roller was one mesh with its lever, so it read as a stud; and
+the pinion was spun by the carriage's x alone, so the pawl came to rest on
+a tip, a flank or in a gap at random (`docs/plans/pawl-follow-ups.md`,
+items 1 and 3). Now the roller is its own local part (`{aid}__roller`,
+`formlab.pawl.roller_pieces`: a steel drum with a brass grease plug let
+into each face off the axis, so the turning shows) on the pawl's axle, and
+`performance.gd` rolls it on the tips as the carriage moves — the disc's
+rim at the tips runs `r_tip / r_pitch` times the rail speed and the roller
+turns that arc over its own radius, the other way from the disc
+(`pawl.ROLLER_SPIN` = −72 rad a metre, 3.4 rad a tooth). Each pinion with
+a pawl is spun with a phase (`pawl.dip_offset`, `pawl.phase` in the
+manifest, metres of rail) chosen so the roller sits at the bottom of a dip
+when the arm parks at its home contact — a detent rests in a dip. The
+score's other rests fall where its contacts put the carriage (the tool has
+to reach them); `tools/test_pawl.py` now reports how many of them seat
+within 15 % of a dip, and checks the phase seats the home for any home x,
+the roller drum, and the spin. `dev/test_performance.gd` checks the roller
+sits on the pawl's axle and has turned by the rail travelled between two
+moments (the swing taken out). Docs: `docs/articulated-arms.md`,
+`docs/motion-design.md`. The click sample (item 2) is still to do. Both
+assets rebuilt; every ruler green.
+
 ## 2026-09-17 — CLOCKWORK the ratchet has a mechanism: a roller detent pawl on the mallet arms' pinions
 
 The mallet carriages clicked along their racks (`docs/motion-design.md`) with

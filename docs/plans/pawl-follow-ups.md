@@ -1,5 +1,10 @@
 # Pawl follow-ups: the roller turns, the click sounds, the rest is a detent
 
+**Status (2026-09-17, later the same evening):** items 1 and 3 are landed
+(`{aid}__roller` rolls by `pawl.ROLLER_SPIN`; the pinion phase
+`pawl.dip_offset` seats the home rest; `test_pawl` reports the seated
+fraction of the other rests). Item 2 — the click sample — remains.
+
 **Where:** `formlab/pawl.py`, `tools/build_forms.py`, `harness/performance.gd`,
 `harness/clockwork_motion.gd`, `formlab/rig.py`, `loam/score.py`
 (`_Solver`), `tools/test_pawl.py`, `tools/test_motion.py`.
