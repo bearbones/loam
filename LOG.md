@@ -1,3 +1,45 @@
+## 2026-09-17 — CLOCKWORK the string's winding runs through the bridge; the ring band across a string was its own far wall
+
+Two string faults seen in the `--view=16` close-up (the harp's lowest string
+a hand above its eyelet, silent moment), both in
+`harness/shaders/wire_string.gdshader`.
+
+The winding restarted its phase at every joint: a string is several tubes —
+the speaking length and the dead lengths over the bridge to the tuning pin —
+and each counted its turns from its own end. A new uniform `offset_m` is the
+wire already wound before a tube begins; `performance.gd`'s
+`_make_dead_length` sets it to the speaking length plus each dead segment
+before it, so the ridges of a wound string and the grain of a gut one run
+through the bridge as one wire. Correct rather than conspicuous: the
+difference is a few hundred pixels on view 12.
+
+The bright ring that crossed every string at one height was not a shadow,
+the sheath, the minimum-width rebuild, the anisotropy, the fade, the
+normal rock or the mesh (each was switched off in turn and the band stayed
+— and moved with the ring count). It was the tube's own inside back wall:
+one shader draws the wire and its blur sheath, the sheath writes `ALPHA`,
+writing `ALPHA` anywhere makes Godot sort the whole material as
+transparent, transparent geometry writes no depth, and a double-sided tube
+(`cull_disabled`, kept so the sheath shows its far wall) with no depth then
+lets the far wall win at the ring where the two walls' draw order flips.
+`depth_prepass_alpha` in the `render_mode` lays the opaque fragments — the
+wire — into the depth buffer first; the sheath's translucent ones still
+blend over it. (`depth_draw_always` was tried and rejected: it made the
+sheath opaque.)
+
+`dev/test_performance.gd` pins the speaking length's `offset_m` at zero
+and each dead length's at the accumulated wound length, and that the
+shader's `render_mode` carries both `depth_prepass_alpha` and
+`cull_disabled`. `docs/articulated-arms.md` "Strings" and
+`docs/plans/string-look-next.md` record both. Views 1/6/7 and 16 captured.
+The Python rulers and `test_clockwork` are green on both assets;
+`test_performance` on the default asset passes every string check but
+reports four failures on the harp arms' link-mesh extents and pinion planes,
+and on the expanded asset the motion cannot find `bells_arm0` in `acts` —
+both against the assets rebuilt at 22:25/22:27 by the concurrent session's
+uncommitted wrist-and-tool build, which nothing here touches; they are that
+build's to reconcile before its assets land.
+
 ## 2026-09-17 — CLOCKWORK the contrast reel is one command
 
 `tools/contrast_reel.sh START SECONDS [FPS] [OUT]` captures the same score

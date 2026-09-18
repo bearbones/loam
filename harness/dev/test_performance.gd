@@ -152,8 +152,21 @@ func check_scene() -> void:
 			if absf(float(mat.get_shader_parameter("aniso"))-aniso_want)>1e-6: failures.append("string highlight anisotropy off its family "+sid)
 			var dead_node: Node3D=scene.find_child(sid+" dead",false,false)
 			if dead_node!=null:
+				# ...and the winding's phase runs on over the bridge: each dead tube is told
+				# the wire wound before it (the speaking length, then the bridge run)
+				var wound: float=scene.motion.v(s["a"]).distance_to(scene.motion.v(s["b"]))
+				# (an unset uniform reads back null: the speaking length leaves offset_m at its default 0)
+				var speaking_offset=mat.get_shader_parameter("offset_m")
+				if speaking_offset!=null and absf(speaking_offset)>1e-9: failures.append("speaking length does not start its winding at zero "+sid)
 				for child in dead_node.get_children():
-					if child.material_override is ShaderMaterial and absf(float(child.material_override.get_shader_parameter("aniso"))-aniso_want)>1e-6: failures.append("dead length anisotropy off its family "+sid)
+					if child.material_override is ShaderMaterial:
+						var dm: ShaderMaterial=child.material_override
+						if absf(float(dm.get_shader_parameter("aniso"))-aniso_want)>1e-6: failures.append("dead length anisotropy off its family "+sid)
+						var dead_offset=dm.get_shader_parameter("offset_m")
+						if dead_offset==null or absf(dead_offset-wound)>1e-5: failures.append("dead length restarts the winding's phase at its joint "+sid)
+						var dead_len=dm.get_shader_parameter("length_m")
+						if dead_len==null: failures.append("dead length carries no length_m "+sid)
+						else: wound+=dead_len
 			if not (aniso_want>0.0 if family in [1,2] else aniso_want<=0.0): failures.append("string_aniso stretches a smooth wire's highlight along it "+sid)
 			var colour: Color=mat.get_shader_parameter("albedo")
 			if s["mid"]=="harp" and int(midi)%12==0 and not (colour.r>.6 and colour.g<.4): failures.append("harp C string not red "+sid)
@@ -213,6 +226,13 @@ func check_scene() -> void:
 	var uniforms: Array=load("res://shaders/wire_string.gdshader").get_shader_uniform_list().map(func(u): return u["name"])
 	if not ("min_px" in uniforms and "radius" in uniforms): failures.append("wire shader lost its minimum on-screen width")
 	if not ("aniso" in uniforms and "contact_m" in uniforms): failures.append("wire shader lost its anisotropic highlight or its hardware contacts")
+	# The sheath's ALPHA makes the whole material transparent, so without a depth
+	# prepass the double-sided wire's inside wall bleeds through as a band.
+	var render_line: String=""
+	for line in load("res://shaders/wire_string.gdshader").code.split("\n"):
+		if line.begins_with("render_mode"): render_line=line
+	if not ("depth_prepass_alpha" in render_line): failures.append("wire shader draws no depth prepass: the tube's far wall shows through as a ring band")
+	if not ("cull_disabled" in render_line): failures.append("wire shader culls back faces: the blur sheath loses its far wall")
 	print("  integrated GLB: %d tool contacts; %d rigs" % [contacts,scene.parts.size()])
 	print("PERFORMANCE: PASS" if failures.is_empty() else str(failures))
 	quit(0 if failures.is_empty() else 1)

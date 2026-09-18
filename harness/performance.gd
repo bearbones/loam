@@ -217,12 +217,17 @@ func _make_string(sid: String) -> Node3D:
 func _make_dead_length(sid: String, s: Dictionary, radius: float, colour: Color, family: int) -> void:
 	var dead := Node3D.new(); dead.name=sid+" dead"
 	var points: Array=[motion.v(s["b"]),motion.v(s["neck"]["bridge"]),motion.v(s["neck"]["pin"])]
+	# the winding (and a gut's twist) runs on continuously over the bridge: each
+	# tube tells the shader how much wire came before it, else the ridges restart
+	# their phase at every joint and a ring seam shows at the bridge pin
+	var wound: float=motion.v(s["a"]).distance_to(motion.v(s["b"]))
 	for i in range(points.size()-1):
 		var p: Vector3=points[i]; var q: Vector3=points[i+1]; var length: float=p.distance_to(q)
 		var node := MeshInstance3D.new(); node.mesh=_wire_mesh(length,radius,4,10)
 		node.transform=Transform3D(ClockworkMotion.link_basis(p,q),p)
 		var mat := ShaderMaterial.new(); mat.shader=WIRE
 		mat.set_shader_parameter("radius",radius); mat.set_shader_parameter("length_m",length)
+		mat.set_shader_parameter("offset_m",wound); wound+=length
 		mat.set_shader_parameter("albedo",colour); mat.set_shader_parameter("family",family)
 		mat.set_shader_parameter("aniso",string_aniso(family))
 		mat.set_shader_parameter("sheath",false)

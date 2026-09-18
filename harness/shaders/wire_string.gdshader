@@ -1,5 +1,12 @@
 shader_type spatial;
-render_mode diffuse_burley, specular_schlick_ggx, cull_disabled;
+// One shader draws both the wire (sheath=false) and its blur (sheath=true,
+// which writes ALPHA). Writing ALPHA anywhere makes Godot sort the whole
+// material as transparent, and transparent geometry writes no depth — so a
+// double-sided tube (cull_disabled, kept so the sheath's far wall shows) let
+// its own inside back wall bleed through at one ring, a bright band across
+// the string. depth_prepass_alpha lays the opaque fragments — the wire — into
+// the depth buffer first; the sheath's translucent ones still blend over it.
+render_mode diffuse_burley, specular_schlick_ggx, cull_disabled, depth_prepass_alpha;
 // A vibrating wire. The mesh is a straight tube along +Y (UV.x = node fraction,
 // UV.y = angle fraction). `disp` bends it by the baked finite-difference frame
 // (24 nodes, metres, along local Z — the pluck direction); `envelope` widens
@@ -20,6 +27,7 @@ uniform int family = 0;
 uniform float wind_pitch = 900.0;  // turns per metre of the winding
 uniform float strand_pitch = 45.0; // turns per metre of the gut's twist
 uniform float length_m = 3.0;
+uniform float offset_m = 0.0;     // wire already wound before this tube: a dead length continues the speaking length's winding, not restarts it
 uniform float excitation = 0.0;   // 0 silent .. 1 full pluck: the wire glows with its energy
 uniform vec4 glow : source_color = vec4(1.0, .86, .62, 1.0);
 // A plucked wire never stays in one plane: the pick's release and the wire's own
@@ -117,7 +125,7 @@ void fragment() {
             // the ridges fade to their mean tone as they close up (fwidth of the
             // turn count is turns per pixel), and the normal is only rocked while
             // they are wide enough to see.
-            float turns = UV.x * length_m * wind_pitch + UV.y;
+            float turns = (offset_m + UV.x * length_m) * wind_pitch + UV.y;
             float fade = 1.0 - smoothstep(.2, .45, fwidth(turns));
             float ridge = mix(.5, .5 + .5 * cos(turns * 6.2831853), fade);
             tone = .82 + .18 * ridge;
@@ -126,7 +134,7 @@ void fragment() {
         } else if (family == 2) {
             // gut: a slow helical grain from the twisted strands, matte, and
             // translucent enough that a string against the light glows at its edges
-            float twist = (UV.x * length_m * strand_pitch + 2.0 * UV.y) * 6.2831853;
+            float twist = ((offset_m + UV.x * length_m) * strand_pitch + 2.0 * UV.y) * 6.2831853;
             float gfade = 1.0 - smoothstep(.2, .45, fwidth(twist) / 6.2831853);
             float grain = mix(.5, .5 + .5 * cos(twist), gfade);
             tone = .92 + .08 * grain;

@@ -495,6 +495,22 @@ string a hand above its eyelet for all three. `dev/test_performance.gd`
 pins each string's and dead length's `aniso` to its family and the uniforms'
 presence; the look itself is judged by eye on views 6, 12, 14 and 16.
 
+The winding does not restart at the bridge. A string is several tubes — the
+speaking length and the dead lengths to the tuning pin — and each counts its
+turns from its own end, so the helix used to jump phase at every joint. The
+shader's `offset_m` is the wire already wound before a tube begins;
+`_make_dead_length` sets it to the speaking length plus each dead segment
+before it, so the ridges (and the gut's grain) run through the joint as one
+wire. `dev/test_performance.gd` pins the offsets to the accumulated lengths.
+And the bright ring that used to cross a string at one height, a silent
+moment or not, was the tube's own far wall: the sheath writes `ALPHA`, which
+makes the one shared material transparent, and transparent geometry writes no
+depth, so the double-sided tube's inside back wall showed through at the
+ring where the two walls' draw order flipped. `depth_prepass_alpha` in the
+shader's `render_mode` lays the opaque wire into the depth buffer first; the
+sheath still blends over it, and `cull_disabled` stays so the sheath keeps
+its far wall. The ruler pins both flags.
+
 Two things a still from the front never showed. The pluck axis is world Z,
 straight at a frontal camera, so the bend and the sheath (a lens flat in
 the vibration plane) were edge-on and vanished; a real plucked wire does

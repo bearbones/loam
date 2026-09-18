@@ -4,7 +4,11 @@
 and `ANISOTROPY` per family (`string_aniso`), the winding and gut grain as
 normal rocking faded by `fwidth`, and the contact darkening by `UV.x`
 (no per-string uniforms: every tube ends on hardware); `--view=16` is the
-close-up. Not done: per-family specular *tints* (Godot's non-metal
+close-up. Later the same night: the winding's phase now continues over the
+bridge into the dead lengths (`offset_m`), and the bright ring band that
+crossed a string at one height — the double-sided tube's far wall showing
+through a material made transparent by the sheath's `ALPHA` — is gone with
+`depth_prepass_alpha`. Not done: per-family specular *tints* (Godot's non-metal
 specular is white; a tint needs the metallic path or a custom BRDF) and a
 frame-time measurement. Judge the result by eye on views 6/12/14/16.
 
