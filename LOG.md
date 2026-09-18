@@ -1,3 +1,29 @@
+## 2026-09-17 — CLOCKWORK the ratchet has a mechanism: a roller detent pawl on the mallet arms' pinions
+
+The mallet carriages clicked along their racks (`docs/motion-design.md`) with
+nothing to click on. Under each mallet arm's pinion — the rack is above it —
+a steel pawl now rides the teeth (`formlab/pawl.py`): a lever on a knuckle
+pin at a bracket cast onto the carriage (an ear off an arm from the
+carriage's plane, a strut into the lower bushing's wall), a yoke with two
+tongues carrying a 15 mm roller, and a brass torsion spring on the pin
+bearing under the lever and against a post on the bracket. It is a detent,
+not a one-way pawl (the carriage travels both ways). A first draft with a
+9 mm ball nose wedged: the pinion's teeth are boxes with radial flanks and
+the pawl only moves on its arc, so a nose that enters a gap is trapped by
+the next flank and the numerics snapped it 8° in a millimetre. The roller is
+wider than the gap between two tips' bevels, rides the tips and dips 9.5 mm
+between each pair on the bevels' 50° arcs — one dip a tooth, no jump. Its
+angle is the largest at which the roller is clear of the spun disc, by
+bisection on the exact distance to the hub and the three nearest bevelled
+teeth; `ClockworkMotion.pawl_angle` mirrors it (5e-13 rad; a Vector2 in the
+mirror cost 1e-7 — it is 32-bit) and `performance.gd` poses `{aid}__pawl`
+at its pivot every frame, so the recoil's shudder ticks the pawl too.
+`tools/test_pawl.py` holds the kinematics, the pieces, the two
+implementations and the pawl's room over the score against the arm's own
+links, its siblings, every other rail, its own rack and guide bars, and the
+forms; `dev/test_performance.gd` checks the rendered roller sits exactly its
+radius from the spun disc. Both assets rebuilt; every ruler green.
+
 ## 2026-09-17 — CLOCKWORK two motion vocabularies: ratchet and recoil against servo slews
 
 Every arm moved the same way: a smoothstep in exactly the score's window.

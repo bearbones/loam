@@ -48,6 +48,22 @@ func check_scene() -> void:
 				var thin: float=box.size.y if (mount=="up" or mount=="down") else box.size.z
 				var wide: float=box.size.x
 				if thin>.08 or wide<.25: failures.append("pinion not lying in its mount's plane %s (%.3f thin, %.3f wide)" % [aid,thin,wide])
+			# A mallet arm's roller detent pawl (formlab.pawl) hangs on its pivot off the
+			# carriage and its roller rides the pinion's teeth: at every sampled moment
+			# the roller's centre is exactly its radius from the toothed disc as spun.
+			if cfg.has("pawl"):
+				var pawl: MeshInstance3D=scene.parts[aid].get("pawl")
+				if pawl==null: failures.append("pawl missing "+aid)
+				else:
+					for t in [12.0,48.0,48.02,48.05,48.1,100.0]:
+						scene.evaluate(t); var pz: Dictionary=scene.motion.pose(aid,t)
+						if pawl.global_position.distance_to(pz["root"]+scene.motion.v(cfg["pawl"]["pivot"]))>.00001: failures.append("pawl off its pivot "+aid)
+						var nose: Vector3=pawl.global_position+(pawl.global_basis*scene.pawl_home[aid].inverse())*scene.motion.v(cfg["pawl"]["nose"])
+						var q: Vector3=nose-gear.global_position
+						if absf(ClockworkMotion.tooth_distance(q.x,q.y,pz["root"].x)-float(cfg["pawl"]["nose_r"]))>.00002 or absf(q.z)>.0001: failures.append("pawl roller not riding the teeth %s at %.2f s" % [aid,t])
+					var pbox: AABB=pawl.mesh.get_aabb()
+					if pbox.position.x>-float(cfg["pawl"]["lever"])-float(cfg["pawl"]["nose_r"])+.001 or pbox.end.x<.02 or pbox.end.y<float(cfg["pawl"]["finger"])+float(cfg["pawl"]["nose_r"])-.001: failures.append("pawl mesh does not reach from its pivot to the roller "+aid)
+			elif scene.layout["arms"][aid]["kind"]=="mallet" and str(cfg.get("pinion","back")) in ["front","back"]: failures.append("mallet arm without a pawl "+aid)
 			# Rail gantries, heads and racks are forms that are not frame variants: visible.
 			for suffix in ["_gantry","_railhead"]:
 				var node: Node3D=scene.model.find_child("form_"+aid+suffix,true,false)

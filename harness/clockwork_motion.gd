@@ -281,3 +281,51 @@ static func link_basis(a: Vector3, b: Vector3) -> Basis:
 	if x.length_squared()<.000001: x=Vector3.FORWARD
 	x=x.normalized()
 	return Basis(x,y,x.cross(y))
+
+## The roller detent pawl under a mallet arm's pinion (formlab.pawl, mirrored
+## here for the poser): its angle for a carriage at rail position x is the
+## largest at which the roller is still clear of the teeth — the spring lifts
+## it until it touches. Constants mirror formlab.pawl.PAWL / TOOTH and
+## formlab.clearance.PINION; tools/test_pawl.py holds the two together.
+const PAWL_LEVER := .10
+const PAWL_DROP := .02
+const PAWL_FINGER := .03
+const PAWL_NOSE_R := .015
+const PINION_R_TIP := .13
+const PINION_R_HUB := .1014
+const PINION_R_PITCH := .12
+const TOOTH_CENTRE := .13*.86
+const TOOTH_HALF_R := .13*.14
+const TOOTH_HALF_T := .13*.11
+const TOOTH_BEVEL := .008
+
+## Signed distance in the disc's plane from (qx, qy) — relative to the disc's
+## centre, carriage-local — to the toothed disc spun for a carriage at x.
+static func tooth_distance(qx: float, qy: float, x: float) -> float:
+	var th := x/PINION_R_PITCH; var c := cos(th); var s := sin(th)
+	var hx := qx*c+qy*s; var hy := -qx*s+qy*c
+	var d := sqrt(hx*hx+hy*hy)-PINION_R_HUB
+	var step := TAU/16.0; var i := roundf(atan2(hy, hx)/step)
+	var hr := TOOTH_HALF_R-TOOTH_BEVEL; var ht := TOOTH_HALF_T-TOOTH_BEVEL
+	for k in [-1.0, 0.0, 1.0]:
+		var phi: float = (i+k)*step; var cp := cos(phi); var sp := sin(phi)
+		var u := hx*cp+hy*sp-TOOTH_CENTRE; var v := -hx*sp+hy*cp
+		var ex := maxf(absf(u)-hr, 0.0); var ey := maxf(absf(v)-ht, 0.0)
+		d = minf(d, sqrt(ex*ex+ey*ey)-TOOTH_BEVEL)
+	return d
+
+## The roller's centre in the pawl's frame (origin at the pivot) at `alpha`,
+## as [x, y] (an Array of 64-bit floats: a Vector2 would round to 32 bits and
+## put the angle 1e-7 rad off the numpy mirror).
+static func pawl_nose(alpha: float) -> Array:
+	var c := cos(alpha); var s := sin(alpha); var nx := -PAWL_LEVER; var ny := PAWL_FINGER
+	return [nx*c+ny*s, -nx*s+ny*c]
+
+static func pawl_angle(x: float) -> float:
+	var px := PAWL_LEVER; var py := -(PINION_R_TIP+PAWL_DROP+PAWL_FINGER)
+	var lo := -.15; var hi := .45
+	for _i in 48:
+		var mid := (lo+hi)/2.0; var n := pawl_nose(mid)
+		if tooth_distance(px+n[0], py+n[1], x) >= PAWL_NOSE_R: lo = mid
+		else: hi = mid
+	return lo

@@ -19,6 +19,7 @@ from formlab.linkage import parallelogram_arm,pick_tool,mallet_tool,tool_mount
 from formlab.rig import Rig
 from formlab.clearance import choose_offset,report,cross_arm_clearance,pinion_mount,rail_keep_clear,bar_pair_separation
 from formlab.gantry import plan_gantries
+from formlab import pawl as pawl_lib
 ROOT=Path(__file__).resolve().parents[1]
 layout_path=Path(sys.argv[1] if len(sys.argv)>1 else ROOT/'harness/assets/clockwork.json')
 out=Path(sys.argv[2] if len(sys.argv)>2 else ROOT/'render/form-study/recipe.json')
@@ -68,6 +69,10 @@ if score_path.exists() and layout.get('arms'):
             o1,sep1,_=choose_offset(poses,'upper',.11,keep_clear=rail_keep_clear()); o2,sep2,_=choose_offset(poses,'lower',.11)
             pmount,_=pinion_mount(poses,o1,o2,layers,spec)
         parts=parallelogram_arm(float(cfg['l1']),float(cfg['l2']),o1,o2,mount=pmount)
+        # A stepped (mallet) arm's pinion carries a roller detent pawl (formlab.pawl): its
+        # bracket and pin are cast onto the carriage; the pawl itself is a local part.
+        pawl_info=pawl_lib.manifest(pmount) if rig.stepped(aid) and pawl_lib.MOUNTS[pmount][1] else None
+        if pawl_info: parts['carriage']['pieces']=parts['carriage']['pieces']+pawl_lib.bracket_pieces(pmount)
         strings={sid:s for sid,s in layout['strings'].items() if s['mid']==cfg['mid']}
         rep=report(rig,aid,o1,o2,layers,spec,strings,poses=poses,mount=pmount); reports[aid]=rep
         material={'carriage':'steel','elbowhead':'steel','wristhead':'steel','shoulder':'steel','elbow':'steel','wrist':'steel'}
@@ -84,6 +89,10 @@ if score_path.exists() and layout.get('arms'):
         objects[-1]['finish']='profiled'; objects[-1]['local']=True
         objects.append(pack(f'{aid}__shank',tool[1],'steel','tool shank to its socket on the wrist crosshead'))
         objects[-1]['finish']='profiled'; objects[-1]['local']=True
+        if pawl_info:
+            lever,mats=pawl_lib.lever_pieces(pmount)
+            objects.append(pack(f'{aid}__pawl',lever,'steel','roller detent pawl riding the pinion, local frame at its pivot',materials=mats))
+            objects[-1]['finish']='profiled'; objects[-1]['local']=True
         upper=np.concatenate([m.vertices for m in parts['upper']['pieces']])
         arms[aid]=dict(o1=o1.round(5).tolist(),o2=o2.round(5).tolist(),layers=layers,
             link_extent_y=float(upper[:,1].max()-upper[:,1].min()),
@@ -93,6 +102,7 @@ if score_path.exists() and layout.get('arms'):
             string_clearance_m=rep['string_gap_m'],string_worst=list(rep['string_worst']))
         all_poses[aid]=poses; layout['arms'][aid].update(o1=arms[aid]['o1'],o2=arms[aid]['o2'],layers=layers,pinion=pmount)
         arms[aid]['pinion']=pmount
+        if pawl_info: arms[aid]['pawl']=pawl_info
     # Rail gantries: heads, masts, plinths and (where needed) brackets, placed clear of everything above.
     form_boxes=[(o['name'],(V.min(0),V.max(0))) for o in objects if not o.get('local')
                 for V in [np.concatenate([np.array(p['vertices']) for p in o['pieces']])]]

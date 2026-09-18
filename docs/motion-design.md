@@ -30,6 +30,14 @@ the pawl's play of a detent at least half the time (0.80 measured), that
 each travel crosses exactly its planned number of detents, that the
 overshoot stays within 4.7 mm and that every travel lands exactly.
 
+**The click has a mechanism.** Under each mallet arm's pinion a sprung
+roller detent pawl rides the teeth (`formlab/pawl.py`; `docs/articulated-arms.md`,
+"The carriage and its drive"): as the carriage clicks a tooth along the rack
+the disc turns a tooth and the roller rides over a tip and dips 9.5 mm into
+the next gap, so every click is a visible drop of the pawl, and the recoil's
+shudder along the rail ticks it back and forth. `ClockworkMotion.pawl_angle`
+mirrors `pawl.angle` (5e-13 rad) and `performance.gd` poses the part.
+
 **The strike is a cocked drop.** Over the score's approach interval the
 mallet first rises half its lift again (to 0.33 m over the bar, by 40 % of
 the interval, smoothly) and then falls with `1 − v²` — the acceleration of

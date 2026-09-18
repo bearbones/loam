@@ -303,6 +303,35 @@ Two more rules fell out of measuring:
   in the rail search (`caps['rack']` in `evaluate_arm`), and
   `plan_gantries` refuses a layout whose rack another arm or rail crosses.
 
+**The mallet arms' pinions carry a roller detent pawl** (`formlab/pawl.py`),
+the mechanism the ratchet click of `docs/motion-design.md` is read from. Under
+the disc — the rack is above it, the rim below is free — a steel lever
+pivots on a knuckle pin at a bracket cast onto the carriage (an ear off an arm
+that runs from the carriage's plane, a strut into the lower bushing's wall, the
+pin's washer, nut and split pin outward), reaches 100 mm under the disc to a
+yoke, and two tongues off the yoke carry a 15 mm roller on its axle; a brass
+torsion spring on the pin bears under the lever and against a post on the
+bracket, holding the roller up against the teeth. It is a detent, not a
+one-way pawl: the carriage travels both ways, so the nose is symmetric. The
+roller is wider than the gap between two tips' bevels, so it rides the tips
+and dips 9.5 mm between each pair on the bevels' 50° arcs, one dip a tooth —
+a ball small enough to enter a gap would wedge on the box teeth's radial
+flanks, since the pawl can only move on its arc. Its angle at any rail
+position is the largest at which the roller is still clear of the toothed
+disc as spun (`pawl.angle`, a bisection on the exact distance to the hub and
+the three nearest bevelled box teeth, `pawl.tooth_distance`);
+`ClockworkMotion.pawl_angle` mirrors it to 5e-13 rad and `performance.gd`
+poses the part (`{aid}__pawl`, a local part at its pivot, `pawl` in the
+manifest) every frame, so the recoil's shudder ticks the pawl too. The
+score's rest positions are not quantised to the teeth, so the pawl comes to
+rest wherever the tooth under it leaves it. `tools/test_pawl.py` holds the
+kinematics (touching everywhere, one dip a tooth, no jump, the body 8 mm off
+the teeth), the pieces, the two implementations, and the pawl's space over
+the score against the arm's own links, every sibling arm, every other rail's
+bars and rack, its own rack and guide bars, and the forms and furniture;
+`dev/test_performance.gd` checks the rendered roller sits exactly its radius
+from the spun disc.
+
 `tools/test_gantry.py` measures all of it on the built rigs: every arm's
 capsules (pinion included) against every other rail's rack, each carriage
 and its second-bar boss against its own rack, the recorded mount against a
@@ -372,6 +401,8 @@ python3 tools/test_form_joints.py         # seamless frame joints
 python3 tools/test_linkage_tools.py       # plectrum, ferrule, swan neck, socket, mallet; the carriage
 python3 tools/test_gantry.py              # rail heads, masts, brackets, racks; arms vs every rail
 python3 tools/test_oil_cups.py            # the fork ends' lubricators and their room
+python3 tools/test_pawl.py                # the mallet arms' roller detent pawls: kinematics, parity, room
+python3 tools/test_motion.py              # the two motion vocabularies against the rendered rig
 blender -b -t 2 -P tools/test_form_joint_seats.py
 godot --headless --path harness -s dev/test_clockwork.gd
 godot --headless --path harness -s dev/test_performance.gd

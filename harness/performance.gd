@@ -11,6 +11,7 @@ var layout: Dictionary
 var model: Node3D
 var parts: Dictionary = {}
 var gear_home: Dictionary = {}   # each pinion's imported basis: the disc in its mount's plane, unspun
+var pawl_home: Dictionary = {}   # each mallet arm's roller detent pawl (formlab.pawl), imported basis
 var wheel_home: Dictionary = {}  # the flywheel, hub and pulleys: node -> imported basis, unspun
 var strings: Dictionary = {}
 var hits: Dictionary = {}
@@ -80,6 +81,13 @@ func _ready() -> void:
 			if parts[aid][part]==null:
 				push_error("Missing GLB pivot "+aid+"__"+part); get_tree().quit(1); return
 		gear_home[aid]=parts[aid]["gear"].basis
+		# A mallet arm's pinion carries a roller detent pawl (formlab.pawl), posed at
+		# its pivot on the carriage and turned to ride the teeth.
+		if layout["arms"][aid].has("pawl"):
+			parts[aid]["pawl"]=model.find_child(aid+"__pawl",true,false)
+			if parts[aid]["pawl"]==null:
+				push_error("Missing GLB pivot "+aid+"__pawl"); get_tree().quit(1); return
+			pawl_home[aid]=parts[aid]["pawl"].basis
 	# The chamber's flywheel, its axle pulley and the belt pulley turn about z
 	# (formlab.layout.flywheel_plan); their imported bases are the unspun home.
 	for label in ["Chamber flywheel","Chamber hub","Chamber drive pulley","Chamber belt pulley"]:
@@ -343,6 +351,12 @@ func evaluate(t: float) -> void:
 		var flat := mount=="up" or mount=="down"
 		p["gear"].position=root+(Vector3(0,(.17 if mount=="up" else -.17),-.10) if flat else Vector3(0,0,(.195 if mount=="front" else -.195)))
 		p["gear"].basis=Basis(Vector3.UP if flat else Vector3(0,0,1),root.x/.12)*gear_home[aid]
+		# The roller detent pawl (formlab.pawl) hangs on its pivot off the carriage
+		# and turns about z so its roller rides the spun teeth: lifted (positive
+		# angle) on a tip, dropped into the gap between. The mirror of pawl.angle.
+		if p.has("pawl"):
+			p["pawl"].position=root+motion.v(cfg["pawl"]["pivot"])
+			p["pawl"].basis=Basis(Vector3(0,0,1),-ClockworkMotion.pawl_angle(root.x))*pawl_home[aid]
 	# The flywheel turns once a bar; the belt pulley turns with it, faster by the
 	# pulleys' radii, the same way round (an open belt).
 	var spin: float=flywheel_angle(t)
@@ -449,6 +463,16 @@ func _camera_at(t: float) -> void:
 		# mouths along the soundbox, looking down the feet line from the treble end.
 		var e: Vector3=motion.v(layout["eyelets"]["harp07"]["centre"]) if layout.has("eyelets") and layout["eyelets"].has("harp07") else Vector3(0,1.45,0)
 		target=e+Vector3(-.15,.02,0); pos=e+Vector3(.85,.55,-.9)
+	elif chosen==15:
+		# The ratchet's mechanism: the first mallet arm's pinion from behind and
+		# below, with the roller detent pawl under it (formlab.pawl) and the rack above.
+		var aid: String=""
+		for a in layout["arms"]:
+			if layout["arms"][a].has("pawl"): aid=a; break
+		if aid=="": aid=layout["arms"].keys()[0]
+		var pose := motion.pose(aid,t); var mount: String=str(layout["arms"][aid].get("pinion","back"))
+		var disc: Vector3=pose["root"]+Vector3(0,0,(.195 if mount=="front" else -.195))
+		target=disc+Vector3(.03,-.09,0); pos=target+Vector3(.55,-.25,-.85 if mount=="back" else .85)
 	camera.position=pos; camera.look_at(target)
 
 func _process(dt: float) -> void:
