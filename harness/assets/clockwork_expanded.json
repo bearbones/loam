@@ -1373,8 +1373,8 @@
             "side": -1,
             "bar_x": -0.29860000000000003,
             "outreach": 0.0,
-            "setback": 0.4,
-            "mast_z": -2.65,
+            "setback": 0.55,
+            "mast_z": -2.8,
             "x_col": -0.2356,
             "foot_y": -0.02,
             "height": 4.18,
@@ -3615,12 +3615,12 @@
         "time_s": 74.30833333333334
       },
       "harp_arm0/bells_arm1": {
-        "gap_m": 0.08470611960724413,
+        "gap_m": 0.02172921795013978,
         "parts": [
-          "pinion1",
+          "pinion_boss",
           "lower2"
         ],
-        "time_s": 68.575
+        "time_s": 68.58942857142857
       },
       "harp_arm0/blocks_arm0": {
         "gap_m": 1.3128677328877407,
@@ -3799,9 +3799,9 @@
         "time_s": 59.18333333333333
       },
       "bars_arm0/blocks_arm0": {
-        "gap_m": 2.004587050796849,
+        "gap_m": 1.8924998610677024,
         "parts": [
-          "pinion2",
+          "pinion_boss",
           "lower2"
         ],
         "time_s": 55.714285714285715
@@ -3823,10 +3823,10 @@
         "time_s": 62.36666666666667
       },
       "bars_arm1/blocks_arm0": {
-        "gap_m": 2.1549615749611575,
+        "gap_m": 2.1172291201130577,
         "parts": [
-          "pinion2",
-          "lower2"
+          "pinion_boss",
+          "elbowhead_web2"
         ],
         "time_s": 62.5
       },

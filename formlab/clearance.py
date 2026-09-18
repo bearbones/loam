@@ -56,7 +56,12 @@ CARRIAGE = dict(bar_dy=.075, bar_r=.024, bush_r=.045, bush_len=.16, bush_body_r=
 # never swing through (pinion_mount): `out` from the carriage plane for
 # front/back (axle along Z, rack above the disc), `up` above the rail axis
 # for up/down (vertical axle at CARRIAGE.axle_z, rack behind the disc).
-PINION = dict(out=.195, up=.17, r_pitch=.12, teeth=16, thickness=.07, r_tip=.13, r_hub=.1014)
+# boss_r / boss_h: the hub boss proud of the disc's outer face (build_clockwork
+# .gear, it turns with the disc); the axle runs on through it and is retained
+# by a washer, hex nut and split pin over the next `retain` (linkage.fastening,
+# cast with the carriage). drive_capsules reserves boss+fastening as one
+# capsule, `pinion_boss`, so the planner charges the depth.
+PINION = dict(out=.195, up=.17, r_pitch=.12, teeth=16, thickness=.07, r_tip=.13, r_hub=.1014, boss_r=.045, boss_h=.03, retain=.05)
 # mount -> disc-plane normal (y, z); preference order for ties
 MOUNTS = dict(back=(0., -1.), up=(1., 0.), down=(-1., 0.), front=(0., 1.))
 # The rail gantry (formlab.gantry builds it; the rail search screens it):
@@ -158,6 +163,8 @@ def drive_capsules(root, mount):
     for k, s in enumerate((-.11, -.07, 0., .07, .11)):
         half = max(np.sqrt(G['r_tip']**2-s*s)-h, .02)
         caps[f'pinion{k}'] = (centre-X*half+u*s, centre+X*half+u*s, h)
+    # the hub boss on the outer face and the axle's fastening beyond it
+    caps['pinion_boss'] = (centre+n*h, centre+n*(h+G['boss_h']+G['retain']), G['boss_r'])
     return caps
 
 MOUNT_COMFORT = .05    # a mount this clear of the links is taken in preference order
@@ -319,10 +326,11 @@ def arm_capsules(poses, o1, o2, layers, spec, mount='back'):
     caps['carriage_cheek'] = (root+cx-cy, root+cx+cy, C['cheek_z'])
     caps.update(drive_capsules(root, mount))
     carriage = [k for k in caps if k.startswith('carriage_') and k != 'carriage_web']
-    pinion = [f'pinion{k}' for k in range(5)]
+    pinion = [f'pinion{k}' for k in range(5)]+['pinion_boss']
     adjacent = {frozenset(p) for p in [
         # the carriage's parts meet the links at the shoulder pin; the pinion
-        # touches only its axle — a link swinging into the disc is a real hit
+        # (disc and hub boss) touches only its axle and its fastening — a link
+        # swinging into the disc is a real hit
         *[(a, b) for a in carriage for b in carriage+pinion+['carriage_web', 'upper', 'upper2'] if a != b],
         *[(a, b) for a in pinion for b in pinion if a != b],
         ('upper', 'lower'), ('upper', 'elbowhead_web1'), ('upper', 'elbowhead_web2'), ('upper', 'carriage_web'),

@@ -487,15 +487,22 @@ def carriage_body(o1, spec, mount='back', head=None):
     a = np.array([C['cheek_x'], -C['cheek_y'], 0.]); b = np.array([C['cheek_x'], C['cheek_y'], 0.])
     pieces.append(sweep(a+(b-a)*u, C['cheek_t']/2, C['cheek_z'], profile=rounded_rect(.35, 16)))
     ny, nz = MOUNTS[mount]; h = G['thickness']/2
+    # The axle runs on through the disc and the hub boss on its outer face
+    # (build_clockwork.gear casts the boss with the disc) to the washer, hex
+    # nut and split pin that retain the pinion — `fastening`, as on every
+    # pin of the arm — over PINION['retain'] past the boss.
+    tip = (G['out'] if nz else G['up'])+h+G['boss_h']; end = tip+G['retain']
     if nz:
-        z0, z1 = sorted((.03*nz, (G['out']-h+.02)*nz))
+        z0, z1 = sorted((.03*nz, end*nz))
         pieces.append(revolve([(0, z0), (C['axle_r'], z0), (C['axle_r'], z1), (0, z1)], Z, (0, 0, 0), 20))
+        pieces += fastening(tip, end, C['axle_r'], (0, 0, nz), (0, 0, 0))
     else:
         b0, b1 = C['bridge_y']; yc = ny*(b0+b1)/2
         a = np.array([0., yc, 0.]); b = np.array([0., yc, C['bridge_z']])
         pieces.append(sweep(a+(b-a)*u, (b1-b0)/2, C['bridge_x'], profile=rounded_rect(.3, 16)))
-        y0, y1 = sorted((ny*(b1-.01), ny*(G['up']-h+.02)))
+        y0, y1 = sorted((ny*(b1-.01), ny*end))
         pieces.append(revolve([(0, y0), (C['axle_r'], y0), (C['axle_r'], y1), (0, y1)], Y, (0, 0, C['axle_z']), 20))
+        pieces += fastening(tip, end, C['axle_r'], (0, ny, 0), (0, 0, C['axle_z']))
     return pieces
 
 def parallelogram_arm(l1, l2, o1, o2, spec=None, mount='back'):

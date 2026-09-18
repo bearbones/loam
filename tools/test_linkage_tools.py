@@ -256,6 +256,15 @@ for mount, (ny, nz) in MOUNTS.items():
           and (axle[0][:, 1].max() >= hub[1] if ny > 0 else axle[0][:, 1].min() <= hub[1] if ny < 0 else True)
           and (axle[0][:, 2].max() >= hub[2] if nz > 0 else axle[0][:, 2].min() <= hub[2] if nz < 0 else True),
           f'{mount}: the axle reaches into the pinion hub')
+    # ...and on through the disc and its hub boss to the washer, hex nut and
+    # split pin that retain the pinion (linkage.fastening), all inside the
+    # pinion_boss capsule drive_capsules reserves beyond the disc's outer face
+    n = np.array([0, ny, nz], float); h = PINION['thickness']/2
+    depth = lambda v: (v-centre)@n; rad = lambda v: np.linalg.norm((v-centre)-np.outer(depth(v), n), axis=1)
+    beyond = [v for v in V if depth(v).min() > h+PINION['boss_h']-1e-6]
+    inside = all((rad(v) <= PINION['boss_r']+1e-6).all() and (depth(v) <= h+PINION['boss_h']+PINION['retain']+1e-6).all() for v in beyond)
+    check(len(beyond) == 3 and inside and len(axle) == 1 and abs(depth(axle[0]).max()-(h+PINION['boss_h']+PINION['retain'])) < 1e-6,
+          f'{mount}: the axle runs through the boss to its washer, nut and split pin, all inside the pinion_boss capsule')
     if nz == 0:
         bridge = [v for v in V if abs(abs(v[:, 0]).max()-CARRIAGE['bridge_x']) < 1e-6 and np.ptp(v[:, 2]) > .1]
         b0, b1 = CARRIAGE['bridge_y']
@@ -353,6 +362,11 @@ check(solids_gap(straight[:1], st) < -GANTRY['margin'] and solids_gap(straight[:
       'solids_gap: a bar through the mast column is negative; a link beside it is clear')
 wide = stack_caps({'bar': still([2.0, 1.5, -1.5], [2.0, 1.5, -.5], .03)}, {'bar': (-.1, 0., .1)}); narrow = stack_caps({'bar': still([2.0, 1.5, -1.5], [2.0, 1.5, -.5], .03)}, {'bar': (0.,)})
 check(abs(solids_gap(straight[:1], narrow)-solids_gap(straight[:1], wide)-.1) < 1e-6, 'solids_gap: the pin span widens a box by the slide, as the planner does')
+# a diagonal knee brace's box overlaps a part's sweep box while the brace
+# itself passes well clear: the part must be MEASURED, not floored at 0
+brace = ('capsule', np.array([0., 0., 0.]), np.array([1., 1., 1.]), .02)
+stub = stack_caps({'axle': still([1., 0., 0.], [1., 0., .2], .03)}, {'axle': (0.,)})
+check(abs(solids_gap([brace], stub, margin=0.)-(np.sqrt(.56)-.05)) < 1e-3, 'solids_gap: a capsule solid is measured against a part whose sweep box it overlaps (a knee brace beside a boss)')
 P = np.array([[0., 0., 0.], [1., 0., 0.]]); Q = P+[0, 3, 0]
 through = (np.array([[-1., 1.5, 0.]]), np.array([[.5, 1.5, 0.]]), .03)      # crosses column 0, ends .5 short of column 1
 g = mast_gaps(P, Q, .1, {'bar': through})
@@ -372,8 +386,9 @@ def swing(d):
     d = np.asarray(d, float)/np.linalg.norm(d); e = np.array([[0, 2.5, -1.0]])+d*1.0
     return dict(t=np.zeros(1), root=np.array([[0, 2.5, -1.0]]), elbow=e, wrist=e+[[0, -1.0, .2]], tip=e+[[0, -1.2, .3]])
 poses = swing([0, -1, .05]); caps, adjacent = arm_capsules(poses, [0, 0, .11], [0, .10625, .02847], layers, DEFAULT_SPEC, 'up')
-check(all(k in caps for k in ('carriage_bush-', 'carriage_bush+', 'carriage_cheek', 'carriage_axle', 'carriage_bridge', 'pinion2')),
-      'capsules: bushings, cheek, axle, bridge and pinion chords')
+check(all(k in caps for k in ('carriage_bush-', 'carriage_bush+', 'carriage_cheek', 'carriage_axle', 'carriage_bridge', 'pinion2', 'pinion_boss'))
+      and abs(np.linalg.norm(caps['pinion_boss'][1]-caps['pinion_boss'][0], axis=-1).max()-PINION['boss_h']-PINION['retain']) < 1e-9 and caps['pinion_boss'][2] == PINION['boss_r'],
+      'capsules: bushings, cheek, axle, bridge, pinion chords and the boss with its fastening beyond the disc')
 check(caps['pinion2'][0][0][1] > 2.6 and frozenset(('pinion2', 'upper')) not in adjacent and frozenset(('pinion2', 'carriage_axle')) in adjacent,
       'an up-mounted pinion sits above the carriage, measured against the links, excused against its axle')
 m_down, g_down = pinion_mount(poses, [0, 0, .11], [0, .10625, .02847], layers, DEFAULT_SPEC)
@@ -385,6 +400,30 @@ m_front, g_front = pinion_mount(swing([0, -.3, -1.0]), [0, 0, .11], [0, .10625, 
 check(m_front != 'back' and g_front > .05, f'pinion_mount: a link swinging back -> {m_front} ({g_front*1000:.0f} mm)')
 check(pinion_mount(swing([0, -.3, -1.0]), [0, 0, .11], [0, .10625, .02847], layers, DEFAULT_SPEC, ['back'])[1] < 0,
       'pinion_mount: forcing the mount the link swings through reports the hit')
+
+# the built pinions carry the boss on their outer face (build_clockwork.gear,
+# cast with the disc so it turns): the gear mesh reaches boss_h past the disc
+# on the mount's side — the side away from the carriage — and no further
+# than the disc on the other, for the tilted (front/back) and flat (up/down)
+# builds alike
+import json
+sys.path.insert(0, str(Path(__file__).resolve().parent)); from test_flywheel import glb_vertices
+assets = Path(__file__).resolve().parents[1]/'harness/assets'
+for asset in ('clockwork', 'clockwork_expanded'):
+    if not (assets/f'{asset}.glb').exists(): continue
+    layout = json.loads((assets/f'{asset}.json').read_text())
+    for aid, cfg in layout['arms'].items():
+        # the exported node carries its home pose, so measure the mesh about
+        # itself: its extent along n is disc + boss; the slab at the +n end is
+        # boss-sized (a boss on the wrong side would put the disc's rim there)
+        # and the slab at the -n end is the full disc
+        ny, nz = MOUNTS[cfg.get('pinion', 'back')]; n = np.array([0, ny, nz], float)
+        V = glb_vertices(assets/f'{asset}.glb', aid+'__gear'); d = V@n
+        top = V[d > d.max()-PINION['boss_h']+.002]; ctr = top.mean(0)
+        rad = lambda W: np.linalg.norm((W-ctr)-np.outer((W-ctr)@n, n), axis=1)
+        check(abs(d.max()-d.min()-PINION['thickness']-PINION['boss_h']) < .003 and rad(top).max() < PINION['boss_r']+.003
+              and rad(V[d < d.min()+.005]).max() > PINION['r_tip']-.01,
+              f'{asset} {aid}: the built pinion carries its hub boss {PINION["boss_h"]*1000:.0f} mm proud of its outer ({cfg.get("pinion", "back")}) face')
 
 if failures: raise SystemExit('LINKAGE TOOLS FAIL: '+'; '.join(failures))
 print('LINKAGE TOOLS: PASS')

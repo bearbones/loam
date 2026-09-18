@@ -397,6 +397,21 @@ dimensions in `clearance.CARRIAGE` and `clearance.PINION`:
   from the bushing (the bars are in the way of a vertical axle at the
   carriage's centre) carrying the axle 100 mm behind the bars.
 
+The pinion is **retained** the way every pin on the arm is. Its outer face
+— the side away from the carriage, `clearance.MOUNTS`' normal — carries a
+**hub boss** (`PINION['boss_r']` 45 mm, `boss_h` 30 mm proud; cast with the
+disc in `build_clockwork.gear`, so it turns), the axle runs on through the
+disc and the boss, and over the next 50 mm (`retain`) a washer, a hex nut
+and a split pin (`linkage.fastening`, cast with the carriage, so they stand
+still while the disc turns) hold it on. `drive_capsules` reserves boss and
+fastening as one capsule, `pinion_boss`, so the mount choice, the rail
+search and every clearance ruler charge the depth. `test_linkage_tools`
+holds, per mount, the three fastening pieces beyond the boss inside that
+capsule and the axle reaching the pin's tip, and — on each built asset —
+the gear mesh standing `boss_h` proud of its outer face and no further than
+the disc on the inner one, which is what pins the tilted-versus-flat build
+frame's sign for the up/down mounts.
+
 The **pinion** (build_clockwork's 16-tooth disc, tip radius 130 mm, pitch
 radius 120 mm) now rolls on a **rack**: a toothed brass strip as long as
 the rail's bars, in the disc's plane — above an upright disc, behind a flat

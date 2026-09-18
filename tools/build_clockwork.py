@@ -116,7 +116,7 @@ def spoke(n,p,S,i,m,count=14):
             a=j*count+k; b=j*count+(k+1)%count; faces.append((a,b,b+count,a+count))
     faces.append([k for k in range(count)][::-1]); faces.append([(len(us)-1)*count+k for k in range(count)])
     return pydata(n,verts,faces,m)
-def gear(n,p,r_tip,teeth=16,spokes=None):
+def gear(n,p,r_tip,teeth=16,spokes=None,boss=None):
     # One joined mesh: the hub disc out to the teeth's roots and `teeth` involute
     # teeth from formlab.gear reaching r_tip — the pinion's own (16, which the
     # rack and the pawl are cut to) or the flywheel's ring gear (52, the same
@@ -130,6 +130,8 @@ def gear(n,p,r_tip,teeth=16,spokes=None):
         for i in range(spokes['count']): spoke(n+' spoke',p,spokes,i,brass)
     else:
         o=cyl(n,p,prof['r_hub'],.07,brass); o.rotation_euler=(math.pi/2,0,0)
+    if boss:   # a pinion's hub boss on its outer face, (r, h, side along the disc's axis); the axle's nut sits beyond it (linkage.carriage_body)
+        br,bh,sgn=boss; b=cyl(n+' boss',(p[0],p[1],p[2]+sgn*(.035+bh/2)),br,bh,brass); b.rotation_euler=(math.pi/2,0,0)
     for i in range(teeth):
         tooth(n+' tooth',p,math.tau*i/teeth,.07,brass,poly)
     bpy.ops.object.select_all(action='DESELECT')
@@ -332,7 +334,11 @@ for aid,cfg in manifest['arms'].items():
     # Independent rails explain overlap in the score's reach windows; the guide
     # bars themselves are built below, once build_forms.py has planned the rail
     # heads they end inside (see docs/articulated-arms.md).
-    g=gear(aid+'__gear',(0,0,0),.13); manifest['gears'].append(g.name)
+    # The pinion's hub boss stands on its outer face — the side away from the carriage
+    # (clearance.MOUNTS' normal): in the tilted build frame that is the disc's Godot z
+    # side for front/back, which the un-tilt below turns into y for up/down.
+    ny,nz=arm_clearance.MOUNTS[cfg.get('pinion','back')]; P=arm_clearance.PINION
+    g=gear(aid+'__gear',(0,0,0),.13,boss=(P['boss_r'],P['boss_h'],nz if nz else ny)); manifest['gears'].append(g.name)
     # A pinion above or below the carriage lies flat (its axle vertical): the disc is built
     # upright in the Godot x-y plane, so undo the cylinder's tilt for those mounts.
     if cfg.get('pinion','back') in ('up','down'): g.rotation_euler=(0,0,0)

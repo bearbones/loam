@@ -70,7 +70,8 @@ func check_scene() -> void:
 				var box: AABB=gear.global_transform*gear.mesh.get_aabb()
 				var thin: float=box.size.y if (mount=="up" or mount=="down") else box.size.z
 				var wide: float=box.size.x
-				if thin>.08 or wide<.25: failures.append("pinion not lying in its mount's plane %s (%.3f thin, %.3f wide)" % [aid,thin,wide])
+				# the disc (70 mm) plus the hub boss cast on its outer face (30 mm, formlab.clearance.PINION)
+				if thin>.11 or wide<.25: failures.append("pinion not lying in its mount's plane %s (%.3f thin, %.3f wide)" % [aid,thin,wide])
 			# A mallet arm's roller detent pawl (formlab.pawl) hangs on its pivot off the
 			# carriage and its roller rides the pinion's teeth: at every sampled moment
 			# the roller's centre is exactly its radius from the toothed disc as spun.

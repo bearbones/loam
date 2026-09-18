@@ -1140,14 +1140,14 @@
           {
             "side": -1,
             "bar_x": -0.7338,
-            "outreach": 0.35,
-            "setback": -0.85,
-            "mast_z": -0.9500000000000001,
-            "x_col": -1.0208,
+            "outreach": 0.0,
+            "setback": 1.2,
+            "mast_z": -3.0,
+            "x_col": -0.6708000000000001,
             "foot_y": -0.02,
             "height": 4.18,
-            "gap": 0.034399999999999695,
-            "worst": "arm harp_arm0 lower2"
+            "gap": 0.02540000000000031,
+            "worst": "gantry harp_arm1 rack"
           },
           {
             "side": 1,

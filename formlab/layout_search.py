@@ -233,11 +233,16 @@ def solids_gap(solids, stack, margin=GANTRY['margin'], samples=24, chunk=12, far
                 d = np.maximum(np.maximum(lo[i:i+chunk, None, None, :]-pts, pts-hi[i:i+chunk, None, None, :]), 0)
                 row[rows] = np.linalg.norm(d, axis=-1).min(axis=(1, 2))-stack['r'][rows]
         else:
-            P, Q, r = sol[1:]; keep = set(near.tolist())
+            # a near part is MEASURED (the closest of its slides), replacing its
+            # box bound — that bound is a floor, so min-ing against it would
+            # hand back 0 for any sweep box the solid's box overlaps, however
+            # far apart a diagonal brace and a part really are
+            P, Q, r = sol[1:]; keep = set(near.tolist()); measured = {}
             for i, dx in stack['rows']:
                 if i not in keep: continue
                 d = segment_distance(P[None], Q[None], stack['A'][i]+[dx, 0, 0], stack['B'][i]+[dx, 0, 0])   # (T,)
-                row[i] = min(row[i], float(d.min()-r-stack['r'][i]))
+                measured[i] = min(measured.get(i, 1e9), float(d.min()-r-stack['r'][i]))
+            for i, g in measured.items(): row[i] = g
         k = int(np.argmin(row))
         if row[k] < best[0]: best = (float(row[k]), stack['names'][k])
     return (best[0]-margin, best[1]) if who else best[0]-margin

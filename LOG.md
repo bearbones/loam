@@ -73,6 +73,40 @@ The clip: `render/clockwork-review/hammer-blow.mp4`, one blow captured at
 search's inputs (`clearance.py` is in `GEOMETRY_SOURCES`), so this is one
 more caller for the single full replan `docs/plans/rail-cache-key.md` holds.
 
+## 2026-09-18 — CLOCKWORK the pinion is retained on its axle
+
+Seen from the rack side, every pinion was a blank brass disc: the axle
+stopped 2 cm inside it and nothing held it on. It is now retained the way
+every pin on the arm is. `build_clockwork.gear` casts a **hub boss** on the
+disc's outer face (`PINION['boss_r']` 45 mm, `boss_h` 30 mm; the side away
+from the carriage, `MOUNTS`' normal — in the tilted build frame that is the
+Godot z side, which the up/down un-tilt turns into y), `linkage.carriage_body`
+runs the axle on through disc and boss, and `fastening` — the washer, hex
+nut and split pin already on every knuckle pin — sits over the next 50 mm
+(`retain`), cast with the carriage so it stands still while the disc turns.
+`clearance.drive_capsules` reserves boss and fastening as `pinion_boss`, so
+`pinion_mount`, the rail search and every clearance ruler charge the depth.
+`tools/test_linkage_tools.py` holds, per mount, the three fastening pieces
+beyond the boss inside that capsule and the axle reaching the pin's tip,
+and on each built asset the gear mesh standing `boss_h` proud of its outer
+face and no further than the disc on the inner — the check that pins the
+up/down builds' sign (the exported gear node carries its home pose, so the
+mesh is measured about itself). `test_performance.gd`'s "pinion lies in its
+mount's plane" bound grows from 80 to 110 mm for the boss; `pinion_boss`
+joins the pinion group in `arm_capsules`' adjacency so the boss may touch
+the disc it is cast on.
+
+The new capsule flushed out a bug in `layout_search.solids_gap`: a
+CAPSULE solid (the bracket's diagonal knee brace) was min-ed against its
+own box lower bound, so any part whose sweep box the brace's box overlapped
+read a gap of 0 however far apart they really were — the brace was, in
+effect, its bounding box. bars_arm1's set-back bracket "touched" bars_arm0's
+boss that way while the brace passes 195 mm clear of the whole arm. Near
+parts are now measured (closest slide) in place of the bound; a
+test_linkage_tools check pins it. solids_gap's source is in the rail cache
+key, as are clearance.py and linkage.py: assets rebuilt with `--rails=keep`
+(still `stale_rails`).
+
 ## 2026-09-18 — CLOCKWORK the carriage rides its bars in flanged bushes
 
 With the rail heads ending the guide bars in flanged, bolted bushes, the
