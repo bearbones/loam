@@ -54,3 +54,5 @@ drives and why each arm has the one it has.
 **Notes:** keep the rack for every stepped arm — the pawl
 (`formlab/pawl.py`) depends on the pinion. If the rail replan moves a rail,
 re-run every ruler and re-read the clearance report before committing.
+
+**Claimed 2026-09-18 03:02 PDT by session 01UgkC53ynYyk7onQUi3uc2L (Claude Fable 5.1):** staged — rails kept (`--rails=keep`) until the one full replan; stage A is the screw, its bearings, the nut and the posing for the servo arms.
