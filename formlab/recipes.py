@@ -3,7 +3,7 @@ import numpy as np
 from scipy.interpolate import PchipInterpolator
 from .sweep import sample_curve,sweep,validate_mesh
 from .joints import rounded_loop,section_field,smoothstep
-from .layout import RAIL,END,BOARD,NECK
+from .layout import RAIL,END,BOARD,NECK,EYELET
 
 STYLES=('carved','ribbed','shell')
 def handrail_profile():
@@ -57,11 +57,12 @@ def harp_frame(elements,style='carved',section=None):
     # Functional ferrules terminate inside the receiving frame. They are not
     # decorative moulding ends and remain individually closed components.
     # Only at the string's foot: its upper end runs on past the neck's action to
-    # a bridge pin and its tuning pin (layout.neck_plan), as a harp's does.
+    # a bridge pin and its tuning pin (layout.neck_plan), as a harp's does. The
+    # ferrule's mouth wears the eyelet the string leaves by (layout.eyelet_plan).
     for s in elements:
-        ep=np.array(s['a']); dest=ep+np.array([.035,-.13,.20])
+        ep=np.array(s['a']); dest=ep+np.array(EYELET['barrel'])
         path=sample_curve([ep,ep+(dest-ep)*.5,dest],10)
-        meshes.append(sweep(path,np.linspace(.024,.04,len(path)),.027,sides=12))
+        meshes.append(sweep(path,np.linspace(*EYELET['ferrule'],len(path)),.027,sides=12))
     return meshes
 
 def soundboard(elements):

@@ -160,6 +160,22 @@ plate, the pulleys in one plane, the bands tangent, and the assembly clear of
 every arm sweep, rail and obstacle; `dev/test_performance.gd` checks the wheel
 turns a quarter turn in a quarter bar about z and the belt pulley by the ratio.
 
+## The strings leave the soundbox through eyelets
+
+A harp string does not tie to anything on the outside of the soundboard: it
+comes up through a hole, and the hole wears a brass eyelet so the wire does not
+cut the wood. Here each plucked string's foot is the mouth of a ferrule the
+recipe runs down into the soundbox moulding (`recipes.harp_frame`), and that
+mouth now wears the eyelet (`formlab.layout.eyelet_plan`): a flange disc
+covering the mouth, its axis down the ferrule's barrel, and a rounded lip
+standing proud of the flange round the hole, sized so every wire gauge the
+scene draws clears it. The eyelet, the recipe's ferrule and the ruler share one
+table (`EYELET`) for the barrel's offset and gauge. `tools/test_eyelets.py`
+pins the plan against each string's foot, the lip inside the flange's rim and
+proud of it, the hole against the wire, neighbouring eyelets against each
+other and every eyelet against every arm's sweep; `check_form_clearance` folds
+the eyelets into the reference hardware the arms are measured against.
+
 ## Space accounting
 
 The frames are built after the rail search fixes the rails and before the
@@ -187,6 +203,7 @@ python3 tools/test_bench.py            # the benches and their promise
 python3 tools/test_harp_base.py        # the harp's pedal base and the rake's plinth
 python3 tools/test_neck.py             # the necks' plates, discs, bridge and tuning pins, dead lengths
 python3 tools/test_flywheel.py         # the flywheel's bearings, pedestals, belt drive and clearance
+python3 tools/test_eyelets.py          # the eyelets the plucked strings leave their soundboxes by
 python3 tools/build_forms.py           # packs the frame; gantries measured against it
 blender -b -t 2 -P tools/check_form_clearance.py   # tools vs frames and stand
 ```

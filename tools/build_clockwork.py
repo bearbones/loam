@@ -14,7 +14,7 @@ out = ROOT/'harness/assets'
 sys.path.insert(0,str(ROOT/'tools'))
 from blender_forms import make_form
 sys.path.insert(0,str(ROOT/'formlab'))
-from layout import string_endpoints,bar_frame_plan,board_z,harp_base_plan,bench_plan,bench_elements,flywheel_plan,BAR,BENCH,BELL,BOARD,NECK,FLYWHEEL
+from layout import string_endpoints,bar_frame_plan,board_z,harp_base_plan,bench_plan,bench_elements,flywheel_plan,eyelet_plan,BAR,BENCH,BELL,BOARD,NECK,FLYWHEEL,EYELET
 # formlab.rig / clearance / layout_search are numpy-only (no SciPy) so they run here too.
 import rig as arm_rig, clearance as arm_clearance, layout_search
 # Pure Python preparation keeps SciPy and structural logic out of Blender's runtime.
@@ -118,10 +118,16 @@ for m in score['instrument']['mechanisms']:
                 if m['material']=='wood':
                     box(s['id']+' slit',(sx,sy+.001,sz+.07),(.19,.006,.018),black,.002)
         else:
-            # Anchored at the foot only: the top runs on to the neck's action, bridge
+            # Anchored at the foot only, where the string leaves the soundbox through a
+            # flanged brass eyelet on the mouth of the recipe's ferrule
+            # (formlab.layout.eyelet_plan); the top runs on to the neck's action, bridge
             # pin and tuning pin (formlab.layout.neck_plan), placed once the forms are built.
-            ball(s['id']+' anchor',a,.035,brass)
-            beam(s['id']+' pin',a,[a[0],a[1],a[2]-.1],.022,steel)
+            ey=eyelet_plan(a); manifest.setdefault('eyelets',{})[s['id']]=ey
+            fa,fb=Vector(ey['flange']['a']),Vector(ey['flange']['b'])
+            bpy.ops.mesh.primitive_cylinder_add(vertices=32,radius=ey['flange']['r'],depth=(fb-fa).length,location=vec((fa+fb)/2))
+            o=bpy.context.object; o.rotation_mode='QUATERNION'; o.rotation_quaternion=vec(ey['axis']).to_track_quat('Z','Y'); finish(o,s['id']+' eyelet flange',brass,.002)
+            bpy.ops.mesh.primitive_torus_add(major_radius=ey['lip']['r'],minor_radius=ey['lip']['t']/2,major_segments=32,minor_segments=10,location=vec(ey['lip']['centre']))
+            o=bpy.context.object; o.rotation_mode='QUATERNION'; o.rotation_quaternion=vec(ey['axis']).to_track_quat('Z','Y'); finish(o,s['id']+' eyelet lip',brass)
         ends.append((a,b))
         manifest['strings'][s['id']]={'a':a,'b':b,'mid':mid,'struck':struck,'midi':s['midi'],'pick':s['pick_default']}
     if framed:
@@ -286,7 +292,7 @@ for aid,cfg in manifest['arms'].items():
 # Include the added reference hardware in the offline clearance mesh.
 hardware_vertices=[];hardware_faces=[]
 for obj in list(bpy.data.objects):
-    if obj.type!='MESH' or not (obj.name.startswith(('Harp ','Rake ')) or any(tag in obj.name for tag in (' action disc',' fork pin',' bridge pin',' tuning pin',' tuning key',' post',' pad '))): continue
+    if obj.type!='MESH' or not (obj.name.startswith(('Harp ','Rake ')) or any(tag in obj.name for tag in (' action disc',' fork pin',' bridge pin',' tuning pin',' tuning key',' eyelet',' post',' pad '))): continue
     obj.data.calc_loop_triangles();offset=len(hardware_vertices)
     for v in obj.data.vertices:
         p=obj.matrix_world@v.co;hardware_vertices.append([p.x,p.z,-p.y])

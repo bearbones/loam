@@ -398,6 +398,11 @@ func _camera_at(t: float) -> void:
 		# The flywheel drive: wheel, plummer blocks, pedestals, the belt to the cabinet's end.
 		var f: Vector3=motion.v(layout["flywheel"]["centre"]) if layout.has("flywheel") else Vector3(-2.4,.53,-1.5)
 		target=f+Vector3(.2,-.05,-.1); pos=f+Vector3(-.75,.55,1.75)
+	elif chosen==14:
+		# The harp's string feet from the string side: the eyelets on the ferrule
+		# mouths along the soundbox, looking down the feet line from the treble end.
+		var e: Vector3=motion.v(layout["eyelets"]["harp07"]["centre"]) if layout.has("eyelets") and layout["eyelets"].has("harp07") else Vector3(0,1.45,0)
+		target=e+Vector3(-.15,.02,0); pos=e+Vector3(.85,.55,-.9)
 	camera.position=pos; camera.look_at(target)
 
 func _process(dt: float) -> void:

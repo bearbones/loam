@@ -403,6 +403,11 @@ albedo so a red C sings red. `performance.gd` sets it per frame beside
 `disp`/`envelope`. `--view=10` frames the most recently plucked string
 from 45° off its pluck axis to judge all of this; it latches for 1.5 s.
 
+At its foot a plucked string leaves the soundbox through a flanged brass
+eyelet on the mouth of its ferrule (`eyelets` on the manifest, from
+`formlab.layout.eyelet_plan`; see [instrument frames](instrument-frames.md));
+the wire tube simply starts at the foot inside the eyelet's hole.
+
 A harp or rake string does not stop at the top of its speaking length. The
 manifest carries the two turning points of its dead length (`neck.bridge`,
 `neck.pin`, from `formlab.layout.neck_plan`), and `_make_dead_length` draws

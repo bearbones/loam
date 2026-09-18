@@ -1,3 +1,26 @@
+## 2026-09-17 — CLOCKWORK the plucked strings leave their soundboxes through brass eyelets
+
+Each harp and rake string used to end in a brass ball sitting on the
+soundbox — the one anchor in the scene a real instrument never shows, since
+a harp string's knot is inside the box and the wire comes up through an
+eyelet. The ball and its pin are gone: the recipe's ferrule (the brass sleeve
+that runs the string's foot down into the moulding) now wears a flanged
+eyelet on its mouth — `formlab.layout.eyelet_plan`: a flange disc down the
+barrel and a rounded lip standing proud of it round the hole, sized so every
+wire gauge the scene draws clears it. The ferrule and the eyelet share one
+table (`EYELET`) for the barrel's offset and gauge, so the recipe, the builder
+and the ruler cannot drift apart. `build_clockwork.py` builds both pieces and
+records the plans on the manifest (`eyelets`, a top-level key, so no rail
+re-planned) and folds them into the reference hardware the arms are measured
+against. `tools/test_eyelets.py` pins each plan to its foot, the lip inside
+the flange and proud of it, the hole against the wire, neighbouring eyelets
+against each other and every eyelet against every arm's sweep (20 mm — the
+score plucks the shortest treble strings 0.18 of their length above the
+foot, so the plectrum works a hand's breadth from the eyelet). `--view=14`
+looks down the harp's feet from the string side. Known limit: at the treble
+end the ferrule mouths lie closer to the moulding, so those eyelets sit
+nearly flush rather than standing on a collar.
+
 ## 2026-09-17 — CLOCKWORK the flywheel on plummer blocks, belt-driven, turning a bar a turn
 
 The brass flywheel beside the harp stood on its rim with no axle — the last

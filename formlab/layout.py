@@ -245,3 +245,17 @@ def bench_plan(elements,floor=-.01):
             mounts.append(dict(id=b['id'],kind='pads',x=b['x'],z=[n[0][2],n[1][2]],y0=bearer_top,y1=s['underside']))
     return dict(rails=rails,rail_y=float(rail_y),rail_top=float(rail_top),bearers=bearers,ends=ends,stretcher=stretcher,board=board,
                 mounts=mounts,x=[x0,x1],z=zm,top=float(bearer_top),underside=float(under))
+
+# A harp string leaves its soundbox through a brass eyelet: a flanged ring
+# seated on the mouth of the ferrule that carries the string down into the
+# moulding. The ferrule itself is the recipe's (recipes.harp_frame); its barrel
+# offset and gauge live here so the eyelet, the recipe and the ruler agree.
+EYELET=dict(barrel=(.035,-.13,.20), ferrule=(.024,.04), flange_r=.034, flange_h=.005, lip_r=.020, lip_t=.008)
+def eyelet_plan(a):
+    """The eyelet at string foot a: its axis u runs down the ferrule's barrel; a
+    flange disc covers the mouth from a down the barrel, and a rounded lip
+    stands proud of it round the hole the string leaves by."""
+    d=EYELET; a=[float(v) for v in a]; L=math.sqrt(sum(v*v for v in d['barrel'])); u=[v/L for v in d['barrel']]
+    flange=dict(a=a,b=[a[i]+u[i]*d['flange_h'] for i in range(3)],r=d['flange_r'])
+    lip=dict(centre=[a[i]-u[i]*d['lip_t']/2 for i in range(3)],r=d['lip_r'],t=d['lip_t'],hole=d['lip_r']-d['lip_t']/2)
+    return dict(centre=a,axis=u,flange=flange,lip=lip)
