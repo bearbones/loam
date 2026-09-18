@@ -22,6 +22,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]; sys.path.insert(0, str(ROOT))
 from formlab import gantry as G
 from formlab import clearance as C
+from formlab import gear as T
 from formlab.rig import Rig
 from formlab.linkage import parallelogram_arm, check_pieces
 from formlab.clearance import segment_distance
@@ -80,9 +81,16 @@ def run(layout_path, score_path):
     check(worst[0] >= G.MARGIN, f'arms clear other rails\' racks by {worst[0]:.3f} m ({worst[1]})')
     check(own[0] >= G.MARGIN, f'carriages clear their own racks by {own[0]:.3f} m ({own[1]})')
     cfg0 = next(iter(layout['arms'].values())); R = G.rack_geometry(cfg0); P = C.PINION
-    check(R['s_tip'] > P['r_hub'] and R['s_root'] > P['r_tip'] and R['pitch']-P['r_tip']*.22-2*G.RACK_GAP > .008
+    tip_land = 2*T.R_TIP*np.sin(T.half_angle(T.R_TIP)); rack_land = 2*float(T.rack_half(R['s_tip']))
+    check(R['s_tip'] > P['r_hub'] and R['s_root'] > P['r_tip'] and tip_land > .008 and rack_land > .008 and 2*T.BEVEL < min(tip_land, rack_land)
           and P['r_tip']+G.MARGIN <= G.RAIL_OVER+G.HEAD_INSET,
-          f'rack teeth pitched to the pinion: pitch {R["pitch"]*1000:.1f} mm, clearances {G.RACK_GAP*1000:.0f} mm; the disc clears the heads')
+          f'rack teeth pitched to the pinion: pitch {R["pitch"]*1000:.1f} mm, tip lands {tip_land*1000:.1f} / {rack_land*1000:.1f} mm past their corners, clearances {G.RACK_GAP*1000:.0f} mm; the disc clears the heads')
+    # 2c. the teeth mesh: rolled through a pitch, no pinion tooth overlaps a rack
+    #     tooth (formlab.gear.mesh_gap, a separating-axis test between the polygons)
+    gaps = [T.mesh_gap(x, R['s_tip'], R['s_root']) for x in np.linspace(0, R['pitch'], 16, endpoint=False)]
+    worst = min(gaps, key=lambda g: g[0]); k_at = int(np.argmin([g[0] for g in gaps]))
+    check(worst[0] > .001, f'pinion and rack teeth roll through a pitch without touching: least {worst[0]*1000:.1f} mm '
+          f'(rack tooth {worst[1][0]} vs pinion tooth {worst[1][1]} at x = {k_at}/16 of a pitch)')
     # 3. the recorded placement is what the search finds, with its margins
     recipe = json.loads((ROOT/'render/form-study/recipe.json').read_text())
     # the recipe is the last build's (the expanded rig's, with its benches): keep the forms of this layout's mechanisms

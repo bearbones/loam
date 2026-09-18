@@ -51,13 +51,16 @@ def box_gap(P, Q, r, lo, hi, samples=33):
 def kinematics():
     pitch = 2*np.pi*C.PINION['r_pitch']/C.PINION['teeth']
     xs = np.arange(-3*pitch, 3*pitch, .0001); al = W.angle(xs); r = W.nose_radius(xs)
-    P = np.array([W.PAWL['lever'], -(C.PINION['r_tip']+W.PAWL['drop']+W.PAWL['finger'])]); n = W.nose_at(al)
+    P = W._pivot_from_centre(); n = W.nose_at(al)
     touch = W.tooth_distance(P[0]+n[:, 0], P[1]+n[:, 1], xs)-W.PAWL['nose_r']
     check(abs(touch).max() < 1e-9, f'the roller touches the teeth at every rail position (worst {abs(touch).max():.1e} m)')
     # a local minimum below the half-way radius (riding a tip's flat has its own shallow one)
     dips = int(np.sum((r[1:-1] < r[:-2]) & (r[1:-1] <= r[2:]) & (r[1:-1] < (r.max()+r.min())/2)))
-    check(dips == 6 and r.max()-r.min() > .008, f'one dip a tooth ({dips} over 6 teeth), {1000*(r.max()-r.min()):.1f} mm deep')
+    check(dips == 6 and r.max()-r.min() > .012, f'one dip a tooth ({dips} over 6 teeth), {1000*(r.max()-r.min()):.1f} mm deep')
     check(np.degrees(np.abs(np.diff(al)).max()) < .5, f'the pawl moves without a jump (worst {np.degrees(np.abs(np.diff(al)).max()):.2f} deg per 0.1 mm)')
+    # a roller whose centre sinks inside the tip circle is met by the next corner
+    # below its centre and, free only to move on its arc, is driven deeper: a wedge
+    check(r.min() >= C.PINION['r_tip'], f'the roller never sinks below the tip circle (lowest centre {r.min()*1000:.1f} mm from the axle, tips at {C.PINION["r_tip"]*1000:.0f})')
     # the body vs the teeth, at every rail position: lever, yoke, tongues
     caps = W.capsules(np.c_[xs, np.zeros_like(xs), np.zeros_like(xs)], 'back'); worst = (1e9, '')
     centre = C.pinion_centre('back')

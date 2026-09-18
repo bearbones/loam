@@ -31,12 +31,14 @@ ruler ``tools/test_gantry.py`` re-derives the placement from a manifest.
 import numpy as np
 try:
     from .sweep import sweep, validate_mesh
+    from .gear import rack_half
     from .linkage import rounded_rect, revolve
     from .clearance import (arm_capsules, default_layers, DEFAULT_SPEC, segment_distance, PINION, MOUNTS, pinion_centre, rack_direction,
                             GANTRY, gantry_candidates, foot_level)
     from .layout_search import box_gap, scene_boxes, pin_shifts, stack_caps, solids_gap
 except ImportError:   # bare import (formlab/ on sys.path)
     from sweep import sweep, validate_mesh
+    from gear import rack_half
     from linkage import rounded_rect, revolve
     from clearance import (arm_capsules, default_layers, DEFAULT_SPEC, segment_distance, PINION, MOUNTS, pinion_centre, rack_direction,
                            GANTRY, gantry_candidates, foot_level)
@@ -144,7 +146,7 @@ def rail_bars(cfg):
     return [(np.array([xa, ry+dy, rz]), np.array([xb, ry+dy, rz]), BAR_R) for dy in (-BAR_DY, BAR_DY)]
 
 
-RACK_GAP = .004        # tooth tip to hub, tooth root to the pinion's tips, tooth flank to tooth flank
+RACK_GAP = .004        # rack tooth tip to hub, rack tooth root to the pinion's tips (the flanks' clearance is formlab.gear.BACKLASH)
 
 
 def rack_geometry(cfg):
@@ -170,17 +172,19 @@ def rack(cfg):
     """Rack pieces (brass): the strip, its teeth, and a stub from each rail
     head carrying it — off the head's face for a front/back disc, an L up
     (or down) from the head's top (bottom) and back for an up/down disc.
-    Pitched to formlab.clearance.PINION."""
-    R = rack_geometry(cfg); G = PINION; ny, nz = R['normal']; c = R['centre']; u = R['u']; h = R['h']
+    Pitched to formlab.clearance.PINION; the teeth are the trapezoids that
+    mesh with the pinion's involute (formlab.gear.rack_half: straight flanks
+    at the pressure angle, the tooth widest at its root on the strip)."""
+    R = rack_geometry(cfg); ny, nz = R['normal']; c = R['centre']; u = R['u']; h = R['h']
     s_mid = (R['s_root']+R['s_top'])/2; w_strip = (R['s_top']-R['s_root'])/2
-    tooth_w = R['pitch']-G['r_tip']*.22-2*RACK_GAP        # the pinion's tooth is .22 r_tip wide
     radial = nz != 0                                       # radial axis is Y (front/back) or Z (up/down)
     a = c+u*s_mid; b = c+u*s_mid; a[0] = R['x_a']; b[0] = R['x_b']
     pieces = [prism(a, b, w_strip if radial else h, h if radial else w_strip, .3, 3)]
     k0 = int(np.ceil((R['x_a']+.02)/R['pitch']-.5)); k1 = int(np.floor((R['x_b']-.02)/R['pitch']-.5))
+    half = rack_half(np.linspace(R['s_root']+.006, R['s_tip'], 3))   # root (in the strip) to tip, along the prism's three rings
     for k in range(k0, k1+1):
         x = (k+.5)*R['pitch']; a = c+u*(R['s_root']+.006); b = c+u*R['s_tip']; a[0] = b[0] = x
-        pieces.append(prism(a, b, tooth_w/2 if radial else h-.006, h-.006 if radial else tooth_w/2, .3, 3))
+        pieces.append(prism(a, b, half if radial else h-.006, h-.006 if radial else half, .3, 3))
     ry = cfg['root_y']; rz = cfg['root_z']
     for x in _rack_stub_x(R):
         if radial:

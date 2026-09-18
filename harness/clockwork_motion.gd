@@ -378,30 +378,76 @@ static func link_basis(a: Vector3, b: Vector3) -> Basis:
 ## it until it touches. Constants mirror formlab.pawl.PAWL / TOOTH and
 ## formlab.clearance.PINION; tools/test_pawl.py holds the two together.
 const PAWL_LEVER := .10
-const PAWL_DROP := .02
+const PAWL_TILT := -.25                  # the pawl's frame leans this much at rest (formlab.pawl.PAWL['tilt'])
+const PAWL_DROP := .023
 const PAWL_FINGER := .03
-const PAWL_NOSE_R := .015
+const PAWL_NOSE_R := .018
 const PINION_R_TIP := .13
 const PINION_R_HUB := .1014
 const PINION_R_PITCH := .12
-const TOOTH_CENTRE := .13*.86
-const TOOTH_HALF_R := .13*.14
-const TOOTH_HALF_T := .13*.11
-const TOOTH_BEVEL := .008
+# the involute tooth (formlab.gear): 16 teeth, 20° pressure angle, 3 mm backlash, 4 mm corners
+const TOOTH_PRESSURE := 20.0*PI/180.0
+const TOOTH_BACKLASH := .003
+const TOOTH_BEVEL := .004
+const TOOTH_ROOT := PINION_R_HUB-.003
+const TOOTH_FLANK_SAMPLES := 6
+static var _tooth: PackedFloat64Array = PackedFloat64Array()   # the tooth's polygon inset by its bevel, (u, v) pairs, counter-clockwise
+
+static func _inv(a: float) -> float: return tan(a)-a
+
+## formlab.gear.tooth_polygon inset by gear.BEVEL (formlab.gear.inset), built once.
+static func _tooth_polygon() -> PackedFloat64Array:
+	var r_base := PINION_R_PITCH*cos(TOOTH_PRESSURE)
+	var pitch := TAU*PINION_R_PITCH/16.0
+	var psi_pitch := (pitch/4.0-TOOTH_BACKLASH/2.0)/PINION_R_PITCH
+	var right: Array = []
+	for j in TOOTH_FLANK_SAMPLES:
+		var rho: float = r_base+(PINION_R_TIP-r_base)*float(j)/float(TOOTH_FLANK_SAMPLES-1)
+		var ps: float = psi_pitch+_inv(TOOTH_PRESSURE)-_inv(acos(clampf(r_base/rho, -1.0, 1.0)))
+		right.append([rho*cos(ps), -rho*sin(ps)])
+	var pb: float = -atan2(right[0][1], right[0][0])
+	var poly: Array = [[TOOTH_ROOT*cos(pb), -TOOTH_ROOT*sin(pb)]]
+	for q in right: poly.append(q)
+	for j in range(right.size()-1, -1, -1): poly.append([right[j][0], -right[j][1]])
+	poly.append([TOOTH_ROOT*cos(pb), TOOTH_ROOT*sin(pb)])
+	# inset: each edge's line shifted inward by the bevel, consecutive lines intersected (Cramer)
+	var n := poly.size(); var lines: Array = []
+	for j in n:
+		var a: Array = poly[j]; var c: Array = poly[(j+1)%n]
+		var ex: float = c[0]-a[0]; var ey: float = c[1]-a[1]; var L := sqrt(ex*ex+ey*ey); ex /= L; ey /= L
+		lines.append([a[0]-ey*TOOTH_BEVEL, a[1]+ex*TOOTH_BEVEL, ex, ey])
+	var out := PackedFloat64Array()
+	for j in n:
+		var l1: Array = lines[(j-1+n)%n]; var l2: Array = lines[j]
+		var det: float = l2[2]*l1[3]-l1[2]*l2[3]; var dx: float = l2[0]-l1[0]; var dy: float = l2[1]-l1[1]
+		var s: float = (dy*l2[2]-dx*l2[3])/det
+		out.append(l1[0]+s*l1[2]); out.append(l1[1]+s*l1[3])
+	return out
+
+## Signed distance from (u, v) to the inset tooth polygon: negative inside (formlab.gear.convex_distance).
+static func _tooth_polygon_distance(u: float, v: float) -> float:
+	if _tooth.is_empty(): _tooth = _tooth_polygon()
+	var n := _tooth.size()/2; var inside := true; var dmin := INF
+	for j in n:
+		var ax := _tooth[2*j]; var ay := _tooth[2*j+1]; var bx := _tooth[(2*j+2)%(2*n)]; var by := _tooth[(2*j+3)%(2*n)]
+		var ex := bx-ax; var ey := by-ay; var l2 := ex*ex+ey*ey
+		var t := clampf(((u-ax)*ex+(v-ay)*ey)/l2, 0.0, 1.0)
+		var px := u-(ax+t*ex); var py := v-(ay+t*ey); dmin = minf(dmin, sqrt(px*px+py*py))
+		if ex*(v-ay)-ey*(u-ax) < 0.0: inside = false
+	return -dmin if inside else dmin
 
 ## Signed distance in the disc's plane from (qx, qy) — relative to the disc's
-## centre, carriage-local — to the toothed disc spun for a carriage at x.
+## centre, carriage-local — to the toothed disc spun for a carriage at x: the
+## hub and the three nearest teeth, each the inset polygon grown back by its bevel.
 static func tooth_distance(qx: float, qy: float, x: float) -> float:
 	var th := x/PINION_R_PITCH; var c := cos(th); var s := sin(th)
 	var hx := qx*c+qy*s; var hy := -qx*s+qy*c
 	var d := sqrt(hx*hx+hy*hy)-PINION_R_HUB
 	var step := TAU/16.0; var i := roundf(atan2(hy, hx)/step)
-	var hr := TOOTH_HALF_R-TOOTH_BEVEL; var ht := TOOTH_HALF_T-TOOTH_BEVEL
 	for k in [-1.0, 0.0, 1.0]:
 		var phi: float = (i+k)*step; var cp := cos(phi); var sp := sin(phi)
-		var u := hx*cp+hy*sp-TOOTH_CENTRE; var v := -hx*sp+hy*cp
-		var ex := maxf(absf(u)-hr, 0.0); var ey := maxf(absf(v)-ht, 0.0)
-		d = minf(d, sqrt(ex*ex+ey*ey)-TOOTH_BEVEL)
+		var u := hx*cp+hy*sp; var v := -hx*sp+hy*cp
+		d = minf(d, _tooth_polygon_distance(u, v)-TOOTH_BEVEL)
 	return d
 
 ## The roller's centre in the pawl's frame (origin at the pivot) at `alpha`,
@@ -411,9 +457,13 @@ static func pawl_nose(alpha: float) -> Array:
 	var c := cos(alpha); var s := sin(alpha); var nx := -PAWL_LEVER; var ny := PAWL_FINGER
 	return [nx*c+ny*s, -nx*s+ny*c]
 
+## The pawl's whole turn about +Z (its rest lean included) for a carriage at
+## x: the largest at which the roller is still clear of the teeth. Mirrors
+## formlab.pawl.angle / _pivot_from_centre.
 static func pawl_angle(x: float) -> float:
-	var px := PAWL_LEVER; var py := -(PINION_R_TIP+PAWL_DROP+PAWL_FINGER)
-	var lo := -.15; var hi := .45
+	var px := PAWL_LEVER*cos(PAWL_TILT)-PAWL_FINGER*sin(PAWL_TILT)
+	var py := -(PINION_R_TIP+PAWL_DROP)-PAWL_LEVER*sin(PAWL_TILT)-PAWL_FINGER*cos(PAWL_TILT)
+	var lo := -.15+PAWL_TILT; var hi := .45+PAWL_TILT
 	for _i in 48:
 		var mid := (lo+hi)/2.0; var n := pawl_nose(mid)
 		if tooth_distance(px+n[0], py+n[1], x) >= PAWL_NOSE_R: lo = mid

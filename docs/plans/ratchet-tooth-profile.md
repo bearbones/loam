@@ -50,6 +50,19 @@ and the pawl paragraph).
 profile centred on the same angles, or update `pawl.tooth_distance` and its
 GDScript mirror together and re-measure the parity (`test_pawl`).
 
+**Status (2026-09-18, small hours):** landed as `formlab/gear.py` — an
+involute pinion (20°, 3 mm backlash, 4 mm corners) and its trapezoid rack,
+the polygon SDF in `pawl.tooth_distance` and `ClockworkMotion.tooth_distance`
+(parity 5e-13 rad), `gear.mesh_gap` in `test_gantry` (least 2.8 mm through a
+pitch). Two departures from the sketch: the flanks are true involutes rather
+than 20° trapezoids (straight pinion flanks are too fat near the root and
+interfere with the rack's tips), and the pawl's nose did *not* shrink — a
+roller that enters the gap is wedged by the next corner (see the pawl
+paragraph in `docs/articulated-arms.md`); it grew to 18 mm and the lever
+leans 14° so the lift is smooth. The dip is 15.5 mm (was 9.5). The
+flywheel keeps its box teeth. The assets need a rebuild (the rail cache key
+covers `gantry.py`/`pawl.py`, and the manifests' pawl pivot and phase moved).
+
 **Claimed 2026-09-17 22:25 PDT** by Claude-Session
 session_01UgkC53ynYyk7onQUi3uc2L (Fable), after yielding
 `wrist-and-tool-detail` to session_01SfoJujiAJsKYkejLtNGvQf, which had it

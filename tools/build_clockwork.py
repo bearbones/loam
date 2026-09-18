@@ -21,7 +21,7 @@ from blender_forms import make_form
 sys.path.insert(0,str(ROOT/'formlab'))
 from layout import string_endpoints,bar_frame_plan,board_z,harp_base_plan,bench_plan,bench_elements,flywheel_plan,eyelet_plan,pin_wrap,BAR,BENCH,BELL,BOARD,NECK,FLYWHEEL,EYELET
 # formlab.rig / clearance / layout_search are numpy-only (no SciPy) so they run here too.
-import rig as arm_rig, clearance as arm_clearance, layout_search
+import rig as arm_rig, clearance as arm_clearance, layout_search, gear as tooth_profile
 # Pure Python preparation keeps SciPy and structural logic out of Blender's runtime.
 recipe=ROOT/'render/form-study/recipe.json'
 
@@ -69,12 +69,31 @@ def text(n,body,p,size=.12,yaw=0.):
     bpy.ops.object.text_add(location=vec(p)); o=bpy.context.object; o.name=n; o.data.body=body; o.data.align_x='CENTER'; o.data.size=size; o.data.extrude=.001
     o.rotation_euler=(math.pi/2,0,yaw); o.data.materials.append(brass)
     bpy.ops.object.convert(target='MESH')
-def gear(n,p,r=.15):
+def tooth(n,p,a,thickness,m):
+    # One involute tooth (formlab.gear.tooth_polygon: u radial, v tangential in the
+    # disc's plane — Godot x-y) at angle a about the disc's centre p, extruded
+    # through the disc's thickness along Godot z, its corners bevelled as the
+    # distance field the pawl rides assumes (gear.BEVEL).
+    poly=tooth_profile.tooth_polygon(); c=math.cos(a); s=math.sin(a); h=thickness/2; k=len(poly)
+    ring=[(p[0]+u*c-v*s,p[1]+u*s+v*c) for u,v in poly]
+    verts=[tuple(vec((x,y,p[2]+h))) for x,y in ring]+[tuple(vec((x,y,p[2]-h))) for x,y in ring]
+    faces=[list(range(k)),[k+i for i in range(k)][::-1]]+[(i,(i+1)%k,k+(i+1)%k,k+i) for i in range(k)]
+    mesh=bpy.data.meshes.new(n); mesh.from_pydata(verts,[],faces); mesh.update()
+    o=bpy.data.objects.new(n,mesh); bpy.context.collection.objects.link(o)
+    bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active=o
+    bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.normals_make_consistent(inside=False); bpy.ops.object.mode_set(mode='OBJECT')
+    return finish(o,n,m,tooth_profile.BEVEL)
+def gear(n,p,r=.15,profile='box'):
     # One joined mesh: hub, toothed perimeter, and a contrasting axle remain visible.
+    # 'box': sixteen bevelled blocks (the flywheel's, decorative); 'involute': the
+    # pinion's real teeth from formlab.gear, which the rack and the pawl are cut to.
     before=set(bpy.data.objects); o=cyl(n,p,r*.78,.07,brass)
     o.rotation_euler=(math.pi/2,0,0)
     for i in range(16):
         a=math.tau*i/16
+        if profile=='involute':
+            assert abs(r-tooth_profile.R_TIP)<1e-9, 'the involute profile is cut for the pinion (formlab.clearance.PINION)'
+            tooth(n+' tooth',p,a,.07,brass); continue
         t=box(n+' tooth',(p[0]+r*.86*math.cos(a),p[1]+r*.86*math.sin(a),p[2]),(r*.28,r*.22,.07),brass,.008)
         t.rotation_euler[1]=-a
     bpy.ops.object.select_all(action='DESELECT')
@@ -243,8 +262,18 @@ for m in score['instrument']['mechanisms']:
         manifest['obstacles'].append([[plan['x'][0]-.05,0,plan['z']-reach],[plan['x'][1]+.05,plan['underside'],plan['z']+reach]])
 # Rails, posts and link lengths from the clearance search over the whole score.
 manifest['score']=str(Path(args[0]).resolve() if args else (ROOT/'render/chamber/score.json').resolve())
-if rails=='keep': print('CLOCKWORK BUILD: --rails=keep — the rail plan is NOT being re-searched')
-layout_search.plan_arms(score,manifest,cache=str(ROOT/'render/form-study/rails-cache.json'),rails=rails)
+# "Keep" means keep what this asset was built with, so the plan comes from the
+# manifest already on disk rather than from whatever the cache stored last.
+keep_from=None
+if rails=='keep':
+    print('CLOCKWORK BUILD: --rails=keep — the rail plan is NOT being re-searched')
+    prior=out/(name+'.json')
+    if prior.exists():
+        keep_from=json.loads(prior.read_text()).get('arms')
+        print(f'CLOCKWORK BUILD: keeping the rail plan recorded in {prior.name}')
+    else:
+        print('CLOCKWORK BUILD: no manifest on disk — falling back to the newest cached plan per mechanism')
+layout_search.plan_arms(score,manifest,cache=str(ROOT/'render/form-study/rails-cache.json'),rails=rails,keep_from=keep_from)
 if manifest.get('stale_rails'): print('CLOCKWORK BUILD: *** stale_rails: this manifest carries a rail plan made for different inputs ***')
 for aid,cfg in manifest['arms'].items():
     ry=cfg['root_y']; rz=cfg['root_z']; x0,x1=cfg['reach_x']
@@ -252,7 +281,7 @@ for aid,cfg in manifest['arms'].items():
     # 0.26 m past the window into the rail heads; heads, masts and plinths are
     # formlab.gantry objects placed by build_forms.py (see docs/articulated-arms.md).
     for dy in (-.075,.075): beam(aid+' rail',(x0-.26,ry+dy,rz),(x1+.26,ry+dy,rz),.024,steel)
-    g=gear(aid+'__gear',(0,0,0),.13); manifest['gears'].append(g.name)
+    g=gear(aid+'__gear',(0,0,0),.13,'involute'); manifest['gears'].append(g.name)
     # A pinion above or below the carriage lies flat (its axle vertical): the disc is built
     # upright in the Godot x-y plane, so undo the cylinder's tilt for those mounts.
     if cfg.get('pinion','back') in ('up','down'): g.rotation_euler=(0,0,0)

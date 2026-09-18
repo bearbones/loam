@@ -295,8 +295,26 @@ head's face for an upright disc, an L from the head's top or bottom for a
 flat one). Tooth k is centred at x = (k + ½)·pitch; the pinion's tooth
 facing the rack points straight at it when its carriage is at x = 0 and
 `performance.gd` turns it by x / r_pitch about its axle, so the teeth roll
-into the gaps along the whole rail (4 mm tip and flank clearances,
+into the gaps along the whole rail (4 mm tip and root clearances,
 `gantry.RACK_GAP`).
+
+The teeth are **involute** (`formlab/gear.py`), not the bevelled boxes they
+began as: a 20° pressure angle on the 240 mm pitch circle, the flank
+unrolling from the base circle at 112.8 mm and running radially into the hub
+below it, 3 mm of backlash at the pitch line, 4 mm corners — a 12 mm tip
+land, 24 mm at the base. The rack's teeth are the involute's conjugate, which
+for a rack is a straight line: trapezoids at the pressure angle, 10 mm at the
+tip, 32 mm at the root on the strip (`gear.rack_half`). One profile feeds
+four places: `build_clockwork.gear(profile='involute')` extrudes the polygon
+per tooth (the flywheel keeps its box teeth — it is decorative and a
+different radius), `gantry.rack` cuts the rack by `rack_half`, the pawl's
+distance field is the polygon inset by its bevel (below), and
+`tools/test_gantry.py` rolls the two through a pitch at sixteen positions
+and asserts no pinion tooth overlaps a rack tooth (`gear.mesh_gap`, a
+separating-axis test between the convex polygons; the least clearance is
+2.8 mm, a pinion tooth's corner passing a rack flank). Box teeth on a box
+rack could never have rolled: their corners collide, and nothing measured
+it.
 
 Where the pinion goes is **measured, not ruled** — `clearance.pinion_mount`.
 The first rule was "in front for pick arms (they bend back), behind for
@@ -335,17 +353,27 @@ the disc — the rack is above it, the rim below is free — a steel lever
 pivots on a knuckle pin at a bracket cast onto the carriage (an ear off an arm
 that runs from the carriage's plane, a strut into the lower bushing's wall, the
 pin's washer, nut and split pin outward), reaches 100 mm under the disc to a
-yoke, and two tongues off the yoke carry a 15 mm roller on its axle; a brass
+yoke, and two tongues off the yoke carry an 18 mm roller on its axle; a brass
 torsion spring on the pin bears under the lever and against a post on the
 bracket, holding the roller up against the teeth. It is a detent, not a
 one-way pawl: the carriage travels both ways, so the nose is symmetric. The
-roller is wider than the gap between two tips' bevels, so it rides the tips
-and dips 9.5 mm between each pair on the bevels' 50° arcs, one dip a tooth —
-a ball small enough to enter a gap would wedge on the box teeth's radial
-flanks, since the pawl can only move on its arc. Its angle at any rail
-position is the largest at which the roller is still clear of the toothed
-disc as spun (`pawl.angle`, a bisection on the exact distance to the hub and
-the three nearest bevelled box teeth, `pawl.tooth_distance`);
+roller is wider than the gap between two tips' corners, so it rides the tip
+lands and dips 15.5 mm between each pair, on the corners and the tops of the
+flanks, one dip a tooth. Two things the involute teeth taught. The roller
+must never sink below the tip circle: a 15 mm one did, once the lands
+narrowed from the box teeth's 29 mm to 12, and a roller whose centre is
+inside the circle is met by the next tooth's corner *below* its centre — the
+pawl can only move on its arc, so the corner drives it deeper and wedges it
+between the flanks (`test_pawl` now pins the lowest centre outside the tip
+circle). And the lever leans 14° down toward its pivot (`PAWL['tilt']`;
+the pawl's angle is the whole turn of its frame, lean included): level, the
+roller's arc ran 17° off radial and an approaching corner lifted it on a
+near-flat wedge, a snap of 1.7° per 0.1 mm of rail; leaning, the arc is
+radial where the roller meets the corners and the lift is 0.17°. Its angle at
+any rail position is the largest at which the roller is still clear of the
+toothed disc as spun (`pawl.angle`, a bisection on the exact distance to the
+hub and the three nearest teeth — each the involute polygon inset by its
+bevel and grown back, so the corners are round, `pawl.tooth_distance`);
 `ClockworkMotion.pawl_angle` mirrors it to 5e-13 rad and `performance.gd`
 poses the part (`{aid}__pawl`, a local part at its pivot, `pawl` in the
 manifest) every frame, so the recoil's shudder ticks the pawl too. The
@@ -354,7 +382,7 @@ with a brass grease plug let into each face off the axis, so it can be seen
 to turn) on the pawl's axle, and rolls on the tips as the carriage moves —
 the disc's rim at the tips runs `r_tip / r_pitch` times the rail speed, and
 the roller turns that arc over its own radius, the other way from the disc
-(`pawl.ROLLER_SPIN`, −72 rad a metre; a tooth pitch turns it 3.4 rad). The
+(`pawl.ROLLER_SPIN`, −60 rad a metre; a tooth pitch turns it 2.8 rad). The
 score's rest positions are not quantised to the teeth, so the pawl would
 come to rest wherever the tooth under it left it; instead each pinion is
 spun with a **phase** (`pawl.dip_offset`, `pawl.phase` in the manifest, in

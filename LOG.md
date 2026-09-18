@@ -1,3 +1,54 @@
+## 2026-09-18 — CLOCKWORK the pinion's teeth are involutes, the rack's their conjugate, and the two are rolled together by a ruler
+
+The pinion's sixteen teeth were bevelled boxes and the rack's matched them
+(`docs/plans/ratchet-tooth-profile.md`): box teeth on a box rack cannot roll
+into each other — the corners collide — and nothing measured it. Now
+`formlab/gear.py` holds one profile for both. The pinion's tooth is an
+**involute** at a 20° pressure angle on its 240 mm pitch circle: the flank
+unrolls from the base circle (112.8 mm) and runs radially into the hub below
+it, 3 mm of backlash at the pitch line, 4 mm corners; 12 mm of tip land,
+24 mm at the base (`gear.tooth_polygon`, a convex polygon sampled six times
+up the flank). The rack's tooth is the involute's conjugate, which for a rack
+is a straight line: a trapezoid at the pressure angle, 10 mm at the tip,
+32 mm at the root on the strip (`gear.rack_half`; `gantry.rack` cuts each
+tooth as a three-ring prism whose tangential half-width follows it).
+`build_clockwork.gear(profile='involute')` extrudes the polygon per tooth
+through the disc, corners bevelled 4 mm; the flywheel keeps its box teeth
+(decorative, and a different radius). `tools/test_gantry.py` rolls the two
+through a pitch at sixteen carriage positions and asserts no pinion tooth
+overlaps a rack tooth (`gear.mesh_gap`, a separating-axis test between the
+convex polygons — no dependency): the least clearance is 2.8 mm, a pinion
+tooth's corner passing a rack flank. The first cut — straight 20° flanks on
+the pinion too, as the plan sketched — interfered: a straight flank is fatter
+than the involute near the root, and the rack's tips met it.
+
+The pawl's distance field (`pawl.tooth_distance`, and its GDScript mirror
+`ClockworkMotion.tooth_distance`, which now builds the same inset polygon
+once and measures against it — parity 5e-13 rad over 4001 samples) is the
+polygon inset by the bevel and grown back, so the corners are round. Two
+things the new teeth taught, both in `docs/articulated-arms.md`. The roller
+must not sink below the tip circle: the plan proposed a smaller nose that
+drops to the root, and a 15 mm roller did enter the gap once the tip lands
+narrowed from 29 mm to 12 — and then the next tooth's corner met it *below*
+its centre and, free only to move on its arc, drove it deeper and wedged it
+between the flanks (an angle that jumped 4° per 0.1 mm of rail). So the
+roller grew to 18 mm, rides the tip corners and dips 15.5 mm (was 9.5), and
+`test_pawl` pins its lowest centre outside the tip circle. And the lever now
+leans 14° down toward its pivot (`PAWL['tilt']`, the pawl's angle being the
+whole turn of its frame): level, the roller's arc ran 17° off radial and an
+approaching corner lifted it on a near-flat wedge, 1.7° per 0.1 mm; leaning,
+the arc is radial where the roller meets the corners and the lift is 0.17°.
+The bracket's spring post follows the lean. The yoke's top drops 3 mm under
+the bigger roller.
+
+Landed in two commits: the code, rulers and docs first; then the assets,
+rebuilt in a worktree of that commit (the rail cache key covers `gantry.py`
+and `pawl.py`, so both rails replanned, and the manifests' pawl pivot and
+phase moved), so that `test_gantry`'s stale-rails check and `test_pawl`'s
+manifest checks — red between the two — are green again. The concurrent
+session's wrist-and-tool build is still uncommitted in the main tree; its
+next rebuild picks these teeth up from the tree.
+
 ## 2026-09-17 — CLOCKWORK the string's winding runs through the bridge; the ring band across a string was its own far wall
 
 Two string faults seen in the `--view=16` close-up (the harp's lowest string

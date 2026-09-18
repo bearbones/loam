@@ -2,18 +2,27 @@
 click (docs/motion-design.md) is read from.
 
 The pinion (tools/build_clockwork.gear, formlab.clearance.PINION) is a brass
-disc with sixteen box teeth; the rack meshes with it above (formlab.gantry.rack).
-Under the disc a steel pawl rides the teeth: a lever pivoted on a pin at a
-bracket cast onto the carriage's lower bushing, reaching under the disc to a
-yoke whose two tongues carry a roller, held up against the teeth by a torsion
-spring on the pivot pin. It is a roller detent (an index pawl), not a one-way
-pawl — the carriage travels both ways — so the nose is symmetric. The roller
-is wider than the gap between two tips' bevels, so it rides the tips and dips
-between each pair (9.5 mm, on 50° ramps — the bevels' arcs), one dip a tooth:
-a click a tooth, the motion's ratchet made visible. A ball small enough to
-enter a gap would wedge against the box teeth's radial flanks (the wheel turns
-both ways and the pawl moves only on its arc), so the roller stays outside. Everything is carriage-local (the carriage's frame is world-oriented,
-origin at the shoulder pin); the pawl's own frame has its origin at the pivot.
+disc with sixteen involute teeth (formlab.gear); the rack meshes with it above
+(formlab.gantry.rack). Under the disc a steel pawl rides the teeth: a lever
+pivoted on a pin at a bracket cast onto the carriage's lower bushing, reaching
+under the disc to a yoke whose two tongues carry a roller, held up against the
+teeth by a torsion spring on the pivot pin. It is a roller detent (an index
+pawl), not a one-way pawl — the carriage travels both ways — so the nose is
+symmetric. The roller is wider than the gap between two tips' corners, so it
+rides the tip lands and dips between each pair (14.6 mm, on the corners and
+the top of the flanks), one dip a tooth: a click a tooth, the motion's ratchet
+made visible. It must not sink below the tip circle: a roller whose centre is
+inside it is met by the next tooth's corner *below* its own centre, and since
+the pawl can only move on its arc the corner drives it deeper and wedges it
+between the flanks (a 15 mm roller did, once the tip lands narrowed from the
+old box teeth's 29 mm to the involute's 13 mm). The lever also leans down
+toward its pivot (`PAWL['tilt']`): with the lever level, the roller's arc ran
+17° off radial and an approaching corner lifted it on a near-flat wedge — a
+snap of 1.7° per 0.1 mm of rail; leaning, the arc is radial where the roller
+meets the corners and the lift is smooth. Everything is carriage-local (the
+carriage's frame is world-oriented, origin at the shoulder pin); the pawl's
+own frame has its origin at the pivot, and its angle is the whole turn of that
+frame about +Z, lean included.
 
 `angle(x)` — the pawl's rest angle for a carriage at rail position x — is the
 one piece of kinematics: the largest angle (nose toward the disc's centre) at
@@ -31,27 +40,37 @@ its carriage); an up/down disc lies flat over the rail and has no free rim.
 """
 import numpy as np
 from .clearance import PINION, MOUNTS, CARRIAGE, pinion_centre
+from .gear import tooth_polygon, inset, convex_distance, BEVEL as TOOTH_BEVEL
 from .linkage import ring, revolve, knuckle_pin, rounded_rect, Y, Z
 from .sweep import sweep
 from .gantry import prism
 
-# lever: pivot to the yoke along -X; drop: the roller's rest radius past the
-# tips (its radius and 5 mm of lift); finger: the roller's axle stands this far
-# above the lever; nose_r: the roller; width: the eye and lever across the pin;
-# the rest is the roller's axle, the pin, its ear and the spring.
-PAWL = dict(lever=.10, drop=.02, finger=.03, nose_r=.015, roller_len=.03, axle_r=.004, width=.03, pivot_r=.011, ear_t=.014,
+# lever: pivot to the yoke along -X in the pawl's frame; tilt: the frame's
+# lean at rest, the lever running down toward its pivot; drop: the roller's
+# rest radius past the tips (its radius and 5 mm of lift); finger: the roller's
+# axle stands this far above the lever; nose_r: the roller; width: the eye and
+# lever across the pin; the rest is the roller's axle, the pin, its ear and the spring.
+PAWL = dict(lever=.10, tilt=-.25, drop=.023, finger=.03, nose_r=.018, roller_len=.03, axle_r=.004, width=.03, pivot_r=.011, ear_t=.014,
             coil_r=.019, wire_r=.0025, coil_turns=4.5, coil_len=.026, post_r=.004)
-# One box tooth of build_clockwork.gear(r=.13): box (r*.28 radial, r*.22 across,
-# .07 thick) centred at .86 r, edges bevelled .008; tips at multiples of 2π/16
+# One tooth of build_clockwork.gear (formlab.gear.tooth_polygon: involute, 20°,
+# 4 mm corners), as the convex polygon inset by its bevel — the distance field
+# adds the bevel back, so the corners are round. Tips at multiples of 2π/16
 # from +x in the disc's home frame (dev/test_performance.gd pins the spin).
-TOOTH = dict(centre=PINION['r_tip']*.86, half_r=PINION['r_tip']*.14, half_t=PINION['r_tip']*.11, bevel=.008)
+TOOTH = inset(tooth_polygon(), TOOTH_BEVEL)
 TEETH = PINION['teeth']
 
+def _pivot_from_centre():
+    """The pivot in the disc's plane relative to its centre: wherever puts
+    the nose, at the frame's rest lean, straight under the centre at its rest
+    radius (r_tip + drop) — `nose_rest` turned by the lean, subtracted."""
+    L = PAWL['lever']; F = PAWL['finger']; t = PAWL['tilt']
+    return np.array([L*np.cos(t)-F*np.sin(t), -(PINION['r_tip']+PAWL['drop'])-L*np.sin(t)-F*np.cos(t)])
+
 def pivot(mount):
-    """Pivot pin, carriage-local: `lever` along +X from under the disc's centre,
-    the nose's rest radius plus the finger below it, in the disc's plane."""
+    """Pivot pin, carriage-local: off to +X from under the disc's centre and
+    below the nose's rest radius, in the disc's plane (`_pivot_from_centre`)."""
     if not MOUNTS[mount][1]: raise ValueError('a pawl needs a front or back pinion (an up/down disc has no free rim)')
-    return pinion_centre(mount)+np.array([PAWL['lever'], -(PINION['r_tip']+PAWL['drop']+PAWL['finger']), 0.])
+    return pinion_centre(mount)+np.array([*_pivot_from_centre(), 0.])
 
 def nose_rest():
     """The roller's centre in the pawl's frame (origin at the pivot), at angle 0."""
@@ -69,28 +88,27 @@ def tooth_distance(qx, qy, x):
     """Signed distance from a point (qx, qy) — in the disc's plane relative
     to its centre, carriage-local — to the toothed disc as it stands for a
     carriage at rail position x (spun x / r_pitch about +Z). The hub and the
-    three nearest bevelled box teeth; vectorised."""
+    three nearest teeth, each the inset polygon TOOTH grown back by its bevel;
+    vectorised."""
     qx = np.asarray(qx, float); qy = np.asarray(qy, float); x = np.asarray(x, float)
     th = x/PINION['r_pitch']; c = np.cos(th); s = np.sin(th)
     hx = qx*c+qy*s; hy = -qx*s+qy*c                      # the disc's home frame
     d = np.hypot(hx, hy)-PINION['r_hub']
     step = 2*np.pi/TEETH; i = np.round(np.arctan2(hy, hx)/step)
-    T = TOOTH; hr = T['half_r']-T['bevel']; ht = T['half_t']-T['bevel']
     for k in (-1, 0, 1):
         phi = (i+k)*step; cp = np.cos(phi); sp = np.sin(phi)
-        u = hx*cp+hy*sp-T['centre']; v = -hx*sp+hy*cp        # the tooth's frame
-        ex = np.maximum(np.abs(u)-hr, 0); ey = np.maximum(np.abs(v)-ht, 0)
-        d = np.minimum(d, np.hypot(ex, ey)-T['bevel'])
+        u = hx*cp+hy*sp; v = -hx*sp+hy*cp                  # the tooth's frame: u radial, v tangential
+        d = np.minimum(d, convex_distance(u, v, TOOTH)-TOOTH_BEVEL)
     return d
 
-ANGLE_LO, ANGLE_HI, ANGLE_ITERS = -.15, .45, 48
+# the bisection's bracket, either side of the frame's rest lean
+ANGLE_LO, ANGLE_HI, ANGLE_ITERS = -.15+PAWL['tilt'], .45+PAWL['tilt'], 48
 
 def angle(x):
     """The pawl's angle for a carriage at rail position x: the largest angle
     at which the nose is clear of the teeth (the spring lifts it until it
     touches). Bisection; vectorised over x; mirrored by ClockworkMotion.pawl_angle."""
-    x = np.asarray(x, float)
-    P = np.array([PAWL['lever'], -(PINION['r_tip']+PAWL['drop']+PAWL['finger'])])   # the pivot from the disc's centre
+    x = np.asarray(x, float); P = _pivot_from_centre()
     lo = np.full(x.shape, ANGLE_LO); hi = np.full(x.shape, ANGLE_HI)
     for _ in range(ANGLE_ITERS):
         mid = (lo+hi)/2; n = nose_at(mid)
@@ -100,7 +118,7 @@ def angle(x):
 
 def nose_radius(x):
     """Distance from the disc's centre to the nose for a carriage at x."""
-    P = np.array([PAWL['lever'], -(PINION['r_tip']+PAWL['drop']+PAWL['finger'])]); n = nose_at(angle(x))
+    P = _pivot_from_centre(); n = nose_at(angle(x))
     return np.hypot(P[0]+n[..., 0], P[1]+n[..., 1])
 
 PITCH = 2*np.pi*PINION['r_pitch']/TEETH
@@ -140,7 +158,7 @@ def lever_pieces(mount='back'):
     lever = sweep(a+(b-a)*u, np.linspace(.013, .0115, 9), .011, profile=rounded_rect(.4, 16))
     # the lever's end widens into a yoke; two tongues rise from it to carry the
     # roller's axle, the roller between them
-    yoke = prism([-L+.016, 0, 0], [-L-.010, 0, 0], .012, hl+.005, .3, 5)
+    yoke = prism([-L+.016, 0, 0], [-L-.010, 0, 0], .009, hl+.005, .3, 5)   # its top 3 mm under the roller
     tongues = [prism([-L, -.004, s_*(hl+.0025)], [-L, F+.004, s_*(hl+.0025)], .010, .0025, .5, 5) for s_ in (-1, 1)]
     axle = revolve([(0, -hl-.008), (P['axle_r']*.7, -hl-.008), (P['axle_r'], -hl-.006), (P['axle_r'], hl+.006), (P['axle_r']*.7, hl+.008), (0, hl+.008)], Z, (-L, F, 0), 16)
     # the spring: coil_turns about the pin from the eye's face toward the ear,
@@ -182,7 +200,9 @@ def bracket_pieces(mount='back'):
     knee = pv+[0, 0, -pv[2]-s*.045]                       # on the carriage's plane side, .045 short of it
     arm = prism(pv+[0, 0, ze], knee, .012, .014, .3, 5)
     strut = prism(knee, [.075, -C['bar_dy']-.05, 0], .012, .012, .3, 5)
-    px, py = post_centre(mount); z_post = sorted((pv[2]+ze, pv[2]+s*P['width']/2))
+    # the post stands where the spring's fixed tail lies with the pawl at its rest lean
+    px, py = post_centre(mount); t = P['tilt']; px, py = px*np.cos(t)+py*np.sin(t), -px*np.sin(t)+py*np.cos(t)
+    z_post = sorted((pv[2]+ze, pv[2]+s*P['width']/2))
     post = revolve([(0, z_post[0]), (P['post_r'], z_post[0]), (P['post_r'], z_post[1]), (0, z_post[1])], Z, (pv[0]+px, pv[1]+py, 0), 16)
     span = abs(ze)+P['ear_t']/2+P['width']/2
     centre = pv+[0, 0, (ze+s*P['ear_t']/2-s*P['width']/2)/2]
