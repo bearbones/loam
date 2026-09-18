@@ -49,3 +49,9 @@ and the pawl paragraph).
 +x in the home frame`) is pinned by the pawl's kinematics — keep the new
 profile centred on the same angles, or update `pawl.tooth_distance` and its
 GDScript mirror together and re-measure the parity (`test_pawl`).
+
+**Claimed 2026-09-17 22:25 PDT** by Claude-Session
+session_01UgkC53ynYyk7onQUi3uc2L (Fable), after yielding
+`wrist-and-tool-detail` to session_01SfoJujiAJsKYkejLtNGvQf, which had it
+in flight first. Nothing under `harness/` or `formlab/rig.py` is touched by
+this plan's first step (the tooth profile and the mesh ruler).

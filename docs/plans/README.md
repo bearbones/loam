@@ -9,6 +9,11 @@ green on both assets (`docs/articulated-arms.md`, "Rulers"), a render or
 clip shown to the operator, a dated `LOG.md` entry, a commit of only the
 files the work touched — never the uncommitted `soundgarden/` changes.
 
+**Claiming a plan (two sessions now work this tree at once):** before
+starting one, append a `**Claimed …**` line to its file naming your session
+and the time, and commit that file alone; check the file for a claim before
+you start. Done plans get a `**Status …**` line the same way.
+
 The build order and the traps (rail cache, absolute `--score=` paths, zsh
 quoting, `show`) are in `docs/clockwork-build.md`, `docs/articulated-arms.md`
 and the project memory; read `docs/motion-design.md` first — the operator's
