@@ -1,5 +1,8 @@
 # Hinged hammer heads for the hammer arms
 
+**Claimed 2026-09-17 23:55 PDT** by Claude-Session
+https://claude.ai/code/session_01SfoJujiAJsKYkejLtNGvQf
+
 **Where:** `formlab/linkage.py` (`mallet_tool`, `tool_mount`),
 `tools/build_forms.py` (tool packing), `harness/clockwork_motion.gd` and
 `formlab/rig.py` (`strike`, a new `hammer_flip`), `harness/performance.gd`

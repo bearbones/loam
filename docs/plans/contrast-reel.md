@@ -1,5 +1,10 @@
 # One command for the stepped-vs-servo contrast reel
 
+**Status (2026-09-17):** landed (commit cf1cd5b) as `tools/contrast_reel.sh`,
+with the `--focus`/`--focus_span`/`--focus_dir` camera it needed in
+`harness/performance.gd`. The lesson worth keeping is in
+`docs/motion-design.md`: picking the *moment* mattered more than the angle.
+
 **Where:** `tools/capture_clockwork.sh` (exists: single captures), a new
 `tools/contrast_reel.sh`, `harness/performance.gd` (`--capture`, `--clean`,
 `--view`, a new `--focus=<aid>` camera), `docs/motion-design.md`

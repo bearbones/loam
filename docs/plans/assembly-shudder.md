@@ -1,5 +1,11 @@
 # The blow shakes the assembly, not only the arm
 
+**Status (2026-09-17):** landed (commit 841c575) — three shudders per stepped
+blow (stand 1.5 mm/9 Hz, rail sag 1 mm/12 Hz shaped sin(pi u) at both the blow
+and the posed x, masts 0.3 mrad/6 Hz), one mirrored SHUDDER_GAIN dial in
+`formlab/rig.py` and `harness/clockwork_motion.gd`, contacts still exact to
+1e-9 m. A/B moves 0.42 % of pixels at view 3.
+
 **Where:** `harness/performance.gd` (`evaluate`, the bars' bounce, the
 gantry/railhead/stand nodes), `harness/clockwork_motion.gd` (`recoil`,
 `RECOIL`), `formlab/rig.py` (mirror), `tools/test_motion.py`,
