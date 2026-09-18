@@ -124,13 +124,32 @@ def run(layout_path, score_path):
             check(on_stage or on_lid, f'{aid} {"low" if e["side"] < 0 else "high"} end: mast stands on the stage or a lid (foot y {e["foot_y"]:.3f})')
             check(e['height'] > .2 and e['x_col']*e['side'] >= (x1 if e['side'] > 0 else -x0)+G.RAIL_OVER+G.HEAD_INSET+.09,
                   f'{aid} {"low" if e["side"] < 0 else "high"} end: mast {e["height"]:.2f} m tall, outside the head\'s inner face')
-        # heads capture the bar ends
+        # heads capture the bar ends: each bar's end stops inside a flanged bush on
+        # the head's outer face (formlab.gantry.BUSH), the bore just off the bar,
+        # four bolts on a circle round the flange, and nothing of it outside the
+        # head's box the rail search reserved (clearance.head_box)
         H = np.concatenate([p.vertices for p in g['brass']])
-        for x_bar in (x0-.26, x1+.26):
+        for side, x_bar in ((-1, x0-G.RAIL_OVER-G.HEAD_INSET-G.BAR_END), (1, x1+G.RAIL_OVER+G.HEAD_INSET+G.BAR_END)):
             inside = H[(abs(H[:, 0]-x_bar) < .03)]
             check(len(inside) and inside[:, 1].min() < ry-.075-.024 and inside[:, 1].max() > ry+.075+.024
                   and inside[:, 2].min() < rz-.024 and inside[:, 2].max() > rz+.024,
                   f'{aid}: head captures the bar end at x={x_bar:.3f}')
+            x_end = (x0-G.RAIL_OVER) if side < 0 else (x1+G.RAIL_OVER)
+            lo, hi = G.head_box(x_end, side, ry, rz); x_face = x_end+side*(G.HEAD_INSET+G.HEAD_LEN-G.BUSH['recess'])
+            # the manifest's gantry record says where the bar ends; build_clockwork built the bar to it
+            rec = {e['side']: e.get('bar_x') for e in layout['arms'][aid].get('gantry', {}).get('ends', [])}.get(side)
+            check(rec is not None and abs(rec-x_bar) < 1e-9, f'{aid} {"low" if side < 0 else "high"} end: the manifest records the bar\'s end at x={x_bar:.3f}')
+            for dy in (-G.BAR_DY, G.BAR_DY):
+                near = H[(abs(H[:, 0]-x_face-side*G.BUSH['flange_t']/2) < G.BUSH['flange_t']) & (np.hypot(H[:, 1]-ry-dy, H[:, 2]-rz) < G.BUSH['flange_r']+.001)]
+                bore = float(np.hypot(near[:, 1]-ry-dy, near[:, 2]-rz).min()) if len(near) else 1e9
+                bolts = [p for p in g['steel'] if getattr(p, 'within', False) and abs(p.vertices[:, 0].mean()-x_face) < G.BUSH['recess']
+                         and abs(np.hypot(p.vertices[:, 1].mean()-ry-dy, p.vertices[:, 2].mean()-rz)-G.BUSH['bolt_circle']) < .002]
+                boxed = all((p.vertices.min(0) >= lo-1e-6).all() and (p.vertices.max(0) <= hi+1e-6).all()
+                            for p in g['brass']+g['steel'] if getattr(p, 'within', False) and side*(p.vertices[:, 0].mean()-x_end) > 0)
+                check(abs(bore-(G.BAR_R+G.BUSH['bore_gap'])) < .0015 and len(bolts) == 4 and boxed
+                      and side*(x_face+side*G.BUSH['flange_t']-x_bar) == abs(x_face+side*G.BUSH['flange_t']-x_bar) and abs(abs(x_face+side*G.BUSH['flange_t']-x_bar)-G.BUSH['end_in']) < 1e-9,
+                      f'{aid} {"low" if side < 0 else "high"} end, bar at y{dy:+.3f}: its end stops {G.BUSH["end_in"]*1000:.0f} mm inside a flanged bush '
+                      f'(bore {bore*1000:.1f} mm off the axis, {len(bolts)} bolts) within the head\'s box')
     # 5. the rail search planned every mechanism after the first against the
     #    arms already placed (formlab.layout_search.evaluate_arm `others`),
     #    and recorded that margin clear

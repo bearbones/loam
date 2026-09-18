@@ -208,11 +208,23 @@ ran through a post it simply did. `formlab/gantry.py` replaces them with what
 a linear guide actually needs, every dimension from a rule:
 
 - **Rail head** (brass): a block at each end that captures both guide bars
-  (the bars run 0.26 m past the reach window, 0.10 m into the head). Its
-  inner face is 0.16 m past the window because the shoulder pin's head
+  (the bars run 0.12 m past the reach window and right through the head).
+  Its inner face is 0.16 m past the window because the shoulder pin's head
   reaches 0.119 m from the carriage plane — a carriage parked at the end
   clears it by 40 mm. (The old posts stood 0.12 m out with a 35 mm radius;
-  the pin passed through them.)
+  the pin passed through them.) The bars do not vanish into the block: each
+  ends the way a guide shaft ends in a shaft support, in a **flanged bush**
+  on the head's outer face (`gantry.BUSH`) — the block stops 12 mm short of
+  the face, the bush's flange stands on it round the bar with its bore 2 mm
+  off the shaft, four bolts on a circle hold the flange, and the bar's end
+  stops 1 mm inside the flange's face, a shaft seen in its bore. Every piece
+  of the bush lies inside the head's box (`clearance.head_box`), so the rail
+  search's reservation and the gantry's own space model are unchanged
+  (`solids` skips them). `plan_gantries` records each end's `bar_x` (the bar's
+  end, `HEAD_INSET+BAR_END` past the head's inner face) in the gantry plan and
+  `build_clockwork` builds the bars to it after the forms step; `test_gantry`
+  holds the record against the plan and each bar end inside its bush, the bore
+  off the bar, the four bolts on their circle, and the bush within the box.
 - **Mast** (steel): a tapered box column, constant 90 mm across the pin
   axis, deep along Z — the swing direction, the load that racks it — and
   growing toward the base the way a cantilever's bending moment does

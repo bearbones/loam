@@ -32,22 +32,31 @@ import numpy as np
 try:
     from .sweep import sweep, validate_mesh
     from .gear import rack_half
-    from .linkage import rounded_rect, revolve
+    from .linkage import rounded_rect, revolve, ring
     from .clearance import (arm_capsules, default_layers, DEFAULT_SPEC, segment_distance, PINION, MOUNTS, pinion_centre, rack_direction,
-                            GANTRY, gantry_candidates, foot_level)
+                            GANTRY, gantry_candidates, foot_level, head_box)
     from .layout_search import box_gap, scene_boxes, pin_shifts, stack_caps, solids_gap
 except ImportError:   # bare import (formlab/ on sys.path)
     from sweep import sweep, validate_mesh
     from gear import rack_half
-    from linkage import rounded_rect, revolve
+    from linkage import rounded_rect, revolve, ring
     from clearance import (arm_capsules, default_layers, DEFAULT_SPEC, segment_distance, PINION, MOUNTS, pinion_centre, rack_direction,
-                           GANTRY, gantry_candidates, foot_level)
+                           GANTRY, gantry_candidates, foot_level, head_box)
     from layout_search import box_gap, scene_boxes, pin_shifts, stack_caps, solids_gap
 
 # The space model lives in formlab.clearance.GANTRY (the rail search screens
 # a mast column at every candidate rail end with the same numbers).
 RAIL_OVER = GANTRY['rail_over']        # the bars run this far beyond the reach window (build_clockwork)
 BAR_R = .024; BAR_DY = .075
+# Each bar ends in a flanged bush at the head's outer face, the way a guide
+# shaft ends in a shaft support: the block stops `recess` short of the face,
+# the bush's flange stands on it round the bar (its bore `bore_gap` off the
+# bar, so the shaft reads as a shaft in a bore), four bolts on a circle hold
+# the flange, and the bar's end stops `end_in` inside the flange's face. All
+# of it lies inside clearance.head_box, so the rail search's reservation and
+# the gantry's own space are unchanged.
+BUSH = dict(recess=.012, flange_r=.044, flange_t=.006, bore_gap=.002, bolt_circle=.056, bolt_r=.007, end_in=.001)
+BAR_END = GANTRY['head_len']-BUSH['recess']+BUSH['flange_t']-BUSH['end_in']   # a bar's end past the head's inner face (build_clockwork builds the bars to it)
 HEAD_INSET = GANTRY['head_inset']      # head's inner face beyond the bar end: 0.16 m past the window
 HEAD_LEN = GANTRY['head_len']; HEAD_H = GANTRY['head_h']; HEAD_D = GANTRY['head_d']   # rail head: half-height, half-depth
 MAST_W = GANTRY['mast_w']              # half-width across X (constant)
@@ -87,6 +96,7 @@ def solids(end):
     the corner an arm's elbow legitimately swings through."""
     out = []
     for p in end['brass']+end['steel']:
+        if getattr(p, 'within', False): continue        # the bushes and their bolts: inside the head's own box
         if getattr(p, 'brace', False): out.append(('capsule', (p.path[0], p.path[-1], .017*1.5)))
         else: out.append(('box', (p.vertices.min(0), p.vertices.max(0))))
     return out
@@ -98,8 +108,18 @@ def rail_end(x_end, side, ry, rz, behind, setback, foot_y, outreach=0.):
     mast_z, x_col)."""
     s = float(side); x_in = x_end+s*HEAD_INSET; x_col = x_in+s*(HEAD_LEN-.07+outreach)
     z_m = rz+behind*setback; x_head = x_in+s*HEAD_LEN
-    brass = [prism((x_in+s*HEAD_LEN, ry, rz), (x_in, ry, rz), HEAD_H, HEAD_D, .3, 3)]
+    # the block stops short of the outer face; each bar's end shows there in a
+    # flanged bush held by four bolts (BUSH), all within the head's box
+    x_face = x_head-s*BUSH['recess']
+    brass = [prism((x_face, ry, rz), (x_in, ry, rz), HEAD_H, HEAD_D, .3, 3)]
     steel = []
+    for dy in (-BAR_DY, BAR_DY):
+        bush = ring((x_face+s*BUSH['flange_t']/2, ry+dy, rz), BAR_R+BUSH['bore_gap'], BUSH['flange_r'], BUSH['flange_t'], axis=(1, 0, 0))
+        bush.within = True; brass.append(bush)
+        for k in range(4):
+            a = np.pi/4+k*np.pi/2
+            bolt = bolt_head((x_face, ry+dy+BUSH['bolt_circle']*np.cos(a), rz+BUSH['bolt_circle']*np.sin(a)), axis=(s, 0, 0), r=BUSH['bolt_r'], h=BUSH['recess']-.001)
+            bolt.within = True; steel.append(bolt)
     top = ry+HEAD_H if (setback or outreach) else ry-HEAD_H
     H = top-(foot_y+.08)
     d_base = min(MAST_D_TOP+.025*H, MAST_D_CAP)
@@ -142,7 +162,7 @@ def behind_sign(cfg, strings):
 def rail_bars(cfg):
     """The two guide bars as capsules (P, Q, r), running into the heads."""
     x0, x1 = cfg['reach_x']; ry = cfg['root_y']; rz = cfg['root_z']
-    xa = x0-RAIL_OVER-HEAD_INSET-.10; xb = x1+RAIL_OVER+HEAD_INSET+.10
+    xa = x0-RAIL_OVER-HEAD_INSET-BAR_END; xb = x1+RAIL_OVER+HEAD_INSET+BAR_END
     return [(np.array([xa, ry+dy, rz]), np.array([xb, ry+dy, rz]), BAR_R) for dy in (-BAR_DY, BAR_DY)]
 
 
@@ -330,11 +350,12 @@ def plan_gantries(layout, poses, form_boxes=(), verbose=print):
             raise ValueError(f'rack of {aid} blocked by {rack_gap[1]} ({rack_gap[0]:+.3f} m)')
         for side, x_end in ((-1, x0-RAIL_OVER), (1, x1+RAIL_OVER)):
             end = plan_end(aid, cfg, side, x_end, behind, quick, full, other_bars, boxes, placed, verbose)
+            end['bar_x'] = x_end+side*(HEAD_INSET+BAR_END)   # where the bar ends, inside the head's flanged bush (build_clockwork reads it)
             placed += [(aid, geo) for kind, geo in solids(end) if kind == 'box']; ends.append(end)
         out[aid] = dict(behind=behind, brass=sum((e['brass'] for e in ends), rack(cfg)), steel=sum((e['steel'] for e in ends), []),
                         rack=dict(gap=rack_gap[0], worst=rack_gap[1], mount=cfg.get('pinion', 'back')),
                         margin=min([e['gap'] for e in ends]+[rack_gap[0]]), worst=min(ends, key=lambda e: e['gap'])['worst'],
-                        ends=[dict(side=e['side'], outreach=e['outreach'], setback=e['setback'], mast_z=e['mast_z'],
+                        ends=[dict(side=e['side'], bar_x=e['bar_x'], outreach=e['outreach'], setback=e['setback'], mast_z=e['mast_z'],
                                    x_col=e['x_col'], foot_y=e['foot_y'], height=e['height'], gap=e['gap'], worst=e['worst'])
                               for e in ends])
         verbose('  gantry %s: %s; margin %.3f m (%s)' % (aid, ', '.join(

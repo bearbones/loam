@@ -73,6 +73,28 @@ The clip: `render/clockwork-review/hammer-blow.mp4`, one blow captured at
 search's inputs (`clearance.py` is in `GEOMETRY_SOURCES`), so this is one
 more caller for the single full replan `docs/plans/rail-cache-key.md` holds.
 
+## 2026-09-18 — CLOCKWORK the guide bars end in flanged bushes on the rail heads
+
+The rail heads — the most repeated hardware in every shot — were brass
+blocks the guide bars vanished into. A guide shaft ends in a shaft support:
+`formlab/gantry.rail_end` now stops the block 12 mm short of the head's
+outer face and stands a **flanged bush** there round each bar (`BUSH`:
+`linkage.ring` washer, bore 2 mm off the shaft, flange 6 mm proud) held by
+four bolt heads on a 56 mm circle; the bars run through the head and stop
+1 mm inside the flange's face (`gantry.BAR_END`; `rail_bars` matches), so
+the shaft is seen in its bore. `plan_gantries` records each end's `bar_x`
+in the gantry plan and `build_clockwork` builds the bars to it after the
+forms step — gantry.py is not importable from Blender's Python (it pulls
+in linkage.py), so the plan carries the number. Every bush
+piece is inside `clearance.head_box`, flagged `within` so `solids()` skips
+it: the rail search's reservation and the gantry's clearance model are
+unchanged, and the planner is not slowed by ten more boxes an end.
+`tools/test_gantry.py` holds, per rail end and bar, the end inside its
+bush, the bore off the bar, four bolts on the circle and the bush within
+the box. `gantry.py` is in the rail cache key, so the assets were rebuilt
+in a worktree with `--rails=keep` under the standing one-replan policy
+(still `stale_rails`); `docs/articulated-arms.md` "Rail head" says how.
+
 ## 2026-09-18 — CLOCKWORK the plummer blocks are split, capped, studded and oiled
 
 Beside the new spoked wheel (view 13) its bearings were the crudest thing in

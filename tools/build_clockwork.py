@@ -329,10 +329,9 @@ layout_search.plan_arms(score,manifest,cache=str(ROOT/'render/form-study/rails-c
 if manifest.get('stale_rails'): print('CLOCKWORK BUILD: *** stale_rails: this manifest carries a rail plan made for different inputs ***')
 for aid,cfg in manifest['arms'].items():
     ry=cfg['root_y']; rz=cfg['root_z']; x0,x1=cfg['reach_x']
-    # Independent rails explain overlap in the score's reach windows. The bars run
-    # 0.26 m past the window into the rail heads; heads, masts and plinths are
-    # formlab.gantry objects placed by build_forms.py (see docs/articulated-arms.md).
-    for dy in (-.075,.075): beam(aid+' rail',(x0-.26,ry+dy,rz),(x1+.26,ry+dy,rz),.024,steel)
+    # Independent rails explain overlap in the score's reach windows; the guide
+    # bars themselves are built below, once build_forms.py has planned the rail
+    # heads they end inside (see docs/articulated-arms.md).
     g=gear(aid+'__gear',(0,0,0),.13); manifest['gears'].append(g.name)
     # A pinion above or below the carriage lies flat (its axle vertical): the disc is built
     # upright in the Godot x-y plane, so undo the cylinder's tilt for those mounts.
@@ -345,6 +344,17 @@ forms=json.loads(recipe.read_text())
 for aid,extra in forms.get('arms',{}).items():
     if aid in manifest['arms']: manifest['arms'][aid].update(extra)
     else: manifest.setdefault('arm_checks',{})[aid]=extra
+# The guide bars run past the reach window, through the rail heads, and end 1 mm
+# inside the flanged bushes on the heads' outer faces: formlab.gantry.plan_gantries
+# records each end's bar_x (HEAD_INSET+BAR_END past the head's inner face) in the
+# gantry plan build_forms.py wrote, and the bars are built to it. (gantry.py is
+# not importable from Blender's Python — it pulls in linkage.py — so the plan
+# carries the number instead.)
+for aid,cfg in manifest['arms'].items():
+    ry=cfg['root_y']; rz=cfg['root_z']
+    ends={e['side']:e.get('bar_x') for e in cfg.get('gantry',{}).get('ends',[])}
+    if ends.get(-1) is None or ends.get(1) is None: raise SystemExit(f'CLOCKWORK BUILD: the gantry plan for {aid} records no bar ends (bar_x) — rebuild build_forms.py\'s recipe')
+    for dy in (-.075,.075): beam(aid+' rail',(ends[-1],ry+dy,rz),(ends[1],ry+dy,rz),.024,steel)
 # The harp's and the rake's neck hardware, on the neck's string-side face where
 # build_forms found it (formlab.layout.neck_plan): the action discs with their
 # fork pins straddling the string, the bridge pin, and the tuning pin through
