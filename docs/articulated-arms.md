@@ -433,9 +433,14 @@ flat one) to a square, four-bolted **flange** and a chamfered **bronze
 nut** (`linkage.screw_nut`, `clearance.SCREW`: 135 mm out, nut radius 35
 mm, 90 mm long, so the nut's own length spreads the load along the thread
 the way a real bronze nut does). The screw (`gantry.screw`) lies on the
-rack's line: a 10 mm steel core turned over the rail's length, a 3 mm
-right-hand **helical thread** at 8 mm pitch swept round it (sixteen sides,
-so the profiled finish's bevel leaves the tube alone), a pedestal and a
+rack's line: a 10 mm steel core turned over the rail's length, a
+right-hand **Acme-style thread** at 8 mm pitch cut round it — a trapezoid
+in the axial plane (`SCREW`: 3.6 mm deep, 2.8 mm crest, 5 mm root, the root
+sunk a millimetre into the core) carried once round the axis per pitch by
+`linkage.helix`, a closed helical solid built the way `revolve` builds a
+solid of revolution, so the flanks are flat and the crest is a land; the
+first version swept a 3 mm round wire along the helix and read as a coiled
+cable, at seven times the vertex count — a pedestal and a
 **bearing ring** on each rail head where the rack's stubs stood, and just
 inside the low bearing a **finned drive housing** — the motor's stand-in —
 kept beyond the nut's travel. The thread runs from the housing to the far

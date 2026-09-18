@@ -32,14 +32,14 @@ import numpy as np
 try:
     from .sweep import sweep, validate_mesh
     from .gear import rack_half
-    from .linkage import rounded_rect, revolve, ring, bolt_head
+    from .linkage import rounded_rect, revolve, ring, bolt_head, helix
     from .clearance import (arm_capsules, default_layers, DEFAULT_SPEC, segment_distance, PINION, MOUNTS, pinion_centre, rack_direction,
                             GANTRY, gantry_candidates, foot_level, head_box, SCREW, drive_kind)
     from .layout_search import box_gap, scene_boxes, pin_shifts, stack_caps, solids_gap
 except ImportError:   # bare import (formlab/ on sys.path)
     from sweep import sweep, validate_mesh
     from gear import rack_half
-    from linkage import rounded_rect, revolve, ring, bolt_head
+    from linkage import rounded_rect, revolve, ring, bolt_head, helix
     from clearance import (arm_capsules, default_layers, DEFAULT_SPEC, segment_distance, PINION, MOUNTS, pinion_centre, rack_direction,
                            GANTRY, gantry_candidates, foot_level, head_box, SCREW, drive_kind)
     from layout_search import box_gap, scene_boxes, pin_shifts, stack_caps, solids_gap
@@ -268,10 +268,11 @@ def screw(cfg):
         fixed.append(prism((h0+.012, m[1], m[2]), (h1-.012, m[1], m[2]), w, dd, .2, 3))
     s0, s1 = Q['x_shaft']
     shaft = [revolve([(0, s0), (S['shaft_r'], s0), (S['shaft_r'], s1), (0, s1)], (1, 0, 0), (0, ax[1], ax[2]), 20)]
-    t0, t1 = Q['x_thread']; n = int(np.ceil((t1-t0)/S['pitch']*S['turn_samples']))
-    x = np.linspace(t0, t1, n); th = 2*np.pi*(x-t0)/S['pitch']
-    path = np.array([0, ax[1], ax[2]])+np.outer(x, [1, 0, 0])+np.outer(np.cos(th), Q['e1'])*S['shaft_r']+np.outer(np.sin(th), Q['e2'])*S['shaft_r']
-    shaft.append(sweep(path, S['thread_r'], S['thread_r'], sides=S['thread_sides']))
+    # the thread: an Acme-style trapezoid in the axial plane, its root a
+    # millimetre inside the core, carried round the core once per pitch
+    t0, t1 = Q['x_thread']; r0 = S['shaft_r']-.001; r1 = S['shaft_r']+S['thread_depth']
+    shaft.append(helix([(r0, -S['root']/2), (r0, S['root']/2), (r1, S['crest']/2), (r1, -S['crest']/2)],
+                       t0, t1, S['pitch'], (0, ax[1], ax[2]), Q['e1'], Q['e2'], S['turn_samples']))
     return fixed, shaft
 
 
@@ -303,7 +304,7 @@ def rail_racks(cfg):
     the arm rulers."""
     if drive_kind(cfg) == 'screw':
         Q = screw_geometry(cfg); P = Q['axis'].copy(); Qb = Q['axis'].copy(); P[0], Qb[0] = Q['x_shaft']
-        return [(P, Qb, SCREW['shaft_r']+SCREW['thread_r'])]
+        return [(P, Qb, SCREW['shaft_r']+SCREW['thread_depth'])]
     R = rack_geometry(cfg); m = R['centre']+R['u']*(R['s_tip']+R['s_top'])/2
     P = m.copy(); Q = m.copy(); P[0] = R['x_a']; Q[0] = R['x_b']
     return [(P, Q, max((R['s_top']-R['s_tip'])/2, R['h']))]

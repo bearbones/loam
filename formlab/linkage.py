@@ -68,6 +68,34 @@ def revolve(profile, axis=X, centre=(0, 0, 0), sides=32):
     path = np.asarray(centre, float)+axis*np.linspace(pr[0, 1], pr[-1, 1], 3)[:, None]
     return Mesh(vertices, faces, uv, path, np.full(3, pr[:, 0].max()), np.full(3, pr[:, 0].max()))
 
+def helix(profile, x0, x1, pitch, centre=(0, 0, 0), e1=Y, e2=Z, per_turn=16):
+    """A screw thread: a closed polygon `profile` of (r, s) pairs — r the
+    radius off the axis, s the offset along it — carried once round the
+    axis per `pitch` of travel, from x0 to x1 along X. The profile lies in
+    the axial plane the whole way (as a cut thread's does), so a trapezoid
+    gives flat flanks and a flat crest, not a coiled wire. The thread's hand
+    is that of (X, e1, e2): a right-hand frame turns e1 → e2 as x grows.
+    Closed solid: the helical band plus a cap at each end."""
+    pr = np.asarray(profile, float); k = len(pr)
+    if k < 3 or (pr[:, 0] <= 0).any(): raise ValueError('helix profile needs three or more points off the axis')
+    c = np.asarray(centre, float); e1 = np.asarray(e1, float); e2 = np.asarray(e2, float)
+    n = max(int(np.ceil((x1-x0)/pitch*per_turn)), 2)+1
+    x = np.linspace(x0, x1, n); th = 2*np.pi*(x-x0)/pitch
+    radial = np.cos(th)[:, None]*e1+np.sin(th)[:, None]*e2                       # (n, 3)
+    vertices = (c+np.outer(x, X))[:, None, :]+pr[None, :, 1, None]*X+pr[None, :, 0, None]*radial[:, None, :]
+    vertices = vertices.reshape(-1, 3); faces = []
+    for i in range(n-1):
+        for j in range(k):
+            a = i*k+j; b = i*k+(j+1) % k
+            faces.extend(((a, a+k, b), (b, a+k, b+k)))
+    for j in range(1, k-1):
+        faces.append((0, j, j+1)); faces.append(((n-1)*k, (n-1)*k+j+1, (n-1)*k+j))
+    faces = np.asarray(faces, int)
+    signed = np.einsum('ij,ij->i', vertices[faces[:, 0]], np.cross(vertices[faces[:, 1]], vertices[faces[:, 2]])).sum()
+    if signed < 0: faces = faces[:, ::-1].copy()
+    path = c+np.outer(np.linspace(x0, x1, 3), X); r = pr[:, 0].max()
+    return Mesh(vertices, faces, np.zeros((len(vertices), 2)), path, np.full(3, r), np.full(3, r))
+
 def bolt_head(centre, axis=(0, 1, 0), r=.011, h=.016):
     """A hex-ish bolt head standing on a face, along `axis` (sunk 6 mm in)."""
     pr = [(0, -.006), (r, -.006), (r, h*.7), (r*.6, h), (0, h)]

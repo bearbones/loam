@@ -407,6 +407,16 @@ check(pinion_mount(swing([0, -.3, -1.0]), [0, 0, .11], [0, .10625, .02847], laye
 # leadscrew's axis — all inside the nut / nut_arm capsules drive_capsules
 # reserves, with no pinion capsule and nothing beyond the plane.
 from formlab.clearance import SCREW, drive_capsules, drive_kind
+from formlab.linkage import helix
+# linkage.helix — the thread is a closed solid: a trapezoid in the axial
+# plane carried round the axis, right-handed in the (X, e1, e2) frame
+_th = helix([(.009, -.0025), (.009, .0025), (.0136, .0014), (.0136, -.0014)], 0., .04, .008, (0, .3, -.2), (0, 1, 0), (0, 0, 1), 16)
+check_pieces([_th])
+_rad = np.hypot(_th.vertices[:, 1]-.3, _th.vertices[:, 2]+.2); _crest = _th.vertices.reshape(-1, 4, 3)[:, 2]   # one crest corner per sample, in order along the helix
+_ang = np.unwrap(np.arctan2(_crest[:, 2]+.2, _crest[:, 1]-.3))
+check(abs(_rad.min()-.009) < 1e-9 and abs(_rad.max()-.0136) < 1e-9 and abs(_th.vertices[:, 0].min()+.0025) < 1e-9 and abs(_th.vertices[:, 0].max()-.0425) < 1e-9
+      and abs(_ang[-1]-_ang[0]-2*np.pi*5) < .3 and (np.diff(_ang) > -1e-6).all(),
+      f'helix: a closed trapezoidal thread, root {_rad.min()*1000:.1f} mm, crest {_rad.max()*1000:.1f} mm, five right-hand turns over 40 mm at 8 mm pitch')
 check(drive_kind(dict(kind='mallet')) == 'rack' and drive_kind(dict(kind='hammer')) == 'rack' and drive_kind(dict(kind='pick')) == 'screw' and drive_kind(dict(kind='rake')) == 'screw',
       'drive_kind: mallet and hammer arms keep the rack, pick and rake arms ride a leadscrew')
 for mount in MOUNTS:
@@ -450,7 +460,7 @@ for asset in ('clockwork', 'clockwork_expanded'):
             except Exception: gear = None
             sc = cfg.get('screw', {})
             check(V is not None and gear is None and cfg.get('drive') == 'screw' and sc and abs(V[:, 1].mean()-sc['y']) < .002 and abs(V[:, 2].mean()-sc['z']) < .002
-                  and V[:, 0].min() < sc['x_thread'][0] and V[:, 0].max() > sc['x_thread'][1] and np.ptp(V[:, 1]) < 2*(SCREW['shaft_r']+2*SCREW['thread_r'])+.001,
+                  and V[:, 0].min() < sc['x_thread'][0] and V[:, 0].max() > sc['x_thread'][1] and abs(np.ptp(V[:, 1])-2*(SCREW['shaft_r']+SCREW['thread_depth'])) < .001,
                   f'{asset} {aid}: built with a leadscrew (form_{aid}_screw on its recorded axis, threaded over {sc.get("x_thread")}) and no pinion')
             continue
         # the exported node carries its home pose, so measure the mesh about

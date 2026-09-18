@@ -72,7 +72,7 @@ MOUNTS = dict(back=(0., -1.), up=(1., 0.), down=(-1., 0.), front=(0., 1.))
 # drive housing at the low end, and a bronze nut on the carriage bracketed to
 # the boss where the pinion's axle stood. The nut takes the pinion's place in
 # the arm's capsules (drive_capsules), the shaft the rack's (gantry.rail_racks).
-SCREW = dict(s_axis=.135, shaft_r=.010, thread_r=.003, pitch=.008, turn_samples=10, thread_sides=16,
+SCREW = dict(s_axis=.135, shaft_r=.010, pitch=.008, thread_depth=.0036, crest=.0028, root=.0050, turn_samples=16,   # an Acme-style trapezoid: depth .45p, crest .35p, root .6p, sunk 1 mm into the core
              nut_r=.035, nut_len=.09, arm_r=.02, flange=.045, flange_t=.008, bolt_circle=.032,
              bearing_r=.03, bearing_len=.04, housing_r=.028, housing_len=.07, fin_r=.034, fin_t=.004)
 

@@ -113,7 +113,7 @@ def run(layout_path, score_path):
         n0, n1 = x.min()-S['nut_len']/2, x.max()+S['nut_len']/2
         rec = layout['arms'][aid].get('screw', {}); (A, B, r), = G.rail_racks(cfg)
         check(Q['x_thread'][0] < n0-.02 and Q['x_thread'][1] > n1+.02 and Q['x_house'][1] < n0-.02 and Q['x_bear'] == G._rack_stub_x(Q)
-              and np.dot(np.cross(Q['e1'], Q['e2']), [1, 0, 0]) > .999 and abs(r-S['shaft_r']-S['thread_r']) < 1e-9
+              and np.dot(np.cross(Q['e1'], Q['e2']), [1, 0, 0]) > .999 and abs(r-S['shaft_r']-S['thread_depth']) < 1e-9
               and layout['arms'][aid]['gantry']['rack'].get('drive') == 'screw' and abs(rec.get('y', 1e9)-Q['axis'][1]) < 1e-9 and abs(rec.get('z', 1e9)-Q['axis'][2]) < 1e-9
               and rec.get('pitch') == S['pitch'] and cfg.get('drive') == 'screw',
               f'{aid}: leadscrew threaded {Q["x_thread"][0]:.2f}..{Q["x_thread"][1]:.2f} m round the nut\'s travel {n0:.2f}..{n1:.2f} m, housing to {Q["x_house"][1]:.2f} m, '

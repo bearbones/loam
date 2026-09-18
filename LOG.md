@@ -1,3 +1,22 @@
+## 2026-09-18 — CLOCKWORK the leadscrew has a cut thread
+
+The first leadscrew's thread was a 3 mm round wire swept along the helix
+(`sweep`, sixteen sides) and in the tick-50 renders it read as a coiled
+cable on a bar — round wire, dark gaps — not a thread. A real leadscrew's
+thread is a profile in the *axial* plane carried round the core:
+`linkage.helix(profile, x0, x1, pitch, centre, e1, e2, per_turn)` now
+builds that as a closed helical solid the way `revolve` builds a solid of
+revolution (the band of the profile polygon between consecutive samples,
+a cap at each end, faces flipped by signed volume), and `gantry.screw` cuts
+an Acme-style trapezoid with it (`clearance.SCREW`: depth 3.6 mm, crest
+2.8 mm, root 5 mm, the root a millimetre inside the core, sixteen samples a
+turn). Flat flanks, a flat crest land, and 8.6k vertices per shaft where
+the wire sweep had 61k. `thread_r` / `thread_sides` are gone from `SCREW`;
+the rail-search capsule and the rulers use `shaft_r + thread_depth`.
+`test_linkage_tools` holds a unit thread closed, at its root and crest
+radii, five right-hand turns over 40 mm, and the built shafts' diameter at
+the crest. Rails kept; `stale_rails` remains the only red.
+
 ## 2026-09-18 — CLOCKWORK the servo arms ride a leadscrew
 
 `docs/plans/leadscrew-servo-drive.md`, stage A. Every arm had a rack and
