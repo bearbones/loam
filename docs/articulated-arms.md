@@ -427,5 +427,9 @@ manifest carries the two turning points of its dead length (`neck.bridge`,
 `neck.pin`, from `formlab.layout.neck_plan`), and `_make_dead_length` draws
 two straight tubes of the same wire — up the string line to the bridge pin,
 then leaning to the tuning pin — as a node beside the string, so the
-per-frame shape updates never reach it. See [instrument
+per-frame shape updates never reach it. At the pin the wire winds on
+(`neck.wrap`, from `formlab.layout.pin_wrap`): two and a half turns of the
+same gauge coiled toward the neck, a tube along a helix (`_tube_along`) in a
+plain material of the wire's colour, since the wire shader only bends a
+straight tube. See [instrument
 frames](instrument-frames.md#the-neck-carries-the-strings-the-way-a-harps-does).

@@ -197,6 +197,20 @@ def neck_plan(b,face_z,back_z,discs=True):
     pin=dict(centre=[tx-d['pin_r'],ty],z=[z0-d['straddle'],head_z],r=d['pin_r'],contact=[tx,ty,z0],key=[tx-d['pin_r'],ty,head_z+d['key']/2])
     return dict(plate_out=float(plate_out),discs=rows,bridge=bridge,pin=pin,dead=[[x,y,z0],bridge['contact'],pin['contact']])
 
+# The dead length does not stop where it meets the tuning pin: it winds on. A
+# harp string wraps its pin between the string plane and the neck, coil on
+# coil, and the coil is what a tuner's eye reads. The wire arrives from the
+# bridge below on the pin's +x side and goes on up over the pin (counter-
+# clockwise seen from +z), advancing toward the neck a wire's diameter a turn.
+WRAP=dict(turns=2.5, clear=.003)
+def pin_wrap(pin,plate_out):
+    """Where one string's dead length winds on its tuning pin, from `neck_plan`'s
+    pin and plate: the helix's axis point on the string plane, the pin's radius
+    the wire winds on, the turns, and the room along the pin from the plane to
+    just short of the plate's outer face. The wire's gauge decides the pitch."""
+    cx,cy=pin['centre']; z0=pin['contact'][2]
+    return dict(centre=[cx,cy,z0],r=pin['r'],turns=WRAP['turns'],room=float(plate_out-z0-WRAP['clear']))
+
 
 # A trestle bench for the struck elements that sit on it (the glass bells, the
 # temple blocks): two straight rails along the row on a splayed-leg trestle at

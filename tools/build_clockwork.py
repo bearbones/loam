@@ -14,7 +14,7 @@ out = ROOT/'harness/assets'
 sys.path.insert(0,str(ROOT/'tools'))
 from blender_forms import make_form
 sys.path.insert(0,str(ROOT/'formlab'))
-from layout import string_endpoints,bar_frame_plan,board_z,harp_base_plan,bench_plan,bench_elements,flywheel_plan,eyelet_plan,BAR,BENCH,BELL,BOARD,NECK,FLYWHEEL,EYELET
+from layout import string_endpoints,bar_frame_plan,board_z,harp_base_plan,bench_plan,bench_elements,flywheel_plan,eyelet_plan,pin_wrap,BAR,BENCH,BELL,BOARD,NECK,FLYWHEEL,EYELET
 # formlab.rig / clearance / layout_search are numpy-only (no SciPy) so they run here too.
 import rig as arm_rig, clearance as arm_clearance, layout_search
 # Pure Python preparation keeps SciPy and structural logic out of Blender's runtime.
@@ -260,7 +260,7 @@ for aid,extra in forms.get('arms',{}).items():
 # build_forms found it (formlab.layout.neck_plan): the action discs with their
 # fork pins straddling the string, the bridge pin, and the tuning pin through
 # the neck with its square head on the far side. Godot draws the string's dead
-# length from b over the bridge pin to the tuning pin (`neck` on the string).
+# length from b over the bridge pin to the tuning pin (`neck` on the string)...
 for sid,n in forms.get('neck',{}).items():
     for row,disc in enumerate(n['discs']):
         c=Vector(disc['centre']); h=disc['half']
@@ -269,7 +269,8 @@ for sid,n in forms.get('neck',{}).items():
     bx,by=n['bridge']['centre']; beam(sid+' bridge pin',[bx,by,n['bridge']['z'][0]],[bx,by,n['bridge']['z'][1]],n['bridge']['r'],brass)
     px,py=n['pin']['centre']; beam(sid+' tuning pin',[px,py,n['pin']['z'][0]],[px,py,n['pin']['z'][1]],n['pin']['r'],wire)
     box(sid+' tuning key',n['pin']['key'],(NECK['key'],)*3,steel,.003)
-    manifest['strings'][sid]['neck']=dict(bridge=n['bridge']['contact'],pin=n['pin']['contact'])
+    # ...and winds on the tuning pin toward the neck (formlab.layout.pin_wrap); Godot coils it.
+    manifest['strings'][sid]['neck']=dict(bridge=n['bridge']['contact'],pin=n['pin']['contact'],wrap=pin_wrap(n['pin'],n['plate_out']))
 # Geometry variants share anchors and are selected in Godot with --form or F.
 form_colliders=[]
 for entry in forms['objects']:

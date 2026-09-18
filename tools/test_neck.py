@@ -15,7 +15,7 @@ import json,sys
 from pathlib import Path
 import numpy as np
 ROOT=Path(__file__).resolve().parents[1]; sys.path.insert(0,str(ROOT))
-from formlab.layout import NECK,neck_plan
+from formlab.layout import NECK,neck_plan,pin_wrap
 from formlab.recipes import action_plate,neck_faces,harp_frame,harp_backbone
 from formlab.sweep import validate_mesh
 
@@ -64,6 +64,21 @@ def run(layout_path):
             dead=n['dead']; check(dead[0]==list(e['b']) and dead[1][0]==b[0] and dead[1][1]>b[1] and dead[2][1]>dead[1][1] and dead[2][0]<dead[1][0],
                                   f'{e["id"]}: dead length b -> bridge -> tuning pin')
             rec=e.get('neck'); check(rec is not None and rec['bridge']==br['contact'] and rec['pin']==tp['contact'],f'{e["id"]}: manifest carries the dead length\'s turning points')
+            # ...and winds on the tuning pin toward the neck: the manifest's wrap is the plan's,
+            # on the pin's axis at the string plane; the pin has room short of the plate for the
+            # turns of this string's gauge coil beside coil; and the coil clears the neighbouring
+            # strings' pins and dead lengths.
+            w=pin_wrap(tp,n['plate_out']); wr=.0035*2**((64-e['midi'])/18); coil_r=w['r']+2*wr
+            check(rec is not None and rec.get('wrap')==w and w['centre'][:2]==tp['centre'] and w['centre'][2]==plane and w['r']==tp['r'],f'{e["id"]}: manifest carries the wrap on the tuning pin')
+            check(w['room']>=w['turns']*2*wr+wr and plane+w['room']<n['plate_out'],f'{e["id"]}: {w["turns"]} turns of {wr*1000:.1f} mm wire fit the {w["room"]*1000:.0f} mm of pin short of the plate')
+            c=np.array(tp['centre']); gap=1e9
+            for o in others:
+                on=neck_plan(o['b'],faces[o['id']]['face'],faces[o['id']]['back'],discs=mid=='harp'); orad=.0035*2**((64-o['midi'])/18)
+                gap=min(gap,np.linalg.norm(c-np.array(on['pin']['centre']))-on['pin']['r']-coil_r,np.linalg.norm(c-np.array(on['bridge']['centre']))-on['bridge']['r']-coil_r)
+                for p,q in zip(on['dead'][:-1],on['dead'][1:]):
+                    p=np.array(p[:2]); q=np.array(q[:2]); t=np.clip(np.dot(c-p,q-p)/np.dot(q-p,q-p),0,1)
+                    gap=min(gap,np.linalg.norm(c-(p+t*(q-p)))-orad-coil_r)
+            check(gap>.02,f'{e["id"]}: the coil clears the neighbouring strings\' pins and dead lengths by {gap*1000:.0f} mm')
         check(worst<.006,f'{mid}: the plate\'s outer face is where the plan says it is (worst {worst*1000:.1f} mm)')
         check(worst_far<.006,f'{mid}: the far plate is seated on the far face at every string (worst {worst_far*1000:.1f} mm)')
         # no ferrule at the string tops: the pieces beyond the backbone all start at a foot

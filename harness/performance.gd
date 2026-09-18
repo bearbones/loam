@@ -171,7 +171,53 @@ func _make_dead_length(sid: String, s: Dictionary, radius: float, colour: Color,
 		mat.set_shader_parameter("disp",zero); mat.set_shader_parameter("envelope",zero)
 		node.material_override=mat
 		dead.add_child(node)
+	# ...and winds on the tuning pin (formlab.layout.pin_wrap): from the contact on
+	# the pin's +x side up over the pin, coil beside coil toward the neck, a wire's
+	# diameter a turn — or finer, if the room short of the plate is less. The coil is
+	# a tube along a helix, not the straight tube the wire shader bends, so it wears
+	# a plain material of the wire's colour: metal for wire, matte for gut.
+	if s["neck"].has("wrap"):
+		var w: Dictionary=s["neck"]["wrap"]; var turns: float=float(w["turns"])
+		var R: float=float(w["r"])+radius; var pitch: float=minf(2.0*radius,(float(w["room"])-radius)/turns)
+		var pts := PackedVector3Array(); var n := int(ceil(turns*24.0))
+		for i in n+1:
+			var th := TAU*turns*float(i)/n
+			pts.append(Vector3(R*cos(th),R*sin(th),pitch*th/TAU))
+		var coil := MeshInstance3D.new(); coil.name=sid+" coil"; coil.mesh=_tube_along(pts,radius,8)
+		coil.position=motion.v(w["centre"])
+		var pm := StandardMaterial3D.new(); pm.albedo_color=colour
+		pm.metallic=1.0 if family<=1 else 0.0; pm.roughness=.35 if family<=1 else (.6 if family==2 else .3)
+		coil.material_override=pm
+		dead.add_child(coil)
 	add_child(dead)
+
+## A tube of the wire's gauge along a polyline (the tuning-pin coil): rings in
+## parallel-transported frames, so the tube neither twists nor pinches round the
+## turns; the same ring winding as _wire_mesh.
+static func _tube_along(points: PackedVector3Array, radius: float, sides: int) -> ArrayMesh:
+	var verts := PackedVector3Array(); var norms := PackedVector3Array(); var uvs := PackedVector2Array(); var idx := PackedInt32Array()
+	var n := points.size()
+	var t0: Vector3=(points[1]-points[0]).normalized()
+	var u: Vector3=t0.cross(Vector3.BACK)
+	if u.length()<.1: u=t0.cross(Vector3.UP)
+	u=u.normalized()
+	for j in n:
+		var t: Vector3
+		if j==0: t=t0
+		elif j==n-1: t=(points[j]-points[j-1]).normalized()
+		else: t=((points[j]-points[j-1]).normalized()+(points[j+1]-points[j]).normalized()).normalized()
+		u=(u-t*u.dot(t)).normalized(); var v: Vector3=u.cross(t)
+		for k in sides+1:
+			var th := TAU*float(k)/sides; var nrm: Vector3=u*cos(th)+v*sin(th)
+			verts.append(points[j]+nrm*radius); norms.append(nrm); uvs.append(Vector2(float(j)/(n-1),float(k)/sides))
+	for j in n-1:
+		for k in sides:
+			var p := j*(sides+1)+k
+			idx.append_array([p,p+1,p+sides+1, p+1,p+sides+2,p+sides+1])
+	var arrays := []; arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX]=verts; arrays[Mesh.ARRAY_NORMAL]=norms; arrays[Mesh.ARRAY_TEX_UV]=uvs; arrays[Mesh.ARRAY_INDEX]=idx
+	var mesh := ArrayMesh.new(); mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
+	return mesh
 
 ## The flywheel's angle at time t: one turn per bar of the score's tempo,
 ## the wheel's +x face turning down toward the house (a negative turn about z).

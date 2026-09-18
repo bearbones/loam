@@ -137,6 +137,23 @@ manifest's turning points, and the single foot ferrule;
 `dev/test_performance.gd` checks every harp and rake string has its dead length
 starting at `b` and climbing to the neck.
 
+The dead length does not stop where it meets the pin: a harp string winds its
+tuning pin, coil beside coil, between the string plane and the neck, and the
+coil is what a tuner's eye reads on a pin. `layout.pin_wrap` records on the
+string (`neck.wrap`) the helix's axis point on the pin at the string plane, the
+pin's radius, the turns (2.5) and the room along the pin from the plane to 3 mm
+short of the plate's outer face; `performance.gd` winds a tube of the string's
+own gauge round it from the contact on the pin's +x side up over the pin, the
+way the wire arrives from the bridge below, advancing toward the neck a wire's
+diameter a turn (or finer if the room is less — it never is here: the widest
+wire needs 33 mm of the 49 available). The coil is a tube along a helix
+(`_tube_along`, parallel-transported rings), not the straight tube the wire
+shader bends, so it wears a plain material in the wire's colour. `test_neck.py`
+pins the recorded wrap against the plan, the room against each string's gauge,
+and the coil clear of the neighbouring strings' pins and dead lengths;
+`dev/test_performance.gd` checks the coil sits on its pin, is as wide as the
+pin plus two wires, and runs no further along the pin than its room.
+
 ## The chamber's flywheel is carried and driven
 
 The brass flywheel beside the harp stood on the floor on its rim with no

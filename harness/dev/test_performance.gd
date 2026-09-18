@@ -68,12 +68,20 @@ func check_scene() -> void:
 			# lengths (b to the bridge pin, bridge pin to the tuning pin) beside the string.
 			if s["mid"]=="harp" or s["mid"]=="rake":
 				var dead: Node3D=scene.find_child(sid+" dead",true,false)
-				if dead==null or dead.get_child_count()!=2: failures.append("string has no dead length "+sid)
+				if dead==null or dead.get_child_count()!=3: failures.append("string has no dead length and coil "+sid)
 				else:
 					var first: MeshInstance3D=dead.get_child(0)
 					if first.global_position.distance_to(scene.motion.v(s["b"]))>.00001: failures.append("dead length does not start at b "+sid)
 					var top: MeshInstance3D=dead.get_child(1)
 					if top.global_position.y<=scene.motion.v(s["b"]).y+.1: failures.append("dead length does not climb to the neck "+sid)
+					# ...and winds on its tuning pin (formlab.layout.pin_wrap): a coil about the
+					# pin's axis at the wrap's centre, as wide as the pin plus two wires, running
+					# from the string plane toward the neck no further than the room the plan gives.
+					var coil: MeshInstance3D=dead.get_child(2); var w: Dictionary=s["neck"]["wrap"]
+					var radius: float=.0035*pow(2.0,(64.0-midi)/18.0); var box: AABB=coil.mesh.get_aabb()
+					if coil.global_position.distance_to(scene.motion.v(w["centre"]))>.00001: failures.append("coil not on its tuning pin "+sid)
+					if absf(box.size.x-2.0*(float(w["r"])+2.0*radius))>.002 or absf(box.size.y-2.0*(float(w["r"])+2.0*radius))>.002: failures.append("coil not wound on the pin "+sid)
+					if box.position.z<-radius-.0001 or box.end.z>float(w["room"])+.0001 or box.size.z<3.0*radius: failures.append("coil runs past its room on the pin, or does not advance "+sid)
 		# The chamber's flywheel turns about z once a bar, and the belt pulley with it,
 		# faster by the pulleys' radii (formlab.layout.flywheel_plan).
 		var wheel: Node3D=scene.model.find_child("Chamber flywheel",true,false)

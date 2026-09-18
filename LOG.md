@@ -1,3 +1,25 @@
+## 2026-09-17 — CLOCKWORK the strings wind their tuning pins
+
+The dead length ran up over the bridge pin to the tuning pin and stopped
+dead on its surface. A harp string winds its pin — coil beside coil between
+the string plane and the neck — and the coil is what the eye reads on a
+tuning pin. `formlab.layout.pin_wrap` now records on each harp and rake
+string (`neck.wrap`) the helix's axis point on the pin at the string plane,
+the pin's radius, the turns (2.5) and the room along the pin short of the
+plate's outer face; `performance.gd` winds a tube of the string's own gauge
+round it from the contact on the pin's +x side up over the pin, the way the
+wire arrives from the bridge below, advancing toward the neck a wire's
+diameter a turn (`_tube_along`: parallel-transported rings along a polyline,
+so the tube neither twists nor pinches round the turns). It wears a plain
+material in the wire's colour — the wire shader bends a straight tube and
+could not draw a helix. `tools/test_neck.py` pins the recorded wrap against
+the plan, the room against each string's gauge (the widest wire's coil needs
+33 mm of the 49 available) and the coil clear of the neighbouring strings'
+pins and dead lengths; `dev/test_performance.gd` checks the coil sits on its
+pin, is as wide as the pin plus two wires, and runs no further along the pin
+than its room. The wrap is written into `neck` after the rail search, like
+the turning points, so no rail re-planned.
+
 ## 2026-09-17 — CLOCKWORK oil cups on the arms' elbow forks
 
 Every bearing on a machine of this kind has a lubricator, and the arms had
