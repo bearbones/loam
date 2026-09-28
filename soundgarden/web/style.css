@@ -41,7 +41,9 @@ h2{font-size:17px;letter-spacing:-.3px;font-weight:600;margin:0}
 .field-controls{display:flex;gap:8px;flex-wrap:wrap}
 .range-row{display:flex;align-items:center;gap:15px;margin:15px 0;font-size:12px}
 .range-row input{flex:1;min-width:40px}
-.range-row output{width:42px;font-variant-numeric:tabular-nums}
+.range-row output{width:42px;font-variant-numeric:tabular-nums;white-space:nowrap}
+#spread-value{width:112px}
+.match-row button{white-space:nowrap}
 input[type=range]{accent-color:var(--blue)}
 .metrics{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
 .metrics b{display:block;font-size:17px;font-weight:400;color:var(--ink);margin-bottom:4px;font-variant-numeric:tabular-nums}
@@ -62,8 +64,16 @@ details{margin-top:23px;border-top:1px solid var(--line);padding-top:16px}
 summary{font-size:12px;cursor:pointer}
 summary span{float:right;color:var(--muted);font-size:11px}
 #recipe{padding:14px 0;display:grid;grid-template-columns:1fr 1fr;gap:9px 18px}
-.parameter{display:flex;justify-content:space-between;font-size:11px}
+.parameter{display:grid;grid-template-columns:1fr auto;gap:2px 8px;font-size:11px}
 .parameter span:last-child{font-variant-numeric:tabular-nums;color:var(--muted)}
+.parameter i{grid-column:1/-1;display:block;height:3px;background:var(--line);border-radius:2px;overflow:hidden}
+.parameter i b{display:block;height:100%;background:var(--blue);width:0}
+#recipe-hint{margin-top:10px}
+.turn-row{display:flex;align-items:center;gap:12px;font-size:12px;margin:-4px 0 14px}
+.turn-row label{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.turn-row .hint{font-size:11px}
+.match-row{display:flex;align-items:center;gap:10px;margin-top:10px}
+.match-row .hint{font-size:11px}
 details button{font-size:11px;padding:8px}
 .sequencer{border-top:1px solid var(--line);margin-top:20px;padding-top:20px}
 .sequencer h2{margin-bottom:6px}

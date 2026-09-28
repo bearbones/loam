@@ -1,12 +1,12 @@
-import {DEFAULT, DIMENSIONS, clamp, randomPlane, atPosition, validVector, validAxes, validNotes} from './space.js';
+import {DEFAULT, DIMENSIONS, clamp, spreadPlane, dimsPerAxis, atPosition, validVector, validAxes, validNotes} from './space.js';
 
 const $ = id => document.getElementById(id);
 const VERSION = 'soundgarden-resonator/1';
 const STORAGE = 'loam.soundgarden.session.v1';
 const PHRASE = [60, null, 67, null, 64, null, 72, 67, null, 64, null, 62, 67, null, 64, null];
 const copy = x => structuredClone(x);
-let state = {version: VERSION, center: [...DEFAULT], axes: randomPlane(), position: [0, 0], radius: 1,
-  round: 1, notes: [...PHRASE], bpm: 96, volume: .45, favorites: [], history: []};
+let state = {version: VERSION, center: [...DEFAULT], axes: spreadPlane(1), position: [0, 0], radius: 1, spread: 1, sensitivity: null,
+  perceptual: true, round: 1, notes: [...PHRASE], bpm: 96, volume: .45, favorites: [], history: []};
 let comparing = false, path = [], seeds = [], selectedSeed = 'Porcelain';
 let context, master, compressor, limiter, buffers = {}, playing = false, nextTime = 0, nextStep = 0;
 let timer, paintFrame, playEvents = [], voices = new Set(), revision = 0, renderTimer, pending = null, rendering = false;
@@ -16,15 +16,21 @@ const status = text => { $('status').textContent = text; };
 const current = () => atPosition(state.center, state.axes, state.position, state.radius);
 const audible = () => comparing ? state.center : current();
 function fieldSnapshot() {
-  const {center, axes, position, radius, round} = state;
-  return copy({center, axes, position, radius, round});
+  const {center, axes, position, radius, round, spread, sensitivity} = state;
+  return copy({center, axes, position, radius, round, spread, sensitivity});
 }
+const validSensitivity = s => s === null || s === undefined || (Array.isArray(s) && s.length === 10 && s.every(x => typeof x === 'number' && Number.isFinite(x) && x >= 0));
 function validField(s) {
-  return s && validVector(s.center) && validAxes(s.axes) && Array.isArray(s.position) && s.position.length === 2 && s.position.every(x => typeof x === 'number' && Number.isFinite(x) && Math.abs(x) <= 1) && typeof s.radius === 'number' && s.radius >= .15 && s.radius <= 2 && Number.isInteger(s.round) && s.round >= 1;
+  // Fields saved before the blend slider existed have no spread; they load as a full blend.
+  return s && validVector(s.center) && validAxes(s.axes) && Array.isArray(s.position) && s.position.length === 2 && s.position.every(x => typeof x === 'number' && Number.isFinite(x) && Math.abs(x) <= 1) && typeof s.radius === 'number' && s.radius >= .15 && s.radius <= 2 && Number.isInteger(s.round) && s.round >= 1 && (s.spread === undefined || (typeof s.spread === 'number' && s.spread >= 0 && s.spread <= 1)) && validSensitivity(s.sensitivity);
 }
+function fillField(s) { if (s.spread === undefined) s.spread = 1; if (s.sensitivity === undefined) s.sensitivity = null; return s; }
 function validateSession(s) {
-  if (!s || s.version !== VERSION || !validField(s) || !validNotes(s.notes) || !Number.isInteger(s.bpm) || s.bpm < 40 || s.bpm > 200 || typeof s.volume !== 'number' || !Number.isFinite(s.volume) || s.volume < 0 || s.volume > .9 || !Array.isArray(s.history) || s.history.length > 100 || !s.history.every(validField) || !Array.isArray(s.favorites) || s.favorites.length > 100 || !s.favorites.every(f => f && typeof f.name === 'string' && f.name.length <= 80 && validVector(f.vector) && validNotes(f.notes) && Number.isInteger(f.bpm) && f.bpm >= 40 && f.bpm <= 200)) throw new Error('This is not a compatible Soundgarden session.');
-  return copy(s);
+  if (!s || s.version !== VERSION || !validField(s) || !validNotes(s.notes) || !Number.isInteger(s.bpm) || s.bpm < 40 || s.bpm > 200 || typeof s.volume !== 'number' || !Number.isFinite(s.volume) || s.volume < 0 || s.volume > .9 || (s.perceptual !== undefined && typeof s.perceptual !== 'boolean') || !Array.isArray(s.history) || s.history.length > 100 || !s.history.every(validField) || !Array.isArray(s.favorites) || s.favorites.length > 100 || !s.favorites.every(f => f && typeof f.name === 'string' && f.name.length <= 80 && validVector(f.vector) && validNotes(f.notes) && Number.isInteger(f.bpm) && f.bpm >= 40 && f.bpm <= 200)) throw new Error('This is not a compatible Soundgarden session.');
+  const session = fillField(copy(s));
+  if (session.perceptual === undefined) session.perceptual = true;
+  session.history.forEach(fillField);
+  return session;
 }
 function save() {
   try { localStorage.setItem(STORAGE, JSON.stringify(state)); }
@@ -159,7 +165,10 @@ async function pump() {
 }
 
 function axisName(axis) {
-  const ranked = axis.map((value, i) => ({value, i})).filter(item => Math.abs(item.value) >= .05).sort((a,b) => Math.abs(b.value) - Math.abs(a.value)).slice(0,2);
+  // Name the parameters that change the sound most, not the ones with the largest raw weight:
+  // an ear-weighted plane deliberately gives quiet parameters big weights.
+  const weight = i => Math.abs(axis[i]) * (state.sensitivity ? state.sensitivity[i] : 1);
+  const ranked = axis.map((value, i) => ({value, i, weight: weight(i)})).filter(item => Math.abs(item.value) >= .05 && item.weight > 0).sort((a,b) => b.weight - a.weight).slice(0,2);
   return ranked.map(({value,i}) => `${DIMENSIONS[i].toLowerCase()} ${value >= 0 ? '+' : '−'}`).join(', ');
 }
 function updateField() {
@@ -179,15 +188,47 @@ function updateField() {
   $('axis-y').textContent = `Up: ${axisName(state.axes[1])}`;
   $('round').textContent = `Exploration ${state.round}`;
   $('radius').value = state.radius; $('radius-value').textContent = state.radius.toFixed(2) + '×';
+  $('spread').value = dimsPerAxis(state.spread); spreadLabel(dimsPerAxis(state.spread));
+  $('perceptual').checked = state.perceptual;
   $('undo').disabled = state.history.length === 0;
   $('compare').setAttribute('aria-pressed', String(comparing));
   $('compare').textContent = comparing ? 'Return to current sound' : 'Hear starting sound';
+  const peak = state.sensitivity ? Math.max(...state.sensitivity, 1e-9) : 0;
+  $('recipe-hint').hidden = !state.sensitivity;
   $('recipe').replaceChildren(...audible().map((v,i) => {
     const row = document.createElement('div'); row.className = 'parameter';
     const label = document.createElement('span'); label.textContent = DIMENSIONS[i];
     const value = document.createElement('span'); value.textContent = v.toFixed(3);
-    row.append(label,value); return row;
+    row.append(label,value);
+    if (state.sensitivity) {
+      const bar = document.createElement('i'); const fill = document.createElement('b');
+      fill.style.width = `${Math.round(100 * state.sensitivity[i] / peak)}%`;
+      bar.title = `Measured change per step: ${state.sensitivity[i].toFixed(2)}`; bar.append(fill); row.append(bar);
+    }
+    return row;
   }));
+}
+function spreadLabel(k) { $('spread-value').textContent = k === 1 ? '1 per axis (2 total)' : `${k} per axis`; }
+// Ask the server for a plane weighted by what the ear notices here; fall back to a local draw.
+async function turnField(audition = true) {
+  const round = state.round;
+  state.axes = spreadPlane(state.spread); state.sensitivity = null;
+  if (state.perceptual) {
+    status('Turning the field by ear…');
+    try {
+      const response = await fetch('/api/plane', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({center: state.center, spread: state.spread, perceptual: true}), signal:AbortSignal.timeout(20000)});
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Plane failed');
+      if (state.round !== round) return;
+      if (validAxes(data.axes)) state.axes = data.axes;
+      if (typeof data.radius === 'number' && Number.isFinite(data.radius)) state.radius = clamp(data.radius, .15, 2);
+      if (validSensitivity(data.sensitivity)) state.sensitivity = data.sensitivity;
+    } catch (error) {
+      if (state.round !== round) return;
+      status(`Turned without the server's help: ${error.message}`);
+    }
+  }
+  updateField(); save(); requestRender(true, audition);
 }
 function changePosition(position) {
   comparing = false; state.position = position; selectedSeed = '';
@@ -216,10 +257,18 @@ pad.onkeydown = e => {
 };
 function pushHistory() { state.history.push(fieldSnapshot()); state.history = state.history.slice(-100); }
 $('keep').onclick = () => {
-  pushHistory(); state.center = audible(); state.position = [0,0]; state.axes = randomPlane();
+  pushHistory(); state.center = audible(); state.position = [0,0];
   state.round++; path = []; comparing = false; selectedSeed = '';
-  updateField(); renderSeeds(); save(); requestRender(true);
+  updateField(); renderSeeds(); save(); turnField(false);
 };
+$('spread').oninput = e => spreadLabel(+e.target.value);
+$('spread').onchange = e => {
+  const spread = (clamp(Math.round(+e.target.value), 1, 10) - 1) / 9;
+  if (spread === state.spread) return;
+  pushHistory(); state.spread = spread; state.position = [0,0]; state.round++; path = []; comparing = false;
+  updateField(); save(); turnField(true);
+};
+$('perceptual').onchange = e => { state.perceptual = e.target.checked; save(); };
 $('undo').onclick = () => {
   if (!state.history.length) return;
   Object.assign(state, state.history.pop()); path = []; comparing = false; selectedSeed = '';
@@ -235,10 +284,15 @@ $('volume').oninput = e => { state.volume = +e.target.value; if (master) master.
 
 function setSeed(vector, plane = null) {
   pushHistory(); state.center = [...vector]; state.position = [0,0];
-  state.axes = validAxes(plane?.axes) ? copy(plane.axes) : randomPlane();
-  state.radius = typeof plane?.radius === 'number' && Number.isFinite(plane.radius) ? clamp(plane.radius,.15,2) : 1;
   state.round++; comparing = false; path = [];
-  unlockAudio().catch(() => {}); updateField(); renderSeeds(); save(); requestRender(true, true);
+  unlockAudio().catch(() => {}); renderSeeds();
+  if (validAxes(plane?.axes)) {
+    // A premeasured plane from the offline explorer: use it as suggested.
+    state.axes = copy(plane.axes); state.sensitivity = validSensitivity(plane.sensitivity) ? copy(plane.sensitivity) : null;
+    state.spread = typeof plane.spread === 'number' && plane.spread >= 0 && plane.spread <= 1 ? plane.spread : 1;
+    state.radius = typeof plane.radius === 'number' && Number.isFinite(plane.radius) ? clamp(plane.radius,.15,2) : 1;
+    updateField(); save(); requestRender(true, true);
+  } else { state.radius = 1; turnField(true); }
 }
 function renderSeeds() {
   $('seeds').replaceChildren(...seeds.map(seed => {
@@ -246,7 +300,7 @@ function renderSeeds() {
     button.className = 'seed' + (selectedSeed === seed.name ? ' selected' : '');
     const name = document.createElement('strong'); name.textContent = seed.name;
     const detail = document.createElement('small');
-    detail.textContent = seed.metrics ? `${Math.round(seed.metrics.centroid_hz)} Hz · ${seed.metrics.energy95_s.toFixed(2)} s` : 'Starter sound';
+    detail.textContent = seed.metrics ? `${Math.round(seed.metrics.centroid_hz)} Hz · ${seed.metrics.energy95_s.toFixed(2)} s${seed.source === 'Matched' ? ` · ${seed.distance.toFixed(2)} away` : ''}` : 'Starter sound';
     button.append(name, detail);
     button.onclick = () => { selectedSeed = seed.name; setSeed(seed.vector, seed.plane); };
     return button;
@@ -263,6 +317,24 @@ async function refreshLibrary() {
   } catch { status('Starting points unavailable. Check the local server and press Refresh.'); }
 }
 $('refresh').onclick = refreshLibrary;
+$('match').onclick = () => $('match-file').click();
+$('match-file').onchange = async e => {
+  const file = e.target.files[0]; e.target.value = '';
+  if (!file) return;
+  $('match').disabled = true; status('Listening to the file and searching the recipe space…');
+  try {
+    if (file.size > 8 * 1024 * 1024) throw new Error('Sound files must be 8 MB or smaller.');
+    const response = await fetch('/api/match', {method:'POST', headers:{'Content-Type':'audio/wav'}, body: await file.arrayBuffer(), signal:AbortSignal.timeout(120000)});
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Match failed');
+    const found = data.seeds.filter(s => validVector(s.vector)).map((s, i) => ({...s, name: `${file.name.replace(/\.wav$/i, '').slice(0, 24)} ${i + 1}`}));
+    if (!found.length) throw new Error('No match was returned.');
+    seeds = [...found, ...seeds.filter(s => s.source !== 'Matched')];
+    selectedSeed = found[0].name; setSeed(found[0].vector);
+    status(`Closest recipes added to Starting points. Heard the file near ${noteName(data.midi)}.`);
+  } catch (error) { status(`Match failed: ${error.message}`); }
+  finally { $('match').disabled = false; }
+};
 function renderFavorites() {
   const container = $('favorites'); container.replaceChildren();
   if (!state.favorites.length) {

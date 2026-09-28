@@ -8,6 +8,7 @@ import io
 import wave
 
 import numpy as np
+import scipy.fft
 
 from loam import SR, hz
 from loam.modal import GLASS, WOOD
@@ -80,8 +81,10 @@ def measure(signal):
     x = np.asarray(signal, dtype=float)
     # These one-shots already start/end at zero. A full-length Hann would erase
     # their attack and make short woody transients look falsely dark.
-    power = np.abs(np.fft.rfft(x)) ** 2
-    frequencies = np.fft.rfftfreq(len(x), 1 / SR)
+    # scipy.fft handles awkward lengths (a 2.5 s ring is ~110k samples) in a
+    # few ms where numpy's takes ~16; results agree to ~1e-7 relative.
+    power = np.abs(scipy.fft.rfft(x)) ** 2
+    frequencies = scipy.fft.rfftfreq(len(x), 1 / SR)
     total = float(power.sum()) + 1e-20
     energy = x * x
     cumulative = np.cumsum(energy)

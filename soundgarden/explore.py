@@ -2,6 +2,11 @@
 
 Checkpoints after each candidate; a partial final journal line is discarded on
 resume. Only selected seeds get WAVs. No downloads, agents, or repo writes.
+
+Each journal record carries the recipe, scalar metrics, and the log-mel
+descriptor. Older journals without descriptors are migrated on resume by
+re-rendering every recipe and checking that the recorded metrics reproduce,
+which is a stronger compatibility proof than a source hash.
 """
 import argparse
 from datetime import datetime, timezone
@@ -16,9 +21,14 @@ import time
 
 import numpy as np
 
-from .synth import SR, VERSION, features, measure, render, wav_bytes
+from .describe import VERSION as DESCRIPTOR_VERSION, analyze, embed
+from .field import plane
+from .synth import SR, VERSION, render, wav_bytes
 
 ROOT = Path(__file__).resolve().parents[1]
+SEARCH_VERSION = "soundgarden-search/2"
+SYNTHESIS_SOURCES = [Path(__file__).with_name("synth.py"), ROOT / "loam/__init__.py", ROOT / "loam/modal.py"]
+METRIC_KEYS = ("peak", "rms", "centroid_hz", "high_fraction", "energy95_s", "crest")
 
 
 def atomic_json(path, data):
@@ -27,10 +37,14 @@ def atomic_json(path, data):
     temporary.replace(path)
 
 
+def embedding(record):
+    return embed(record["metrics"], record["descriptor"]["grid"])
+
+
 def diverse(candidates, count):
     if len(candidates) <= count:
         return candidates[:]
-    points = np.array([features(c["metrics"]) for c in candidates])
+    points = np.array([embedding(c) for c in candidates])
     # Start with the median representative, then farthest-point coverage.
     chosen = [int(np.argmin(np.linalg.norm(points - np.median(points, axis=0), axis=1)))]
     distance = np.full(len(points), np.inf)
@@ -39,23 +53,6 @@ def diverse(candidates, count):
         distance[chosen] = -1
         chosen.append(int(np.argmax(distance)))
     return [candidates[i] for i in chosen]
-
-
-def plane(vector, rng):
-    axes = rng.normal(size=(2, 10))
-    axes[0] /= np.linalg.norm(axes[0])
-    axes[1] -= axes[0] * np.dot(axes[0], axes[1])
-    axes[1] /= np.linalg.norm(axes[1])
-    center = np.clip(vector, .001, .999)
-    logits = np.log(center / (1 - center))
-    differences = []
-    for axis in axes:
-        endpoints = [1 / (1 + np.exp(-(logits + sign * 3 * axis))) for sign in (-1, 1)]
-        f = [features(measure(render(v))) for v in endpoints]
-        differences.append(float(np.linalg.norm(f[1] - f[0])))
-    # A heuristic feature-distance target, not a perceptual equivalence claim.
-    radius = float(np.clip(.35 / max(np.mean(differences), .04), .3, 2.0))
-    return {"axes": axes.tolist(), "radius": radius, "axis_distances": differences}
 
 
 def restore(path):
@@ -73,6 +70,32 @@ def restore(path):
     with path.open("r+b") as stream:
         stream.truncate(good_bytes)
     return records
+
+
+def migrate(records):
+    """Fill in descriptors for older records, proving the synthesis still reproduces them."""
+    changed = False
+    for record in records:
+        if record.get("descriptor", {}).get("version") == DESCRIPTOR_VERSION:
+            continue
+        _, metrics, descriptor, _ = analyze(record["vector"])
+        recorded = np.array([record["metrics"][k] for k in METRIC_KEYS])
+        current = np.array([metrics[k] for k in METRIC_KEYS])
+        if not np.allclose(recorded, current, rtol=1e-5, atol=1e-9):
+            raise ValueError(f"Trial {record['trial']} no longer renders as recorded. Choose a fresh --output.")
+        record["descriptor"] = descriptor
+        changed = True
+    return changed
+
+
+def rewrite(path, records):
+    temporary = path.with_suffix(".tmp")
+    with temporary.open("w") as stream:
+        for record in records:
+            stream.write(json.dumps(record, allow_nan=False) + "\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    temporary.replace(path)
 
 
 def publish(output, archive, keep, trials, seed):
@@ -112,6 +135,20 @@ def battery_low(minimum):
     return False
 
 
+def check_manifest(manifest, metadata, parser):
+    """Fail closed on a different seed, NumPy, or synthesis; allow search-version migration."""
+    if not manifest.exists():
+        return
+    previous = json.loads(manifest.read_text())
+    same = {k: previous.get(k) == metadata[k] for k in ("seed", "numpy_version", "sample_rate", "version")}
+    if not all(same.values()):
+        parser.error("This checkpoint has another seed, synthesis version, sample rate, or NumPy version. Choose a fresh --output.")
+    if "synthesis_sha256" in previous and previous["synthesis_sha256"] != metadata["synthesis_sha256"]:
+        parser.error("This checkpoint was made with different synthesis code. Choose a fresh --output.")
+    # Legacy manifests (implementation_sha256) and older search versions are
+    # accepted only after migrate() proves every recorded trial still reproduces.
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--minutes", type=float, default=90, help="Wall-time budget for this invocation")
@@ -131,17 +168,20 @@ def main():
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
         parser.error("Another explorer is already using this output directory.")
-    sources = [Path(__file__), Path(__file__).with_name('synth.py'),
-               ROOT / 'loam/__init__.py', ROOT / 'loam/modal.py']
-    implementation = hashlib.sha256(b''.join(path.read_bytes() for path in sources)).hexdigest()
-    metadata = {"version": VERSION, "seed": args.seed, "implementation_sha256": implementation,
-                "numpy_version": np.__version__, "sample_rate": SR}
+    synthesis = hashlib.sha256(b''.join(path.read_bytes() for path in SYNTHESIS_SOURCES)).hexdigest()
+    metadata = {"version": VERSION, "seed": args.seed, "synthesis_sha256": synthesis, "search_version": SEARCH_VERSION,
+                "descriptor_version": DESCRIPTOR_VERSION, "numpy_version": np.__version__, "sample_rate": SR}
     manifest = output / "run.json"
-    if manifest.exists() and json.loads(manifest.read_text()) != metadata:
-        parser.error("This checkpoint has another seed, implementation, or NumPy version. Choose a fresh --output.")
-    atomic_json(manifest, metadata)
+    check_manifest(manifest, metadata, parser)
     journal = output / "trials.jsonl"
     records = restore(journal)
+    try:
+        if migrate(records):
+            print(f"Migrated {len(records)} trials to descriptor {DESCRIPTOR_VERSION}.", flush=True)
+            rewrite(journal, records)
+    except ValueError as error:
+        parser.error(str(error))
+    atomic_json(manifest, metadata)
     archive = []
     for record in records:
         if record["accepted"]:
@@ -164,12 +204,11 @@ def main():
                 break
             rng = np.random.default_rng(np.random.SeedSequence([args.seed, done]))
             vector = rng.uniform(.025, .975, 10).tolist()
-            audio = render(vector)
-            metrics = measure(audio)
+            audio, metrics, descriptor, _ = analyze(vector)
             accepted = bool(np.all(np.isfinite(audio)) and .015 < metrics["rms"] and metrics["peak"] <= .63)
-            record = {"trial": done, "vector": vector, "metrics": metrics, "accepted": accepted}
+            record = {"trial": done, "vector": vector, "metrics": metrics, "descriptor": descriptor, "accepted": accepted}
             if accepted:
-                record["plane"] = plane(vector, rng)
+                record["plane"] = plane(vector, rng, spread=1.0, perceptual=True)
             stream.write(json.dumps(record, allow_nan=False) + "\n")
             os.fsync(stream.fileno())
             if accepted:

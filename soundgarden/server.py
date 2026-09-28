@@ -7,11 +7,16 @@ from pathlib import Path
 import threading
 from urllib.parse import urlsplit
 
+import numpy as np
+
+from .field import plane
+from .match import MAX_BYTES, load_wav, match
 from .synth import ANCHORS, DIMENSIONS, VERSION, encoded_sample, measure, render, validate_vector
 
 WEB = Path(__file__).parent / "web"
 DEFAULT_LIBRARY = Path(__file__).resolve().parents[1] / "render/soundgarden/seeds.json"
 RENDER_LOCK = threading.Lock()
+SEARCH_LOCK = threading.Lock()
 
 
 @lru_cache(maxsize=128)
@@ -75,31 +80,64 @@ class Handler(BaseHTTPRequestHandler):
         name, kind = files[path]
         self.reply(200, (WEB / name).read_bytes(), kind)
 
+    def body(self, limit):
+        size = int(self.headers.get("Content-Length", "0"))
+        if not 0 < size <= limit:
+            raise ValueError("Request is too large or empty.")
+        return self.rfile.read(size)
+
     def do_POST(self):
         if not self.local_request():
             return
-        if self.path != "/api/render":
+        routes = {"/api/render": self.render_request, "/api/plane": self.plane_request, "/api/match": self.match_request}
+        handler = routes.get(urlsplit(self.path).path)
+        if handler is None:
             self.reply(404, {"error": "Not found"})
             return
         try:
-            size = int(self.headers.get("Content-Length", "0"))
-            if not 0 < size <= 16384:
-                raise ValueError("Render request is too large or empty.")
-            data = json.loads(self.rfile.read(size))
-            vector = tuple(validate_vector(data["vector"]).tolist())
-            notes = data["notes"]
-            if not isinstance(notes, list) or not 1 <= len(notes) <= 13:
-                raise ValueError("Render between 1 and 13 notes.")
-            if any(type(note) is not int or not 48 <= note <= 84 for note in notes):
-                raise ValueError("Notes must be MIDI integers between 48 and 84.")
-            with RENDER_LOCK:
-                samples = {str(note): sample(vector, note) for note in set(notes)}
-                metrics = measure(render(vector, 60))
-            self.reply(200, {"samples": samples, "metrics": metrics, "version": VERSION})
+            self.reply(200, handler())
         except (ValueError, KeyError, TypeError) as error:
             self.reply(400, {"error": str(error)})
         except (BrokenPipeError, ConnectionResetError):
             pass
+
+    def render_request(self):
+        data = json.loads(self.body(16384))
+        vector = tuple(validate_vector(data["vector"]).tolist())
+        notes = data["notes"]
+        if not isinstance(notes, list) or not 1 <= len(notes) <= 13:
+            raise ValueError("Render between 1 and 13 notes.")
+        if any(type(note) is not int or not 48 <= note <= 84 for note in notes):
+            raise ValueError("Notes must be MIDI integers between 48 and 84.")
+        with RENDER_LOCK:
+            samples = {str(note): sample(vector, note) for note in set(notes)}
+            metrics = measure(render(vector, 60))
+        return {"samples": samples, "metrics": metrics, "version": VERSION}
+
+    def plane_request(self):
+        """A new pad plane around a center: axes, radius, and per-dimension sensitivity."""
+        data = json.loads(self.body(16384))
+        center = validate_vector(data["center"])
+        spread = data.get("spread", 1.0)
+        if isinstance(spread, bool) or not isinstance(spread, (int, float)) or not 0 <= spread <= 1:
+            raise ValueError("Spread must be a number between 0 and 1.")
+        perceptual = data.get("perceptual", True)
+        if not isinstance(perceptual, bool):
+            raise ValueError("Perceptual must be true or false.")
+        with SEARCH_LOCK:
+            result = plane(center, np.random.default_rng(), float(spread), perceptual)
+        result["version"] = VERSION
+        return result
+
+    def match_request(self):
+        """Recipes closest to an uploaded PCM WAV. Slow (seconds); one at a time."""
+        audio = load_wav(self.body(MAX_BYTES))
+        journal = self.server.library.parent / "trials.jsonl"
+        with SEARCH_LOCK:
+            midi, results = match(audio, journal)
+        seeds = [{"name": f"Match {i + 1}", "source": "Matched", "vector": r["vector"], "metrics": r["metrics"],
+                  "distance": r["distance"], "midi": midi} for i, r in enumerate(results)]
+        return {"version": VERSION, "midi": midi, "seeds": seeds}
 
 
 def main():
