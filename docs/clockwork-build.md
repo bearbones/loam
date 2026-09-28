@@ -26,10 +26,12 @@ Editable source files live in `models/`, outside Godot's import tree so headless
 them next to the GLBs. The GLBs, their manifests and the textures stay in git
 LFS so a fresh clone runs the harness without Blender, but each rebuild is
 ~200 MB of LFS, so commit rebuilt GLBs only at a milestone (a finished plan, a
-replan), not with every geometry tweak. History before this keeps its asset
-pointers, but only the assets at `b7f010e` and later were uploaded to GitHub;
-older intermediate builds exist only in the original working copy's
-`.git/lfs`.
+replan), not with every geometry tweak. The commits between the last push
+(2026-09-12) and this rule were rewritten before they were first pushed so that
+each carries forward the previous uploaded asset instead of its own
+intermediate build; those intermediate builds (and the old `.blend` files)
+were never uploaded, and the branch `backup/pre-lfs-rewrite-main` in the
+original working copy keeps them.
 
 ## Playback and inspection
 
