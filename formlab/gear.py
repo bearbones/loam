@@ -18,7 +18,7 @@ rack's teeth are trapezoids. The one profile feeds four places:
 Everything is in the disc's plane. A tooth's frame has u radial from the axle
 and v tangential, tip toward +u; tooth i's frame is turned i·2π/16 from +x in
 the disc's home frame, so the tips stay at the multiples of 2π/16 the pawl's
-kinematics assume (`pawl.tooth_distance`, `ClockworkMotion.tooth_distance`).
+kinematics assume (`pawl.tooth_distance`).
 """
 import numpy as np
 try:

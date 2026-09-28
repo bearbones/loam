@@ -28,8 +28,8 @@ the next string and wind up for `approach_s`:
     feasible  iff  travel available >= what the vocabulary needs
 
 What a travel COSTS is not the planner's invention any more. It comes
-from `loam.motion_timing`, the same module `formlab/rig.py` and
-`harness/clockwork_motion.gd` move by: a stepped arm clicks along a
+from `loam.motion_timing`, the same module `formlab/rig.py` moves by
+(and the harness plays back, baked): a stepped arm clicks along a
 rack tooth by tooth, a servo slews. An arm that has the room takes the
 unhurried time; one that does not is charged everything the score left
 it and refused outright below `motion_timing.floor_s` — the plan and

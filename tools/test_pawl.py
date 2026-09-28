@@ -8,15 +8,15 @@ Checks, per built asset:
     formlab.pawl puts it; no other arm does;
   - the kinematics: the roller touches the teeth at every rail position
     (never clips them), dips once a tooth by a visible amount, and moves
-    without a jump; the rendered rig's angle (harness/dev/dump_motion.gd,
-    ClockworkMotion.pawl_angle) matches the numpy one;
+    without a jump (the harness plays this angle back from the motion bake's
+    one-tooth table: tools/test_bake.py holds it);
   - the pawl's body — lever, yoke, tongues — keeps clear of the teeth at every
     rail position, and its pieces and the bracket's are closed meshes;
   - space: over the score's motion the pawl and its bracket clear the arm's
     own links and tool, every sibling arm, every other rail's bars and rack,
     its own rack, its own guide bars, and the forms and furniture.
 """
-import json, shutil, subprocess, sys
+import json, sys
 from pathlib import Path
 import numpy as np
 ROOT = Path(__file__).resolve().parents[1]; sys.path.insert(0, str(ROOT))
@@ -31,15 +31,6 @@ failures = []
 def check(ok, msg):
     print(('  PASS ' if ok else '  FAIL ')+msg)
     if not ok: failures.append(msg)
-
-def parity(layout_path, score_path):
-    godot = shutil.which('godot')
-    if godot is None: print('  SKIP godot not on PATH: rendered pawl angle unmeasured'); return
-    out = subprocess.run([godot, '--headless', '--path', str(ROOT/'harness'), '-s', 'dev/dump_motion.gd', '--',
-                          f'--score={score_path}', f'--asset={layout_path.stem}'], capture_output=True, text=True, timeout=600).stdout
-    rows = np.array([[float(a), float(b)] for line in out.splitlines() if line.startswith('PAWL ') for _, a, b in [line.split()]])
-    worst = abs(W.angle(rows[:, 0])-rows[:, 1]).max() if len(rows) else np.inf
-    check(len(rows) > 1000 and worst < 1e-9, f'rendered pawl angle and numpy mirror agree: {len(rows)} samples, worst {worst:.1e} rad')
 
 def box_gap(P, Q, r, lo, hi, samples=33):
     """Least distance from capsule PQ (per pose) to an axis-aligned box, sampled along the axis."""
@@ -140,7 +131,6 @@ def run(layout_path, score_path):
                 g = box_gap(P, Q, r, lo, hi); k = int(np.argmin(g))
                 if g[k] < form[0]: form = (float(g[k]), f'{pname} at t={times[k]:.2f} s')
         check(form[0] >= G.MARGIN, f'{aid}: pawl clears the forms, furniture and stage by {form[0]*1000:.0f} mm ({form[1]})')
-    parity(layout_path, score_path)
 
 if __name__ == '__main__':
     kinematics()

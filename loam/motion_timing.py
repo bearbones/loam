@@ -1,7 +1,7 @@
 """What a move costs the machine — the one place both worlds ask.
 
 The score planner (`loam.score._Solver`) and the rig that renders the plan
-(`formlab/rig.py`, mirrored by `harness/clockwork_motion.gd`) each had their
+(`formlab/rig.py`, which the harness plays back as a bake) each had their
 own idea of how long an arm takes to reposition. The planner charged
 `|index difference| * travel_s`, a per-actuator constant with no geometry in
 it; the rig moved `teeth(dx)` teeth of the rack at a click each, or slewed.
@@ -70,7 +70,7 @@ def teeth(dx):
 def clicks(dx, T):
     """How many clicks a stepped travel of `dx` gets in `T` seconds: one a
     tooth when there is room, else as many as `CLICK_MIN_S` allows. Mirrors
-    `ClockworkMotion.clicks`; `ratchet` divides the window this way."""
+    `formlab.rig.clicks`; `ratchet` divides the window this way."""
     return min(teeth(dx), max(1, int(math.floor(T / CLICK_MIN_S))))
 
 
@@ -107,13 +107,3 @@ def floor_s(kind, dx):
     """The least time a move of `dx` metres can take. A travel planned
     shorter than this is not a hurried machine, it is no machine at all."""
     return stepped_floor_s(dx) if stepped(kind) else servo_floor_s(dx)
-
-
-def constants():
-    """The numbers `harness/clockwork_motion.gd` mirrors by hand, for the
-    parity ruler (tools/test_motion.py against harness/dev/dump_motion.gd).
-    `APPROACH_S` is not among them: a built score carries each actuator's
-    own wind-up, so the harness reads it rather than mirroring it."""
-    return dict(PITCH=PITCH, CLICK_S=CLICK_S, CLICK_MIN_S=CLICK_MIN_S,
-                CLICK_TEETH_MAX=float(CLICK_TEETH_MAX), SLEW_S=SLEW_S,
-                SERVO_V_MAX=SERVO_V_MAX, WORLD_SCALE=WORLD_SCALE)

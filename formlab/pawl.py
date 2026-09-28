@@ -27,8 +27,9 @@ frame about +Z, lean included.
 `angle(x)` — the pawl's rest angle for a carriage at rail position x — is the
 one piece of kinematics: the largest angle (nose toward the disc's centre) at
 which the roller is still clear of the teeth, found by bisection on the
-exact distance to the toothed disc (`tooth_distance`). ClockworkMotion.pawl_angle
-mirrors it and tools/test_pawl.py holds the two together.
+exact distance to the toothed disc (`tooth_distance`). The motion bake carries
+one tooth of it (formlab/bake.py) and the harness looks the angle up there;
+tools/test_bake.py holds the table to this.
 
 The roller is its own part (`roller_pieces`, origin on its axle) so the rig can
 turn it as it rolls on the tips (`ROLLER_SPIN` radians a metre of rail), and
@@ -107,7 +108,7 @@ ANGLE_LO, ANGLE_HI, ANGLE_ITERS = -.15+PAWL['tilt'], .45+PAWL['tilt'], 48
 def angle(x):
     """The pawl's angle for a carriage at rail position x: the largest angle
     at which the nose is clear of the teeth (the spring lifts it until it
-    touches). Bisection; vectorised over x; mirrored by ClockworkMotion.pawl_angle."""
+    touches). Bisection; vectorised over x; baked one tooth long for the harness."""
     x = np.asarray(x, float); P = _pivot_from_centre()
     lo = np.full(x.shape, ANGLE_LO); hi = np.full(x.shape, ANGLE_HI)
     for _ in range(ANGLE_ITERS):

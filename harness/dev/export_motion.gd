@@ -3,10 +3,11 @@ extends SceneTree
 func _init() -> void:
 	var sd := ScoreDoc.new()
 	if not sd.load(ScoreDoc.default_path()): quit(1); return
-	var layout: Dictionary=JSON.parse_string(FileAccess.get_file_as_string("res://assets/clockwork.json"))
-	var motion := ClockworkMotion.new(); motion.setup(sd,layout)
+	var motion := MotionBake.new()
+	if not motion.load(MotionBake.path_for(sd.path,"clockwork"),sd.path,"res://assets/clockwork.json"):
+		print(motion.errors); quit(1); return
 	var rows: Array=[]
-	var aids: Array=motion.acts.keys()
+	var aids: Array=motion.arms.keys()
 	# Include exact contacts as well as the uniform time grid.
 	var times: Array=[]
 	for f in range(-120,int(sd.total_s*120)+1): times.append(f/120.0)
@@ -15,10 +16,9 @@ func _init() -> void:
 	times.sort()
 	for aid in aids:
 		for t in times:
-			var p := motion.pose(aid,t)
-			var tip: Vector3=p["tip"]
+			var tip: Vector3=motion.tip_at(aid,t)
 			# Radius tags distinguish mallets from picks in the offline surface checker.
-			var struck: bool=layout["strings"][motion.acts[aid]["home"]]["struck"]
+			var struck: bool=motion.stepped(aid)   # a stepped arm strikes a bar; a servo plucks
 			rows.append([aid,t,[tip.x,tip.y,tip.z],.077 if struck else .029])
 	var path := ProjectSettings.globalize_path("res://../render/form-study/motion.json")
 	var file := FileAccess.open(path,FileAccess.WRITE)

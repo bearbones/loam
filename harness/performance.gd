@@ -7,7 +7,7 @@ const PART_NAMES := ["carriage","upper","upper2","lower","lower2","elbowhead","w
 var screw_nodes: Dictionary = {} # each servo arm's leadscrew shaft (form_<aid>_screw), spun about its axis
 var screw_home: Dictionary = {}  # ...and its imported transform
 var score := ScoreDoc.new()
-var motion := ClockworkMotion.new()
+var motion := MotionBake.new()
 var look := ClockworkLook.new()
 var layout: Dictionary
 var model: Node3D
@@ -54,7 +54,7 @@ var follow_sid := ""
 var follow_since := -1e9
 # The ratchet's click has a sound (docs/plans/pawl-follow-ups.md, item 2): one
 # sample, synthesised once, played from each pawl's roller at every click the
-# rig makes (ClockworkMotion.click_times), CLICK_DB under the instruments.
+# rig makes (the bake's clicks, formlab.rig.Rig.click_times), CLICK_DB under the instruments.
 const CLICK_DB := -12.0
 var click_stream: AudioStreamWAV
 var clicks: Dictionary = {}        # aid -> the arm's clicks, in time order
@@ -88,7 +88,11 @@ func _ready() -> void:
 		for a in m["actuators"]:
 			if not layout.get("arms",{}).has(a["id"]):
 				push_error("Rebuild the model for score arm "+a["id"]); get_tree().quit(1); return
-	motion.setup(score,layout)
+	# The performance is baked (formlab/bake.py): the harness plays the rig's
+	# motion back and owns none of it. A bake made from another score or
+	# another model is refused, with the command that remakes it.
+	if not motion.load(option("motion",MotionBake.path_for(score_path,asset)),score_path,manifest_path):
+		push_error(str(motion.errors)); get_tree().quit(1); return
 	model=load("res://assets/"+asset+".glb").instantiate()
 	add_child(model)
 	look.apply(model)
@@ -114,7 +118,7 @@ func _ready() -> void:
 				push_error("Missing GLB leadscrew form_"+aid+"_screw"); get_tree().quit(1); return
 			screw_nodes[aid]=screw; screw_home[aid]=screw.transform
 		# A hinged hammer's head is its own part, turning on the flange's pin
-		# (formlab.linkage.hammer_tool, ClockworkMotion.head_angle).
+		# (formlab.linkage.hammer_tool, formlab.rig.Rig.head_angle).
 		if layout["arms"][aid].has("head"):
 			parts[aid]["head"]=model.find_child(aid+"__head",true,false)
 			if parts[aid]["head"]==null:
@@ -133,7 +137,7 @@ func _ready() -> void:
 			roller_home[aid]=parts[aid]["roller"].basis
 			# ...and a click: the sample on a player that rides with the roller, so the
 			# sound comes from the pawl wherever the carriage is along its rail.
-			if click_stream==null: click_stream=click_sample()
+			if click_stream==null: click_stream=click_sample(motion.constant("RING_HZ"),motion.constant("RING_TAU"))
 			clicks[aid]=motion.click_times(aid)
 			var cp := AudioStreamPlayer3D.new()
 			cp.name="click"; cp.stream=click_stream; cp.volume_db=CLICK_DB
@@ -226,13 +230,13 @@ const STRING_NODES := 24
 ## register as a harp is (string_family), C strings red and F strings dark.
 func _make_string(sid: String) -> Node3D:
 	var s: Dictionary=layout["strings"][sid]
-	var a := motion.v(s["a"]); var b := motion.v(s["b"])
+	var a := MotionBake.v(s["a"]); var b := MotionBake.v(s["b"])
 	var length := a.distance_to(b)
 	var midi := float(s["midi"])
 	var radius := .0035*pow(2.0,(64.0-midi)/18.0)
 	var family := string_family(midi)
 	var holder := Node3D.new(); holder.name=sid+" string"
-	holder.transform=Transform3D(ClockworkMotion.link_basis(a,b),a)
+	holder.transform=Transform3D(MotionBake.link_basis(a,b),a)
 	var colour := string_colour(s["mid"],midi,family)
 	var mesh := _wire_mesh(length,radius,48,10)
 	for sheath in [false,true]:
@@ -257,15 +261,15 @@ func _make_string(sid: String) -> Node3D:
 ## so the per-frame shape updates never touch it.
 func _make_dead_length(sid: String, s: Dictionary, radius: float, colour: Color, family: int) -> void:
 	var dead := Node3D.new(); dead.name=sid+" dead"
-	var points: Array=[motion.v(s["b"]),motion.v(s["neck"]["bridge"]),motion.v(s["neck"]["pin"])]
+	var points: Array=[MotionBake.v(s["b"]),MotionBake.v(s["neck"]["bridge"]),MotionBake.v(s["neck"]["pin"])]
 	# the winding (and a gut's twist) runs on continuously over the bridge: each
 	# tube tells the shader how much wire came before it, else the ridges restart
 	# their phase at every joint and a ring seam shows at the bridge pin
-	var wound: float=motion.v(s["a"]).distance_to(motion.v(s["b"]))
+	var wound: float=MotionBake.v(s["a"]).distance_to(MotionBake.v(s["b"]))
 	for i in range(points.size()-1):
 		var p: Vector3=points[i]; var q: Vector3=points[i+1]; var length: float=p.distance_to(q)
 		var node := MeshInstance3D.new(); node.mesh=_wire_mesh(length,radius,4,10)
-		node.transform=Transform3D(ClockworkMotion.link_basis(p,q),p)
+		node.transform=Transform3D(MotionBake.link_basis(p,q),p)
 		var mat := ShaderMaterial.new(); mat.shader=WIRE
 		mat.set_shader_parameter("radius",radius); mat.set_shader_parameter("length_m",length)
 		mat.set_shader_parameter("offset_m",wound); wound+=length
@@ -289,7 +293,7 @@ func _make_dead_length(sid: String, s: Dictionary, radius: float, colour: Color,
 			var th := TAU*turns*float(i)/n
 			pts.append(Vector3(R*cos(th),R*sin(th),pitch*th/TAU))
 		var coil := MeshInstance3D.new(); coil.name=sid+" coil"; coil.mesh=_tube_along(pts,radius,8)
-		coil.position=motion.v(w["centre"])
+		coil.position=MotionBake.v(w["centre"])
 		var pm := StandardMaterial3D.new(); pm.albedo_color=colour
 		pm.metallic=1.0 if family<=1 else 0.0; pm.roughness=.35 if family<=1 else (.6 if family==2 else .3)
 		coil.material_override=pm
@@ -438,8 +442,9 @@ func _play_clicks(t0: float, t1: float) -> void:
 ## for a couple of milliseconds over a grain of noise — and under it the pawl's
 ## spring and lever ringing out against the carriage at RING_HZ: a low thump
 ## that beats at the ring rate and dies in RING_TAU, the ring the carriage's
-## overshoot makes in ClockworkMotion.ratchet. Mono 16-bit at `rate`.
-static func click_sample(rate: int = 44100) -> AudioStreamWAV:
+## overshoot makes in formlab.rig.ratchet (the bake's RING_HZ / RING_TAU).
+## Mono 16-bit at `rate`.
+static func click_sample(ring_hz: float, ring_tau: float, rate: int = 44100) -> AudioStreamWAV:
 	var n := int(.12*rate)
 	var samples := PackedFloat32Array(); samples.resize(n)
 	var rng := RandomNumberGenerator.new(); rng.seed=7
@@ -450,7 +455,7 @@ static func click_sample(rate: int = 44100) -> AudioStreamWAV:
 		for p in [[3150.0,1.0],[4720.0,.6],[7060.0,.35]]:
 			tick += p[1]*sin(TAU*p[0]*t)*exp(-t/.0012)
 		tick += rng.randf_range(-1,1)*exp(-t/.0006)*.8
-		var thump := sin(TAU*95.0*t)*exp(-t/ClockworkMotion.RING_TAU)*(1.0+.5*cos(TAU*ClockworkMotion.RING_HZ*t))*.35*(1.0-exp(-t/.002))
+		var thump := sin(TAU*95.0*t)*exp(-t/ring_tau)*(1.0+.5*cos(TAU*ring_hz*t))*.35*(1.0-exp(-t/.002))
 		samples[i]=tick+thump
 		peak=maxf(peak,absf(samples[i]))
 	var data := PackedByteArray(); data.resize(n*2)
@@ -476,7 +481,7 @@ func evaluate(t: float) -> void:
 		var pose := motion.pose(aid,t)
 		var p: Dictionary=parts[aid]
 		var cfg: Dictionary=layout["arms"][aid]
-		var o1 := motion.v(cfg["o1"]); var o2 := motion.v(cfg["o2"])
+		var o1 := MotionBake.v(cfg["o1"]); var o2 := MotionBake.v(cfg["o2"])
 		var root: Vector3=pose["root"]; var elbow: Vector3=pose["elbow"]; var wrist: Vector3=pose["wrist"]
 		# Crossheads and pins keep a fixed orientation: that is what the parallelograms guarantee.
 		p["carriage"].position=root; p["shoulder"].position=root
@@ -486,13 +491,13 @@ func evaluate(t: float) -> void:
 		# A hinged hammer's head turns on the flange's pin, HEAD_L above the tool
 		# frame's origin. The head's mesh is built at the blow (angle 0, the felt
 		# face straight down), and the flip is one rotation about the pin axis:
-		# -angle*sign, the same rotation ClockworkMotion.head_offset applies to
+		# -angle*sign, the same rotation formlab.rig.head_offset applies to
 		# the felt face — which is why the blow lands exactly on the scored point.
 		if p.has("head"):
-			p["head"].position=pose["tip"]+Vector3(0,ClockworkMotion.HEAD_L,0)
+			p["head"].position=pose["tip"]+Vector3(0,motion.head_l,0)
 			p["head"].basis=Basis(Vector3.RIGHT,-float(pose["head"])*motion.flip_sign(aid))*head_home[aid]
-		var upper := ClockworkMotion.link_basis(root,elbow)
-		var lower := ClockworkMotion.link_basis(elbow,wrist)
+		var upper := MotionBake.link_basis(root,elbow)
+		var lower := MotionBake.link_basis(elbow,wrist)
 		p["upper"].transform=Transform3D(upper,root)
 		p["upper2"].transform=Transform3D(upper,root+o1)
 		p["lower"].transform=Transform3D(lower,elbow)
@@ -527,26 +532,25 @@ func evaluate(t: float) -> void:
 		# The roller sits on the pawl's axle and rolls on the tips: ROLLER_SPIN
 		# radians a metre of rail, the other way from the disc.
 		if p.has("pawl"):
-			var swing := Basis(Vector3(0,0,1),-ClockworkMotion.pawl_angle(root.x+phase))
-			p["pawl"].position=root+motion.v(cfg["pawl"]["pivot"])
+			var swing := Basis(Vector3(0,0,1),-motion.pawl_angle(root.x+phase))
+			p["pawl"].position=root+MotionBake.v(cfg["pawl"]["pivot"])
 			p["pawl"].basis=swing*pawl_home[aid]
-			p["roller"].position=p["pawl"].position+swing*motion.v(cfg["pawl"]["nose"])
+			p["roller"].position=p["pawl"].position+swing*MotionBake.v(cfg["pawl"]["nose"])
 			p["roller"].basis=swing*Basis(Vector3(0,0,1),float(cfg["pawl"].get("roller_spin",0.0))*root.x)*roller_home[aid]
 	# The blow shakes the assembly, not only the arm: the stand thumps, the rail
 	# sags under the carriage and rings, and the gantry sways about its plinths.
 	# All three come off the same recoil bus the arm's own recoil does and are
-	# exactly zero at the blow they answer (ClockworkMotion._shudder).
+	# exactly zero at the blow they answer (formlab.rig.Rig._shudder, baked).
 	for mid in stand_nodes:
 		var st: Dictionary=stand_nodes[mid]
 		var sh: Transform3D=st["home"]
 		st["node"].transform=Transform3D(sh.basis,sh.origin+Vector3(0,motion.stand_thump(mid,t),0))
 	for aid in shudder_nodes:
 		var sh: Dictionary=shudder_nodes[aid]
-		var span: Array=motion.rail_span(aid)
 		# The guide bars are rigid meshes, so they carry the sag at mid-span; the
 		# deflection's SHAPE lives in the carriage, which follows the sag at its
-		# own x (ClockworkMotion.pose), so links and pawl move with the bar.
-		var sag := motion.rail_sag(aid,t,(span[0]+span[1])/2.0)
+		# own x (formlab.rig.Rig.pose), so links and pawl move with the bar.
+		var sag := motion.rail_sag(aid,t)
 		for b in sh["bars"]:
 			var bh: Transform3D=b["home"]
 			b["node"].transform=Transform3D(bh.basis,bh.origin+Vector3(0,sag,0))
@@ -596,7 +600,7 @@ func evaluate(t: float) -> void:
 			var tau := t-float(hit["t"])
 			if tau>=0 and tau<3: energy+=float(hit["event"]["amp"])*exp(-tau*8)*sin(tau*80)
 		var element: Node3D=model.find_child(sid+" bar",true,false)
-		if element!=null: element.position.y=motion.v(layout["strings"][sid]["a"]).y-.055+energy*.006
+		if element!=null: element.position.y=MotionBake.v(layout["strings"][sid]["a"]).y-.055+energy*.006
 	var lamp: MeshInstance3D=model.find_child("chamber__lamp",true,false)
 	lamp.scale=Vector3.ONE
 	look.breathe(score.envelope_at("chamber",t))
@@ -639,7 +643,7 @@ func _camera_at(t: float) -> void:
 		# catch the rebound.
 		if focus_at!="":
 			target=tip if focus_at=="tip" else root
-			if focus_at=="head": target=tip+Vector3(0,ClockworkMotion.HEAD_L,0)   # a hinged head's pin
+			if focus_at=="head": target=tip+Vector3(0,motion.head_l,0)   # a hinged head's pin
 			half_w=focus_span/2.0; half_h=focus_span/2.0
 		# The floor of 0.8 m is what keeps a whole-arm --focus shot outside the
 		# mechanism; a --focus_at close-up asks to be inside it, so it gets the
@@ -650,7 +654,7 @@ func _camera_at(t: float) -> void:
 			var mid: String=str(cfg.get("mid",""))
 			var away := Vector3(0,0,1)
 			if layout.get("mechanisms",{}).has(mid):
-				var c := motion.v(layout["mechanisms"][mid]["center"])
+				var c := MotionBake.v(layout["mechanisms"][mid]["center"])
 				away=Vector3(root.x-c.x,0,root.z-c.z)
 				if away.length()<.05: away=Vector3(0,0,1)
 			dir=(away.normalized()+Vector3(0,.18,0)).normalized()
@@ -666,7 +670,7 @@ func _camera_at(t: float) -> void:
 		elif cue=="overhead": chosen=4
 	if chosen in [1,2,3]:
 		var mid: String=["harp","rake","bars"][chosen-1]
-		target=motion.v(layout["mechanisms"][mid]["center"])
+		target=MotionBake.v(layout["mechanisms"][mid]["center"])
 		if chosen in [1,2]: target.y=1.95 if chosen==1 else 1.55
 		pos=target+Vector3(2.6,2.0,5.8) if chosen!=1 else Vector3(2.8,3.25,7.8)
 	elif chosen==4: pos=Vector3(.01,13,4)
@@ -691,26 +695,26 @@ func _camera_at(t: float) -> void:
 		if best_sid=="": best_sid=hits.keys()[0]
 		if follow_sid=="" or t<follow_since or t-follow_since>1.5: follow_sid=best_sid; follow_since=t
 		var s: Dictionary=layout["strings"][follow_sid]
-		var a := motion.v(s["a"]); var b := motion.v(s["b"])
+		var a := MotionBake.v(s["a"]); var b := MotionBake.v(s["b"])
 		target=a.lerp(b,.3); pos=target+Vector3(.85,.3,.85)
 	elif chosen==11:
 		# Bar frame close-up: the treble end's rails, cord posts and resonator mouths, from low in front.
-		var c := motion.v(layout["mechanisms"]["bars"]["center"]) if layout["mechanisms"].has("bars") else Vector3(4.5,1.35,1.2)
+		var c := MotionBake.v(layout["mechanisms"]["bars"]["center"]) if layout["mechanisms"].has("bars") else Vector3(4.5,1.35,1.2)
 		target=c+Vector3(.8,-.17,0); pos=c+Vector3(-.6,-.3,1.7)
 	elif chosen==12:
 		# The harp's action from the string side: the plate on the neck's string-side
 		# face, the discs and fork pins straddling the strings, bridge and tuning pins
 		# and the dead lengths, seen from behind the string plane where the arms work.
-		var c := motion.v(layout["mechanisms"]["harp"]["center"]) if layout["mechanisms"].has("harp") else Vector3(0,3.3,0)
+		var c := MotionBake.v(layout["mechanisms"]["harp"]["center"]) if layout["mechanisms"].has("harp") else Vector3(0,3.3,0)
 		target=Vector3(c.x-.1,3.35,c.z); pos=target+Vector3(1.05,.15,-1.45)
 	elif chosen==13:
 		# The flywheel drive: wheel, plummer blocks, pedestals, the belt to the cabinet's end.
-		var f: Vector3=motion.v(layout["flywheel"]["centre"]) if layout.has("flywheel") else Vector3(-2.4,.53,-1.5)
+		var f: Vector3=MotionBake.v(layout["flywheel"]["centre"]) if layout.has("flywheel") else Vector3(-2.4,.53,-1.5)
 		target=f+Vector3(.2,-.05,-.1); pos=f+Vector3(-.75,.55,1.75)
 	elif chosen==14:
 		# The harp's string feet from the string side: the eyelets on the ferrule
 		# mouths along the soundbox, looking down the feet line from the treble end.
-		var e: Vector3=motion.v(layout["eyelets"]["harp07"]["centre"]) if layout.has("eyelets") and layout["eyelets"].has("harp07") else Vector3(0,1.45,0)
+		var e: Vector3=MotionBake.v(layout["eyelets"]["harp07"]["centre"]) if layout.has("eyelets") and layout["eyelets"].has("harp07") else Vector3(0,1.45,0)
 		target=e+Vector3(-.15,.02,0); pos=e+Vector3(.85,.55,-.9)
 	elif chosen==16:
 		# A wound bass string at arm's length: the harp's lowest string a hand above
@@ -722,7 +726,7 @@ func _camera_at(t: float) -> void:
 			if s["mid"]=="harp" and float(s["midi"])<low_midi: low=sid; low_midi=float(s["midi"])
 		if low=="":
 			for sid in layout["strings"]: low=sid; break
-		var a: Vector3=motion.v(layout["strings"][low]["a"]); var b: Vector3=motion.v(layout["strings"][low]["b"])
+		var a: Vector3=MotionBake.v(layout["strings"][low]["a"]); var b: Vector3=MotionBake.v(layout["strings"][low]["b"])
 		target=a+(b-a)*.12; pos=target+Vector3(.16,.05,-.28)
 	elif chosen==15:
 		# The ratchet's mechanism: the first mallet arm's pinion from behind and

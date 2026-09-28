@@ -50,7 +50,7 @@ distance, with a hard floor per vocabulary, and both worlds share one occupancy
 model. What remains below is the swept-volume half: link and tool collisions, and
 obstacles beyond the other arms.*
 
-**Where:** `Actuator`, `_Solver.travel`, instrument geometry, `harness/clockwork_motion.gd`.
+**Where:** `Actuator`, `_Solver.travel`, instrument geometry, `formlab/rig.py` (the harness plays its bake).
 
 **Problem:** travel was a per-string-index duration, ignoring actual distance, pick-position changes, acceleration, tool size and collisions. Distance and speed limits are in; acceleration, tool size and swept-volume collisions are not. The renderer's IK is reachable for these fixtures, but reachable endpoints do not prove collision-free linkage travel. Zero `travel_s` on a rake currently delegates carriage repositioning to its approach interval.
 

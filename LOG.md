@@ -1,3 +1,63 @@
+## 2026-09-28 — CLOCKWORK the harness plays the motion back; it no longer owns it
+
+The spec promised "Godot becomes a pure playback engine", and for the music
+it was: the harness read score.json and stems and decided nothing. For the
+machine it was not. `harness/clockwork_motion.gd` (`ClockworkMotion`, 608
+lines) re-implemented `formlab/rig.py` by hand — the schedules, both
+vocabularies, the recoil bus, the IK, the pawl's tooth geometry, seven
+travel-timing constants — and three rulers (`test_motion`, `test_pawl`'s
+parity, `dev/test_clockwork.gd`) existed mostly to hold the copy to the
+original. Every change to the motion was made twice, then proved equal.
+
+Now the performance is part of the export. **`formlab/bake.py`** samples the
+rig into `loam-motion/1` beside the score: `<asset>.motion.json` (header) and
+`<asset>.motion.bin` (float64 times, then float32 rows of every arm's root,
+elbow, wrist, tip, head flip, rail sag and mast sway, and every instrument's
+stand thump). `tools/bake_motion.py` makes it, and so does the last line of
+`tools/build_clockwork.py` (numpy-only, so Blender runs it; the same bytes
+either way). **`harness/motion_bake.gd`** (`MotionBake`) is the reader:
+binary search, lerp, a one-row cache per frame. `ClockworkMotion` and
+`dev/dump_motion.gd` are gone; `performance.gd` and every dev script read the
+bake.
+
+Three decisions worth writing down:
+
+- **The grid is not uniform.** 240 Hz alone missed by 5.3 mm mid-click: a
+  ratchet click moves a tooth (47 mm) in 40 % of 40-90 ms, a quintic whose
+  peak acceleration is ~1200 m/s², and linear interpolation's error is
+  a·h²/8. So every contact, every move's go/approach/end/release, and eight
+  rows through each click's move and ring are rows of their own. Contacts
+  land to float32 (2.4e-7 m); between rows the worst pin is 3.4 mm off the
+  rig, mid-slew. 9.8 MB for The Chamber, 19.8 MB for the expanded piece.
+- **The pawl is not a time channel.** Its angle is a function of where the
+  carriage stands on the rack, periodic in the pitch, and its lift over a
+  tip lasts less than a row of a hurried click. The header carries one tooth
+  of `pawl.angle` (1024 entries, 1.2e-4 rad) and the reader looks it up at
+  the baked x plus the phase: exact at any frame rate.
+- **The felt face is derived, not baked.** A hinged hammer's face is the tip
+  plus `head_offset(angle)`; interpolating the face and the angle separately
+  let the rendered head and the face it strikes with drift apart between
+  rows, which `test_performance`'s 10 µm felt checks caught at once. The
+  reader derives it the way the rig does.
+
+The header fingerprints the score and the manifest (sha256); a stale bake is
+refused with the command that remakes it rather than played against a model
+it was not planned for. **`tools/test_bake.py`** is the new ruler: fresh,
+every row the rig's pose, every contact exact, nothing unreachable, the
+interpolation within 5 mm / 0.01 rad, shudders, clicks and the pawl table the
+rig's, the GDScript reader equal to `formlab.bake.Bake` off the grid (2.4e-7),
+and a one-byte change to score.json refused by the harness. `test_motion`
+and `test_pawl` lost only their parity halves; `dev/test_clockwork.gd` now
+measures the bake as played (link error 3e-7 m at 120 Hz, contacts 2.4e-7).
+All green on both assets: test_bake, test_motion, test_pawl, test_score_plan,
+test_rail_cache, test_clockwork, test_performance, test_load. A
+stepped-vs-servo reel (`render/clockwork-review/bake-contrast.mp4`) was shown
+to the operator from the bake.
+
+What this buys beyond one fewer mirror: the export is now what a game would
+read. The motion has one home, and anything that consumes `loam-motion/1` —
+this harness, or the game proper — plays exactly what the rulers checked.
+
 ## 2026-09-18 — CLOCKWORK the planner pays what the motion costs
 
 `docs/plans/planner-uses-the-motion.md`. The score planner charged a

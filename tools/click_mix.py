@@ -6,7 +6,7 @@ outside the harness: a listening mix, not a render.
     python3 tools/click_mix.py /tmp/clicks.txt /tmp/click.wav --start 45 --seconds 10 --out /tmp/mix.wav
     ffmpeg -loop 1 -i still.png -i /tmp/mix.wav -shortest -pix_fmt yuv420p /tmp/mix.mp4
 
-The clicks are placed at the times `ClockworkMotion.click_times` lists (one a
+The clicks are placed at the times the motion bake lists (`Rig.click_times`, (one a
 click, at the landing) at the harness's level: CLICK_DB (-12) under the master
 (performance.gd). With --clicks-only the master is left out so the ticks can
 be judged on their own.

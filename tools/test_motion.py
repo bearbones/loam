@@ -3,9 +3,9 @@
     python3 tools/test_motion.py                       # both built assets
     python3 tools/test_motion.py LAYOUT.json SCORE.json
 
-Holds formlab.rig.Rig to the rendered rig (harness/dev/dump_motion.gd prints
-ClockworkMotion.tip_at at 240 Hz; skipped when godot is not on the PATH) and
-checks what each vocabulary promises:
+formlab.rig.Rig is the one implementation of the motion; the harness plays a
+bake of it (formlab/bake.py, held to the rig by tools/test_bake.py). Checks
+what each vocabulary promises:
   - every scored contact is hit exactly and the path has no jumps at the
     score's boundaries (t_move, t, t_free);
   - a stepped arm's carriage travels in ratchet clicks: it holds still most
@@ -21,7 +21,7 @@ checks what each vocabulary promises:
     in its wake and back to rest before the arm's next strike begins.
   - arms of one mechanism keep the planner's x clearance at every moment.
 """
-import json, shutil, subprocess, sys
+import json, sys
 from pathlib import Path
 import numpy as np
 ROOT = Path(__file__).resolve().parents[1]; sys.path.insert(0, str(ROOT))
@@ -33,48 +33,10 @@ def check(ok, msg):
     print(('  PASS ' if ok else '  FAIL ')+msg)
     if not ok: failures.append(msg)
 
-def parity(rig, layout_path, score_path):
-    godot = shutil.which('godot')
-    if godot is None: print('  SKIP godot not on PATH: rendered-rig parity unmeasured'); return
-    out = subprocess.run([godot, '--headless', '--path', str(ROOT/'harness'), '-s', 'dev/dump_motion.gd', '--',
-                          f'--score={score_path}', f'--asset={layout_path.stem}'], capture_output=True, text=True, timeout=600).stdout
-    worst = 0.0; n = 0; shud = 0.0; ns = 0; head = 0.0; felt = 0.0; nh = 0; consts = {}
-    for line in out.splitlines():
-        if line.startswith('CONST '):
-            _, name, value = line.split(); consts[name] = float(value)
-        elif line.startswith('TIP '):
-            _, aid, t, x, y, z = line.split(); n += 1
-            worst = max(worst, float(np.linalg.norm(rig.tip_at(aid, float(t))-np.array([float(x), float(y), float(z)]))))
-        elif line.startswith('HEAD '):
-            _, aid, t, a, fx, fy, fz = line.split(); t = float(t); nh += 1
-            mine = rig.pose(aid, t)
-            head = max(head, abs(mine['head']-float(a)))
-            felt = max(felt, float(np.linalg.norm(mine['felt']-np.array([float(fx), float(fy), float(fz)]))))
-        elif line.startswith('SHUD '):
-            _, aid, t, stand, sag, sway = line.split(); t = float(t); ns += 1
-            lo, hi = rig.rail_span(aid)
-            mine = np.array([rig.stand_thump(rig.mech_of[aid], t), rig.rail_sag(aid, t, (lo+hi)/2), rig.mast_sway(aid, t)])
-            shud = max(shud, float(np.abs(mine-np.array([float(stand), float(sag), float(sway)])).max()))
-    # What a reposition costs is one module's business (loam/motion_timing.py);
-    # the planner charges it, formlab.rig imports it and the harness mirrors
-    # the numbers by hand. A drift here is two machines, not one.
-    mine = R.motion_timing.constants()
-    bad = [f'{k} {consts.get(k)} vs {v}' for k, v in mine.items() if abs(consts.get(k, np.nan)-v) > 1e-9]
-    check(len(consts) == len(mine) and not bad,
-          f'rendered rig mirrors every travel-timing constant: {len(consts)}/{len(mine)}'
-          + (' — '+', '.join(bad) if bad else ''))
-    check(n > 1000 and worst < 1e-5, f'rendered rig and numpy mirror agree: {n} samples, worst {worst:.2e} m')
-    check(ns > 1000 and shud < 1e-9, f'rendered assembly shudder and numpy mirror agree: {ns} samples, worst {shud:.2e}')
-    # the head's angle comes off a Vector3 length in GDScript, so it carries
-    # float32 just as the tip does; the tolerance is the same as TIP's.
-    if nh: check(head < 1e-6 and felt < 1e-5,
-                 f'rendered hinged head and numpy mirror agree: {nh} samples, worst {head:.2e} rad / {felt:.2e} m')
-
 def run(layout_path, score_path):
     print(f'== {layout_path.name} / {score_path.name}')
     layout = json.loads(layout_path.read_text()); score = json.loads(score_path.read_text())
     rig = Rig(score, layout)
-    parity(rig, layout_path, score_path)
     worst_contact = 0.0; worst_step = 0.0
     for e in score['events']:
         aid = e['actuator']

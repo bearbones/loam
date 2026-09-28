@@ -2,8 +2,8 @@
 
 The default Godot 4.7 scene plays The Chamber with Blender-modeled instruments,
 rigid mechanical pivots, score-driven IK, vibrating strings, cue cameras and
-master/dry-stem audition. A separate expanded arrangement adds glass bells and
-temple blocks. The original annotated 2D debug view remains available.
+master/dry-stem audition, all played back from a motion bake of `formlab.rig`.
+A separate expanded arrangement adds glass bells and temple blocks. The original annotated 2D debug view remains available.
 
 From the repository root:
 
@@ -19,7 +19,10 @@ godot --headless --path harness -s dev/test_performance.gd
 Render the original score first with `python3 songs/chamber.py` if
 `render/chamber/score.json` is absent. Build the expanded score with
 `python3 songs/clockwork.py`. GLBs and matching manifests are in `assets/`;
-editable Blender sources are in `../models/`.
+editable Blender sources are in `../models/` (built, not tracked). The
+performance plays back a motion bake beside the score — `python3
+tools/bake_motion.py` makes it (the build does too), and the harness refuses
+a stale one with that command.
 
 Performance keys: Space play/pause; Home restart with pre-roll; arrows seek;
 C cycle camera; F cycle frame form; A cue cameras; T score overlay; M master/dry stems; 1–9 mute

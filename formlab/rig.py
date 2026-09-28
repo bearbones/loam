@@ -1,7 +1,8 @@
-"""Python mirror of harness/clockwork_motion.gd: the two-link planar IK and the
-score-driven tool path, so offline geometry rulers (clearance, offset choice)
-sample exactly the poses Godot will render. Kept numerically identical to the
-GDScript: same clamps, same bend rule, same profiles and schedules."""
+"""The rig's motion — the one implementation: the two-link planar IK, the
+score-driven tool path in its two vocabularies, the recoil bus. Offline
+geometry rulers (clearance, offset choice) sample it directly, and the harness
+plays a bake of it (formlab/bake.py, `loam-motion/1`), so what they check is
+what Godot renders; tools/test_bake.py holds the bake to this."""
 import json
 import numpy as np
 
@@ -12,7 +13,7 @@ def smooth(u):
     return u*u*(3-2*u)
 
 # Two motion vocabularies (docs/motion-design.md); the constants and every
-# profile mirror ClockworkMotion. A mallet arm is a stepped machine (ratchet
+# profile are here. A mallet arm is a stepped machine (ratchet
 # clicks along the rack, a cocked drop, the assembly shuddering after the blow);
 # a pick or rake arm is a servo (S-curve slews, no overshoot, nothing rings).
 #
@@ -170,8 +171,7 @@ class Rig:
     def head_angle(self, aid, t):
         """The hinged head's flip angle at t: `rest_angle` lying back on its
         check, cocked a touch further over the strike, exactly 0 at the blow,
-        then the rebound the check catches, and back to rest. Mirrors
-        ClockworkMotion.head_angle."""
+        then the rebound the check catches, and back to rest."""
         if not self.hammer(aid): return 0.0
         rest = self.rest_angle(aid); c = HAMMER['cock']; chk = HAMMER['check']
         for s in self.sched[aid]:
@@ -269,7 +269,7 @@ class Rig:
         recoil does. A blow records where it landed along the rail and how hard
         (the score's amplitude times the cocked drop's height, 1.0 for a
         full-amplitude mallet) and the time its arm's NEXT strike begins, which
-        gates its ring to nothing. Mirrors ClockworkMotion._bus."""
+        gates its ring to nothing."""
         self.blows_by_arm = {}; self.blows_by_mech = {}
         for aid in self.plans:
             if not self.stepped(aid): continue
@@ -326,6 +326,21 @@ class Rig:
         return self._shudder(self.blows_by_arm[aid], t, MAST_SWAY, lambda b: 1.0)
 
     def schedule(self, aid): return self.sched[aid]
+
+    def click_times(self, aid):
+        """When a stepped arm's ratchet clicks: one (t, teeth) a click, at the
+        moment the click's move lands on its detent and the pawl drops
+        (go + (k+CLICK_MOVE)*T/n for the k-th of n clicks in a travel of T
+        seconds — the same division `ratchet` makes), with the teeth that click
+        spanned. A servo arm never clicks."""
+        if not self.stepped(aid): return []
+        out = []
+        for s in self.sched[aid]:
+            if not s['moving']: continue
+            T = s['approach']-s['go']; dx = s['first'][0]-s['rest'][0]
+            n = clicks(dx, T); spanned = teeth(dx)
+            out.extend((float(s['go']+(k+CLICK_MOVE)*T/n), spanned/n) for k in range(n))
+        return out
 
     def recoil(self, aid, t):
         """The assembly's shudder after a mallet blow: zero at the blow, rung

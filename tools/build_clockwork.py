@@ -385,7 +385,7 @@ for entry in forms['objects']:
     obj,collider=make_form(entry,{'brass':brass,'wood':wood,'spruce':spruce,'steel':steel,'felt':felt,'horn':horn,'bronze':bronze})
     if not entry.get('local'): form_colliders.append(collider)
 # Assemble the articulated rigs at their home poses in the editable Blender file.
-# Godot re-poses them every frame with the same rule (clockwork_motion.gd).
+# Godot re-poses them every frame from the motion bake of this same Rig (formlab/bake.py).
 P=Matrix(((1,0,0),(0,0,-1),(0,1,0)))   # Godot axes -> Blender axes, as vec()
 R=arm_rig.Rig(score,manifest)
 for aid,cfg in manifest['arms'].items():
@@ -427,3 +427,8 @@ for obj in bpy.data.objects:
 bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'models'/(name+'.blend')))
 (out/(name+'.json')).write_text(json.dumps(manifest,indent=2))
 print('CLOCKWORK MODEL:',len(bpy.data.objects),'objects',out/name)
+# The performance baked for playback against THIS manifest (formlab/bake.py):
+# the harness plays it and refuses one made for another score or model.
+sys.path.insert(0,str(ROOT))
+from formlab import bake as motion_bake
+motion_bake.bake(manifest['score'],out/(name+'.json'),asset=name)

@@ -42,7 +42,7 @@ fi
 
 # The default subjects are read out of the manifest, so the reel works on a
 # clean checkout and on either asset: the first stepped arm against the first
-# servo one. `kind` is the vocabulary (clockwork_motion.stepped).
+# servo one. `kind` is the vocabulary (formlab.rig.Rig.stepped).
 pick_arm() { python3 - "$manifest" "$1" <<'EOF'
 import json, sys
 arms = json.load(open(sys.argv[1]))['arms']

@@ -63,8 +63,8 @@ and the pin-axis span — the number the planner needs (see below).
 
 ## Posing
 
-`ClockworkMotion.pose()` (GDScript) and `formlab.rig.Rig.pose()` (numpy)
-are the same two-link planar IK to 3e-7 m: root at `(tip.x, root_y,
+`formlab.rig.Rig.pose()` is the two-link planar IK; the harness plays it
+back from the motion bake (`docs/clockwork-build.md`, "The motion bake"): root at `(tip.x, root_y,
 root_z)`, swing plane yz, pins along world X. Two rules were added:
 
 - **Wrist offset.** The wrist pin sits at `tip + wrist_offset`. Picks and
@@ -565,7 +565,7 @@ any rail position is the largest at which the roller is still clear of the
 toothed disc as spun (`pawl.angle`, a bisection on the exact distance to the
 hub and the three nearest teeth — each the involute polygon inset by its
 bevel and grown back, so the corners are round, `pawl.tooth_distance`);
-`ClockworkMotion.pawl_angle` mirrors it to 5e-13 rad and `performance.gd`
+the motion bake carries one tooth of it (1.2e-4 rad) and `performance.gd`
 poses the part (`{aid}__pawl`, a local part at its pivot, `pawl` in the
 manifest) every frame, so the recoil's shudder ticks the pawl too. The
 roller is its own part (`{aid}__roller`, `pawl.roller_pieces`: a steel drum
@@ -661,8 +661,9 @@ python3 tools/test_form_joints.py         # seamless frame joints
 python3 tools/test_linkage_tools.py       # plectrum, ferrule, swan neck, socket, mallet; the carriage
 python3 tools/test_gantry.py              # rail heads, masts, brackets, racks; arms vs every rail
 python3 tools/test_oil_cups.py            # the fork ends' lubricators and their room
-python3 tools/test_pawl.py                # the mallet arms' roller detent pawls: kinematics, parity, room
-python3 tools/test_motion.py              # the two motion vocabularies against the rendered rig
+python3 tools/test_pawl.py                # the mallet arms' roller detent pawls: kinematics, room
+python3 tools/test_motion.py              # the two motion vocabularies
+python3 tools/test_bake.py                # the motion bake against the rig; the harness's reader against it
 blender -b -t 2 -P tools/test_form_joint_seats.py
 godot --headless --path harness -s dev/test_clockwork.gd
 godot --headless --path harness -s dev/test_performance.gd

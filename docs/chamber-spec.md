@@ -215,3 +215,11 @@ shapes file size = Σ frames×nodes×4, plan consistency — prints
 saves the viewport for the operator.
 
 Out of scope this session: arms/IK, cameras, materials — the game.
+
+**Since 2026-09-28 the motion is part of the export too:** `formlab/bake.py`
+writes `<asset>.motion.json` + `.motion.bin` (`loam-motion/1`) beside
+`score.json` — every arm's pins, the hinged heads' flips, the assembly's
+shudders, the clicks and the pawl's tooth table, sampled from `formlab.rig`
+against a model manifest — and the harness interpolates it. That is this
+spec's promise kept for the machine as well as the music: the engine plays
+back, it decides nothing.

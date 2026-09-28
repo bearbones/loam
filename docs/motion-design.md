@@ -8,11 +8,13 @@ machine*, a pick or rake arm is a *servo* — and the contrast between them is
 the point: a ratchet clicking into place and a blow that shakes the whole
 assembly, against a slew that could be a telescope drive.
 
-Both live in `harness/clockwork_motion.gd` (`ClockworkMotion`) and its numpy
-mirror `formlab/rig.py` (`Rig`), which every clearance ruler samples;
-`tools/test_motion.py` holds the two to each other (0.6 µm over 300 000
-samples) and checks what each vocabulary promises. The constants are at the
-top of both files.
+Both live in `formlab/rig.py` (`Rig`), which every clearance ruler samples
+and `tools/test_motion.py` checks against what each vocabulary promises; the
+constants are at the top of the file. The harness plays a bake of it
+(`formlab/bake.py`; `docs/clockwork-build.md`, "The motion bake") and owns no
+motion of its own. Until 2026-09-28 a GDScript mirror, `ClockworkMotion`,
+recomputed all of this in the harness; the history below names it where it
+did.
 
 ## Stepped: mallet (and hammer) arms
 

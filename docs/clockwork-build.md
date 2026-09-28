@@ -1,6 +1,6 @@
 # Clockwork Chamber
 
-The current performance uses editable Blender models and rigid mechanical pivots, exported as GLB; Godot evaluates two-link IK from the score at any requested time. There is no physics simulation or MIDI inference. The default is exposed clockwork: walnut structures, satin brass linkages and carriages, dark steel joints, felt mallets and brass plectra on swan-neck shanks.
+The current performance uses editable Blender models and rigid mechanical pivots, exported as GLB; Godot plays the performance back from a motion bake of `formlab.rig` (below) at any requested time. There is no physics simulation or MIDI inference. The default is exposed clockwork: walnut structures, satin brass linkages and carriages, dark steel joints, felt mallets and brass plectra on swan-neck shanks.
 
 ## Build and play
 
@@ -11,6 +11,7 @@ python3 songs/chamber.py
 python3 songs/clockwork.py
 blender -b -t 2 -P tools/build_clockwork.py
 blender -b -t 2 -P tools/build_clockwork.py -- render/clockwork/score.json clockwork_expanded
+python3 tools/bake_motion.py      # the build does this too; needed alone after a score re-export
 godot --headless --path harness --editor --import --quit
 godot --path harness
 # The expanded arrangement: four glass bells and three temple blocks.
@@ -19,7 +20,7 @@ godot --path harness -- --expanded
 godot --path harness res://main.tscn
 ```
 
-Editable source files live in `models/`, outside Godot's import tree so headless imports never need to launch Blender. `harness/assets/` contains GLBs and geometry manifests. Rebuilding derives contact geometry and reachable rail extents from the score. Source rigs are posed at home in Blender; the authoritative performance rig lives in `clockwork_motion.gd`. Re-running the model generator overwrites generated assets, so preserve hand edits separately.
+Editable source files live in `models/`, outside Godot's import tree so headless imports never need to launch Blender. `harness/assets/` contains GLBs and geometry manifests. Rebuilding derives contact geometry and reachable rail extents from the score. Source rigs are posed at home in Blender; the performance rig is `formlab/rig.py` and the harness plays a bake of it (see "The motion bake"). Re-running the model generator overwrites generated assets, so preserve hand edits separately.
 
 **What git keeps.** The `.blend` files are build outputs and are not tracked
 (since 2026-09-28): `blender -b -t 2 -P tools/build_clockwork.py` regenerates
@@ -32,6 +33,26 @@ each carries forward the previous uploaded asset instead of its own
 intermediate build; those intermediate builds (and the old `.blend` files)
 were never uploaded, and the branch `backup/pre-lfs-rewrite-main` in the
 original working copy keeps them.
+
+## The motion bake
+
+`formlab/rig.py` is the one implementation of the motion — the planner's
+travel costs, the stepped and servo vocabularies, the recoil bus, the IK. The
+harness does not re-implement any of it: `tools/bake_motion.py` (and the last
+step of every build) samples the rig into `loam-motion/1`, written next to the
+score as `<asset>.motion.json` (header) and `<asset>.motion.bin` (float64
+times, float32 rows), and `harness/motion_bake.gd` (`MotionBake`) interpolates
+it. A time grid of 240 Hz plus every contact and every corner of the path as a
+row of its own, and rows packed through each ratchet click: contacts land to
+float32 (2.4e-7 m), and between rows no pin strays more than 3.4 mm from the
+rig mid-slew. The pawl's angle is a function of rail position, not time, so the
+header carries one tooth of it and the harness looks it up at the baked x. A
+hinged head's felt face is derived from the tip and the baked flip angle, so
+the rendered head and the face it strikes with cannot drift apart. The header
+fingerprints the score and the manifest; the harness refuses a stale bake and
+prints the command that remakes it. `tools/test_bake.py` holds the bake to the
+rig and the GDScript reader to `formlab.bake.Bake`. About 10 MB for The
+Chamber, 20 MB for the expanded piece; like every export it lives in `render/`.
 
 ## Playback and inspection
 
