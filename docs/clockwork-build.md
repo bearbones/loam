@@ -21,6 +21,16 @@ godot --path harness res://main.tscn
 
 Editable source files live in `models/`, outside Godot's import tree so headless imports never need to launch Blender. `harness/assets/` contains GLBs and geometry manifests. Rebuilding derives contact geometry and reachable rail extents from the score. Source rigs are posed at home in Blender; the authoritative performance rig lives in `clockwork_motion.gd`. Re-running the model generator overwrites generated assets, so preserve hand edits separately.
 
+**What git keeps.** The `.blend` files are build outputs and are not tracked
+(since 2026-09-28): `blender -b -t 2 -P tools/build_clockwork.py` regenerates
+them next to the GLBs. The GLBs, their manifests and the textures stay in git
+LFS so a fresh clone runs the harness without Blender, but each rebuild is
+~200 MB of LFS, so commit rebuilt GLBs only at a milestone (a finished plan, a
+replan), not with every geometry tweak. History before this keeps its asset
+pointers, but only the assets at `b7f010e` and later were uploaded to GitHub;
+older intermediate builds exist only in the original working copy's
+`.git/lfs`.
+
 ## Playback and inspection
 
 Space pauses/resumes; Home starts a one-second pre-roll so the first contact has an approach. Left/right seek two seconds. The bottom slider scrubs. C cycles wide, harp, rake, bars, overhead and expansion views. Two inspection views follow the action for stills and clips: `--view=9` sits behind the string plane on the second harp arm's elbow (knuckle pins, crossheads, parallel bars) and `--view=10` frames the most recently plucked string from 45° off its pluck axis, latching for 1.5 s so a run of plucks does not throw it about; `--view=11` is a fixed close-up of the bar frame's treble end (rails, cord posts, resonator mouths); `--view=12` looks at the harp's neck from the string side, where the action plate, discs, bridge and tuning pins are; `--view=13` is the flywheel drive beside the harp (plummer blocks, pedestals, the belt to the cabinet's end); `--view=14` looks down the harp's string feet from the string side, where the eyelets sit on the ferrule mouths along the soundbox. A restores cue-directed cameras. T shows the existing annotated score. M switches the finished master and dry stems; 1–9 mute/unmute dry stems and select that audition mode. The default master is `chamber.wav` next to the score. Playback stops at the end rather than drifting past the tail.

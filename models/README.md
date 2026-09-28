@@ -6,7 +6,8 @@ rigid links, joints, carriages and contact tools, assembled at their home poses.
 Materials, instrument bodies, rails, fasteners, labels and the stage are editable.
 
 These are generated sources: `tools/build_clockwork.py` overwrites them during
-rebuild. Preserve manual modeling work under a different filename or put the
+rebuild, and git does not track them (see `docs/clockwork-build.md`, "What
+git keeps") — run the build to get them. Preserve manual modeling work under a different filename or put the
 change in the generator. Runtime animation is analytic in Godot, rather than a
 Blender armature or per-note baked action. GLB assets and geometry manifests are
 exported together to `harness/assets/`; keep those matched to the chosen score.
