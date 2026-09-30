@@ -61,6 +61,11 @@ var clicks: Dictionary = {}        # aid -> the arm's clicks, in time order
 var click_players: Dictionary = {} # aid -> AudioStreamPlayer3D on the roller
 var click_next: Dictionary = {}    # aid -> index of the first click not yet played
 var prev_time := -1.0
+# --film: the piece as a film (FilmDirector): a camera and a lighting arc
+# directed from the score's cues, no UI, a title and an end card.
+var film := false
+var director := FilmDirector.new()
+var film_cards: Array = []   # [Control, t_in, t_out]
 
 func option(key: String, fallback: String) -> String:
 	for a in OS.get_cmdline_user_args():
@@ -93,6 +98,8 @@ func _ready() -> void:
 	# another model is refused, with the command that remakes it.
 	if not motion.load(option("motion",MotionBake.path_for(score_path,asset)),score_path,manifest_path):
 		push_error(str(motion.errors)); get_tree().quit(1); return
+	film=OS.get_cmdline_user_args().has("--film")
+	if film: director.setup(motion,layout,score)
 	model=load("res://assets/"+asset+".glb").instantiate()
 	add_child(model)
 	look.apply(model)
@@ -188,6 +195,14 @@ func _ready() -> void:
 	if shot!="": playing=false; time=fixed_time
 	if capture_dir!="":
 		DirAccess.make_dir_recursive_absolute(capture_dir); playing=false; time=capture_start
+	# --size=WxH renders at exactly that size whatever the window manager makes
+	# of the window: the root viewport renders at the content scale size and is
+	# only scaled to the window for display (captures read the viewport).
+	var size: PackedStringArray=option("size","").split("x",false)
+	if size.size()==2:
+		get_window().content_scale_mode=Window.CONTENT_SCALE_MODE_VIEWPORT
+		get_window().content_scale_aspect=Window.CONTENT_SCALE_ASPECT_KEEP
+		get_window().content_scale_size=Vector2i(int(size[0]),int(size[1]))
 	print("CLOCKWORK: loaded ",score.events.size()," events, ",parts.size()," rigs; ",audio_mode," audio")
 
 ## The blow shakes the ASSEMBLY, not only the arm (docs/motion-design.md): the
@@ -401,7 +416,8 @@ func _environment() -> void:
 
 func _ui() -> void:
 	var canvas := CanvasLayer.new(); add_child(canvas)
-	canvas.visible=not OS.get_cmdline_user_args().has("--clean")
+	canvas.visible=not (OS.get_cmdline_user_args().has("--clean") or film)
+	if film: _film_cards()
 	var root := Control.new(); root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT); root.mouse_filter=Control.MOUSE_FILTER_IGNORE; canvas.add_child(root)
 	header=Label.new(); header.position=Vector2(36,24); header.add_theme_font_size_override("font_size",25); root.add_child(header)
 	footer=Label.new(); footer.position=Vector2(36,64); footer.add_theme_color_override("font_color",Color(.7,.74,.72)); root.add_child(footer)
@@ -604,9 +620,40 @@ func evaluate(t: float) -> void:
 	var lamp: MeshInstance3D=model.find_child("chamber__lamp",true,false)
 	lamp.scale=Vector3.ONE
 	look.breathe(score.envelope_at("chamber",t))
+	if film: _film_frame(t)
 	_camera_at(t)
 
+## One film frame's lighting and cards (the camera is _camera_at's).
+func _film_frame(t: float) -> void:
+	var l := director.light_at(t)
+	look.env.tonemap_exposure=l["exposure"]; look.env.fog_density=l["fog"]
+	look.key_light.light_energy=1.3*l["key"]; look.fill_light.light_energy=1.2*l["fill"]; look.rim_light.light_energy=l["rim"]
+	for card in film_cards:
+		var fade := clampf((t-float(card[1]))/.9,0.0,1.0)*clampf((float(card[2])-t)/.9,0.0,1.0)
+		(card[0] as Control).modulate.a=fade*fade*(3.0-2.0*fade)
+
+## The title over the dark hall, and an end card over the ring-out.
+func _film_cards() -> void:
+	var layer := CanvasLayer.new(); add_child(layer)
+	var make := func(lines: Array, t_in: float, t_out: float) -> void:
+		var box := VBoxContainer.new(); box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		box.alignment=BoxContainer.ALIGNMENT_CENTER; box.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		for line in lines:
+			var label := Label.new(); label.text=line[0]; label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+			label.add_theme_font_size_override("font_size",int(line[1])); label.add_theme_color_override("font_color",line[2])
+			box.add_child(label)
+		box.modulate.a=0.0; layer.add_child(box); film_cards.append([box,t_in,t_out])
+	var title: String=str(score.doc.get("name","The Chamber")).to_upper()
+	var spaced := " ".join(Array(title.split("")))
+	make.call([[spaced,58,Color("f1e3c6")],["a machine that plays its score",22,Color(.72,.76,.74)]],.6,4.6)
+	make.call([["composed, synthesised and built in code",22,Color(.72,.76,.74)],["L  O  A  M",34,Color("f1e3c6")]],score.total_s-4.2,score.total_s+1.0)
+
 func _camera_at(t: float) -> void:
+	if film:
+		var c := director.camera_at(t)
+		camera.fov=float(c["fov"])
+		camera.look_at_from_position(c["pos"],c["target"],Vector3.UP)
+		return
 	var target := Vector3(0,1.55,.2)
 	var pos := Vector3(7.8,5.8,12.8)
 	var chosen := view
@@ -767,10 +814,14 @@ func _process(dt: float) -> void:
 		await RenderingServer.frame_post_draw
 		warmup_frames+=1
 		if warmup_frames<12: return
+		# quit() lands at the end of the frame: a coroutine resumed after it must
+		# not write a frame past the count (it would repeat the next chunk's first)
+		var count := roundi(capture_seconds*capture_fps/capture_speed)
+		if shot=="" and frame>=count: return
 		var path := shot if shot!="" else capture_dir.path_join("%05d.png" % frame)
 		get_viewport().get_texture().get_image().save_png(path)
 		frame+=1
-		if shot!="" or frame>=int(capture_seconds*capture_fps/capture_speed): get_tree().quit()
+		if shot!="" or frame>=count: get_tree().quit()
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo: return

@@ -1,3 +1,44 @@
+## 2026-09-29 — CHAMBER the first finished film
+
+The machine had been seen in six-second clips from fixed inspection views; the
+piece had never been watched whole. Now it has a film: `render/film/the-chamber.mp4`,
+0–86 s at 1920×1080 / 30 fps with the master, made by `tools/render_film.sh`.
+
+**`harness/film_director.gd`** (`FilmDirector`, the harness's `--film` mode) reads the
+camera cues `songs/chamber.py` already wrote into the score and makes each one a
+moving shot, cut on the cue's downbeat: a push out of the dark under the title,
+the first pick arm in profile, an orbit round the low arm's run, the harp
+overhead through the pulse, the rake from behind, the mallets low along the
+bars, the ratchet from behind the rail two bars into the mallets' entry, the
+whole machine lit, a pullback through the coda, and a last look from behind
+as the lights go down under the end card. Alongside, a lighting arc: exposure,
+key, fill, rim and fog keyed to the same cues, black to full at `wide-lit` and
+back to black through the ring-out.
+
+Worth writing down:
+
+- **Arms read in profile, not through the strings.** The first cut shot the pick
+  arms from the front, where the harp's neck and pillar cross the frame and the
+  arm is behind a curtain of wire. An arm reaches from its carriage (z ≈ −2.25)
+  to the strings (z ≈ 0): from the side and behind it reads whole, carriage to
+  plectrum. The close shots aim halfway along the arm, not at its tool.
+- **The camera has read the score.** A shot following an arm aims at its tool
+  smoothed over ±0.7 s (a triangular window), so it leans into a phrase before
+  it arrives rather than twitching with each click.
+- **A pure function of t renders in parallel.** No state carries between frames
+  (the director, the bake, the lights), so the render is three Godot processes
+  on three chunks cut together frame-exact.
+- The harness is on the Compatibility renderer: no depth of field. The film
+  gets its depth from the fog and the lighting arc instead.
+- **Two capture bugs the chunked render found**, both older than the film:
+  a capture wrote one frame past its count (`quit()` lands at the end of the
+  frame, and a coroutine resumed after it saved another), so three chunks came
+  back 2583 frames for 2580 and the picture would have drifted 0.1 s off the
+  master; and `--resolution` is only a request, so the window manager's
+  1280×742 tile was what got captured. Captures now stop at exactly their
+  count, and `--size=WxH` pins the root viewport's render size
+  (content-scale "viewport" mode), independent of the window.
+
 ## 2026-09-28 — CLOCKWORK the harness plays the motion back; it no longer owns it
 
 The spec promised "Godot becomes a pure playback engine", and for the music

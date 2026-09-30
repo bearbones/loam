@@ -10,6 +10,11 @@ var metal: Texture2D
 var fibre: Texture2D
 var lamp_material: StandardMaterial3D
 var counts: Dictionary = {}
+# the light rig, kept so a film can light the piece (FilmDirector.light_at)
+var env: Environment
+var key_light: DirectionalLight3D
+var fill_light: OmniLight3D
+var rim_light: OmniLight3D
 
 func surface(kind: int, dark: String, light: String, rough: float, axis := 0, variant := 0) -> ShaderMaterial:
 	var key := "%d/%s/%s/%s/%d/%d" % [kind,dark,light,rough,axis,variant]
@@ -78,7 +83,7 @@ func apply(model: Node3D) -> void:
 
 func light_rig(parent: Node3D) -> void:
 	var world := WorldEnvironment.new()
-	var env := Environment.new(); world.environment=env
+	env=Environment.new(); world.environment=env
 	var sky := Sky.new(); var mat := ShaderMaterial.new(); mat.shader=SKY_SHADER
 	sky.sky_material=mat; sky.radiance_size=Sky.RADIANCE_SIZE_256; sky.process_mode=Sky.PROCESS_MODE_QUALITY
 	env.sky=sky; env.background_mode=Environment.BG_COLOR; env.background_color=Color("1b2529")
@@ -94,11 +99,11 @@ func light_rig(parent: Node3D) -> void:
 	key.rotation_degrees=Vector3(-48,-32,0); key.light_color=Color("fff0d8"); key.light_energy=1.3
 	key.light_angular_distance=1.5; key.shadow_enabled=true; key.shadow_bias=.035; key.shadow_normal_bias=.8
 	key.shadow_blur=2.0; key.shadow_opacity=.88; key.directional_shadow_blend_splits=true
-	key.directional_shadow_max_distance=32; parent.add_child(key)
+	key.directional_shadow_max_distance=32; parent.add_child(key); key_light=key
 	var fill := OmniLight3D.new(); fill.name="Cool soft fill"; fill.position=Vector3(-5,4,5)
-	fill.omni_range=18; fill.light_color=Color("afcde8"); fill.light_energy=1.2; parent.add_child(fill)
+	fill.omni_range=18; fill.light_color=Color("afcde8"); fill.light_energy=1.2; parent.add_child(fill); fill_light=fill
 	var rim := OmniLight3D.new(); rim.name="Amber rim"; rim.position=Vector3(2,5,-4)
-	rim.omni_range=15; rim.light_color=Color("ffd7a0"); rim.light_energy=2.0; parent.add_child(rim)
+	rim.omni_range=15; rim.light_color=Color("ffd7a0"); rim.light_energy=2.0; parent.add_child(rim); rim_light=rim
 	var floor := MeshInstance3D.new(); floor.name="Studio floor"
 	floor.mesh=cyclorama();
 	floor.position.y=-.565; floor.material_override=surface(5,"0b1216","151f24",.9)

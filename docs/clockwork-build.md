@@ -65,7 +65,18 @@ ffmpeg -framerate 30 -i /tmp/chamber-frames/%05d.png -ss 45.5 -i render/chamber/
 show /tmp/chamber.mp4 'Mallet approaches, contacts and recovery'
 ```
 
-Capture samples deterministic score times; it does not record wall-clock frame delivery. Audio is muxed from the matching offset in the master. A custom score needs a matching model/manifest (`--score=/absolute/path/score.json --asset=asset_basename`).
+Capture samples deterministic score times; it does not record wall-clock frame delivery. `--size=WxH` renders at exactly that size whatever size the window is given. Audio is muxed from the matching offset in the master. A custom score needs a matching model/manifest (`--score=/absolute/path/score.json --asset=asset_basename`).
+
+## The film
+
+`--film` plays the piece as a film: `harness/film_director.gd` (`FilmDirector`) turns the score's camera cues into moving shots and a lighting arc, with no UI, a title card over the dark opening and an end card over the ring-out. Each cue is a move, not a fixed view: a push out of the dark, the first pick arm in profile from behind (an arm reaches from its carriage behind the machine forward to the strings, so it reads whole from the side, never through the strings), an orbit round the low arm's run, the harp overhead, the rake from behind, the mallets low along the bars, the ratchet from behind the rail two bars into their entry, the whole machine lit, a pullback, and a last look from behind. Shots that follow an arm aim at its tool smoothed ±0.7 s, so the camera leans with a phrase and does not twitch with a click. The light comes up from black as the harp unfolds alone, is full when every mechanism plays (`wide-lit`) and goes back to black through the ring-out.
+
+The director is a pure function of score time, so `tools/render_film.sh` renders the piece in parallel chunks (`JOBS=3`) at 1920×1080 / 30 fps and cuts them together frame-exact with the master. The harness uses the Compatibility renderer, so there is no depth of field.
+
+```sh
+tools/render_film.sh                                  # -> render/film/the-chamber.mp4
+godot --path harness -- --film --size=960x540 --capture=/tmp/f --start=0 --seconds=86 --fps=1   # a one-per-second proof
+```
 
 ## Motion contract
 
