@@ -741,6 +741,9 @@ class Score:
         peak envelopes at env_hz ride along for the engine."""
         os.makedirs(os.path.join(outdir, "stems"), exist_ok=True)
         stats = self.finalize()
+        # A composer's ledger (songs/chamber.py: intended, as written,
+        # substituted, dropped) rides in the stats when the song kept one.
+        stats.update(getattr(self, "ledger", None) or {})
         mix = self.mixdown()
         if stem_gain is None:
             stem_gain = 0.9 / (np.max(np.abs(mix)) + 1e-12)

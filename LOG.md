@@ -1,3 +1,79 @@
+## 2026-10-04 — PLAYERS M0: the rulers first
+
+Before any arm moves differently, every one of the goal's 26 rulers measures
+the rig as it is. `python3 tools/test_players.py --report` prints them on both
+assets (961 results, about 3.5 min with the invariant suite); `--gate` runs the
+rulers named by every milestone marked done, in that milestone's scope.
+Today's values are saved in `docs/goals/the-players.today.json`, and the
+goal's "today" column was rewritten from that file.
+
+**How it was built.** A workflow wrote the rulers as four modules
+(`tools/players/r_motion.py`, `r_strike.py`, `r_strings.py`, `r_machine.py`).
+A second agent then checked each module against the goal's wording and
+recomputed sample numbers independently. That second pass found real bugs:
+
+- Ruler 9 timed the whole stroke where the goal means the downstroke.
+- Ruler 6b sampled the scored path, so it missed the rendered `|sine|`
+  bounce's corners.
+- Ruler 12 read the wrong frame of the string's shape clip.
+- Ruler 17 checked the harness's pinion against its own formula.
+- Ruler 19 called every travel stepped because the rig's only law was
+  `ratchet`.
+
+A fifth agent built three tools:
+
+- `harness/dev/export_camera.gd`, which writes `render/film/camera.json`.
+  Projecting a point with it lands within 0.06 px of Godot's own
+  `unproject_position`.
+- Ruler 2, measured on screen.
+- `tools/players_reel.sh` (`before` and `after LABEL`, offscreen). The ten
+  before clips are rendered in `render/players/before/clips`.
+
+Rulers 25 and 26 (`r_notes.py`) read the composer's new ledger.
+`songs/chamber.py` now records `intended` 239, `as_written` 221, and nine
+substitutions and nine drops in score.json's stats. They also check the stems
+against `docs/goals/the-players.stems.json` and run the old suites as
+subprocesses: the eleven Python and Blender rulers once, the three Godot
+checks per asset. All of that is green. The stems are bit-identical with and
+without the ledger.
+
+**What today measures.**
+
+- On the chamber, 223 of 389 results miss their targets.
+- The mallets arrive at 13.75 m/s on every blow, rebound at e = 0.048 and
+  stroke at 1:29 of gravity.
+- Ruler 6b counts 721 velocity corners. 476 of them sit at the schedule's
+  knots: the old 474, plus harp_arm0's first pluck, which starts before 0 s.
+  The bounce rings add 454 corners at no knot at all.
+- Ruler 23 confirms that the string lies inside the plectrum blade at every
+  pluck. An exemption hides it today.
+
+**Found on the way.** These are real defects, not just today's style:
+
+- **Every rack pinion is drawn out of mesh with its rack.** `performance.gd`
+  turns the pinion by (x + phase)/r, but the phase is never cut into the
+  rack. Over one pitch the tooth outlines overlap by up to 12.6 mm
+  (bells_arm0); bars_arm0 overlaps by 12.3 mm.
+- **The flywheel's belt slips 114 mm over the piece** (ratio 1.2 on the bare
+  radii, 1.194 on the belt line).
+
+Ruler 17 measures both, and M4 (gears and drives) fixes them.
+
+**Changes to the goal.**
+
+- **Ruler 24:** the last note's "dur" is now how long it actually sounds.
+  score.json's `dur` is the synth's ring, one value per instrument, so the
+  correlation was undefined.
+- **New `info` class:** a ruler can return `info` for a number the goal
+  reports but does not judge yet. `--gate` ignores it, while still failing on
+  `n/a` in a gated scope.
+- **Partial gates:** a gate can name part of a ruler, as M1's "10 (b, c, d)"
+  and "1 (bars head)" do.
+- **Declared structure:** `formlab/segments.py` reads the 6c326b5
+  vocabulary's segments and knots off `Rig.sched`. `rig.py` was left alone
+  because an edit there replans the rails, and M0 changes no motion. From M1
+  on, the rig declares its own.
+
 ## 2026-10-03 — PLAYERS the goal: fingers, hammer arcs, gestures that begin before the note
 
 The operator watched the film and asked for more: "go hard on articulation,

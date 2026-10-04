@@ -115,6 +115,11 @@ B = [f"bars{i:02d}" for i in range(8)]
 rng = np.random.default_rng(SEED)
 dropped = []
 intended = [0]
+# The composer's ledger (docs/goals/the-players.md, ruler 25): what was asked,
+# what was played as written, what was played on an alternative string, and
+# what was dropped. Exported in score.json's stats.
+as_written = [0]
+substituted = []
 
 
 def ask_pluck(mech, t, sid, amp, voice, alt=None, **kw):
@@ -123,8 +128,10 @@ def ask_pluck(mech, t, sid, amp, voice, alt=None, **kw):
     remember."""
     intended[0] += 1
     if sc.can_play(mech, t, sid) is not None:
+        as_written[0] += 1
         return sc.pluck(mech, t, sid, amp=amp, voice=voice, **kw)
     if alt is not None and sc.can_play(mech, t, alt) is not None:
+        substituted.append((mech, t, sid, alt))
         return sc.pluck(mech, t, alt, amp=amp, voice=voice, **kw)
     dropped.append((mech, t, sid))
     return None
@@ -136,6 +143,7 @@ def ask_rake(t, up=True, amp=0.8, voice="rake"):
     if sc.can_play("rake", t, strings=ids, spread_s=0.018) is None:
         dropped.append(("rake", t, "sweep"))
         return None
+    as_written[0] += 1
     return sc.rake("rake", t, ids, amp=amp, spread_s=0.018, voice=voice,
             dur=2.6)
 
@@ -263,6 +271,9 @@ clips = shape_library(picks=(0.12, 0.18, 0.22, 0.28), f0=220.0, t60=3.2,
 sc.attach_shapes(clips)
 
 # ---- export, then the master --------------------------------------------------------
+sc.ledger = dict(intended=intended[0], as_written=as_written[0],
+        substituted=[[m, round(t, 6), w, p] for m, t, w, p in substituted],
+        dropped=[[m, round(t, 6), w] for m, t, w in dropped])
 doc = sc.export(ex)
 mix = sc.mixdown()
 ir = ir_room(t60=2.2, size=1.3, bright=0.45, seed=SEED)
