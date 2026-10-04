@@ -1,3 +1,58 @@
+## 2026-10-03 — PLAYERS the goal: fingers, hammer arcs, gestures that begin before the note
+
+The operator watched the film and asked for more: "go hard on articulation,
+fluidity, and anticipatory motion in the instrument player arms". The film's
+motion was "too jerky or instantaneous". They want fingers rather than "a long
+rod that can pluck one string and rocket to the next", and mallets that "swing
+in a hammer arc and follow the bounce" rather than "punching vertically like a
+stamp machine". The goal is `docs/goals/the-players.md`.
+
+**How the goal was written.** A workflow first took four readings in parallel:
+
+- the motion code;
+- the arm anatomy;
+- the score's musical demands;
+- measured baselines from the bake and the film's own frames.
+
+Three research passes followed: Salzedo's *Method*, marimba and percussion stroke
+physics, and animation and cam-law principles. A draft came next. Three critics
+then read it for intent, for whether it could be measured, and for whether it
+could be built, and raised 53 issues, 16 of them high. The final goal folds in
+their fixes:
+
+- **The rake** slows from 18 ms to about 65 ms a string. Nothing can carry a
+  comb across 1.47 m in 72 ms without strobing.
+- **The bars carriage** freewheels its ratchet in the fast passages instead of
+  making 3–4-tooth jumps at about 300 g. Step-and-dwell stays where each step
+  gets ≥ 3 frames.
+- **A pluck's scored time is the slip-off.** The digit is placed earlier and
+  loads the string.
+- **The mallet stroke stays inside physics.** It leaves contact at e ≤ 0.8 and
+  floats at ≤ 1.5 g. At the tune's 0.357 s IOI that caps the apex at about
+  0.15–0.28 m, so the arc reads through the hinge's rotation (≥ 20°) rather
+  than through height. This is Q5 for the operator.
+- **The bake format changes once.** `loam-motion/2`, with a generic joints
+  table, lands before any new joint.
+- **The fingered planner is proven before it is integrated.** The 233/239
+  figure came from a run that also moved the arms' home positions, so the
+  prototype (M6a) measures it again under go/no-go thresholds.
+- **Twenty-six rulers** in a new `tools/test_players.py`. Every gesture ruler
+  measures against segments and knots that the rig declares, not against shapes
+  inferred from samples. Every "today" value is provisional until M0
+  regenerates it with the final formula.
+
+**Five open questions carry defaults**, and the loop proceeds on each default
+when its milestone comes up:
+
+- Q1, the rake: a slow roll.
+- Q2, mallets: two per holder.
+- Q3, rendered blur: none.
+- Q4, the ratchet: freewheels.
+- Q5, the mallet stroke: physics over size.
+
+The only stops are a broken note budget, a failed invariant and the final
+sign-off on the before/after reel.
+
 ## 2026-09-29 — CHAMBER the first finished film
 
 The machine had been seen in six-second clips from fixed inspection views; the

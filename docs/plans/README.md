@@ -20,6 +20,14 @@ and the project memory; read `docs/motion-design.md` first — the operator's
 direction is the *contrast* between clicky, stepped, ratcheted motion with
 recoil, and smooth, precise servo motion, and every plan here serves it.
 
+**Current goal (2026-10-03): [the players](../goals/the-players.md).** The
+operator's direction after watching the film: articulated, fluid, anticipatory
+player arms. That means fingered harp hands in Salzedo's grammar, mallets that
+swing on a hinge and ride the bounce, a rake that swings like a pendulum, and
+drivers on every joint. Its milestones (M0–M11) are claimed and marked done in
+the goal's own table, and they follow the claiming rule above. Where it
+reframes the stepped-against-servo contrast below, the goal wins.
+
 | Plan | What it delivers | Size |
 |---|---|---|
 | [assembly-shudder](assembly-shudder.md) | the blow shakes the instrument stand, the rail and its gantry — not only the arm | M |
