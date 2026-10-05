@@ -360,18 +360,23 @@ def verify_fine(rig, aids, chosen, times, boxes, plane_z, enough, placed=()):
 
 # The formlab modules the rail plan is measured against, hashed by source text
 # so a change to the space model (clearance) OR to the geometry it measures
-# (linkage, gantry, pawl) OR to the motion it samples (rig) replans the rails.
+# (linkage, gantry, pawl) OR to the motion it samples (rig, stroke) replans the rails.
 # Read from disk rather than through `inspect.getsource`: layout_search is also
 # imported bare from Blender's Python, where `formlab` is not a package and the
 # sibling modules are not all imported.
-GEOMETRY_SOURCES = ('rig.py', 'clearance.py', 'linkage.py', 'gantry.py', 'pawl.py')
+GEOMETRY_SOURCES = ('rig.py', 'clearance.py', 'linkage.py', 'gantry.py', 'pawl.py', 'stroke.py')
+# ...and the timing rules the rig and the stroke move by (step vs freewheel,
+# the tooth period, the homing legs: travel_regime, stepped_period, step_period,
+# smooth_s, home_legs), loaded by path from loam/ exactly as formlab/stroke.py
+# loads it: a formula changed with no constant changed must replan too
+TIMING_SOURCES = (os.path.join('..', 'loam', 'motion_timing.py'),)
 
 def geometry_digest():
-    """sha1 over the sources in GEOMETRY_SOURCES, in order."""
+    """sha1 over the sources in GEOMETRY_SOURCES, then TIMING_SOURCES, in order."""
     import hashlib
     here = os.path.dirname(os.path.abspath(__file__))
     h = hashlib.sha1()
-    for name in GEOMETRY_SOURCES:
+    for name in GEOMETRY_SOURCES+TIMING_SOURCES:
         h.update(name.encode())
         with open(os.path.join(here, name), 'rb') as fh: h.update(fh.read())
     return h.hexdigest()
@@ -384,7 +389,20 @@ def motion_constants():
     holds the two together."""
     import sys
     m = sys.modules[Rig.__module__]
-    return {k: getattr(m, k) for k in sorted(dir(m)) if k.isupper() and isinstance(getattr(m, k), (int, float, dict, list, tuple))}
+    out = {k: getattr(m, k) for k in sorted(dir(m)) if k.isupper() and isinstance(getattr(m, k), (int, float, dict, list, tuple))}
+    # ...and loam.motion_timing's, which the rig moves by (step_period, the
+    # homing legs, the regime), prefixed so the names cannot clash
+    mt = getattr(m, 'motion_timing', None)
+    if mt is not None:
+        out.update({'motion_timing.'+k: getattr(mt, k) for k in sorted(dir(mt))
+                    if k.isupper() and isinstance(getattr(mt, k), (int, float, dict, list, tuple))})
+    # ...and formlab.stroke's, the mallet's stroke vocabulary (prep, arc, loop,
+    # detent ring), prefixed the same way
+    st = getattr(m, 'stroke', None)
+    if st is not None:
+        out.update({'stroke.'+k: getattr(st, k) for k in sorted(dir(st))
+                    if k.isupper() and isinstance(getattr(st, k), (int, float, dict, list, tuple))})
+    return out
 
 def _mech_key(score, layout, mech, hz, enough, placed=None):
     """Everything the search for one mechanism depends on, hashed: its
@@ -393,8 +411,15 @@ def _mech_key(score, layout, mech, hz, enough, placed=None):
     id -> cfg), the sampling, the candidate grid, the space model and the
     motion sampled through it (GEOMETRY_SOURCES, motion_constants)."""
     import hashlib, inspect, sys
-    ev = [{k: e.get(k) for k in ('t', 't_move', 't_free', 'strings', 'pick', 'spread_s', 'actuator')}
-          for e in score['events'] if e.get('mech') == mech['id']]
+    # a mallet's prep and strike speed follow its a': the amp normalised over every
+    # event of its voice (formlab.stroke.a_norm), so each event carries its amp,
+    # its voice and that a' (a dynamics-only edit anywhere in the voice replans)
+    a_n = sys.modules[Rig.__module__].stroke.a_norm(score['events'])
+    ev = [dict({k: e.get(k) for k in ('t', 't_move', 't_free', 't_head_free', 'strings', 'pick', 'spread_s', 'actuator',
+                                     'amp', 'voice')}, a_norm=an)
+          for e, an in zip(score['events'], a_n) if e.get('mech') == mech['id']]
+    # the homing sweeps the rig draws in the first rest (loam.score._Solver.home)
+    ev.append([c for c in score.get('cues', []) if c.get('kind') == 'home' and c.get('mech') == mech['id']])
     strings = {k: v for k, v in layout['strings'].items() if v['mid'] == mech['id']}
     blob = json.dumps([mech, ev, strings, layout.get('obstacles', []), layout['mechanisms'][mech['id']],
                        {a: layout['arms'][a] for a in (x['id'] for x in mech['actuators'])}, placed or {},

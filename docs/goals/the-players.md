@@ -15,7 +15,7 @@ The goal is **met** when all three of these hold:
 2. The note budget is kept.
 3. The operator has watched the before/after reel and signed it off. Their words are recorded in `LOG.md`.
 
-**Status.** 2026-10-04: M0 done — all 26 rulers measure today's rig on both assets (`tools/test_players.py`; today's values in `the-players.today.json` and the table below), the before reel is rendered, and the M0 gate is green. M1 claimed 2026-10-04.
+**Status.** 2026-10-04: M0 done — all 26 rulers measure today's rig on both assets (`tools/test_players.py`; today's values in `the-players.today.json` and the table below), the before reel is rendered, and the M0 gate is green. M1 done 2026-10-04: the mallets ride the bounce. A thrown downstroke, a rebound at e 0.31–0.79, a ballistic float, and a rise that flows or rests (an apex catch) but never hitches, with the carriage coordinated under the head. Amendments A1–A12 are below, the M1 gate is green on both assets with invariants, and the after reel is in render/players/m1. M2 is next.
 
 ## The direction
 
@@ -219,6 +219,12 @@ No gesture is instantaneous.
 
 - Prep height and impact speed rise with the normalised amp a' and fall as tempo rises.
 - An accent on beat 1 or 3 is prepared by a Dahl up-stroke: its rise starts during the previous stroke's float. After an accent comes a down-stroke, with the rebound caught low.
+- **The Dahl loop (M1).** Between the tempo float (IOI ≤ 0.6 s) and the hold (gap ≥ 0.8 s), every stroke is a Dahl up-stroke: the rebound floats inside the 0.5–1.5 g band and, while still rising, hands over to the driven wind-up that carries the head on to the prep and into the downstroke. It is one gesture: the head never stops on the way up (A2).
+- **Rest or flow (M1).** After a longer gap the rebound does one of two things, whichever moves the head slower at its peak (its speed in the world, the carriage's motion and the arm's together, from the contact + 5 ms). Where the two tie, it rests.
+  - **Rest:** the arm catches the head at the top of its flight (A11). It takes the head while it still rises and brings it, without a bob, to rest where the free bounce would have turned. The head rests still for ≥ 0.25 s, and the up-stroke leaves from there in time for the note.
+  - **Flow:** the float hands over to one continuous rise, as in the Dahl loop. Under a moving carriage it may coast: the head rises at constant speed, then stops as the carriage arrives.
+  - After a rebound the head never rests below its park while its carriage moves: it is rising, or parked high and ready (A11). A rise never pauses in the middle.
+- **The first note (M1).** The head rests at the hover, makes a small anticipatory dip, winds up to its prep, and parks there while the carriage traverses under it. Then come the cocked hold and the stroke.
 
 **Runs and hand-offs** (54.29–56.79 and 65.71–68.21 s).
 
@@ -227,10 +233,11 @@ No gesture is instantaneous.
 
 **Tolls** (71.43–75.71 s).
 
-1. A slow traverse of 1.3–2.25 s, stepping tooth by tooth on the detent.
+1. A slow traverse, stepping tooth by tooth on the detent at the step period or slower: 2.2 s on the bells, 2.6–4.1 s on the bars, whose 25-tooth crossings already step at the 0.160 s minimum (M1 A12).
 2. A raised, cocked hold of at least 3 frames.
-3. A full stroke (0.35–0.60 m prep).
-4. One free bounce loop (Dahl, IOI > 1 s), then a park, high.
+3. A full stroke from the prep h(a′, IOI > 1 s): 0.30 m at a′ = 0, up to 0.60 m (M1 A12).
+4. After the last toll (the coda): one free bounce loop (Dahl, IOI > 1 s) caught at its apex, a rest, then a raise to park high. Earlier tolls follow item 5 (M1 A12).
+5. Where the tolls' traverse cannot wait for the wind-up, it steps under the bounce loop. The float hands over to a coasting rise that climbs while the carriage steps and stops at the prep with the last landing (M1 A11).
 
 **Bells.** The same stroke, with a carillon spring-off so the bell rings. Their IOIs of 1.43 and 2.86 s leave room for full arcs of ≥ 35°.
 
@@ -337,13 +344,14 @@ Each rule says which ruler checks it. Ruler numbers refer to **Acceptance**.
    - Checked by 8, 10, 12 and 23.
 7. **Synchronised arrival, exact stop.**
    - A reposition that ends in a placing or a hold has all of its axes leave and arrive within one 240 Hz sample, monotone, with overshoot ≤ 0.5 mm and at rest within one frame.
+     - M1, A6: only axes that start from rest are timed at the start, and every axis is timed at arrival. An axis has left its start, or arrived at its end, once it is beyond, or within, 1 µm of it. That instant is bisected on the closed form, not sampled.
    - A reposition followed by a strike within 0.6 s blends into the stroke instead of stopping.
    - Digits placed as a group land together.
    - Checked by 13 and 22.
 8. **Damped settle.** Each part rings with one declared (f, ζ) at every excitation. Heavier parts ring lower, and every ring stays legible at 30 fps. Checked by 20.
 9. **Gravity reads at full size.**
    - Strokes average ≤ 4 g (s = g/ā ≥ 0.25).
-   - Rebound floats decelerate at 0.5–1.5 g.
+   - Rebound floats decelerate at 0.5–1.5 g, to their apex or to where a driven rise or a catch takes them over; a caught head rests where the free bounce would have turned; a rise never hitches (A2, A11).
    - Checked by 8 and 9.
 
 ## Acceptance
@@ -361,7 +369,7 @@ The rulers live in a new `tools/test_players.py` (M0). It reads the rig, the bak
 - The prep function h(a', IOI).
 - From M4, part masses.
 
-The bake header carries all of these, the way it carries clicks and blows today. Segment tags come from a closed vocabulary: travel, wind-up, stroke, rebound, float, release, place, stick, close, raise, fall, slide, sweep, follow-through, ghost, home, hold (`release` is today's lift off the string or bar after a contact, `Rig.path_at`'s release phase; `formlab/segments.py` holds the list). Until an arm's motion is tagged, its tag-based rulers report the fallback formula and are not gated.
+The bake header carries all of these, the way it carries clicks and blows today. Segment tags come from a closed vocabulary: travel, wind-up, stroke, rebound, float, catch (M1 A11), release, place, stick, close, raise, fall, slide, sweep, follow-through, ghost, home, hold (`release` is today's lift off the string or bar after a contact, `Rig.path_at`'s release phase; `formlab/segments.py` holds the list). Until an arm's motion is tagged, its tag-based rulers report the fallback formula and are not gated.
 
 **Notation.**
 
@@ -371,18 +379,21 @@ The bake header carries all of these, the way it carries clicks and blows today.
 - a' is the amp normalised per voice: (amp − min)/(max − min).
 - *Impulse frames* are the frames whose interval contains a declared contact, slip or detent landing, or a click's move interval.
 - A *hurried travel* is a ratchet-carriage travel whose minimum smooth time, at 3 g and 1.0 E a frame, exceeds its contact-to-contact window.
+- A struck head's *strike window* is [t_apex, t_end + 50 ms]: the downstroke, the contact and the first 50 ms of the rebound (M1, A1).
+- A *brisk travel* is a mallet's contact-to-contact travel whose 3-4-5 time at 3 g and 0.5 E_x a frame exceeds its IOI: a leap at tempo (M1, A1).
+- A struck head's *rise* runs from a contact (+ 5 ms) to the next note's t_apex. A *hitch* is a sag of its upward speed below half of the lesser of its peaks before and after, inside one up-run (1 cm hysteresis), that is not a still rest of ≥ 0.25 s (M1, A2).
 - A *gap* is the time from one contact's end to the next contact on the same arm.
 
 | # | ruler | measure | today | target |
 |---|---|---|---|---|
-| 1 | strobe | ρ = \|Δp_k\| / E(part, Δp̂_k) for the tool or head, each digit tip, the palm, the wrist and elbow pins; for links, R·\|Δθ_k\| at each link's far end | max ρ of the tool: harp 1.85, rake 6.70, bars 2.49 (hurried 12 + 2), bells 1.75, hammer 2.79; wrists 1.19–4.91; elbows 0.72–6.04 (23.7–62.3 cm a frame); upper links to 4.96; hammer head 98.5° a frame | max ρ ≤ 1.0 (≤ 1.5 on impulse frames and hurried travels); p95 over active frames ≤ 0.5; harp palm ≤ 0.5 outside slip frames; R·\|Δθ\| ≤ max(link width, E_head); ≤ 20° a frame for parts under 0.25 m |
+| 1 | strobe | ρ = \|Δp_k\| / E(part, Δp̂_k) for the tool or head, each digit tip, the palm, the wrist and elbow pins; for links, R·\|Δθ_k\| at each link's far end | max ρ of the tool: harp 1.85, rake 6.70, bars 2.49 (hurried 12 + 2), bells 1.75, hammer 2.79; wrists 1.19–4.91; elbows 0.72–6.04 (23.7–62.3 cm a frame); upper links to 4.96; hammer head 98.5° a frame | max ρ ≤ 1.0 (≤ 1.5 on impulse frames and hurried travels); p95 over active frames ≤ 0.5 (struck heads: over active frames off impulse frames, hurried and brisk travels and strike windows, M1 A1); harp palm ≤ 0.5 outside slip frames; R·\|Δθ\| ≤ max(link width, E_head); ≤ 20° a frame for parts under 0.25 m |
 | 2 | screen | ρ_px = \|Δq_k\| / projected extent, from `render/film/camera.json` (exported from `film_director.gd`, never re-implemented) | ρ_px max 1.82–6.14 (rake); 271 jumps over 30 px; max 224 px at 40.067 s | ρ_px ≤ 1.0 off impulse frames. Report only: jumps over 30 px and max px, under the frozen M0 camera and the current one |
 | 3 | preparation | On `Rig.path_at` without rings, h(t) = (p − c_i)·n_i. The action A_i is the last interval before t_i with dh/dt < 0, starting at t_apex. The wind-up W_i is the maximal interval before t_apex with dh/dt > 0. The lead is L_i = t_i − start(W_i). For plucks, c_i is the placing point and t_i is t_place. | the lead is the strike window: harp 90 ms, rake 150, bars 80, bells 140, hammer 80 (209/230 under 100 ms); wind-up 0.66–1.68 frames; hand-off wind-ups 277 ms late | \|W_i\| ≥ 4 frames (≥ 6 when the gap is ≥ 0.5 s); Δh over W_i ≥ 0.25·h(t_apex); L_i ≥ min(200 ms, 0.9·IOI); L_i ≥ 415 ms when the gap is ≥ 1 s; at hand-offs the incoming wind-up starts at or before the outgoing last hit |
 | 4 | action | T_down = t_i − t_apex for struck heads; the approach to t_place for plucks | bars 1.44 frames (48 ms, 0.13·IOI at tempo); bells 2.52; hammer 1.44; pluck approach 2.04; rake 3.40 | IOI ≤ 0.5 s: 0.35–0.45·IOI; IOI > 0.5 s: 125–250 ms; pluck approach ≥ 2.5 frames |
 | 5 | no rest in a phrase | In each gap with IOI ≤ 0.6 s (and anywhere in the rake's 45.71–67.14 s pendulum), every interval with \|v\| < 0.15·v_peak of that gap that lasts more than 1 frame must contain a reversal of the principal-axis velocity, with \|a\| ≥ 0.5 g throughout. Exempt: place, stick, planted digits, and declared holds after gaps ≥ 0.8 s. | bars 16/16 and 20/20 gaps; harp_arm1 8/8, harp_arm2 3/15; rake 15/15 (stops to 1.12 s) | 0 violations |
 | 6 | smoothness | **6a** At smooth knots \|Δv\| ≤ 1e-3 m/s and \|Δa\| ≤ 0.05·a_peak of the segment (one-sided 5-point stencils, ε = 1e-5 s on the rig); impulse knots match their declared Δv. **6b** One-sided differences at 10 µs: count of \|Δv\| > 0.02 m/s more than 20 µs from any declared knot. **6c** Inside a segment, max \|Δa\| per 1 ms ≤ 1.1·C_j(law)·h/T³·1e-3. | 6a: harp strike starts Δv 3.46 m/s; rake 126 knots to 28.4 m/s; bars Δa 106 + 147, hammer 525. 6b: 721 (harp 141, rake 126, bars ring corners 454); 476 at the old \|Δv\| > 0.1 m/s rule. 6c: quintic+cocked 7.6× its bound (bells 13.7×); quintic+sine, quintic+cocked and ratchet are not allowed laws | 6a: all pass; 6b: 0; 6c: all pass; every segment uses an allowed law |
 | 7 | impact | v_in·n at contact (one-sided differences, 1e-5 s, on the rig) | 13.75 m/s on every blow; bells 7.86; hammer 4.13 (\|v\| 10.3); flat in a' | bars and bells 1.5–4.0 m/s; hammer 1.5–3.0; per arm, Spearman(v_in, a') ≥ 0.9 and v_in(a' max)/v_in(a' min) ≥ 1.5 (a flat-amp arm: CV ≤ 5 %) |
-| 8 | rebound and float | e = −(v⁺·n)/(v⁻·n); the upstroke from t_i + 5 ms to t_apex | e 0.048 (bars), 0.084 (bells), 0 (hammer); a 38 ms scripted lift at −83 to +79 g; apex 0.23 m, park 0.33 m | e in 0.3–0.8; upward speed non-increasing and a_n between −1.5 g and −0.5 g throughout; t_apex − t_i ≥ 0.5·(IOI − T_down); IOI ≤ 1 s: apex = h(a'_{i+1}, IOI_{i+1}) ± 1 cm; IOI > 1 s: first apex = (e·v_in)²/(2·a_float) ± 10 %, then park at h ± 1 cm |
+| 8 | rebound and float | e = −(v⁺·n)/(v⁻·n); the upstroke from t_i + 5 ms to t_apex | e 0.048 (bars), 0.084 (bells), 0 (hammer); a 38 ms scripted lift at −83 to +79 g; apex 0.23 m, park 0.33 m | e in 0.3–0.8; upward speed non-increasing and a_n between −1.5 g and −0.5 g throughout the float (to its apex, or to where it hands over to a driven rise or a catch, M1 A2, A11); t_apex − t_i ≥ 0.5·(IOI − T_down); IOI ≤ 1 s (mallets 0.6 s, M1 A3): apex = h(a'_{i+1}, IOI_{i+1}) ± 1 cm; above: first apex = (e·v_in)²/(2·a_float) ± 10 % (a handed-over float: its height at the handover = v₀T − a_float·T²/2 ± 10 %; a caught float: its rest height, A11), then park at h ± 1 cm; **rise:** no hitch on any mallet rise (M1 A2); **catch:** begins at ≤ 0.5 of the launch speed, never reverses, a_n in [−1.5 g, 0], ends still (a driven rise that stops short of its park is a catch, A12); **low rest:** no head still below its park under a moving carriage, its step dwells included, for over a frame (M1 A11, A12) |
 | 9 | gravity scale | strokes: s = g/ā with ā = 2d/T² | bars 0.034 (reads as 1:29); bells 0.105; hammer 0.044 | s ≥ 0.25 on every stroke (floats are checked by 8) |
 | 10 | hammer arc | (a) shaft rotation Δφ = \|φ(t_apex) − φ(t_i)\|; (b) world head path over [t_apex, t_i]: sagitta/chord, curving toward the pin's side; (c) felt or head velocity at t_i⁻ against the surface normal; (d) elbow angle change per stroke | (a) 0° on mallets, hammer 108.6°; (b) 0, hammer 0.174; (c) 0°, hammer 66.5°; (d) bars 4.1° and 7.3° a stroke, bells 4.8° and 6.5°, hammer 6.1° | (a) ≥ 20° at IOI ≤ 0.5 s, ≥ 35° at IOI ≥ 0.7 s (hammer ≥ 20°); (b) ≥ 0.05; (c) ≤ 20°; (d) ≥ 5° |
 | 11 | contact frame | \|p(round(30t)/30) − contact\| for struck heads | bars 62 mm median, 167 mm p90 and max; bells 11–24 / 70 / 103 mm; hammer 18 / 141 / 141 mm | median ≤ 25 mm; p90 ≤ 55 mm; max ≤ 75 mm |
@@ -401,6 +412,54 @@ The bake header carries all of these, the way it carries clicks and blows today.
 | 24 | phrase ends | The release after each listed phrase end, for every player kind; the ensemble ending | no release gesture: harp 0.05 s with no rise; bars hold 0.22 m; rake 0.1 s without follow-through; release time constant (Spearman 0); the ending's parks spread over 4.3 s (expanded 10.3 s) | each release is present and shaped as in the table; per kind, Spearman(release time, dur_last) ≥ 0.8, where dur_last is how long the last note sounds (its ring, score.json `dur`, cut by the player's next contact or the end; with fewer than 3 phrase ends, or all alike, it is reported, not judged); ending synchronised as described |
 | 25 | notes | The composer ledger in score.json (`stats.intended`, `as_written`, `substituted`, `dropped`, written by `ask_pluck` and `ask_rake`); expanded refusals; stems | 9/239 dropped; 221 as written; 0/298 | chamber: ≤ 9 drops after every milestone, ≤ 6 at the end, ≥ 228 as written at the end; expanded: 0 refusals (its asserts); milestones without music changes leave the stems bit-identical |
 | 26 | invariants | Every ruler in `docs/articulated-arms.md`; `test_motion`, `test_bake`, `test_rail_cache`, `test_score_plan`; the `harness/dev` tests | green | green on both assets |
+
+### Ruler amendments (M1, 2026-10-04)
+
+M1 found these places where the written rulers contradicted each other, or contradicted the motion the goal asks for. Each one is implemented in `tools/players/` and recorded in LOG.md. None of them loosens a target that the motion could meet as written.
+
+- **A1. Ruler 1, struck heads (p95).** The p95 now runs over active frames off impulse frames, off hurried and brisk travels, and off strike windows. An empty gated set fails. `p95_active` is still reported (info), and max ρ ≤ 1.0 (1.5 on impulse frames and hurried travels) still applies to every frame.
+  - **Why the strike window comes out.** A stroke that meets ruler 7 (v_in 1.5–4.0 m/s) and ruler 4 (T_down 0.35–0.45·IOI) moves faster than 0.5 E a frame by construction, so p95 over every active frame would contradict 4 and 7.
+  - **Why brisk travels come out.** At the tune's tempo, a leap whose 3-4-5 cannot stay under 0.5 E_x a frame at 3 g, made together with the float the next note needs, cannot hold 0.5 E a frame. The whole gap from t_end to the contact, head included, leaves the p95. It is an explicit policy until M8, when the Stevens grip's splay changes replace these leaps. Each arm's brisk count is frozen at today's value, as hurried travels are.
+- **A2. Ruler 8, the rise.**
+  - **The float may hand over.** The float is judged up to its apex, or up to where it hands over to a driven rise while still rising: the Dahl up-stroke, "its rise starts during the previous stroke's float". A handed-over float's height at the handover is judged against the ballistic v₀T − a_float·T²/2 ± 10 %.
+  - **New check '8 rise'.** No mallet rise hitches. The upward speed inside an up-run (1 cm hysteresis) stays ≥ 0.5 × the lesser of its peaks before and after, unless the valley holds ≥ 0.25 s of stillness (|ḣ| < 0.05 m/s), which counts as a deliberate rest.
+  - **Why.** The first M1 stroke floated each rebound to its apex and wound up again from rest. That passed every written ruler and still showed up-pause-up, for 36–78 ms in the middle of the rise. This is exactly the jerk the goal exists to remove.
+- **A3. Ruler 8, the float/bounce split for mallets is IOI 0.6 s, not 1 s.** A ballistic float at ≥ 0.5 g that ends at the next downstroke rises ≥ ½·0.5 g·(IOI − 0.25)², which is more than 0.28 m once IOI > 0.59 s. That is above every tempo prep. The hammer keeps 1 s until M5.
+- **A4. Ruler 3.** W skips a declared head hold that ends at t_apex (± 2 ms), so W is the rise before it, and L and Δh are measured from the rise's start. Rulers 3, 4, 8, 9, 10 and 21 share one apex and one wind-up (`r_motion.prep`).
+- **A5. Ruler 6c.** A segment's bound is the closed-form jerk of its law and declared end data:
+  - 3-4-5: 60|D|/T³;
+  - quintic Hermite: the peak of its fifth-order polynomial;
+  - ballistic: 0, plus the arc terms.
+  - The bound is scaled by the carriage's y/z blend. A declared `jerk` may only be at or below the closed form. Homing joint legs are the one place where the declaration stands alone. 'quintic hermite' and 'ballistic' are allowed laws, which rule 4 already lists.
+- **A6. Ruler 22.**
+  - **sync** follows rule 7's amendment: start skew only for axes that start from rest, arrival skew for all, in-position at 1 µm, bisected.
+  - **repeat** compares the head relative to the carriage.
+  - **home** is the union of the 'home' segments in the arm's first rest of ≥ 2 s.
+- **A7. Ruler 19.**
+  - **Travels** are the declared carriage 'travel' segments.
+  - **The regime** is checked on the declared window (go → hold start or contact), and that window is checked on its own against the score's t_move.
+  - **The pawl** rides only on freewheels: it drops into every tooth on stepped and homing travels.
+  - **Clicks:** one per tooth.
+- **A8. Ruler 10b.** Measured in the plane perpendicular to the declared pin axis, against the declared pin. A carriage x still moving under the downstroke is not curvature.
+- **A9. Ruler 20, mallets.** The detent residual is rebuilt from declared detent knots that carry their sign and fade.
+- **A10. Ruler 21.**
+  - **Height vs a':** within IOI classes (IOIs within 5 %; classes with ≥ 3 notes and ≥ 2 distinct a'), with the minimum over classes. An arm with no such class uses the pooled M0 rule. Without classes, a 0.36 s tune and 2.9 s tolls would rank tempo, not intent.
+  - **Holds and accents** read the declared head holds and wind-ups.
+- **A11. Ruler 8, the catch and the low rest.**
+  - **Only a driven segment takes a float over.** A float is judged short of its turn only where its declared end hands over, still rising, to a driven rise ('wind-up', 'raise') or to a declared 'catch'. Any other end while rising is no handover, and the float is judged to where the face turns.
+  - **The catch ('8 catch').** The arm takes the head at the top of its flight and brings it to rest. It begins once the float has shed half its launch speed, so the free flight carries at least ¾ of the height. It never reverses (upward speed non-increasing and ≥ 0), brakes no harder than the float band's 1.5 g, and ends still. The head rests at the ballistic apex (e·v_in)²/(2·a_float) ± 10 % ('8 bounce apex'), with a_float the float's own mean deceleration up to the catch.
+  - **The low rest ('8 low rest').** Inside each rise window after a contact, the scored head is never still (|ḣ| < 0.05 m/s) more than 1 cm below the park it rises to while the scored carriage moves (|ẋ| > 0.01 m/s) for longer than one frame. A head parked at its prep while the carriage positions under it (the first note, park-first holds) is ready, not waiting.
+  - **Why.** Review WF-F found the first rest design passing as a Dahl handover. It ended its float 80 ms before the apex, while still rising, in a settle that came to rest 7–16 % above the ballistic apex. So '8 float' and '8 bounce apex' were never measured on 17 rests. A C2, bob-free stop at a free apex cannot keep a_n ≤ −0.5 g all the way to v = 0. The goal therefore names the catch and bounds it, instead of widening the band or excusing it through the handover. The same review found a toll's head waiting low for 1.4–3.6 s while its carriage stepped. Tolls item 5 said so, and Rest-or-flow said the opposite. A player lifts while moving to the next drum, so the toll now coasts up under the steps.
+  - **The rest-or-flow choice** is measured on the world speed of the head (carriage and arm together), the same vector as the planner's tool norm. Ties go to the rest, under a moving carriage as well.
+- **A12. Ruler 8 judges the shape, not the tag; the tolls as played.**
+  - **A stop is a catch, whatever its tag.** A driven rise ('wind-up', 'raise') that brings the head to still (|ḣ| < 0.05 m/s for over a frame) more than 1 cm below the park it rises to has caught the float. '8 catch' and '8 bounce apex' judge it as a catch ending where it stops, and '8 catch' counts it as `undeclared`. tools/test_stroke.py holds the planner to the same: every float handed to a driven rise reaches its park.
+  - **'8 low rest' measures a wait whole.** A stepped carriage's dwell between steps (at most P_MAX, 0.2 s, with motion on both sides) counts as travelling, so a head waiting under a stepped traverse is one wait, not one per step move.
+  - **Tolls items 1, 3 and 4** now state the tolls the plan plays: the bars' 25-tooth crossings cannot step in 1.3–2.25 s (25 × 0.160 s = 4.0 s), the a′ = 0 tolls prep at 0.30 m, and only the coda has the free loop and high park.
+  - **Why.** Review WF-F2 found ruler 8 trusting the declared tag: a stop declared 'wind-up' that started early and came to rest 15 % above the apex passed every row. No live plan did that, but the ruler judged the label, not the motion. The same review measured the tolls against items 1, 3 and 4: none failed in motion, but the text stated numbers the plan does not meet.
+- **Timing.**
+  - `motion_timing.STILL_S` = 0.37 s: the stroke's cocked hold plus its longest downstroke, the least window a contact-to-contact plan leaves a still note.
+  - `HOME_T0` = 0.25 s: the homing sweeps start a quarter second in.
+  - `HOME_JOINT_S` = elbow 1.65 s, shoulder 0.9 s: each joint sweep's whole window.
 
 **The reel.** `tools/players_reel.sh` stacks *before* (left; the bake and assets of `6c326b5`, rendered once by M0 into `render/players/before/`) and *after* (right) at the same score time, at 960×540, captioned with the time.
 
@@ -447,7 +506,7 @@ Geometry milestones (M4, M5, M7, M8, M9) first send a turntable of the new part,
 | # | milestone (size) | needs | delivers | gate (rulers, scope) | status |
 |---|---|---|---|---|---|
 | M0 | Ruler first (M) | — | `tools/test_players.py --report/--gate`, with every ruler implemented on today's rig (fallback formulas where tags are missing); the `Rig.segments/knots` API declaring today's segments, so 6b reproduces the corners; the composer ledger in score.json; `harness/dev/export_camera.gd` → `render/film/camera.json`; `tools/players_reel.sh` (extends `contrast_reel.sh` with a `--moments` list); the 10 before clips in `render/players/before/` (local, regenerable); every "today" cell regenerated and pasted into this file | counts exact and continuous values within 2 % of the regenerated table; 26 | done 2026-10-04: 389/572 results (chamber/expanded), 223/328 FAIL against target; the declared structure is read by `formlab/segments.py` (not `Rig`, which would replan the rails for no motion change) until the rig declares its own from M1 |
-| M1 | Mallets ride the bounce (L) | M0 | **stroke:** legato/piston stroke on today's heads; thrown downstroke; rebound; rebound-led float to h(a', IOI); Dahl up-strokes before accents; bounce loop then park at IOI > 1 s; tolls with a cocked hold. **path:** the head follows the arc the M5 hinge will make (about a virtual pin) and the elbow takes part. **ratchet:** the carriage travels contact to contact (ẋ = ẍ = 0 at contacts) as a freewheel (Q4), with step-and-dwell kept where time allows; pawl ride/drop and a click per tooth. **planner:** `t_head_free` semantics in `_Solver` (`_feasible`, `_separated`), `Rig._windows/_segments`, `motion_timing` floors, `loam/ruler.py` `plan_consistent`, `harness/score_doc.gd`, `songs/clockwork.py` (alternates only, never the originals). **also:** bars homing sweep; `cocked`, the 40 ms lift and the `\|sine\|` bounce retired, along with the rulers that encoded them; bells get the same stroke | 3, 4, 5, 6, 7, 8, 9, 10 (b, c, d), 11, 19, 21, 22 (bars, bells); 1 (bars head); 25, 26 | claimed 2026-10-04 (session 01KzHpLf) |
+| M1 | Mallets ride the bounce (L) | M0 | **stroke:** legato/piston stroke on today's heads; thrown downstroke; rebound; rebound-led float to h(a', IOI); Dahl up-strokes before accents; bounce loop then park at IOI > 1 s; tolls with a cocked hold. **path:** the head follows the arc the M5 hinge will make (about a virtual pin) and the elbow takes part. **ratchet:** the carriage travels contact to contact (ẋ = ẍ = 0 at contacts) as a freewheel (Q4), with step-and-dwell kept where time allows; pawl ride/drop and a click per tooth. **planner:** `t_head_free` semantics in `_Solver` (`_feasible`, `_separated`), `Rig._windows/_segments`, `motion_timing` floors, `loam/ruler.py` `plan_consistent`, `harness/score_doc.gd`, `songs/clockwork.py` (alternates only, never the originals). **also:** bars homing sweep; `cocked`, the 40 ms lift and the `\|sine\|` bounce retired, along with the rulers that encoded them; bells get the same stroke | 3, 4, 5, 6, 7, 8, 9, 10 (b, c, d), 11, 19, 21, 22 (bars, bells); 1 (bars head); 25, 26 | done 2026-10-04 |
 | M2 | Servo anticipation and the slow rake (M) | M0 | **slews:** unhurried slews leave when the arm is free, capped at t_move = max(free_at, t − approach − min(idle, travel + 0.25 s)), with the refusal change measured (> 2 extra refusals → keep the cap tighter). **entries:** smooth strike entries for picks and rake. **homing:** sweeps for the servo arms. **rake (Q1):** the slow roll, with onsets along the path, run-up, follow-through, and the interim carriage at ≤ 6 m/s | 3 (contacts with IOI ≥ 0.25 s), 5 (rake gaps; harp gaps without a reposition), 6, 14 (interim), 22 (harp, rake); 25, 26 | open |
 | M3 | Bake v2 (M) | M0 | `loam-motion/2`: a generic per-arm joints table (name, parent, axis, origin, limits, driver, per-row angle); per-arm `head_l`; segments, knots and rings in the header. Updates `formlab/bake.py`, `harness/motion_bake.gd`, `harness/dev/test_clockwork.gd`, `dump_bake.gd`, `export_motion.gd`, `dump_clicks.gd` and `harness/film_director.gd`; `/1` is refused with a clear message. No visual change. | three moments render pixel-identical before and after; 26 | open |
 | M4 | The drives (L) | M3 | shoulder sector gear; elbow crank; a motor for the pinion; multi-start leadscrews or belts (≤ 3000 rpm); the flywheel meshes or loses its teeth; blur sheaths for aliasing features; limits from interference sweeps (`test_linkage_tools`); backlash state; part masses in the manifest | 16 (limits), 17, 18; 26 | open |
@@ -508,7 +567,7 @@ Each has a default, and the loop proceeds on the default when its milestone come
 3. **Rendered motion blur.**
    - **Default:** no. The motion itself must meet rulers 1 and 2.
    - The one exception would be Q1's alternative.
-4. **The ratchet in fast passages.** A real ratchet freewheels: the pawl drops into each tooth while the driven part keeps moving.
+4. **The ratchet in fast passages.** A real ratchet freewheels: the pawl drops into each tooth while the driven part keeps moving. **Resolved in M1 on the default.** A travel steps wherever each of its teeth fits `step_period`, which is ≥ 3 frames. Otherwise it freewheels on a smooth law at ≤ 3 g, with a click per tooth and the pawl riding the tips above 15 teeth/s.
    - **Default:** in fast travel the bars carriage glides on a smooth law at ≤ 3 g (≤ 5 g for counted hurried travels), with the pawl and a click on every tooth. Stop-on-the-detent stepping is kept wherever each step can take at least 3 frames.
    - **Alternative:** keep step-and-dwell everywhere, with steps of ≤ 2 teeth at ≥ 60 ms. That costs notes in the tune and keeps per-frame jumps of 1–2 teeth.
 5. **Physics or size for the mallet at tempo.** A rebound-led stroke at the tune's 0.357 s IOI can rise only about 0.15–0.28 m, which is less than today's 0.22–0.33 m cock on soft notes.

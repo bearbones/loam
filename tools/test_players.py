@@ -1,7 +1,8 @@
 """The players' rulers (docs/goals/the-players.md, "Acceptance").
 
-    python3 tools/test_players.py --report [--asset=chamber|expanded] [--only=1,3,8] [--save=PATH]
-    python3 tools/test_players.py --gate
+    python3 tools/test_players.py --report [--asset=chamber|expanded] [--only=1,3,8] [--save=PATH] [--skip-invariants]
+    python3 tools/test_players.py --gate [--asset=...]
+    python3 tools/test_players.py --gate=M1 [--gate=M2 | --gate=M1,M2] [--asset=...] [--skip-invariants]
 
 --report prints every ruler's measure on both assets (or one), scope by scope,
 with PASS / FAIL against the goal's target, n/a where there is nothing to
@@ -12,12 +13,20 @@ regenerated from such a file: docs/goals/the-players.today.json).
 is `done` runs the rulers its gate names, in its scope, and fails if any
 result in that scope is FAIL. A ruler that is n/a in a gated scope fails too:
 a milestone that claims a ruler must have given it something to measure.
+--gate=M1 gates the named milestone(s) instead, whether or not their status
+is done (repeat the flag or give a comma list): how a milestone in progress
+checks itself against its own gate before it is marked done.
+
+--skip-invariants (or PLAYERS_SKIP_INVARIANTS=1 in the environment) skips
+ruler 26's slow subprocesses (the harness tests, the rail cache, the
+bake checks): ruler 26 then reports n/a, so a gate that names 26 fails on
+it. Use it for a fast --report; never for the gate that marks a milestone done.
 
 The rulers live in tools/players/r_*.py; each exports RULERS = {n: fn}, fn
 taking a players.core.Subject and returning [Result]. The measuring core
 (sampling, contacts, declared structure) is tools/players/core.py.
 """
-import importlib, json, re, sys, time
+import importlib, json, os, re, sys, time
 from pathlib import Path
 HERE = Path(__file__).resolve().parent; ROOT = HERE.parent
 sys.path.insert(0, str(HERE)); sys.path.insert(0, str(ROOT))
@@ -30,12 +39,13 @@ GOAL = ROOT/'docs/goals/the-players.md'
 # name starts with one of them (a milestone that gates part of a ruler: M1's
 # "10 (b, c, d)", "1 (bars head)"). It mirrors the goal's milestone table
 # ("gate" column); the table is the spec, this is its executable form, and the
-# two change together.
+# two change together. M1's '1 brisk' is the ceiling on the travels its '1 tool'
+# p95 leaves out while r_motion.BRISK_UNTIL_M8 (no such row when it is False).
 MALLETS = ('mallet',); SERVO = ('pick', 'rake'); HARP = ('pick',); RAKE = ('rake',)
 MILESTONE_GATES = {
     'M0': [(26, 'all')],
     'M1': [(n, MALLETS) for n in (3, 4, 5, 6, 7, 8, 9, 11, 19, 21, 22)]
-          +[(10, MALLETS, ('10b', '10c', '10d')), (1, MALLETS, ('1 tool',)), (25, 'all'), (26, 'all')],
+          +[(10, MALLETS, ('10b', '10c', '10d')), (1, MALLETS, ('1 tool', '1 brisk')), (25, 'all'), (26, 'all')],
     'M2': [(3, SERVO), (5, SERVO), (6, SERVO), (14, RAKE), (22, SERVO), (25, 'all'), (26, 'all')],
     'M3': [(26, 'all')],
     'M4': [(16, 'all', ('16 limits',)), (17, 'all'), (18, 'all'), (26, 'all')],
@@ -104,9 +114,18 @@ def _fmt(v):
         return str(x)
     return ', '.join(f'{k}={f(u)}' for k, u in v.items())
 
-def gate(assets):
-    done = done_milestones(); bad = []
-    print(f'milestones done: {", ".join(done) or "none"}')
+def gate(assets, milestones=None):
+    """Gate the done milestones, or the named ones (`milestones`) whatever
+    their status."""
+    bad = []
+    if milestones:
+        unknown = [m for m in milestones if m not in MILESTONE_GATES]
+        if unknown: raise SystemExit(f'unknown milestone(s) {", ".join(unknown)}; known: {", ".join(MILESTONE_GATES)}')
+        done = list(milestones)
+        print(f'milestones gated (named): {", ".join(done)}')
+    else:
+        done = done_milestones()
+        print(f'milestones done: {", ".join(done) or "none"}')
     need = {}
     for m in done:
         for n, scope, *names in MILESTONE_GATES.get(m, []): need.setdefault(n, []).append((m, scope, tuple(names[0]) if names else None))
@@ -131,9 +150,12 @@ def gate(assets):
     return 1 if bad else 0
 
 def main(argv):
-    opts = dict(a[2:].split('=', 1) if '=' in a else (a[2:], '1') for a in argv if a.startswith('--'))
+    flags = [a[2:].split('=', 1) if '=' in a else (a[2:], None) for a in argv if a.startswith('--')]
+    opts = {k: ('1' if v is None else v) for k, v in flags}
+    named = [m.strip() for k, v in flags if k == 'gate' and v for m in v.split(',') if m.strip()]
+    if 'skip-invariants' in opts: os.environ['PLAYERS_SKIP_INVARIANTS'] = '1'
     assets = [opts['asset']] if 'asset' in opts else list(core.ASSETS)
-    if 'gate' in opts: return gate(assets)
+    if 'gate' in opts: return gate(assets, named or None)
     only = {int(x) for x in opts['only'].split(',')} if 'only' in opts else None
     results = run(assets, only)
     if 'save' in opts:

@@ -1453,9 +1453,14 @@ def score_recall(x: np.ndarray, times, tol_s: float = 0.03,
 def plan_consistent(events) -> dict:
     """The engine's precondition on an exported plan: for every
     actuator, events in time order never overlap — each t_move is
-    at or after the previous t_free — and t_move < t <= t_free for
-    every assigned event. Returns {ok, overlaps, bad_span,
-    unassigned, assigned}; overlaps/bad_span list event indices."""
+    at or after the previous t_head_free — and t_move < t <=
+    t_head_free <= t_free for every assigned event. t_head_free is
+    the instant the carriage may leave: t_free for an arm that
+    strikes from a still carriage, the contact itself for a mallet,
+    whose head rides its rebound into the next travel (a plan from
+    before M1 carries none, and t_free stands in). Returns {ok,
+    overlaps, bad_span, unassigned, assigned}; overlaps/bad_span
+    list event indices."""
     by_act = {}
     unassigned, bad = [], []
     for e in events:
@@ -1465,14 +1470,15 @@ def plan_consistent(events) -> dict:
         if a is None:
             unassigned.append(e["i"])
             continue
-        if not (e["t_move"] < e["t"] <= e["t_free"]):
+        hf = e.get("t_head_free", e["t_free"])
+        if not (e["t_move"] < e["t"] <= hf <= e["t_free"]):
             bad.append(e["i"])
         by_act.setdefault((e["mech"], a), []).append(e)
     overlaps = []
     for evs in by_act.values():
         evs.sort(key=lambda e: e["t"])
         for p, q in zip(evs, evs[1:]):
-            if q["t_move"] < p["t_free"] - 1e-9:
+            if q["t_move"] < p.get("t_head_free", p["t_free"]) - 1e-9:
                 overlaps.append(q["i"])
     return dict(ok=not overlaps and not bad, overlaps=overlaps,
             bad_span=bad, unassigned=unassigned,

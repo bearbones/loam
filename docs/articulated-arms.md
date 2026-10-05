@@ -78,10 +78,21 @@ root_z)`, swing plane yz, pins along world X. Two rules were added:
   strings; "back" is the universal rule for plucked and raked mechanisms.
   Mallets keep "up".
 
-How the tip *moves* between the score's contacts — ratchet clicks, a cocked
-drop and a recoil for mallet arms; jerk-limited S-curve slews for picks and
-rakes — is `docs/motion-design.md`. The pose is still a pure function of
-time; the vocabularies only change the tip path the IK follows.
+How the tip *moves* between the score's contacts — for mallet arms a
+carriage that steps tooth by tooth or freewheels contact to contact under a
+head riding its rebound, a thrown downstroke and a recoil (`formlab/stroke.py`);
+ratchet clicks and a cocked drop for the hinged hammer; jerk-limited S-curve
+slews for picks and rakes — is `docs/motion-design.md`. The pose is still a
+pure function of time; the vocabularies only change the tip path the IK
+follows. Two things about a mallet's pose follow from its stroke. Its root
+rides `Rig.carriage_x` — the scored x plus the detent ring of its stepped
+landings, without the recoil's x ring, which only the tip carries. And its
+hover leans onto the stroke's arc, σ·Z(0.22) = 0.103 m toward the root, so
+the hover points ruler 16 spans its joints over moved with it: the mallet
+arms' IK elbow spans read 3.5–4.4° wider than at M0 (bars_arm0 27.0° →
+30.7°), a change of measurement, not of geometry. Through its homing sweep a
+mallet's tip is the forward kinematics of one joint turned at a time from
+the home pose (`Rig._fk`), from the cfg as it is when posed.
 
 The parallel bars are posed with `link_basis(a, b)` at `a + o` — the same
 basis as the primary bar, translated by the constant world offset `o`.
@@ -337,12 +348,16 @@ what every arm sweeps and the rails were never replanned — the rulers
 re-measured the old rails against the new motion and happened to pass, with
 56 mm to spare on the arm clearance. A stale plan shows only as a red ruler
 after a 7 minute build, so the key now hashes the source of every module the
-plan is measured against — `rig.py` (the motion), `clearance.py` (the space
+plan is measured against — `rig.py` and `stroke.py` (the motion; the
+second is the mallet's stroke since PLAYERS M1), `clearance.py` (the space
 model), `linkage.py`, `gantry.py` and `pawl.py` (the geometry measured) —
-listed as `layout_search.GEOMETRY_SOURCES`, and the motion constants by name
-and value (`layout_search.motion_constants()`, every upper-case value in
-`formlab.rig`) so tuning a click length replans as loudly as editing the
-file. `tools/test_rail_cache.py` holds the key to that promise: it edits each
+listed as `layout_search.GEOMETRY_SOURCES` — plus `loam/motion_timing.py`
+(`layout_search.TIMING_SOURCES`: the travel timing both worlds share, whose
+functions move every travel without moving a constant), and the motion constants by name
+and value (`layout_search.motion_constants()`: every upper-case value in
+`formlab.rig`, and in the `motion_timing` and `stroke` modules it loads as
+`motion_timing.NAME` and `stroke.NAME`) so tuning a click length or a
+mallet's prep replans as loudly as editing the file. `tools/test_rail_cache.py` holds the key to that promise: it edits each
 source and each constant in turn and watches the key move.
 
 Because a replan is expensive, `build_clockwork.py --rails=keep` reuses the
@@ -416,8 +431,9 @@ frame's sign for the up/down mounts.
 
 An arm has one of two drives, and `clearance.drive_kind(cfg)` says which
 from the arm's scored kind (`docs/plans/leadscrew-servo-drive.md`). The
-**mallet and hammer arms** move in strikes — a whole-string step, then a
-dwell — and keep the rack and pinion below: the pinion is what the
+**mallet and hammer arms** move tooth by tooth along a rack — a mallet steps
+a tooth and dwells on the detent, or freewheels a long leap with its pawl
+riding the tips; the hammer clicks — and keep the rack and pinion below: the pinion is what the
 **roller-detent pawl** (`formlab/pawl.py`) indexes on, and a ratchet is the
 right thing to see on a machine that steps. The **pick and rake arms**
 travel continuously (the harp slews under its S-curve, the rake follows the
@@ -539,7 +555,7 @@ Two more rules fell out of measuring:
   `plan_gantries` refuses a layout whose rack another arm or rail crosses.
 
 **The mallet arms' pinions carry a roller detent pawl** (`formlab/pawl.py`),
-the mechanism the ratchet click of `docs/motion-design.md` is read from. Under
+the mechanism the clicks of `docs/motion-design.md` are read from. Under
 the disc — the rack is above it, the rim below is free — a steel lever
 pivots on a knuckle pin at a bracket cast onto the carriage (an ear off an arm
 that runs from the carriage's plane, a strut into the lower bushing's wall, the
@@ -573,7 +589,17 @@ with a brass grease plug let into each face off the axis, so it can be seen
 to turn) on the pawl's axle, and rolls on the tips as the carriage moves —
 the disc's rim at the tips runs `r_tip / r_pitch` times the rail speed, and
 the roller turns that arc over its own radius, the other way from the disc
-(`pawl.ROLLER_SPIN`, −60 rad a metre; a tooth pitch turns it 2.8 rad). The
+(`pawl.ROLLER_SPIN`, −60 rad a metre; a tooth pitch turns it 2.8 rad). A
+spring can only return the roller into a gap so fast: when a mallet's
+carriage freewheels faster than 15 teeth a second (`stroke.PAWL_RIDE`,
+0.71 m/s) the pawl *rides* the tips rather than dropping into each gap.
+`Rig.pawl_ride` gives how far, from 0 to 1 (a smoothstep of the tooth rate
+over 12–18 teeth a second, zero at rest and at every contact, and on a
+freewheel only: a stepped or homing travel drops the pawl into every gap, so
+its ride is 0), the bake
+carries it as the arm's `ride` channel, and the pawl is posed leaned from its
+table angle toward `pawl.ride_angle`, the tip-land angle — the table's
+minimum, −11.5° (`formlab.bake.Bake.pawl`). The
 score's rest positions are not quantised to the teeth, so the pawl would
 come to rest wherever the tooth under it left it; instead each pinion is
 spun with a **phase** (`pawl.dip_offset`, `pawl.phase` in the manifest, in
@@ -663,6 +689,7 @@ python3 tools/test_gantry.py              # rail heads, masts, brackets, racks; 
 python3 tools/test_oil_cups.py            # the fork ends' lubricators and their room
 python3 tools/test_pawl.py                # the mallet arms' roller detent pawls: kinematics, room
 python3 tools/test_motion.py              # the two motion vocabularies
+python3 tools/test_stroke.py              # the mallet stroke on the rig: homing, rings, the declared contract
 python3 tools/test_bake.py                # the motion bake against the rig; the harness's reader against it
 blender -b -t 2 -P tools/test_form_joint_seats.py
 godot --headless --path harness -s dev/test_clockwork.gd

@@ -1,3 +1,168 @@
+## 2026-10-04 — PLAYERS M1: mallets ride the bounce
+
+The mallets no longer punch like a stamp machine. A stroke now:
+- falls in a thrown downstroke;
+- leaves the bar on a real rebound (e 0.31–0.79, where M0 measured 0.048);
+- floats ballistically under 0.5–1.5 g toward the next note's prep.
+
+A rise either flows or rests, never hitches. The carriage moves under the
+swinging head and never jerks it.
+
+`formlab/stroke.py` (new, numpy only, so Blender runs it too) plans each
+mallet arm's path in closed form. There are two scalar channels: the head h(t)
+on the arc a virtual pin makes, and the carriage x(t) on its rack. Every
+segment is a polynomial of degree ≤ 7 under a declared law ('3-4-5',
+'quintic hermite', 'ballistic', 'hold'). Every join is C2. The velocity jumps
+only at a contact, by the declared impulse. The Rig turns that plan into what
+renders and what the rulers read (`formlab/rig.py`), and
+`tools/test_stroke.py` holds the Rig to it.
+
+**The stroke, phase by phase.**
+
+- **Tempo** (IOI ≤ 0.6 s): a rebound-led float straight to the next apex,
+  then a thrown quintic downstroke.
+- **Dahl loops** (gaps under HOLD_GAP): the rebound floats at the (e, a_f)
+  `dahl_float` picks. While the head is still rising, the float hands over
+  (C2) to one quintic wind-up that flows into the downstroke. This is the
+  up-stroke that begins inside the previous note's float.
+- **Bounce loops** (gaps ≥ HOLD_GAP): the rebound floats into one of four
+  shapes:
+  - a flowing rise to the park;
+  - a coasting rise: an ease, a constant speed, then a stop timed to the
+    carriage;
+  - an **apex catch**, then a rest. The arm takes the head while it is still
+    rising, at 0.45 of its launch speed, and brings it to rest exactly where
+    the free bounce would have turned. The catch is a quintic that never
+    reverses and brakes at most 1.08 g, lasting 67–96 ms. The rest is
+    followed by a 3-4-5 wind-up.
+
+  One rule (`_least`) picks among them:
+  1. the least peak of the tool's speed in the world (carriage and arc
+     together) from the contact + 5 ms;
+  2. among shapes within 0.01 m/s of that peak, a rest;
+  3. then the least 8-norm.
+- **Tolls**: the traverse steps tooth by tooth from `go`. The float hands
+  over to a coasting rise at 0.059–0.068 m/s (bars) or 0.19 m/s (bells) that
+  climbs under the steps. It stops at the prep with the carriage's last
+  landing, within 0.14 ms. Then come the cocked hold and the full stroke.
+- **The first note**: rest at the hover after the homing sweep, an
+  anticipatory 3-4-5 dip, and a wind-up to the prep.
+- **The coda**: one bounce loop, the apex catch, a rest, and a 0.6 s raise
+  to park high.
+
+**The carriage.**
+
+- It travels contact to contact under the head, never before the score's
+  `go`, and arrives by the contact or by the cocked hold.
+- **Stepped travel** (`travel_regime`'s window): tooth by tooth, a 3-4-5
+  over 0.6 of the period, then a dwell on the detent. The pawl drops into
+  every tooth.
+- **Otherwise one freewheel**, a 3-4-5 or a glide, chosen by the least tool
+  8-norm, with a click per tooth at mid-tooth.
+- **Hold notes** coordinate the freewheel with the rise (`_coordinate`).
+  Either the carriage leaves under the rising head and both arrive together,
+  or the head parks first.
+- After a contact, the head is never left waiting below its park while the
+  carriage moves.
+
+**The bars' homing sweep**: x home → lo → hi → home, tooth by tooth, then
+the elbow and the shoulder each swept in joint space. The sweep covers
+≥ 0.9 of reach_x and ≥ 0.8 of each span, with the tool at ≤ 0.5 SERVO_V_MAX.
+`cocked`, the 40 ms scripted lift, the `|sine|` bounce and the rulers that
+encoded them are retired.
+
+**How it was built.** The work ran in rounds of workflows. Each round built
+the stroke in scratch sandboxes against the rulers, merged, and was then
+reviewed adversarially by fresh agents told to refute it. That took six
+reviews, WF-A to WF-F2. Every review found something the rulers passed but
+the goal forbids, and each one amended a ruler rather than excusing the
+motion:
+
+- **WF-E**: the first stroke floated each rebound to its apex and wound up
+  again from rest. That passed every written ruler and still showed up,
+  pause, up for 36–78 ms in the middle of the rise. → A2, '8 rise'.
+- **WF-F**: the first rest design posed as a Dahl handover. It ended its
+  float 80 ms early, still rising, and settled 7–16 % above the ballistic
+  apex, so '8 float' and '8 bounce apex' never measured 17 rests. The same
+  review found the tolls' heads waiting low for 1.4–3.6 s while their
+  carriages stepped. → A11: the apex catch, '8 catch', '8 low rest', and the
+  coasting toll.
+- **WF-F2**: ruler 8 trusted the declared tag. A stop declared 'wind-up'
+  that began at 0.70 of the launch speed and rested 15 % high passed every
+  row. '8 low rest' measured a stepped wait one step move at a time, which
+  understated a 3.6 s wait 38×. → A12: ruler 8 judges the shape, a stop
+  short of the park is a catch whatever its tag, and a wait is measured
+  across the step dwells. The planner gained the same check
+  (`test_stroke` `handovers`). The mislabelled plan now fails '8 catch' on
+  all six stops, at 0.70 against 0.5, and test_stroke flags all six.
+
+The amendments A1–A12 are in the goal's "Ruler amendments (M1)". In short:
+
+- **A1**: ruler 1's p95 drops impulse frames, hurried and brisk travels and
+  strike windows. A stroke that meets rulers 4 and 7 is fast by construction.
+- **A2**: '8 rise', and the Dahl handover.
+- **A3**: the mallets' float/bounce split is 0.6 s.
+- **A4**: ruler 3's W skips the cocked hold.
+- **A5**: 6c's bound is each law's closed-form jerk.
+- **A6**: ruler 22's sync and repeat.
+- **A7**: ruler 19 reads the declared travels, windows, pawl and clicks.
+- **A8**: 10b is measured about the declared pin.
+- **A9**: ruler 20's detent is rebuilt from knots.
+- **A10**: ruler 21 is judged within IOI classes.
+- **A11**: the catch and the low rest.
+- **A12**: shape over tag, whole waits, and the tolls as played. The goal's
+  1.3–2.25 s toll traverse cannot be stepped by 25-tooth bar crossings
+  (25 × 0.160 s = 4.0 s).
+
+None of them loosens a target the motion could meet as written.
+
+**What M1 measures** (`--gate=M1`, invariants on, both assets):
+the gate passes on both assets: every M1 row on the four mallet arms, and
+ruler 26's suites. The bars read the same on both assets.
+
+| arm | 1 tool p95 (gated) / max ρ | 3 wind-up depth min | 7 v_in | 8 e | '8 bounce apex' | '8 catch' n | '8 rise' / '8 low rest' | 19 pawl margin | 22 arrive skew max |
+|---|---|---|---|---|---|---|---|---|---|
+| bars_arm0 | 0.389 / 1.124 | 0.573 | 2.50–3.76 m/s | 0.31–0.57 | 1.00–1.01 (16) | 5 | 0 hitches / 0 waits | 1.16 | 1.56 ms |
+| bars_arm1 | 0.382 / 1.126 | 0.41 | 2.50–3.76 | 0.31–0.79 | 1.00 (16) | 2 | 0 / 0 | 1.25 | 0.03 ms |
+| bells_arm0 | 0.356 / 0.954 | 0.514 | 2.50–3.76 | 0.31–0.45 | 1.00–1.01 (14) | 9 | 0 / 0 | 0.08 | 0.03 ms |
+| bells_arm1 | 0.367 / 0.944 | 0.307 | 2.50–3.76 | 0.31–0.45 | 1.00–1.01 (6) | 5 | 0 / 0 | — | 0.02 ms |
+
+Across all four arms:
+
+- **'8 float'**: 0 bad.
+- **'8 apex vs h'**: error 0.
+- **'8 catch'**: every catch begins at 0.45 of the launch speed, brakes at
+  most 1.08 g, and has 0 `undeclared` stops.
+- **Ruler 22**: start skew 0, overshoot 0.
+- **Ruler 19**: 0 pawl misses.
+- **`ArmStroke.issues`**: 0 on every arm.
+
+Over the whole report (`--report`), chamber reads 146 PASS / 167 FAIL /
+56 n/a / 17 info of 386, against M0's 223 of 389 off target. Expanded reads
+259 / 228 / 76 / 17 of 580. The remaining FAILs are the harp, the rake, the
+hammer and the drives, which later milestones own.
+
+**Rebuilt and rendered.**
+
+- Both assets were rebuilt in Blender: chamber 526 objects, a 23,627 × 95
+  bake; expanded 623 objects, a 31,783 × 145 bake.
+- The rebuild moved bars_arm0's gated p95 from 0.393 to 0.389.
+- The after reel is in `render/players/m1/`: m6, m6q, m7, m8 and reel.mp4,
+  before | after.
+
+**Left for later milestones.**
+
+- **'15 phases'** (M5) already fails on every arm. The 2-frame catches add
+  short phases (bells_arm0 7 → 13). A TOP_MIN_T of 2.5 frames clears them
+  at h_r/h_1 1.039.
+- **bells_arm0's four coasts** beat the rest by only 0.011 m/s, just past
+  PEAK_TIE 0.01. A small retune flips them to rests, and that is still
+  green.
+- **bells_arm0's pawl rate margin is 0.08**: green, but thin.
+- **The no-room fallback's low catch** is still tagged 'rebound'.
+- **The coda finishes 60–63 ms earlier** than before. That is ruler 24's
+  business (M6).
+
 ## 2026-10-04 — PLAYERS M0: the rulers first
 
 Before any arm moves differently, every one of the goal's 26 rulers measures

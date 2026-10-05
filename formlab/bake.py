@@ -16,18 +16,45 @@ Its poses are sampled here and written next to the score as
                           float32 channel values (row-major)
 
 The time grid is uniform at `hz` plus every instant the path turns a corner
-exactly on (each contact, each move's start and landing, each release) and
-rows packed through every ratchet click (a tooth in ~16 ms), so
-linear interpolation between rows lands every contact exactly and never
-rounds off a boundary. Before the first row and after the last a reader
-holds the end row.
+exactly on, so linear interpolation between rows lands every contact exactly
+and never rounds off a boundary:
+  - a mallet (PLAYERS M1, formlab/stroke.py): every knot and every segment
+    boundary the arm declares (Rig.declared: each contact, each step's start
+    and its landing on the detent, the apex, the park, the cocked hold, each
+    homing leg) and every hit;
+  - every other arm: each contact, each move's start and landing, each
+    release, and for the hinged hammer rows packed through every ratchet
+    click (a tooth in ~16 ms).
+Rows closer than MERGE_S are one row: a hit's time wins, then a declared
+knot's. Before the first row and after the last a reader holds the end row.
 
-The pawl is NOT a time channel. Its angle is a function of where the carriage
-is on the rack, periodic in the tooth pitch (formlab.pawl.angle), and its
-lift over a tooth tip lasts a few milliseconds of a hurried click — shorter
-than a sample. So the header carries one tooth of it (`pawl.table`) and a
-reader looks it up at the baked carriage x plus the arm's phase: exact at
-any frame rate.
+Each arm's record carries, besides what it is (kind, mech, stepped, hammer,
+flip_sign, rail_span, pawl_phase, unreachable):
+    clicks       [[t, teeth]] in time order, when the ratchet sounds. A mallet
+                 clicks a tooth (teeth 1.0): a freewheel where x crosses
+                 mid-tooth, a stepped or homing travel at each landing. The
+                 hammer clicks a ratchet click (teeth = what it spanned).
+    click_pawl   parallel to clicks: 0 the pawl drops into the tooth, 1 it
+                 rides the tips (the tooth rate |x'|/PITCH is at least
+                 constants.PAWL_RIDE there). The hammer's always drop.
+    click_step   parallel to clicks: 1 a stepped (or homing) landing, 0 a
+                 freewheel's crossing. The hammer's are all 1.
+    blows        [{t, gate_end, x, energy}] a blow, gate_end the time the
+                 arm's next stroke starts (a mallet's next apex; null for the
+                 last). A mallet's also carry v_in (the downstroke's speed at
+                 the contact, m/s) and e (the rebound's restitution).
+
+The pawl's angle as the carriage crosses a tooth is NOT a time channel. It is
+a function of where the carriage is on the rack, periodic in the tooth pitch
+(formlab.pawl.angle), and its lift over a tooth tip lasts a few milliseconds
+of a hurried click — shorter than a sample. So the header carries one tooth of
+it (`pawl.table`) and a reader looks it up at the baked carriage x plus the
+arm's phase: exact at any frame rate. Whether the pawl drops into each gap or
+rides the tips IS a time channel: a stepped arm's `<aid>.ride` in [0, 1] (a
+mallet's formlab.stroke pawl_ride, a smoothstep of the tooth rate around
+PAWL_RIDE; the hammer's is 0), and a reader leans the table's angle toward
+`pawl.ride_angle` (the table's least angle: the nose landed on a tip) by it
+(Bake.pawl_angle).
 
 The header's fingerprints (sha256 of the score.json and the manifest bytes)
 are what a reader checks before it trusts the bake: a rebuilt model or a
@@ -46,9 +73,15 @@ FORMAT = 'loam-motion/1'
 # offset at the baked angle (formlab.rig.head_offset), so the head a player
 # renders and the face it strikes with cannot drift apart between rows.
 ARM_CHANNELS = [('root', 3), ('elbow', 3), ('wrist', 3), ('tip', 3), ('head', 1), ('sag', 1), ('sway', 1)]
+# a stepped arm's pawl riding the rack (0 drops into every gap, 1 rides the tips)
+STEPPED_CHANNELS = [('ride', 1)]
 MECH_CHANNELS = [('stand', 1)]
 PAWL_TABLE_N = 1024
 CLICK_SAMPLES = 8
+MERGE_S = 1e-7       # rows closer than this are one row
+# which time a merged row keeps: a hit's, then a mallet's declared knot or
+# boundary, then another arm's schedule corner, then the grid's
+_GRID, _CORNER, _KNOT, _HIT = 0, 1, 2, 3
 
 def sha256(path): return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
@@ -56,25 +89,72 @@ def paths(score_path, asset):
     d = Path(score_path).resolve().parent
     return d/f'{asset}.motion.json', d/f'{asset}.motion.bin'
 
+def _merge(times, prio, tol=MERGE_S):
+    """One row per run of times closer than `tol` to their neighbour, at the
+    run's highest-priority time (the earliest of equals)."""
+    ok = np.isfinite(times); times = times[ok]; prio = prio[ok]
+    order = np.lexsort((-prio, times)); t = times[order]; p = prio[order]
+    cut = np.flatnonzero(np.diff(t) >= tol)+1
+    return np.array([t[i+int(np.argmax(p[i:j]))] for i, j in zip(np.r_[0, cut], np.r_[cut, len(t)])])
+
 def sample_times(rig, hz):
     """The uniform grid from one second before the piece to its end, plus the
-    corners of every scheduled path (see the module docstring)."""
+    corners of every arm's path (see the module docstring): a mallet's every
+    declared knot and segment boundary, every other arm's schedule corners
+    (and the hammer's rows through each ratchet click), every hit."""
     total = float(rig.score['total_s'])
-    times = set((np.arange(-hz, int(np.ceil(total*hz))+1)/hz).tolist())
+    T = [np.arange(-hz, int(np.ceil(total*hz))+1)/hz]; Pr = [np.full(len(T[0]), _GRID)]
+    def add(ts, prio):
+        ts = np.asarray(ts, float).ravel(); T.append(ts); Pr.append(np.full(len(ts), prio))
     for aid in rig.plans:
-        for s in rig.schedule(aid):
-            ids = s['event']['strings']
-            for k in range(len(ids)): times.add(float(s['hit']+k*s['spread']))
-            for key in ('go', 'approach', 'hit', 'end', 't_free', 'tm'): times.add(float(s[key]))
+        sched = rig.schedule(aid)
+        add([s['hit']+k*s['spread'] for s in sched for k in range(len(s['event']['strings']))], _HIT)
+        if rig.mallet(aid) and rig.stroke(aid) is not None:
+            # the stroke is closed form between its declared knots and
+            # boundaries (a contact reverses the head's velocity, a stepped
+            # landing starts the detent ring), smooth everywhere else
+            d = rig.declared(aid)
+            add([k.t for k in d.knots], _KNOT)
+            add([t for g in d.segments for t in (g.t0, g.t1)], _KNOT)
+            # ...and where the pawl's ride (a smoothstep of the tooth rate) bends
+            add(rig.stroke(aid).ride_times(), _GRID)
+            continue
+        corners = []
+        for s in sched:
+            corners += [s[key] for key in ('go', 'approach', 'hit', 'end', 't_free', 'tm')]
             # A ratchet click moves a tooth in CLICK_MOVE of 40-90 ms: far too
             # sharp a curve for the grid, so each click's move and the start of
             # its ring get CLICK_SAMPLES rows of their own.
             if rig.stepped(aid) and s['moving']:
-                T = s['approach']-s['go']; n = R.clicks(s['first'][0]-s['rest'][0], T)
-                for k in range(n):
-                    for j in range(CLICK_SAMPLES+1):
-                        times.add(float(s['go']+(k+R.CLICK_MOVE*1.5*j/CLICK_SAMPLES)*T/n))
-    return np.array(sorted(t for t in times if np.isfinite(t)))
+                Tc = s['approach']-s['go']; n = R.clicks(s['first'][0]-s['rest'][0], Tc)
+                corners += [s['go']+(k+R.CLICK_MOVE*1.5*j/CLICK_SAMPLES)*Tc/n
+                            for k in range(n) for j in range(CLICK_SAMPLES+1)]
+        add(corners, _CORNER)
+    return _merge(np.concatenate(T), np.concatenate(Pr))
+
+def arm_clicks(rig, aid):
+    """(clicks [[t, teeth]], click_pawl [0 drop | 1 ride], click_step [1 stepped
+    or homing | 0 freewheel]) in time order: a mallet's a tooth from its
+    stroke, the hammer's a ratchet click (its pawl drops at every landing)."""
+    st = rig.stroke(aid) if rig.mallet(aid) else None
+    if st is not None:
+        cs = st.clicks()
+        clicks = [[float(c['t']), 1.0] for c in cs]
+        if [c[0] for c in clicks] != [float(t) for t, _ in rig.click_times(aid)]:
+            raise AssertionError(f'{aid}: the stroke\'s clicks are not Rig.click_times')
+        return clicks, [int(c['pawl'] == 'ride') for c in cs], [int(c['step']) for c in cs]
+    ct = rig.click_times(aid)
+    return [[float(t), float(n)] for t, n in ct], [0]*len(ct), [1]*len(ct)
+
+def arm_blows(rig, aid):
+    """[{t, gate_end, x, energy}] a blow (gate_end None for the last); a
+    mallet's also carry its stroke's v_in and e."""
+    out = []
+    for b in rig.blows_by_arm.get(aid, []):
+        d = dict(t=b['t'], gate_end=(b['gate_end'] if np.isfinite(b['gate_end']) else None), x=b['x'], energy=b['energy'])
+        d.update({k: float(b[k]) for k in ('v_in', 'e') if k in b})
+        out.append(d)
+    return out
 
 def bake(score_path, manifest_path, asset=None, hz=240, verbose=print):
     score_path = Path(score_path).resolve(); manifest_path = Path(manifest_path).resolve()
@@ -93,18 +173,22 @@ def bake(score_path, manifest_path, asset=None, hz=240, verbose=print):
             head=np.array([p['head'] for p in poses]),
             sag=np.array([rig.rail_sag(aid, t, mid) for t in times]),
             sway=np.array([rig.mast_sway(aid, t) for t in times]))
+        own = list(ARM_CHANNELS)
+        if rig.stepped(aid):
+            st = rig.stroke(aid) if rig.mallet(aid) else None
+            values['ride'] = np.asarray(st.pawl_ride(times), float) if st is not None else np.zeros(len(times))
+            own += STEPPED_CHANNELS
         unreachable = int(sum(not p['reachable'] for p in poses))
-        for name, width in ARM_CHANNELS:
+        for name, width in own:
             channels.append(dict(name=f'{aid}.{name}', offset=len(columns), width=width))
             v = values[name].reshape(len(times), width)
             columns.extend(v[:, i] for i in range(width))
+        clicks, click_pawl, click_step = arm_clicks(rig, aid)
         arms[aid] = dict(
             kind=rig.acts[aid]['kind'], mech=rig.mech_of[aid], stepped=rig.stepped(aid), hammer=rig.hammer(aid),
             flip_sign=rig.flip_sign(aid), rail_span=[lo, hi], unreachable=unreachable,
             pawl_phase=float(cfg['pawl'].get('phase', 0.0)) if cfg.get('pawl') else None,
-            clicks=[[t, n] for t, n in rig.click_times(aid)],
-            blows=[dict(t=b['t'], gate_end=(b['gate_end'] if np.isfinite(b['gate_end']) else None), x=b['x'], energy=b['energy'])
-                   for b in rig.blows_by_arm.get(aid, [])])
+            clicks=clicks, click_pawl=click_pawl, click_step=click_step, blows=arm_blows(rig, aid))
     mechs = {}
     for m in rig.score['instrument']['mechanisms']:
         mid = m['id']
@@ -113,6 +197,7 @@ def bake(score_path, manifest_path, asset=None, hz=240, verbose=print):
         mechs[mid] = dict(blows=len(rig.blows_by_mech.get(mid, [])))
     frames = np.stack(columns, axis=1).astype('<f4')
     xs = np.arange(PAWL_TABLE_N)*P.PITCH/PAWL_TABLE_N
+    table = [float(a) for a in P.angle(xs)]
     json_path, bin_path = paths(score_path, asset)
     header = dict(
         format=FORMAT, asset=asset, hz=hz, samples=len(times), width=frames.shape[1],
@@ -122,10 +207,13 @@ def bake(score_path, manifest_path, asset=None, hz=240, verbose=print):
         data=bin_path.name, times_bytes=8*len(times), frames_bytes=frames.nbytes,
         channels=channels, arms=arms, mechanisms=mechs,
         # the constants a player needs besides the channels: the hinged head's
-        # pin (it is posed HEAD_L above the tool frame) and the click's ring
+        # pin (it is posed HEAD_L above the tool frame), the click's ring, and
+        # the tooth rate above which a mallet's pawl rides the tips
         constants=dict(HEAD_L=R.HAMMER['head_l'], RING_HZ=R.RING_HZ, RING_TAU=R.RING_TAU,
-                       CLICK_MIN_S=R.CLICK_MIN_S, CLICK_MOVE=R.CLICK_MOVE),
-        pawl=dict(pitch=P.PITCH, table=[float(a) for a in P.angle(xs)]))
+                       CLICK_MIN_S=R.CLICK_MIN_S, CLICK_MOVE=R.CLICK_MOVE, PAWL_RIDE=float(R.stroke.PAWL_RIDE)),
+        # one tooth of the pawl's angle, and the angle it holds riding the tips
+        # (the table's least: the nose landed on a tooth's tip)
+        pawl=dict(pitch=P.PITCH, table=table, ride_angle=min(table)))
     with open(bin_path, 'wb') as f:
         f.write(times.astype('<f8').tobytes()); f.write(frames.tobytes())
     json_path.write_text(json.dumps(header, indent=1))
@@ -169,9 +257,35 @@ class Bake:
         if not arm['hammer']: return tip
         return tip+R.head_offset(self.get(f'{aid}.head', t), arm['flip_sign'], self.header['constants']['HEAD_L'])
 
-    def pawl_angle(self, x):
+    def ride(self, aid, t, row=None):
+        """How far the arm's pawl rides the rack at t, in [0, 1] (its `.ride`
+        channel); 0 for an arm that has none (a servo arm, an older bake)."""
+        name = f'{aid}.ride'
+        return self.get(name, t, row) if name in self.index else 0.0
+
+    def clicks(self, aid):
+        """[dict(t, teeth, pawl, step)] the arm's clicks in time order: pawl 0
+        drops into the tooth, 1 rides the tips; step 1 a stepped (or homing)
+        landing, 0 a freewheel's crossing. An older bake's are all drop and step."""
+        arm = self.header['arms'][aid]; cs = arm['clicks']
+        pawl = arm.get('click_pawl', [0]*len(cs)); step = arm.get('click_step', [1]*len(cs))
+        return [dict(t=float(c[0]), teeth=float(c[1]), pawl=int(pw), step=int(sp)) for c, pw, sp in zip(cs, pawl, step)]
+
+    def pawl_angle(self, x, ride=0.0):
         """The pawl's angle at rail position x (the phase already added): the
-        tooth table, looked up periodically and linearly interpolated."""
+        tooth table, looked up periodically and linearly interpolated, leaned
+        toward `pawl.ride_angle` (the nose on a tooth's tip) by `ride` in [0, 1].
+        Every angle between the two is clear of the teeth."""
         p = self.header['pawl']; tab = p['table']; n = len(tab)
         u = (x % p['pitch'])/p['pitch']*n; k = int(np.floor(u)) % n; w = u-np.floor(u)
-        return tab[k]*(1-w)+tab[(k+1) % n]*w
+        a = tab[k]*(1-w)+tab[(k+1) % n]*w
+        return a if not ride else a+(p.get('ride_angle', a)-a)*ride
+
+    def pawl(self, aid, t):
+        """The arm's pawl angle at t as a player poses it: the table at the
+        carriage's x (the baked root) plus the arm's phase, ridden by its
+        `.ride` channel. None for an arm without a pawl."""
+        arm = self.header['arms'][aid]
+        if arm.get('pawl_phase') is None: return None
+        row = self.row(t)
+        return self.pawl_angle(float(self.get(f'{aid}.root', t, row)[0])+arm['pawl_phase'], self.ride(aid, t, row))

@@ -152,10 +152,37 @@ def _merge(wins, lo, hi):
 def _f(x): return None if x is None else float(x)
 
 # ---- 17 drives ------------------------------------------------------------
+def _mallet(S, aid):
+    """The M1 branch (DESIGN §0: keyed on the kind): a rigid mallet whose rig
+    declares its own stroke — its carriage is Rig.carriage_x (the scored x
+    plus the detent ring; the root no longer follows the tip's recoil x)."""
+    return S.kind(aid) == 'mallet' and S.declared(aid).native
+
+def carriage_x_fn(S, aid):
+    """t (scalar or array) -> the rendered carriage x: a mallet's
+    Rig.carriage_x (formlab.stroke, vectorised), else the tip's x (Rig.pose
+    root.x = tip.x)."""
+    if _mallet(S, aid):
+        st = S.rig.stroke(aid); return lambda u: st.carriage_x(u)
+    return lambda u: S.rig.tip_at(aid, u)[0]
+
+def pawl_ride_fn(S, aid):
+    """t (array) -> how far the arm's pawl rides the tips (Rig.pawl_ride,
+    the bake's `.ride` channel): a mallet's smoothstep of its tooth rate, 0 for
+    every other arm."""
+    if _mallet(S, aid):
+        st = S.rig.stroke(aid); return lambda u: np.asarray(st.pawl_ride(np.asarray(u, float)), float)
+    return lambda u: np.zeros(np.shape(u))
+
 def _x_windows(S, aid):
     """Where the carriage can move: each event's [go, t_free], and after a
     mallet's blow its recoil (x follows the tip: Rig.pose's root.x = tip.x)
-    until the next strike begins."""
+    until the next strike begins. A declaring mallet: its carriage segments
+    tagged 'travel' or 'home' (a step's dwell, where the detent ring rings, is
+    one of them)."""
+    if _mallet(S, aid):
+        return _merge([(g.t0, g.t1) for g in S.declared(aid).segments if g.extra.get('channel') == 'carriage'
+                       and g.tag in ('travel', 'home') and np.isfinite(g.t0) and np.isfinite(g.t1)], 0.0, S.total)
     rig = S.rig; sched = rig.sched[aid]; wins = []
     rings = rig.stepped(aid) and not rig.hammer(aid)
     for i, s in enumerate(sched):
@@ -166,10 +193,10 @@ def _x_windows(S, aid):
     return _merge(wins, 0.0, S.total)
 
 def peak_xdot(S, aid, dt=5e-4):
-    """Peak |dx/dt| of the carriage (the rendered root.x = tip_at x) and its
-    time: dense samples over the moving windows, refined with the one-sided
-    5-point stencils around the best sample."""
-    fx = lambda u: S.rig.tip_at(aid, u)[0]
+    """Peak |dx/dt| of the carriage (the rendered root.x: tip_at x, a
+    mallet's Rig.carriage_x) and its time: dense samples over the moving
+    windows, refined with the one-sided 5-point stencils around the best sample."""
+    fx = carriage_x_fn(S, aid)
     best, tb = 0.0, None
     for a, b in _x_windows(S, aid):
         ts = np.arange(a, b+dt, dt)
@@ -235,7 +262,8 @@ def _centre_offsets(S, aid):
     if aid not in rig.blows_by_arm: return np.zeros(1)
     mount = cfg.get('pinion', 'back'); u = rack_direction(mount); ts = S.t_hz
     piv, _ = _gantry_tops(cfg)
-    x = np.array([rig.tip_at(aid, t)[0] for t in ts])
+    fx = carriage_x_fn(S, aid)
+    x = np.asarray(fx(ts), float) if _mallet(S, aid) else np.array([fx(t) for t in ts])
     sag = np.array([rig.rail_sag(aid, t, xx) for t, xx in zip(ts, x)])
     th = np.array([rig.mast_sway(aid, t) for t in ts])
     mesh = np.c_[x, np.full(len(ts), float(cfg['root_y'])), np.full(len(ts), float(cfg['root_z']))]+pinion_centre(mount)+u*PINION['r_pitch']
@@ -306,32 +334,50 @@ def _pawl_table():
     xs = np.arange(PAWL_TABLE_N)*PAWL.PITCH/PAWL_TABLE_N
     return np.asarray(PAWL.angle(xs), float)
 
-def pawl_angle_rendered(x):
-    """The pawl's angle as harness/motion_bake.gd poses it: the bake's
-    one-tooth table (formlab.bake, PAWL_TABLE_N rows of formlab.pawl.angle)
-    interpolated linearly at x (the phase already added)."""
+def pawl_angle_rendered(x, ride=0.0):
+    """The pawl's angle as the bake poses it (formlab.bake.Bake.pawl_angle,
+    which harness/motion_bake.gd mirrors): the one-tooth table (PAWL_TABLE_N
+    rows of formlab.pawl.angle) interpolated linearly at x (the phase already
+    added), leaned toward the table's least angle (the bake's
+    pawl.ride_angle: the nose on a tooth's tip) by `ride` in [0, 1] — the
+    arm's `.ride` channel, Rig.pawl_ride. ride = 0 (every arm but a riding
+    mallet) is the table alone."""
     tab = _pawl_table(); n = len(tab)
     u = np.mod(np.asarray(x, float), PAWL.PITCH)/PAWL.PITCH*n; k = np.floor(u).astype(int); w = u-k
-    return tab[k % n]*(1-w)+tab[(k+1) % n]*w
+    a = tab[k % n]*(1-w)+tab[(k+1) % n]*w
+    r = np.asarray(ride, float)
+    if not np.any(r): return a
+    return a+(float(tab.min())-a)*r
 
-def _pawl_gap(x):
-    al = pawl_angle_rendered(x); n = PAWL.nose_at(al); C = PAWL._pivot_from_centre()
+def _pawl_gap(x, ride=0.0):
+    al = pawl_angle_rendered(x, ride); n = PAWL.nose_at(al); C = PAWL._pivot_from_centre()
     return PAWL.tooth_distance(C[0]+n[..., 0], C[1]+n[..., 1], x)-PAWL.PAWL['nose_r']
 
 def cam_pawl(S, aid):
     """The pawl's roller (the follower) against the pinion's teeth (the cam),
-    as rendered: the harness's interpolated angle on every frame, and the
-    worst over any carriage position (the gap is a function of x mod a tooth,
-    so a dense sweep of one pitch bounds every baked row)."""
+    as rendered: the bake's angle on every frame (the interpolated table,
+    ridden by the arm's .ride), and the worst over any carriage position (the
+    gap is a function of x mod a tooth, so a dense sweep of one pitch bounds
+    every baked row that does not ride). A riding pawl (a mallet freewheeling
+    above PAWL_RIDE teeth/s) lifts off the flanks onto the tips by design: its
+    frames are judged with the rest (the cam law as written; the ride
+    exemption is M4's, pipeline.md Q2) and reported apart."""
     cfg = S.cfg(aid)
     if 'pawl' not in cfg: return None
     x = S.poses(aid, 'frames')['root'][:, 0]+float(cfg['pawl'].get('phase', 0.0))
-    gap = _pawl_gap(x); dense = _pawl_gap(np.linspace(0, PAWL.PITCH, 8192, endpoint=False))
+    ride = pawl_ride_fn(S, aid)(S.t_frames)
+    gap = _pawl_gap(x, ride); dense = _pawl_gap(np.linspace(0, PAWL.PITCH, 8192, endpoint=False))
     g = float(max(np.abs(gap).max(), np.abs(dense).max()))
-    return Result(17, 'cam', aid, dict(follower='pawl roller', gap_frames_max_mm=float(np.abs(gap).max())*1e3,
-                                       gap_any_x_mm=[float(dense.min())*1e3, float(dense.max())*1e3]), g <= CAM_GAP_TOL,
-                  'the roller against the teeth with the angle the harness poses (the bake\'s one-tooth table, lerped); '
-                  'negative = into the tooth; any_x: [min, max] over a dense sweep of one pitch')
+    v = dict(follower='pawl roller', gap_frames_max_mm=float(np.abs(gap).max())*1e3,
+             gap_any_x_mm=[float(dense.min())*1e3, float(dense.max())*1e3])
+    note = ('the roller against the teeth with the angle the harness poses (the bake\'s one-tooth table, lerped); '
+            'negative = into the tooth; any_x: [min, max] over a dense sweep of one pitch')
+    if _mallet(S, aid):
+        rd = ride > 0
+        v.update(frames_riding=int(rd.sum()), gap_riding_max_mm=float(np.abs(gap[rd]).max())*1e3 if rd.any() else 0.0,
+                 gap_dropped_max_mm=float(np.abs(gap[~rd]).max())*1e3 if (~rd).any() else 0.0)
+        note += '; the angle is ridden toward pawl.ride_angle by Rig.pawl_ride (riding frames reported apart; their exemption is M4\'s)'
+    return Result(17, 'cam', aid, v, g <= CAM_GAP_TOL, note)
 
 def flywheel_mates(S):
     """Every toothed wheel meshes: the flywheel's 52-tooth ring against every
@@ -438,7 +484,7 @@ def aliasing(S):
             spin = cfg.get('pawl', {}).get('roller_spin')
             if spin is not None:
                 # the roller turns about z by roller_spin*x on the pawl, which itself swings by -pawl_angle (performance.gd)
-                th = float(spin)*x-pawl_angle_rendered(x+float(cfg['pawl'].get('phase', 0.0)))
+                th = float(spin)*x-pawl_angle_rendered(x+float(cfg['pawl'].get('phase', 0.0)), pawl_ride_fn(S, aid)(S.t_frames))
                 v = alias(np.degrees(np.diff(th)), 360.0)
                 out.append(Result(18, 'pawl roller', aid, v, v['frames_over'] == 0,
                                   'one off-axis grease plug a face (formlab.pawl.roller_pieces): period 360; spin*x on the pawl\'s swing; '+note))
@@ -530,7 +576,9 @@ def _amp_m(rig, aid, dec, p):
     """A declared term's amplitude in its channel's units. Today's reading
     (formlab.segments._rings_today, not native) declares recoil.bounce with
     rig.RECOIL's 0.06, which Rig.recoil applies as a FRACTION of the hover
-    lift (lift.y*|ring|): that is 0.06*0.22 = 13.2 mm, not 60 mm."""
+    lift (lift.y*|ring|): that is 0.06*0.22 = 13.2 mm, not 60 mm. A native
+    declaration (a mallet's, M1) is in metres and has no recoil.bounce: the
+    |sine| bounce is retired for mallets, so the scaling never applies to them."""
     a = float(p['amp'])
     if p['name'] == 'recoil.bounce' and not dec.native: a *= abs(float(rig.hover(aid)[1]))
     return a
@@ -541,6 +589,25 @@ def _declared_sum(ts, knots, amp, f, tau):
     for tk in knots:
         u = ts-tk; m = (u >= 0) & (u < 10*tau)
         out[m] += amp*np.exp(-u[m]/tau)*np.sin(2*np.pi*f*u[m])
+    return out
+
+def _declared_detent(ts, knots, p):
+    """A declared detent ring summed over its knots (the lead's decision (c)):
+    a knot that carries extra['sign'] and extra['fade'] = (t_fade0, t_fade1)
+    rings sign·amp·e^(−τ/τd)·sin(2πfτ) from its landing, faded by the term's
+    declared `fade` law ('3-4-5': 1 − s(u), u across [t_fade0, t_fade1]) and
+    nothing from t_fade1 on — formlab.stroke's ArmStroke.detent, which
+    Rig.carriage_x adds. A knot without them rings unsigned and unfaded, as
+    _declared_sum does."""
+    out = np.zeros(len(ts)); amp, f, tau = float(p['amp']), float(p['f']), float(p['tau'])
+    for k in knots:
+        tk = float(k.t); u = ts-tk; sg = k.extra.get('sign'); fd = k.extra.get('fade')
+        if sg is None or fd is None:
+            m = (u >= 0) & (u < 10*tau); out[m] += amp*np.exp(-u[m]/tau)*np.sin(2*np.pi*f*u[m]); continue
+        f0, f1 = float(fd[0]), float(fd[1]); m = (u >= 0) & (ts < f1)
+        if p.get('fade', '3-4-5') != '3-4-5': raise ValueError(f'detent fade law {p.get("fade")!r} unknown')
+        w = np.clip((ts[m]-f0)/max(f1-f0, 1e-300), 0.0, 1.0); w = 1.0-w*w*w*(10-15*w+6*w*w)
+        out[m] += float(sg)*amp*np.exp(-u[m]/tau)*np.sin(2*np.pi*f*u[m])*w
     return out
 
 def _gantry_tops(cfg):
@@ -584,10 +651,20 @@ def _arm_rings(S, aid, cam):
     hits = sorted(k.t for k in dec.knots if k.kind == 'contact')
     path = np.array([rig.path_at(aid, t) for t in ts])
     rec = np.array([rig.recoil(aid, t) for t in ts])
-    det, _ = _detent_ring(rig, aid, ts) if rig.stepped(aid) else (np.zeros(len(ts)), [])
     det_knots = sorted(k.t for k in dec.knots if k.kind == 'detent')
-    x = path[:, 0]+rec[:, 0]
-    free = path-np.c_[det, 0*det, 0*det]            # the scored path without the ratchet's overshoot ring
+    det_kn = sorted((k for k in dec.knots if k.kind == 'detent'), key=lambda k: k.t)
+    mal = _mallet(S, aid)
+    if mal:
+        # M1: the mallet's path_at is ring-free (no overshoot inside it), its
+        # detent ring is the stroke's own (Rig.carriage_x - the scored x, from
+        # each stepped landing), and the root rides Rig.carriage_x: the recoil
+        # x ring stays on the tool and the carriage does not inherit it
+        det = np.asarray(rig.stroke(aid).detent(ts), float)
+        x = path[:, 0]+det; free = path
+    else:
+        det, _ = _detent_ring(rig, aid, ts) if rig.stepped(aid) else (np.zeros(len(ts)), [])
+        x = path[:, 0]+rec[:, 0]
+        free = path-np.c_[det, 0*det, 0*det]            # the scored path without the ratchet's overshoot ring
     root = np.c_[x, np.full(len(ts), float(cfg['root_y'])), np.full(len(ts), float(cfg['root_z']))]
     sag = np.array([rig.rail_sag(aid, t, xx) for t, xx in zip(ts, x)])
     sway = np.array([rig.mast_sway(aid, t) for t in ts])
@@ -595,6 +672,7 @@ def _arm_rings(S, aid, cam):
     match = {}      # channel -> (|rendered − scored| max, |that − Σ declared| max per axis), metres
     def dsum(name, knots):
         p = terms.get(name)
+        if p and name == 'detent' and mal: return _declared_detent(ts, det_kn, p)   # signed and faded (decision (c))
         return _declared_sum(ts, knots, _amp_m(rig, aid, dec, p), p['f'], p['tau']) if p else np.zeros(len(ts))
     def keep(ch, ring, decl):
         if np.abs(ring).max() > 0 or np.abs(decl).max() > 0:
@@ -605,8 +683,9 @@ def _arm_rings(S, aid, cam):
          np.c_[dsum('recoil.x', hits)+dsum('detent', det_knots), dsum('recoil.bounce', hits), dsum('recoil.z', hits)])
     # carriage: x = the tool's (Rig.pose root.x = tip.x, so it carries the tool's recoil.x as well as the detent on
     # 'root.x'), y the rail's sag at the carriage, against rail_sag on 'root'
-    keep('root', np.c_[rec[:, 0]+det, sag, 0*sag],
-         np.c_[dsum('recoil.x', hits)+dsum('detent', det_knots), dsum('rail_sag', hits), 0*sag])
+    if mal: keep('root', np.c_[det, sag, 0*sag], np.c_[dsum('detent', det_knots), dsum('rail_sag', hits), 0*sag])
+    else: keep('root', np.c_[rec[:, 0]+det, sag, 0*sag],
+               np.c_[dsum('recoil.x', hits)+dsum('detent', det_knots), dsum('rail_sag', hits), 0*sag])
     for name, ax in (('recoil.x', 0), ('recoil.bounce', 1), ('recoil.z', 2)):
         if name in terms:
             p = terms[name]; d = np.zeros_like(rec); d[:, ax] = rec[:, ax]
@@ -636,7 +715,7 @@ def _arm_rings(S, aid, cam):
         match['head'] = (float(np.abs(th).max())*hl, [float(np.abs(th-dsum('check', hits)).max())*hl])
         if p: rings.append(('check', 'head', p['f'], p['tau'], hits, cam.px(ts, felt, d), RIG.SHUDDER_TAIL))
     # the carriage follows the tool's x (Rig.pose: root.x = tip.x), so it inherits the tool's x ring
-    inherits = bool(np.abs(rec[:, 0]).max() > 1e-9)
+    inherits = bool(np.abs(rec[:, 0]).max() > 1e-9) and not mal
     return rings, match, inherits, terms
 
 def _mech_rings(S, cam):
@@ -812,6 +891,248 @@ def _sync(S, aid):
                           'overshoot per channel as mm at the link end'))
     return out
 
+# ---- 22 on a declaring mallet (DESIGN §7.7) -----------------------------------
+# The sync channels are the DECLARED channels (the lead's M1 decision on A3's
+# open question): the carriage x and the head, the path minus the carriage
+# (path - (x, 0, 0): the head along its arc, or a homing joint leg's sweep) —
+# not IK joints, which once the root rides the carriage are a function of the
+# head alone and would count it twice. Both on the ring-free scored path
+# (Rig.path_at; the detent and recoil rings are ruler 20's).
+
+def _decl_segments(S, aid, channel):
+    return sorted((g for g in S.declared(aid).segments if g.extra.get('channel') == channel), key=lambda g: g.t0)
+
+def _mallet_path(S, aid, ts):
+    """Rig.path_at over ts, (N, 3): the ring-free scored path."""
+    return np.array([S.rig.path_at(aid, t) for t in ts])
+
+SYNC_POS = 1e-6           # m: a channel has left its start (arrived at its end) when it is beyond (within) 1 um of it
+SYNC_BISECT = 48          # bisection steps on the closed form for each start and arrival instant (to ~1e-17 s of a 0.5 ms bracket)
+
+def _mallet_channels(S, aid):
+    """The declared channels as closed-form functions of t, on the ring-free
+    scored path: 'carriage x' (path x) and 'head' (path - (x, 0, 0))."""
+    rig = S.rig
+    def cx(t): return np.array([float(rig.path_at(aid, t)[0])])
+    def hd(t):
+        p = np.asarray(rig.path_at(aid, t), float).copy(); p[0] = 0.0; return p
+    return {'carriage x': cx, 'head': hd}
+
+def _edge(f, ref, lo, hi, leaving):
+    """Bisect [lo, hi] for the instant |f(t) - ref| crosses SYNC_POS: leaving
+    (inside at lo, beyond at hi) or arriving (beyond at lo, inside at hi)."""
+    for _ in range(SYNC_BISECT):
+        m = .5*(lo+hi); beyond = float(np.linalg.norm(f(m)-ref)) > SYNC_POS
+        if beyond == leaving: hi = m
+        else: lo = m
+    return .5*(lo+hi)
+
+def _sync_window_m(S, aid, a, b, tail=0.0):
+    """One target [a, b] (plus `tail` s into the holds that follow) on the
+    declared channels (the lead's decision (e), amending DESIGN §7.7). Start
+    and arrival are IN-POSITION instants on the closed-form path: a channel's
+    start is the first instant it has left its start value (at a) by more than
+    1 um, its arrival the instant after which it stays within 1 um of its end
+    value (at b + tail) — each bracketed on a SYNC_DT scan and bisected on
+    Rig.path_at. A channel moves in the window when it leaves its start value
+    by more than 1 um. Start skew: across the channels at rest (<= 1 mm/s) at
+    a that begin moving inside the window; arrival skew: across every moving
+    channel. Overshoot: the excursion beyond the end values along the
+    channel's own line (the head's progress along its chord), and nonmono
+    (reversals of that progress while over 1 mm/s), over the channel's
+    reposition: from a for a channel at rest there; for one still finishing a
+    gesture of its own at a (the head's bounce loop under a traverse that
+    leaves during it), from its last rest before its arrival. Settle: |v| <
+    1 mm/s from one frame after its arrival to the window's end; moving_at_end:
+    still over 1 mm/s at the window's end."""
+    end = b+max(0.0, tail)
+    ts = np.append(np.arange(a, end, SYNC_DT), end)
+    if len(ts) < 4: return None
+    fns = _mallet_channels(S, aid)
+    starts, arrives, over, settle, nonmono, at_end = {}, {}, {}, 0.0, 0, 0
+    for name, f in fns.items():
+        q = np.array([f(t) for t in ts]); q0, q1 = q[0], q[-1]
+        d0 = np.linalg.norm(q-q0, axis=1); d1 = np.linalg.norm(q-q1, axis=1)
+        if not (d0 > SYNC_POS).any(): continue
+        i = int(np.argmax(d0 > SYNC_POS)); j = len(d1)-1-int(np.argmax((d1 > SYNC_POS)[::-1]))
+        t_s = _edge(f, q0, ts[i-1], ts[i], True) if i > 0 else ts[0]
+        t_a = _edge(f, q1, ts[j], ts[j+1], False) if j+1 < len(ts) else ts[-1]
+        v0 = float(np.linalg.norm(deriv(f, a, +1, 1)))
+        V = np.gradient(q, ts, axis=0); speed = np.linalg.norm(V, axis=1); mv = speed > V_THR
+        k0 = 0
+        if v0 <= V_THR: starts[name] = t_s
+        else:
+            # moving at the window's start: the channel is finishing a gesture of its own (the head's bounce
+            # loop under a traverse that leaves during it); its reposition is its last move, from its last
+            # rest before the arrival on, and that is what overshoot and monotony judge
+            k = min(j+1, len(mv)-1)
+            while k > 0 and not mv[k]: k -= 1
+            while k > 0 and mv[k]: k -= 1
+            k0 = k
+        arrives[name] = t_a
+        qq = q[k0:]; chord = q1-qq[0]; L = float(np.linalg.norm(chord))
+        prog = (qq-qq[0])@(chord/L) if L > 1e-9 else np.linalg.norm(qq-qq[0], axis=1)
+        over[name] = max(0.0, prog.max()-max(prog[0], prog[-1]), min(prog[0], prog[-1])-prog.min())
+        vp = np.gradient(prog, ts[k0:])
+        nonmono += int((np.diff(np.sign(vp[mv[k0:]])) != 0).sum())
+        late = ts >= t_a+1/FPS
+        if late.any(): settle = max(settle, float(speed[late].max()))
+        at_end += bool(float(np.linalg.norm(deriv(f, end, -1, 1))) > V_THR)
+    if not arrives: return None
+    sk0 = max(starts.values())-min(starts.values()) if starts else 0.0
+    sk1 = max(arrives.values())-min(arrives.values())
+    ov = max(over.values())
+    ok = sk0 <= SKEW_MAX and sk1 <= SKEW_MAX and ov <= OVERSHOOT_MAX and settle < V_THR and nonmono == 0 and at_end == 0
+    return dict(t=a, skew_start=sk0, skew_arrive=sk1, rel_skew=max(sk0, sk1), over=over, settle_v=settle, nonmono=nonmono,
+                at_end=at_end, moving=sorted(arrives), starts=dict(starts), arrives=dict(arrives), ok=bool(ok))
+
+def _sync_targets_m(S, aid):
+    """A declaring mallet's sync targets: each carriage travel (its 'travel'
+    segments grouped by extra['travel']) whose end is within a frame of the
+    start of a HEAD 'hold' segment (a park or the cocked hold) — a reposition
+    ending in a hold — and every 'home' leg (a carriage x leg, grouped by its
+    travel id; a head joint leg). Travels ending at a contact are strikes
+    (rulers 19 and 11), returned apart. The tail runs up to 2 frames past the
+    target's end, never into the next declared motion of either channel."""
+    car = _decl_segments(S, aid, 'carriage'); head = _decl_segments(S, aid, 'head')
+    holds = [g for g in head if g.tag == 'hold' and g.t1 > g.t0]
+    moves = sorted(g.t0 for g in car+head if g.law != 'hold' and np.isfinite(g.t0))
+    def tail(b):
+        nxt = next((t for t in moves if t > b-1e-9), np.inf)
+        return max(0.0, min(2/FPS, nxt-b, S.total-b))
+    tv, hm = {}, {}
+    for g in car:
+        if not (np.isfinite(g.t0) and np.isfinite(g.t1)): continue
+        k = g.extra.get('travel')
+        if g.tag == 'travel' and k is not None: d = tv
+        elif g.tag == 'home' and k is not None: d = hm
+        else: continue
+        a, b = d.get(k, (g.t0, g.t1)); d[k] = (min(a, g.t0), max(b, g.t1))
+    targets, strikes = [], []
+    for k, (a, b) in sorted(tv.items(), key=lambda kv: kv[1]):
+        if any(abs(h.t0-b) <= 1/FPS+1e-9 for h in holds): targets.append((a, b, 'travel->hold', tail(b)))
+        else: strikes.append((a, b, 'travel->contact', 0.0))
+    for k, (a, b) in sorted(hm.items(), key=lambda kv: kv[1]): targets.append((a, b, 'home x', tail(b)))
+    for g in head:
+        if g.tag == 'home' and g.law != 'hold' and np.isfinite(g.t0): targets.append((g.t0, g.t1, 'home '+str(g.extra.get('joint')), tail(g.t1)))
+    return sorted(targets), strikes
+
+def _sync_summary_m(rows):
+    chans = sorted({c for r in rows for c in r['over']})
+    worst = max(rows, key=lambda r: (not r['ok'], r['skew_start']+r['skew_arrive']))
+    return dict(n=len(rows), ok=int(sum(r['ok'] for r in rows)),
+                skew_start_ms=stat([r['skew_start']*1e3 for r in rows]), skew_arrive_ms=stat([r['skew_arrive']*1e3 for r in rows]),
+                overshoot_mm={c: round(max(r['over'].get(c, 0.0) for r in rows)*1e3, 3) for c in chans},
+                settle_v_mm_s_max=round(max(r['settle_v'] for r in rows)*1e3, 4), nonmonotone=int(sum(r['nonmono'] for r in rows)),
+                moving_at_end=int(sum(r['at_end'] for r in rows)), worst_t=round(worst['t'], 3))
+
+def _sync_mallet(S, aid):
+    out = []; targets, strikes = _sync_targets_m(S, aid)
+    rows = [(k, r) for a, b, k, tl in targets for r in [_sync_window_m(S, aid, a, b, tl)] if r]
+    if rows:
+        v = _sync_summary_m([r for _, r in rows])
+        kinds = {}
+        for k, r in rows:
+            n, ok = kinds.get(k.split()[0], (0, 0)); kinds[k.split()[0]] = (n+1, ok+int(r['ok']))
+        v['by_kind'] = {k: dict(n=n, ok=ok) for k, (n, ok) in kinds.items()}
+        v['failing'] = [dict(t=round(r['t'], 3), what=k, skew_ms=[round(r['skew_start']*1e3, 2), round(r['skew_arrive']*1e3, 2)],
+                             over_mm={c: round(o*1e3, 3) for c, o in r['over'].items()}, settle_v_mm_s=round(r['settle_v']*1e3, 3),
+                             nonmono=r['nonmono'], at_end=r['at_end'], moving=r['moving']) for k, r in rows if not r['ok']][:6]
+        out.append(Result(22, 'sync', aid, v, bool(v['ok'] == v['n']),
+                          'declared channels (carriage x; head = path - carriage) on the ring-free path; targets: travels ending '
+                          'within a frame of a head hold, and every home leg; start/arrival = in-position instants (left the '
+                          'start value by > 1 um / within 1 um of the end value for good), bisected on the closed form; start '
+                          'skew over channels at rest at the start that move inside, arrival skew over every moving channel, '
+                          '<= 1/240 s; overshoot <= 0.5 mm along each channel\'s line; |v| < 1 mm/s from a frame after arrival on; '
+                          'monotone'))
+    else:
+        out.append(Result(22, 'sync', aid, dict(n=0, homing_sweeps=0), None, 'no travel ends in a hold and no home leg: nothing to judge'))
+    srows = [r for r in (_sync_window_m(S, aid, a, b, 0.0) for a, b, _, _ in strikes) if r]
+    if srows:
+        out.append(Result(22, 'sync (travels)', aid, _sync_summary_m(srows), INFO,
+                          'travels ending at a contact (strikes: rulers 19 and 11), measured as sync would be, not judged'))
+    return out
+
+def _repeat_window_m(heads, c, nxt, total):
+    """[the stroke's wind-up or float start, the next contact]: back from the
+    'stroke' segment ending at c.t over its head holds to the wind-up run (or
+    the float) that leads into them."""
+    j = next((k for k, g in enumerate(heads) if g.tag == 'stroke' and abs(g.t1-c.t) <= 1e-6), None)
+    end = nxt.t if nxt is not None else min(total, c.t+1.0)
+    if j is None: return None, end
+    a = heads[j].t0; j -= 1
+    while j >= 0 and heads[j].tag == 'hold' and abs(heads[j].t1-a) <= 1e-9: a = heads[j].t0; j -= 1
+    if j >= 0 and heads[j].tag == 'wind-up' and abs(heads[j].t1-a) <= 1e-9:
+        while j >= 0 and heads[j].tag == 'wind-up' and abs(heads[j].t1-a) <= 1e-9: a = heads[j].t0; j -= 1
+    elif j >= 0 and heads[j].tag == 'float' and abs(heads[j].t1-a) <= 1e-9: a = heads[j].t0
+    return a, end
+
+def _repeat_mallet(S, aid, n=64):
+    """22 repeat on a declaring mallet (DESIGN §7.7): groups keyed (arm,
+    contact, a', IOI, next a', next IOI); per stroke the head relative to the
+    carriage, p - (x_c(t) - x_c(t_i), 0, 0) on the ring-free scored path, over
+    [the stroke's wind-up or float start, the next contact], time-normalised;
+    max pairwise RMS per group."""
+    cs = S.contacts(aid); heads = _decl_segments(S, aid, 'head')
+    def r3(x): return None if x is None or not math.isfinite(x) else round(x, 3)
+    def r2(x): return None if x is None else round(x, 2)
+    groups = {}
+    for i, c in enumerate(cs):
+        nxt = cs[i+1] if i+1 < len(cs) else None
+        key = (tuple(c.event['strings']), r3(float(c.event.get('pick', -1) or -1)), r2(c.a), r3(c.ioi),
+               r2(nxt.a) if nxt else None, r3(c.ioi_next))
+        groups.setdefault(key, []).append((c, nxt))
+    rms = []; worst = (0.0, None); strokes = 0; missing = 0
+    for key, mem in groups.items():
+        if len(mem) < 2: continue
+        paths = []
+        for c, nxt in mem:
+            a, b = _repeat_window_m(heads, c, nxt, S.total)
+            if a is None: missing += 1; a = c.t
+            u = np.linspace(a, b, n); P = _mallet_path(S, aid, u); xi = float(S.rig.path_at(aid, c.t)[0])
+            P[:, 0] = xi                      # p - (x_c(t) - x_c(t_i), 0, 0): the scored x is the carriage's
+            paths.append(P)
+        strokes += len(mem); g = 0.0
+        for i in range(len(paths)):
+            for j in range(i+1, len(paths)):
+                g = max(g, float(np.sqrt(np.mean(np.sum((paths[i]-paths[j])**2, axis=1)))))
+        rms.append(g)
+        if g > worst[0]: worst = (g, mem[0][0].t)
+    if not rms:
+        return Result(22, 'repeat', aid, dict(groups=0), True, 'no two strokes share (contact, a\', IOI, next a\', next IOI)')
+    v = dict(groups=len(rms), strokes=strokes, rms_mm=stat(np.array(rms)*1e3), over_1mm=int(sum(r > REPEAT_MAX for r in rms)),
+             worst_t=round(worst[1], 3) if worst[1] is not None else None, no_declared_stroke=missing)
+    return Result(22, 'repeat', aid, v, v['over_1mm'] == 0 and missing == 0,
+                  'groups by (arm, contact, a\', IOI, next a\', next IOI); the head relative to the carriage (ring-free scored path) '
+                  'over [wind-up or float start, next contact], time-normalised to 64 samples; max pairwise RMS per group')
+
+def _home_sweep_m(S, aid, homes, rest):
+    """22 home on a declaring mallet: over the UNION of its 'home' segments
+    (both channels) in the rest, sampled at 2 HZ each: x swept on the
+    ring-free scored x, the joints by IK of Rig.poses (ruler 16's spans), the
+    peak speed of the scored tool path within each segment, the landing at
+    the last one's end."""
+    rig = S.rig; cfg = S.cfg(aid); lo, hi = cfg['reach_x']
+    segs = sorted(((max(g.t0, rest[0]), min(g.t1, rest[1])) for g in homes), key=lambda w: w)
+    segs = [(a, b) for a, b in segs if b > a]
+    parts = [np.append(np.arange(a, b, 1/(2*HZ)), b) for a, b in segs]
+    ts = np.unique(np.concatenate(parts)); t0, t1 = segs[0][0], max(b for _, b in segs)
+    path = _mallet_path(S, aid, ts)
+    out = dict(home_t=[round(t0, 3), round(t1, 3)], home_segments=len(segs), x_swept_frac=round(float(np.ptp(path[:, 0]))/(hi-lo), 4))
+    spans = _joint_spans(S, aid)
+    if spans:
+        from players import r_motion as RM
+        P = rig.poses(aid, ts); q = RM.joint_series(P['root'], P['elbow'], P['wrist'])
+        out['joint_swept_frac'] = {j: (round(float(np.ptp(q[j]))/s, 4) if s > 0 else None) for j, s in zip(('shoulder', 'elbow'), spans)}
+    else: out['joint_swept_frac'] = None
+    v = 0.0
+    for u in parts:
+        if len(u) > 2:
+            Pu = _mallet_path(S, aid, u); v = max(v, float(np.linalg.norm(np.gradient(Pu, u, axis=0), axis=1).max()))
+    home = rig.contact(rig.acts[aid]['home'])+rig.hover(aid); end = rig.path_at(aid, t1)
+    out.update(v_peak=round(v, 4), v_max=.5*RIG.SERVO_V_MAX, land_m=float(max(np.linalg.norm(end-home), abs(end[0]-home[0]))))
+    return out
+
 def _stroke_window(s):
     start = float(s['approach']) if s['moving'] else max(float(s['tm']), float(s['approach']))
     return start, float(s['t_free'])
@@ -868,7 +1189,7 @@ def _home(S, aid):
     v = dict(rest=[round(rest[0], 3), round(rest[1], 3)], homes=len(homes), x_swept_frac=round(swept, 4))
     if not homes:
         return Result(22, 'home', aid, v, False, 'no arm homes today: no segment tagged home in its first rest >= 2 s')
-    v.update(_home_sweep(S, aid, homes, rest))
+    v.update(_home_sweep_m(S, aid, homes, rest) if _mallet(S, aid) else _home_sweep(S, aid, homes, rest))
     j = v['joint_swept_frac']
     ok = (v['x_swept_frac'] >= .90-1e-12 and j is not None and all(f is not None and f >= .80-1e-12 for f in j.values())
           and v['v_peak'] <= .5*RIG.SERVO_V_MAX+1e-12 and v['land_m'] <= 1e-9)
@@ -914,8 +1235,12 @@ def precision(S):
     for aid in S.arms:
         if not S.rig.sched.get(aid):
             out.extend(Result(22, m, aid, {}, None, NO_MOTION) for m in ('sync', 'repeat', 'home')); continue
-        out.extend(_sync(S, aid))
-        out.append(_repeat(S, aid))
+        if _mallet(S, aid):
+            out.extend(_sync_mallet(S, aid))
+            out.append(_repeat_mallet(S, aid))
+        else:
+            out.extend(_sync(S, aid))
+            out.append(_repeat(S, aid))
         out.append(_home(S, aid))
     return out
 

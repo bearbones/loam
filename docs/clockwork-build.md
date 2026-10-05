@@ -43,7 +43,10 @@ step of every build) samples the rig into `loam-motion/1`, written next to the
 score as `<asset>.motion.json` (header) and `<asset>.motion.bin` (float64
 times, float32 rows), and `harness/motion_bake.gd` (`MotionBake`) interpolates
 it. A time grid of 240 Hz plus every contact and every corner of the path as a
-row of its own, and rows packed through each ratchet click: contacts land to
+row of its own, and, for mallets, a row at every declared knot and segment
+boundary (formlab/stroke.py) and wherever the tooth rate crosses an eighth of
+the pawl's ride band (`stroke.RIDE_ROWS`); the hinged hammer keeps rows packed
+through each ratchet click: contacts land to
 float32 (2.4e-7 m), and between rows no pin strays more than 3.4 mm from the
 rig mid-slew. The pawl's angle is a function of rail position, not time, so the
 header carries one tooth of it and the harness looks it up at the baked x. A

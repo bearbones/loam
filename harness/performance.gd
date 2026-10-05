@@ -55,10 +55,20 @@ var follow_since := -1e9
 # The ratchet's click has a sound (docs/plans/pawl-follow-ups.md, item 2): one
 # sample, synthesised once, played from each pawl's roller at every click the
 # rig makes (the bake's clicks, formlab.rig.Rig.click_times), CLICK_DB under the instruments.
+# A stepped (or homing) landing and every hammer click plays the sample once on
+# the arm's click player, as it always has. A mallet's freewheel clicks a tooth,
+# 11.9 ms apart at its fastest — closer than a frame — so the clicks that fall
+# in one rendered frame play as ONE voice on the arm's freewheel player, louder
+# by their count (an incoherent sum: +10·log10 of the summed power); a click
+# whose pawl rides the tips is the lighter ride tick, RIDE_DB under a drop.
 const CLICK_DB := -12.0
+const RIDE_DB := -9.0              # a ride click against a drop click
+const CLICK_VOICES := 4            # each click player's polyphony
 var click_stream: AudioStreamWAV
+var ride_stream: AudioStreamWAV    # the roller ticking over a tip: no drop, no thump
 var clicks: Dictionary = {}        # aid -> the arm's clicks, in time order
 var click_players: Dictionary = {} # aid -> AudioStreamPlayer3D on the roller
+var wheel_players: Dictionary = {} # aid -> a mallet's freewheel player on the roller (AudioStreamPolyphonic)
 var click_next: Dictionary = {}    # aid -> index of the first click not yet played
 var prev_time := -1.0
 # --film: the piece as a film (FilmDirector): a camera and a lighting arc
@@ -148,8 +158,16 @@ func _ready() -> void:
 			clicks[aid]=motion.click_times(aid)
 			var cp := AudioStreamPlayer3D.new()
 			cp.name="click"; cp.stream=click_stream; cp.volume_db=CLICK_DB
-			cp.attenuation_model=AudioStreamPlayer3D.ATTENUATION_DISABLED; cp.max_polyphony=4
+			cp.attenuation_model=AudioStreamPlayer3D.ATTENUATION_DISABLED; cp.max_polyphony=CLICK_VOICES
 			parts[aid]["roller"].add_child(cp); click_players[aid]=cp; click_next[aid]=0
+			# a mallet's freewheel: one voice a frame, each with its own sample and gain
+			if str(layout["arms"][aid].get("kind",""))=="mallet":
+				if ride_stream==null: ride_stream=ride_sample()
+				var poly := AudioStreamPolyphonic.new(); poly.polyphony=CLICK_VOICES
+				var wp := AudioStreamPlayer3D.new()
+				wp.name="freewheel"; wp.stream=poly; wp.volume_db=CLICK_DB
+				wp.attenuation_model=AudioStreamPlayer3D.ATTENUATION_DISABLED
+				parts[aid]["roller"].add_child(wp); wheel_players[aid]=wp
 	# The chamber's flywheel, its axle pulley and the belt pulley turn about z
 	# (formlab.layout.flywheel_plan); their imported bases are the unspun home.
 	for label in ["Chamber flywheel","Chamber hub","Chamber drive pulley","Chamber belt pulley"]:
@@ -444,14 +462,66 @@ func _seek(t: float) -> void:
 		click_next[aid]=i
 
 ## Play every click that landed in (t0, t1]: the clock advanced from t0 to t1.
+## A stepped click (and every hammer click) plays once on the click player; the
+## frame's freewheel clicks play as one voice (click_frame, freewheel_voice).
 func _play_clicks(t0: float, t1: float) -> void:
 	for aid in clicks:
-		var list: Array=clicks[aid]
-		var i: int=click_next[aid]
-		while i<list.size() and float(list[i]["t"])<=t1:
-			if float(list[i]["t"])>t0: click_players[aid].play()
-			i+=1
-		click_next[aid]=i
+		var f := click_frame(clicks[aid],click_next[aid],t0,t1)
+		click_next[aid]=f["next"]
+		for k in int(f["stepped"]): click_players[aid].play()
+		var v := freewheel_voice(int(f["drop"]),int(f["ride"]))
+		if v.is_empty() or not wheel_players.has(aid): continue
+		var wp: AudioStreamPlayer3D=wheel_players[aid]
+		if not wp.playing: wp.play()
+		var pb := wp.get_stream_playback() as AudioStreamPlaybackPolyphonic
+		if pb!=null: pb.play_stream(ride_stream if v["ride"] else click_stream,0.0,float(v["db"]))
+
+## The clicks of `list` (MotionBake.click_times) from index i that fall in the
+## frame (t0, t1]: {next, stepped, drop, ride} — the index past the frame, the
+## stepped clicks (one voice each), and the freewheel clicks by pawl state.
+static func click_frame(list: Array, i: int, t0: float, t1: float) -> Dictionary:
+	var out := {"next": i, "stepped": 0, "drop": 0, "ride": 0}
+	while i<list.size() and float(list[i]["t"])<=t1:
+		var c: Dictionary=list[i]
+		if float(c["t"])>t0:
+			if int(c.get("step",1))==1: out["stepped"]+=1
+			elif int(c.get("pawl",0))==1: out["ride"]+=1
+			else: out["drop"]+=1
+		i+=1
+	out["next"]=i
+	return out
+
+## One frame's freewheel clicks as a single voice: {} for none; else {ride, db}
+## — the ride tick when every click rode the tips, the drop click when any
+## dropped — and its gain over CLICK_DB, the clicks' summed power (a ride click
+## RIDE_DB under a drop) against the sample it plays.
+static func freewheel_voice(drop: int, ride: int) -> Dictionary:
+	if drop+ride<=0: return {}
+	var ride_power := pow(10.0,RIDE_DB/10.0)
+	if drop==0: return {"ride": true, "db": RIDE_DB+10.0*log(float(ride))/log(10.0)}
+	return {"ride": false, "db": 10.0*log(float(drop)+float(ride)*ride_power)/log(10.0)}
+
+## The roller ticking over a tooth's tip while the pawl rides: the click's
+## metallic tick alone — no drop into the gap, so no spring thump — 20 ms long
+## so a freewheel's frame-a-voice clicks never pile past the polyphony.
+static func ride_sample(rate: int = 44100) -> AudioStreamWAV:
+	var n := int(.02*rate)
+	var samples := PackedFloat32Array(); samples.resize(n)
+	var rng := RandomNumberGenerator.new(); rng.seed=11
+	var peak := 0.0
+	for i in n:
+		var t := float(i)/rate
+		var tick := 0.0
+		for p in [[3150.0,1.0],[4720.0,.6],[7060.0,.35]]:
+			tick += p[1]*sin(TAU*p[0]*t)*exp(-t/.0009)
+		tick += rng.randf_range(-1,1)*exp(-t/.0004)*.6
+		samples[i]=tick
+		peak=maxf(peak,absf(samples[i]))
+	var data := PackedByteArray(); data.resize(n*2)
+	for i in n: data.encode_s16(i*2,int(round(samples[i]/peak*.8*32767.0)))
+	var wav := AudioStreamWAV.new()
+	wav.format=AudioStreamWAV.FORMAT_16_BITS; wav.mix_rate=rate; wav.stereo=false; wav.data=data
+	return wav
 
 ## A ratchet's click: the pawl's roller dropping onto the next tooth. A 3 ms
 ## metallic tick — three inharmonic partials of a small steel part, each rung
@@ -547,8 +617,10 @@ func evaluate(t: float) -> void:
 		# angle) on a tip, dropped into the gap between. The mirror of pawl.angle.
 		# The roller sits on the pawl's axle and rolls on the tips: ROLLER_SPIN
 		# radians a metre of rail, the other way from the disc.
+		# Above PAWL_RIDE teeth a second the pawl rides the tips: the bake's .ride
+		# channel leans the table's angle toward pawl.ride_angle (formlab.bake.Bake.pawl).
 		if p.has("pawl"):
-			var swing := Basis(Vector3(0,0,1),-motion.pawl_angle(root.x+phase))
+			var swing := Basis(Vector3(0,0,1),-motion.pawl_angle(root.x+phase,motion.ride(aid,t)))
 			p["pawl"].position=root+MotionBake.v(cfg["pawl"]["pivot"])
 			p["pawl"].basis=swing*pawl_home[aid]
 			p["roller"].position=p["pawl"].position+swing*MotionBake.v(cfg["pawl"]["nose"])
@@ -662,7 +734,7 @@ func _camera_at(t: float) -> void:
 	#
 	# An arm is about a metre from its carriage down to its tool, and a click
 	# close-up has to hold BOTH ends — the pawl riding the pinion at the top and
-	# the mallet's cocked drop at the bottom. So the frame covers the arm's own
+	# the mallet's stroke at the bottom. So the frame covers the arm's own
 	# root-to-tip box with a margin and `--focus_span` is a MINIMUM width, not
 	# the answer: narrowing it past the arm's height only centres the shot
 	# tighter, it cannot crop the tool out.

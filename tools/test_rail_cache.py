@@ -48,8 +48,8 @@ def run():
     check(isinstance(base, str) and len(base) == 40, f'the key is a sha1 digest ({base[:12]}…)')
 
     # 1. the modules the plan is measured against
-    check(set(LS.GEOMETRY_SOURCES) == {'rig.py', 'clearance.py', 'linkage.py', 'gantry.py', 'pawl.py'},
-          'the key hashes the motion (rig), the space model (clearance) and the '
+    check(set(LS.GEOMETRY_SOURCES) == {'rig.py', 'clearance.py', 'linkage.py', 'gantry.py', 'pawl.py', 'stroke.py'},
+          'the key hashes the motion (rig, stroke), the space model (clearance) and the '
           'geometry it measures (linkage, gantry, pawl): '+', '.join(LS.GEOMETRY_SOURCES))
     for name in LS.GEOMETRY_SOURCES:
         path = ROOT/'formlab'/name; original = path.read_bytes()
@@ -59,6 +59,16 @@ def run():
         finally:
             path.write_bytes(original)
     check(key_of(score, layout, mech) == base, 'and restoring every source restores the key')
+    # ...and the timing rules the rig and the stroke move by, which formlab loads by path
+    check(LS.TIMING_SOURCES == (str(Path('..')/'loam'/'motion_timing.py'),), 'the key hashes loam/motion_timing.py too')
+    for name in LS.TIMING_SOURCES:
+        path = (ROOT/'formlab'/name).resolve(); original = path.read_bytes()
+        try:
+            path.write_bytes(original+b'\n# rail-cache ruler\n')
+            check(key_of(score, layout, mech) != base, f'editing {path.relative_to(ROOT)} (a formula, no constant) changes the key')
+        finally:
+            path.write_bytes(original)
+    check(key_of(score, layout, mech) == base, 'and restoring it restores the key')
 
     # 2. the motion constants themselves, so tuning one by hand replans
     consts = LS.motion_constants()
@@ -77,6 +87,38 @@ def run():
     check(key_of(score, moved, mech) != base, "an arm's reach window changes the key")
     later = copy.deepcopy(score); later['events'][0]['t'] = 1.25
     check(key_of(later, layout, mech) != base, 'an event time changes the key')
+    # M1: the carriage's free instant and the homing sweeps are motion too
+    freed = copy.deepcopy(score); freed['events'][0]['t_head_free'] = float(freed['events'][0]['t'])
+    check(key_of(freed, layout, mech) != base, "an event's t_head_free changes the key")
+    # M1: a mallet's prep and strike speed follow a' (the amp normalised over its voice)
+    loud = copy.deepcopy(score); loud['events'][0]['amp'] = .5
+    check(key_of(loud, layout, mech) != base, "an event's amp changes the key")
+    voiced = copy.deepcopy(score); voiced['events'][0]['voice'] = 'tune'
+    check(key_of(voiced, layout, mech) != base, "an event's voice changes the key")
+    two = copy.deepcopy(score); two['events'][0].update(voice='tune', amp=.7)
+    two['events'] += [dict(mech='other', actuator='o_arm0', t=2.0+k, t_move=1.5+k, t_free=2.4+k, strings=['o0'], voice='tune', amp=a)
+                      for k, a in ((0, .5), (1, .9))]
+    k2 = key_of(two, layout, mech); two['events'][2]['amp'] = 1.1
+    check(key_of(two, layout, mech) != k2, "an amp elsewhere in the voice (another mechanism's event) changes the key: a' is normalised over the voice")
+    homed = copy.deepcopy(score); homed.setdefault('cues', []).append(
+        dict(t=.25, kind='home', mech=mech['id'], actuator=mech['actuators'][0]['id'], t_end=5.0, path=[]))
+    check(key_of(homed, layout, mech) != base, "a homing cue changes the key")
+    was = rig_module.motion_timing.STEP_MOVE
+    try:
+        rig_module.motion_timing.STEP_MOVE = .5
+        check(key_of(score, layout, mech) != base, 'tuning motion_timing.STEP_MOVE changes the key')
+    finally:
+        rig_module.motion_timing.STEP_MOVE = was
+    # M1: the mallet's stroke vocabulary (formlab/stroke.py) is motion too
+    check({'stroke.V0', 'stroke.ARC', 'stroke.RING_TAU', 'stroke.HOLD'} <= set(LS.motion_constants()),
+          'motion_constants() reports the stroke constants, prefixed')
+    for name, tweak in (('V0', 2.4), ('HOLD', .15)):
+        was = getattr(rig_module.stroke, name)
+        try:
+            setattr(rig_module.stroke, name, tweak)
+            check(key_of(score, layout, mech) != base, f'tuning stroke.{name} ({was} -> {tweak}) changes the key')
+        finally:
+            setattr(rig_module.stroke, name, was)
 
     # 4. keep-mode: it finds the stored plan, and says so in the layout
     cfg = dict(root_y=2.25, root_z=-1.0, l1=1.3, l2=1.3, bend='up', wrist_offset=[0, .28, 0],

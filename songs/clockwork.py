@@ -59,8 +59,14 @@ assert check['ok'] and not check['unassigned'] and not score.conflicts
 old_by_id={e['i']:e for e in original['events']}
 for e in score.events[:len(original['events'])]:
     old=old_by_id[e['i']]
-    for key in ('t','strings','actuator','t_move','t_free','pick','shape'):
+    for key in ('t','strings','actuator','t_move','t_free','t_head_free','pick','shape'):
         assert e.get(key)==old.get(key),(e['i'],key)
+# every contact-to-contact arm warms up with its homing sweep (ruler 22)
+homed={c['actuator'] for c in score.cues if c.get('kind')=='home'}
+from loam import motion_timing
+for m in score.instrument.mechanisms:
+    for a in m.actuators:
+        assert not motion_timing.contact_to_contact(a.kind) or a.id in homed,('no homing sweep',a.id)
 for mid in ('bells','blocks'):
     rec=ruler.score_recall(score.bus(mid),[e['t'] for e in score.events if e['mech']==mid],tol_s=.03,min_sep=.15)
     print(mid,'onset recall',rec['recall']); assert rec['recall']>=.9

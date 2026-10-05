@@ -27,6 +27,13 @@ the next string and wind up for `approach_s`:
 
     feasible  iff  travel available >= what the vocabulary needs
 
+A mallet (`motion_timing.contact_to_contact`) splits that in two. Its head
+rides the rebound, so its next stroke still may not begin before
+`t0 + recover_s` (the head's own cycle), but its carriage is free at the
+contact itself (`t_head_free`) and travels contact to contact, arriving as
+the head lands: the travel overlaps the rebound, the float and the
+downstroke instead of waiting in series with them.
+
 What a travel COSTS is not the planner's invention any more. It comes
 from `loam.motion_timing`, the same module `formlab/rig.py` moves by
 (and the harness plays back, baked): a stepped arm clicks along a
@@ -259,18 +266,27 @@ class _Solver:
     def __init__(self, mech: Mechanism):
         self.mech = mech
         self.free_at = {a.id: -np.inf for a in mech.actuators}
+        # When the CARRIAGE may leave: free_at for every arm that strikes from
+        # a still carriage, the contact itself for one whose head rides its
+        # rebound (motion_timing.contact_to_contact). Exported as t_head_free.
+        self.head_free_at = {a.id: -np.inf for a in mech.actuators}
         self.at = {a.id: a.home for a in mech.actuators}
         self.last_hit = {}
         self.last_t = -np.inf
         # Occupancy timeline per arm, one entry a contact:
         # (t_move, t_arrive, t_last, travel interval, contact interval,
-        # where it comes to rest). An arm crossing the rail is charged
+        # where it comes to rest), t_arrive = t - motion_timing.arrive_lead:
+        # the wind-up before the contact, or the contact itself for a
+        # carriage that travels contact to contact. An arm crossing the rail is charged
         # the whole interval between where it left and where it lands,
         # because the plan does not model the profile in between; once
         # it has ARRIVED it is charged only the strings it is playing,
         # and afterwards the one it hovers over. Three phases, not two:
         # the interval it crossed is not where it stands.
         self.moves = {a.id: [] for a in mech.actuators}
+        # each arm's homing sweep (_Solver.home), also the first entry of its
+        # moves once committed
+        self.homes = {}
 
     def span_m(self, s_from: str, s_to: str) -> float:
         """World metres along the rail between two strings' contacts.
@@ -403,6 +419,12 @@ class _Solver:
         `formlab.rig._windows` takes it as given rather than deriving a
         second, earlier one of its own.
 
+        Contact to contact (a mallet): the head's rule is unchanged (its
+        next stroke, t - approach_s, starts no earlier than free_at), but the
+        carriage has from `head_free_at` (the last contact) to t itself, and
+        what it wants is the stepped travel plus the stroke over a still
+        carriage. Short of that it freewheels over the whole window.
+
         Below `motion_timing.floor_s` there is no plan at all: the
         carriage would have to cross the distance faster than the
         ratchet can click or the servo can run, so the contact is
@@ -413,20 +435,70 @@ class _Solver:
             return None
         s_from = self.at[a.id]
         dx = self.span_m(s_from, sids[0]) if s_from else 0.0
-        want = self.travel(a, s_from, sids[0])
-        room = t - a.approach_s - self.free_at[a.id]
-        if room < 0.0:
+        if t - a.approach_s - self.free_at[a.id] < 0.0:
             return None
+        lead = _mt.arrive_lead(a.kind, a.approach_s)
+        arrive = t - lead
+        # unhurried: the vocabulary's travel, then whatever of the wind-up
+        # the carriage does not travel under (all of it for a mallet)
+        want = self.travel(a, s_from, sids[0]) \
+            + (_mt.still_s(a.kind, a.approach_s) - lead)
+        room = arrive - self.head_free_at[a.id]
         tr = want if room >= want else room
         flr = _mt.floor_s(a.kind, dx) if s_from else 0.0
         if tr < flr - 1e-9:
             return None
         t_last = t + spread_s * (len(sids) - 1)
-        t_move = self._push(a, t - a.approach_s - tr,
-                t - a.approach_s - flr, t - a.approach_s, t_last, sids)
+        # a contact-to-contact carriage that does not move has nothing to
+        # start late (every other kind keeps its floor-bounded latest start)
+        still = dx <= 0.0 and _mt.contact_to_contact(a.kind)
+        t_move = self._push(a, arrive - tr,
+                arrive - (tr if still else flr), arrive, t_last, sids)
         if t_move is None:
             return None
-        return t_move, t - a.approach_s - t_move, t_last, dx
+        return t_move, arrive - t_move, t_last, dx
+
+    def home(self, aid: str, t0: float):
+        """Commit arm `aid`'s homing sweep from t0 (motion_timing.home_legs:
+        its home, the low end of its reach, the high end, home again, tooth by
+        tooth, and the elbow and shoulder sweeps at a still x) if it
+        ends HOME_GAP before the first travel of any arm of its mechanism
+        (the mechanism warms up before it plays) and keeps arm_clearance
+        from every sibling's committed occupancy throughout; the sweep owns
+        its whole reach until it lands. Returns the cue the export carries
+        (the rig reads the sweep from it), or None. Run after the plan, so
+        a sweep can only fill a rest, never cost a note."""
+        m = self.mech
+        a = m.actuator(aid)
+        ids = sorted(a.reach, key=m.axis_pos)
+        xh, lo, hi = m.axis_pos(a.home), m.axis_pos(ids[0]), m.axis_pos(ids[-1])
+        W = _mt.WORLD_SCALE
+        legs = _mt.home_legs(xh * W, lo * W, hi * W)
+        if not legs:
+            return None
+        t1 = t0 + legs[-1][1]
+        # the mechanism warms up before it plays: every sweep of it ends
+        # HOME_GAP before the first travel of ANY of its arms
+        first = min((mv[0] for o in m.actuators for mv in self.moves[o.id]
+                     if mv is not self.homes.get(o.id)), default=np.inf)
+        if t1 > first - _mt.HOME_GAP:
+            return None
+        w = float(m.arm_clearance)
+        for other in m.actuators:
+            if other.id == aid or w <= 0.0:
+                continue
+            ts = {t0, t1}
+            for mv in self.moves[other.id]:
+                ts |= {tb for tb in mv[:3] if t0 <= tb <= t1}
+            ts = sorted(ts)
+            for tp in ts + [0.5 * (u + v) for u, v in zip(ts, ts[1:])]:
+                b_lo, b_hi = self._range_at(other.id, tp)
+                if max(lo - b_hi, b_lo - hi) < w:
+                    return None
+        self.homes[aid] = (t0, t1, t1, (lo, hi), (xh, xh), xh)
+        self.moves[aid].insert(0, self.homes[aid])
+        return dict(t=float(t0), kind="home", mech=m.id, actuator=aid,
+                t_end=float(t1), path=[a.home, ids[0], ids[-1], a.home])
 
     def plan(self, t: float, sids, spread_s: float = 0.0):
         """Best feasible actuator for a contact at t on sids (a run
@@ -455,8 +527,11 @@ class _Solver:
         if best is None:
             return None
         _, a, t_move, tr, t_last = best
+        t_free = t_last + a.recover_s
         return a, dict(actuator=a.id, t_move=float(t_move),
-                t_free=float(t_last + a.recover_s),
+                t_free=float(t_free),
+                t_head_free=float(t_last if _mt.contact_to_contact(a.kind)
+                                  else t_free),
                 travel_s=float(tr), from_string=self.at[a.id])
 
     def options(self, t: float, sids, spread_s: float = 0.0) -> int:
@@ -469,9 +544,11 @@ class _Solver:
         m = self.mech
         moving, played = self._spans(act, sids)
         t_last = p["t_free"] - act.recover_s
-        self.moves[act.id].append((p["t_move"], t - act.approach_s, t_last,
+        self.moves[act.id].append((p["t_move"],
+                t - _mt.arrive_lead(act.kind, act.approach_s), t_last,
                 moving, played, m.axis_pos(sids[-1])))
         self.free_at[act.id] = p["t_free"]
+        self.head_free_at[act.id] = p.get("t_head_free", p["t_free"])
         self.at[act.id] = sids[-1]
         for s in sids:
             self.last_hit[s] = t
@@ -696,7 +773,8 @@ class Score:
                     ev.get("spread_s", 0.0))
             if p is None:
                 ev["actuator"] = None
-                for k in ("t_move", "t_free", "travel_s", "from_string"):
+                for k in ("t_move", "t_free", "t_head_free", "travel_s",
+                        "from_string"):
                     ev.pop(k, None)
                 self.conflicts.append(i)
             else:
@@ -705,6 +783,20 @@ class Score:
                 fresh[ev["mech"]].commit(ev["t"], ev["strings"], a, plan)
             if ev.get("actuator") != was:
                 reassigned += 1
+        # Homing sweeps fill the first rest of every contact-to-contact arm
+        # (one arm of a mechanism after another), after the plan they cannot
+        # disturb. The cue is what the rig reads them from.
+        self.cues = [c for c in self.cues if c.get("kind") != "home"]
+        if _mt.HOME_T0 is not None:
+            for mid, sv in fresh.items():
+                t0 = _mt.HOME_T0
+                for a in sv.mech.actuators:
+                    if not _mt.contact_to_contact(a.kind):
+                        continue
+                    c = sv.home(a.id, t0)
+                    if c is not None:
+                        self.cues.append(c)
+                        t0 = c["t_end"]
         if self.shapes is not None:
             self._name_shapes()
         return self.stats(reassigned)

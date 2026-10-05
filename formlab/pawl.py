@@ -219,12 +219,24 @@ def manifest(mount='back', x_home=0.):
                 lever=PAWL['lever'], finger=PAWL['finger'], nose_r=PAWL['nose_r'], drop=PAWL['drop'],
                 phase=round(dip_offset(x_home), 6), home_x=round(float(x_home), 6), roller_spin=round(ROLLER_SPIN, 6))
 
-def capsules(root, mount='back', phase=0.):
+def ride_angle():
+    """The angle a riding pawl is drawn at: the least of the one-tooth table
+    (the nose landed on a tooth's tip), exactly as formlab.bake writes
+    pawl.ride_angle."""
+    from .bake import PAWL_TABLE_N                      # bake imports this module
+    return float(min(angle(np.arange(PAWL_TABLE_N)*PITCH/PAWL_TABLE_N)))
+
+def capsules(root, mount='back', phase=0., ride=0.):
     """World capsules per pose for the rulers, name -> (P, Q, r): the lever,
-    yoke, tongues and roller (turned by angle(x + phase)); the eye, spring, ear, pin, post, arm
-    and strut. `root`: (T, 3) shoulder-pin positions."""
+    yoke, tongues and roller (turned by angle(x + phase), leaned toward
+    ride_angle() by `ride` in [0, 1], per pose or one value, as
+    formlab.bake.Bake.pawl draws it); the eye, spring, ear, pin, post, arm
+    and strut. `root`: (T, 3) shoulder-pin positions. ride 0 is the table."""
     root = np.asarray(root, float); P = PAWL; s = _side(mount); pv = pivot(mount); ze = ear_offset(mount)
-    al = angle(root[:, 0]+phase); c = np.cos(al)[:, None]; sn = np.sin(al)[:, None]
+    al = angle(root[:, 0]+phase)
+    ride = np.broadcast_to(np.asarray(ride, float), (len(root),))
+    if ride.any(): al = al+(ride_angle()-al)*ride
+    c = np.cos(al)[:, None]; sn = np.sin(al)[:, None]
     def turn(p):                                          # pawl-frame point -> world, per pose
         p = np.asarray(p, float); q = np.stack([p[0]*c[:, 0]+p[1]*sn[:, 0], -p[0]*sn[:, 0]+p[1]*c[:, 0], np.full(len(al), p[2])], axis=-1)
         return root+pv+q

@@ -12,9 +12,16 @@ Checks, per built asset:
     one-tooth table: tools/test_bake.py holds it);
   - the pawl's body — lever, yoke, tongues — keeps clear of the teeth at every
     rail position, and its pieces and the bracket's are closed meshes;
-  - space: over the score's motion the pawl and its bracket clear the arm's
-    own links and tool, every sibling arm, every other rail's bars and rack,
-    its own rack, its own guide bars, and the forms and furniture.
+  - riding (PLAYERS M1): above PAWL_RIDE teeth/s a mallet's pawl rides the
+    tips. The harness draws it leaned from the table angle toward the
+    tip-land angle (formlab.bake: pawl.ride_angle, the table's least) by the
+    arm's `.ride` channel (Rig.pawl_ride; formlab.bake.Bake.pawl). At every
+    lean the roller stays on or off the teeth, never in them, and the body
+    keeps off them;
+  - space: over the score's motion the pawl and its bracket, drawn as the
+    harness draws them (riding where the arm rides), clear the arm's own
+    links and tool, every sibling arm, every other rail's bars and rack, its
+    own rack, its own guide bars, and the forms and furniture.
 """
 import json, sys
 from pathlib import Path
@@ -26,6 +33,7 @@ from formlab import clearance as C
 from formlab.rig import Rig
 from formlab.linkage import check_pieces
 from formlab.layout_search import scene_boxes
+from formlab.bake import PAWL_TABLE_N
 
 failures = []
 def check(ok, msg):
@@ -38,6 +46,16 @@ def box_gap(P, Q, r, lo, hi, samples=33):
     for t in np.linspace(0, 1, samples):
         p = P+(Q-P)*t; best = np.minimum(best, np.linalg.norm(p-np.clip(p, lo, hi), axis=1))
     return best-r
+
+# the angle a riding pawl is drawn at: the one-tooth table's least (the nose
+# landed on a tooth's tip), exactly as formlab.bake writes pawl.ride_angle
+RIDE_ANGLE = W.ride_angle()
+assert RIDE_ANGLE == float(min(W.angle(np.arange(PAWL_TABLE_N)*W.PITCH/PAWL_TABLE_N)))
+
+def drawn_capsules(root, mount, phase, ride):
+    """The capsules with the pawl turned as the harness draws it
+    (formlab.bake.Bake.pawl): W.capsules' own `ride` argument."""
+    return W.capsules(root, mount, phase, ride)
 
 def kinematics():
     pitch = 2*np.pi*C.PINION['r_pitch']/C.PINION['teeth']
@@ -61,6 +79,23 @@ def kinematics():
             q = A+(B-A)*t-centre-np.c_[xs, np.zeros_like(xs), np.zeros_like(xs)]; g = W.tooth_distance(q[:, 0], q[:, 1], xs)-rr; k = int(np.argmin(g))
             if g[k] < worst[0]: worst = (float(g[k]), f'{name} at x={xs[k]:.4f}')
     check(worst[0] > .003, f'the pawl\'s body keeps off the teeth ({worst[0]*1000:.1f} mm, {worst[1]})')
+    # riding: every lean from the table toward the tip-land angle keeps the
+    # roller out of the teeth (the table is the largest clear angle; leaning
+    # toward its least only lifts the nose) and the body off them
+    tab = W.angle(xs); roller = np.inf; lift = 0.0; body = (1e9, '')
+    for f in np.linspace(0, 1, 21):
+        n = W.nose_at(tab+(RIDE_ANGLE-tab)*f)
+        g = W.tooth_distance(P[0]+n[:, 0], P[1]+n[:, 1], xs)-W.PAWL['nose_r']; roller = min(roller, float(g.min())); lift = max(lift, float(g.max()))
+    for f in (.25, .5, .75, 1.0):
+        caps = drawn_capsules(np.c_[xs, np.zeros_like(xs), np.zeros_like(xs)], 'back', 0., f)
+        for name in ('pawl_lever', 'pawl_yoke', 'pawl_tongue-', 'pawl_tongue+'):
+            A, B, rr = caps[name]
+            for t in np.linspace(0, 1, 41):
+                q = A+(B-A)*t-centre-np.c_[xs, np.zeros_like(xs), np.zeros_like(xs)]; g = W.tooth_distance(q[:, 0], q[:, 1], xs)-rr; k = int(np.argmin(g))
+                if g[k] < body[0]: body = (float(g[k]), f'{name} at x={xs[k]:.4f}, ride {f:g}')
+    check(roller > -1e-9 and body[0] > .003 and RIDE_ANGLE <= tab.min()+1e-12,
+          f'a riding pawl (leaned toward the tip-land angle {np.degrees(RIDE_ANGLE):.2f} deg) keeps its roller out of the teeth '
+          f'(least {roller*1000:.4f} mm, lifted up to {lift*1000:.2f} mm) and its body off them ({body[0]*1000:.1f} mm, {body[1]})')
     lever, mats = W.lever_pieces('back'); check_pieces(lever); check_pieces(W.bracket_pieces('back'))
     drum, dmats = W.roller_pieces('back'); check_pieces(drum)
     check(len(mats) == len(lever) and len(dmats) == len(drum), f'{len(lever)} pawl pieces, {len(drum)} roller pieces and {len(W.bracket_pieces("back"))} bracket pieces are closed meshes')
@@ -95,7 +130,12 @@ def run(layout_path, score_path):
               f'{aid}: the manifest records the phase for home x={home:.4f} ({phase*1000:+.2f} mm) and the roller spin')
         rests = np.array([home]+[float(s['last'][0]) for s in rig.schedule(aid)]); seat = W.seating(rests, phase)
         check(seat[0] < .02, f'{aid}: the pawl rests in a dip at home (seating {seat[0]:.3f}); {int((seat < .15).sum())} of {len(rests)} rests seat within 15 %')
-        caps = W.capsules(poses[aid]['root'], mount, phase)
+        # drawn as the harness draws it: riding the tips where the arm's .ride
+        # channel says (a mallet's Rig.pawl_ride; 0 for the hammer, which is
+        # then W.capsules exactly as before)
+        ride = np.array([rig.pawl_ride(aid, t) for t in times])
+        caps = drawn_capsules(poses[aid]['root'], mount, phase, ride)
+        if ride.any(): print(f'  {aid}: the pawl rides the tips in {int((ride > 0).sum())} of {len(times)} poses (peak {ride.max():.2f})')
         # its own links and tool (the carriage and pinion are what it is mounted to)
         own = (1e9, '')
         for pname, (P, Q, r) in caps.items():

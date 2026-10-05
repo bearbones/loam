@@ -135,11 +135,23 @@ class Subject:
     @functools.lru_cache(maxsize=None)
     def declared(self, aid): return SEG.declared(self.rig, aid)
 
+    def stroke(self, aid):
+        """A mallet's planned stroke (formlab/stroke.py ArmStroke: the head and
+        carriage channels, per-note records, travels), or None for any other
+        arm or a rig that plans none (PLAYERS M1)."""
+        if self.kind(aid) != 'mallet' or not hasattr(self.rig, 'stroke'): return None
+        return self.rig.stroke(aid)
+
     def impulse_knots(self, aid):
         return [k for k in self.declared(aid).knots if k.kind in SEG.IMPULSES]
 
     def click_intervals(self, aid):
-        return [(k.t, k.extra['t_end']) for k in self.declared(aid).knots if k.kind == 'click']
+        """[(t, t_end)] of the declared clicks that MOVE the path: a ratchet
+        click's or a stepped/homing tooth's step (they carry `t_end`). A
+        freewheel tooth's click (PLAYERS M1, DESIGN 7.9) carries no `t_end`:
+        it is the pawl's sound as the carriage glides past, not a path
+        impulse, so it has no interval."""
+        return [(k.t, k.extra['t_end']) for k in self.declared(aid).knots if k.kind == 'click' and 't_end' in k.extra]
 
     def impulse_frame(self, aid, k):
         """Is frame k (the interval (t_{k-1}, t_k]) an impulse frame for this arm?"""

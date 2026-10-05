@@ -23,6 +23,7 @@ var head_l: float = .12
 var errors: PackedStringArray = []
 var _pawl_table: PackedFloat32Array
 var _pawl_pitch: float = 1.0
+var _ride_angle: float = NAN    # pawl.ride_angle: the nose on a tooth's tip (NAN in an older bake)
 # one row a time, cached: a frame asks for a dozen channels at the same t
 var _row_t: float = NAN
 var _row_i: int = 0
@@ -63,6 +64,8 @@ func load(json_path: String, score_path: String, manifest_path: String) -> bool:
 	head_l = float(header["constants"]["HEAD_L"])
 	_pawl_table = PackedFloat32Array(header["pawl"]["table"])
 	_pawl_pitch = float(header["pawl"]["pitch"])
+	var ra = header["pawl"].get("ride_angle")
+	_ride_angle = NAN if ra == null else float(ra)
 	return true
 
 
@@ -130,25 +133,59 @@ func rail_sag(aid: String, t: float) -> float: return value(aid+".sag", t)
 func mast_sway(aid: String, t: float) -> float: return value(aid+".sway", t)
 
 
-## A stepped arm's clicks: [{t, teeth}] in time order; a servo arm has none.
+## How far the arm's pawl rides the rack's tips at t, in [0, 1] (its `.ride`
+## channel, formlab.rig.Rig.pawl_ride); 0 for an arm that has none (a servo
+## arm, an older bake). The hammer's is all 0.
+func ride(aid: String, t: float) -> float:
+	return value(aid+".ride", t) if channels.has(aid+".ride") else 0.0
+
+
+## A stepped arm's clicks: [{t, teeth, pawl, step}] in time order; a servo arm
+## has none. pawl 0 drops into the gap, 1 rides the tips (a fast freewheel);
+## step 1 a stepped or homing landing (and every hammer click), 0 a freewheel's
+## crossing of a tooth. An older bake's are all drop and step (formlab.bake.Bake.clicks).
 func click_times(aid: String) -> Array:
 	var out: Array = []
-	for c in arms[aid]["clicks"]: out.append({"t": float(c[0]), "teeth": float(c[1]), "aid": aid})
+	var cs: Array = arms[aid]["clicks"]
+	var pawl: Array = arms[aid].get("click_pawl", [])
+	var step: Array = arms[aid].get("click_step", [])
+	for i in cs.size():
+		var c: Array = cs[i]
+		out.append({"t": float(c[0]), "teeth": float(c[1]), "aid": aid,
+			"pawl": int(pawl[i]) if i < pawl.size() else 0, "step": int(step[i]) if i < step.size() else 1})
 	return out
 
 
-## Each blow on an arm: [{t, gate_end, x, energy}] (gate_end null for the last).
+## Each blow on an arm: [{t, gate_end, x, energy}] (gate_end null for the last);
+## a mallet's also carry its stroke's v_in and e (read them with .get / has:
+## the hammer's have neither). A mallet's gate_end is its next stroke's apex.
 func blows(aid: String) -> Array: return arms[aid]["blows"]
 
 
 ## The roller detent pawl's angle for a carriage at rail position x (the arm's
-## phase already added): one tooth of formlab.pawl.angle, periodic in the pitch.
-func pawl_angle(x: float) -> float:
+## phase already added): one tooth of formlab.pawl.angle, periodic in the pitch,
+## leaned toward pawl.ride_angle (the nose on a tip) by `ride` in [0, 1]. Every
+## angle between the two is clear of the teeth. ride 0 is the table alone.
+## The mirror of formlab.bake.Bake.pawl_angle.
+func pawl_angle(x: float, ride_amount: float = 0.0) -> float:
 	var n := _pawl_table.size()
 	var u: float = fposmod(x, _pawl_pitch)/_pawl_pitch*n
 	var k: int = int(floor(u))
 	var w: float = u-floor(u)
-	return lerpf(_pawl_table[k%n], _pawl_table[(k+1)%n], w)
+	var a: float = lerpf(_pawl_table[k%n], _pawl_table[(k+1)%n], w)
+	if ride_amount == 0.0: return a
+	return a+((a if is_nan(_ride_angle) else _ride_angle)-a)*ride_amount
+
+
+## The arm's pawl angle at t as the player poses it: the table at the
+## carriage's x (the baked root) plus the arm's phase, ridden by its `.ride`
+## channel (formlab.bake.Bake.pawl). NAN for an arm without a pawl. x is read
+## in double precision (a Vector3 is float32: 0.5 µm at 4 m of rail is 1.4e-5 rad
+## on the table's steepest flank).
+func pawl(aid: String, t: float) -> float:
+	var phase = arms[aid].get("pawl_phase")
+	if phase == null: return NAN
+	return pawl_angle(_at(channels[aid+".root"], t)+float(phase), ride(aid, t))
 
 
 static func v(a: Array) -> Vector3:

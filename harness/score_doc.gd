@@ -119,7 +119,9 @@ func shape_frame(clip_id: String, tau: float) -> PackedFloat32Array:
 
 
 ## Plan self-consistency, mirrored from loam.ruler.plan_consistent:
-## per actuator no overlapping busy spans, t_move < t <= t_free.
+## per actuator no overlapping busy spans (each t_move at or after the
+## previous t_head_free), t_move < t <= t_head_free <= t_free. A plan
+## from before M1 carries no t_head_free, and t_free stands in.
 func plan_consistent() -> Dictionary:
 	var by_act: Dictionary = {}
 	var bad := 0
@@ -130,7 +132,8 @@ func plan_consistent() -> Dictionary:
 		if e.get("actuator") == null:
 			unassigned += 1
 			continue
-		if not (float(e["t_move"]) < float(e["t"]) and float(e["t"]) <= float(e["t_free"])):
+		var hf := float(e.get("t_head_free", e["t_free"]))
+		if not (float(e["t_move"]) < float(e["t"]) and float(e["t"]) <= hf and hf <= float(e["t_free"])):
 			bad += 1
 		var k: String = "%s/%s" % [e["mech"], e["actuator"]]
 		if not by_act.has(k):
@@ -141,7 +144,7 @@ func plan_consistent() -> Dictionary:
 		var evs: Array = by_act[k]
 		evs.sort_custom(func(a, b): return float(a["t"]) < float(b["t"]))
 		for i in range(1, evs.size()):
-			if float(evs[i]["t_move"]) < float(evs[i - 1]["t_free"]) - 1e-9:
+			if float(evs[i]["t_move"]) < float(evs[i - 1].get("t_head_free", evs[i - 1]["t_free"])) - 1e-9:
 				overlaps += 1
 	return {"ok": overlaps == 0 and bad == 0 and unassigned == 0, "overlaps": overlaps,
 			"bad_span": bad, "unassigned": unassigned, "actuators": by_act.size()}

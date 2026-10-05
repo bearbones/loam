@@ -52,7 +52,7 @@ EOF
 }
 left=${LEFT:-focus:$(pick_arm stepped)}
 right=${RIGHT:-focus:$(pick_arm servo)}
-left_text=${LEFT_TEXT:-stepped: ratchet clicks / cocked drop / recoil}
+left_text=${LEFT_TEXT:-stepped: tooth steps / thrown stroke on the rebound / recoil}
 right_text=${RIGHT_TEXT:-servo: jerk-limited S-curve slew}
 
 # A caption needs a font file; ffmpeg's drawtext will not look one up. Take
