@@ -73,6 +73,15 @@ Definitions where the goal leaves a choice (each also in its Result's note):
       +-2 ms, a mallet's park and cocked hold) is skipped: W is the rise
       before it, L and the depth run from that rise's start. `prep` is the
       one apex and wind-up finder rulers 3, 4, 5, 8, 9, 10 and 21 share.
+      '3 lead (IOI >= 0.25 s)' (PLAYERS M2, C3) is the same four tests on
+      the contacts with IOI >= 0.25 s (an arm's first contact, IOI inf,
+      included): the servo gate's row, since below 0.25 s no stroke can lead
+      by min(200 ms, 0.9 IOI) and still act; '3 preparation' keeps every
+      contact. '3 poise still' (PLAYERS A26, D7, M2 gate on the harps): a
+      pick's every declared head poise (a 'hold' segment, extra hold =
+      'poise') holds the tool point still, |v| <= core.STILL_V (20 mm/s) on
+      the closed form every 1 ms through it. No one of the three names is a
+      prefix of another (gate() matches by prefix).
   5   On the scored signal at ~1 ms (the grid ends exactly on both contacts).
       The principal axis is the gap's first principal component. The
       "declared holds after gaps >= 0.8 s" exemption is read as ruler 21
@@ -99,7 +108,15 @@ Definitions where the goal leaves a choice (each also in its Result's note):
       crossings of the stepped mallet's recoil bounce and the hammer's
       check). 6b takes the one-sided 5-point dv at every one of those and
       counts |dv| > 0.02 m/s more than 20 us from an IMPULSE knot — a smooth
-      knot does not excuse a corner. A 20 us dense scan of the rendered point
+      knot does not excuse a corner. An impulse is a contact's own (PLAYERS
+      A21): every 'contact' impulse knot must sit on one of its arm's scored
+      contacts (+-1 us) and there must be one per contact; an arm kind that
+      declares no impulse (NO_IMPULSE_KINDS: the rake, whose sweep is C2
+      through every string) fails 6a on any impulse knot. Such an unmatched
+      knot excuses nothing in 6b and is itself a 6b corner ('unmatched
+      impulse', whatever its |dv|): a velocity step declared as an impulse
+      where no contact is. 'detent' and 'slip' knots keep their own rules
+      (6a's declared dv). A 20 us dense scan of the rendered point
       (bars_arm0 47-48.5 s, blocks_arm0 24-25.6 s, bells_arm0 23.3-24.5 s)
       found no corner off that list. `off_knots` is the row's literal wording
       (more than 20 us from any declared knot); `at_knots_0.1` is the scratch
@@ -127,7 +144,22 @@ Definitions where the goal leaves a choice (each also in its Result's note):
       below that closed form fails outright (`declared_below_closed`), so a
       declaration can tighten the bound but never loosen it. Without boundary
       data, the closed forms 3-4-5 60|D|/T^3 and hold 0; a ballistic or
-      quintic Hermite segment with neither fails.
+      quintic Hermite segment with neither fails. A declaring servo (PLAYERS
+      M2: formlab/servo.py, rake.py) is judged the same way per channel, its
+      carriage on 'scurve' (the servo S-curve, r = SCURVE_RAMP 0.3: a ramp
+      r (w^3 - w^4/2)/(1 - r), s''' = (6 - 12 w)/(r^2 (1 - r)), peak
+      6/(r^2 (1 - r)) = 95.24 at the ramp ends, 0 in the cruise): a move is
+      a run of contiguous 'scurve' carriage pieces split where the carriage
+      rests, D its 3D end-to-end chord and T its length, and each piece's
+      bound is max |s'''| over the piece's share of u times |D|/T^3 (exact
+      whether the move is one segment or its ramps and cruise apart). Its
+      head is a straight line along n = clearance/|clearance| (no arc map),
+      plus the (0, hy, hz) offset a segment declares in extra['hy'] /
+      extra['hz'] (that offset's own boundary data on the segment's law,
+      e.g. the rake's (y, z) path; absent = 0): J = |h''' n + (0, hy''',
+      hz''')|. Its 'home' head legs too (PLAYERS A23): only a mallet's
+      homing joint leg (an FK path, no closed form here) keeps its declared
+      jerk alone.
   9   Struck heads (mallet, hammer: the strokes gravity acts along) are
       judged; a stroke is the downstroke (the goal's "h <= 2g T_down^2"):
       d = h(t_apex), T = T_down, both from ruler 3/4, so s = g T^2 / 2d.
@@ -176,6 +208,7 @@ import functools, math, sys
 from pathlib import Path
 import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from players import core
 from players.core import FPS, G, H, INFO, Result, deriv
 from formlab import rig as R
 from formlab import segments as SEG
@@ -196,6 +229,13 @@ ALLOWED_LAWS = {'3-4-5', 'quintic', '4-5-6-7', 'cycloidal', 'modified sine', 'mo
                 'servo S-curve', 'quintic hermite', 'septic hermite', 'ballistic', 'linear', 'hold'}
 A345 = 10/math.sqrt(3)   # 3-4-5: peak |s''| (s = 10u^3 - 15u^4 + 6u^5)
 V345 = 1.875             # 3-4-5: peak |s'|
+# The servo S-curve's ramp fraction r (formlab.rig.scurve; loam.motion_timing's own once the constant lives there)
+SCURVE_R = float(getattr(R.motion_timing, 'SCURVE_RAMP', R.SCURVE_RAMP))
+# ...and its peak |s'''| = 6/(r^2 (1 - r)) (95.24 at r = 0.3), at the ramp ends: the ramp is r (w^3 - w^4/2)/(1 - r), w = u/r
+SCURVE_J = 6/(SCURVE_R*SCURVE_R*(1-SCURVE_R))
+LEAD_IOI = .25           # s: '3 lead' judges the contacts at or above this IOI (PLAYERS M2, C3)
+NO_IMPULSE_KINDS = ('rake',)   # arm kinds that declare no impulse (a sweep is C2 through every string): any fails 6a (A21)
+CONTACT_KNOT_TOL = 1e-6        # s: a 'contact' impulse knot sits on one of its arm's scored contacts within this (A21)
 
 # ---- small utilities --------------------------------------------------------
 def _mm(x, scale=1.0, nd=4):
@@ -265,7 +305,10 @@ def breakpoints(S, aid):
     for sg in _finite_segments(S, aid):
         ts.update((sg.t0, sg.t1)); T = sg.t1-sg.t0
         if sg.law == 'quintic+cocked': ts.add(sg.t0+R.COCK_AT*T)
-        elif sg.law == 'scurve': ts.update((sg.t0+R.SCURVE_RAMP*T, sg.t1-R.SCURVE_RAMP*T))
+        elif sg.law == 'scurve' and not D.native: ts.update((sg.t0+R.SCURVE_RAMP*T, sg.t1-R.SCURVE_RAMP*T))
+    # a declaring servo's S-curve: its ramp ends are its move's (one segment, or its ramps and cruise apart)
+    for A, B, _ in (set(_scurve_moves(S, aid).values()) if D.native else ()):
+        ts.update((A+SCURVE_R*(B-A), B-SCURVE_R*(B-A)))
     for k in D.knots:
         if k.kind == 'click' and 't_end' in k.extra and not D.native:
             per = (k.extra['t_end']-k.t)/R.CLICK_MOVE
@@ -402,6 +445,40 @@ def _peak(J, T):
         else: hi = m2
     return max(best, float(J(.5*(lo+hi))))
 
+@functools.lru_cache(maxsize=None)
+def _scurve_moves(S, aid):
+    """A declaring servo's carriage S-curve moves: runs of contiguous
+    'scurve' carriage segments, split where the carriage point rests (|v| <=
+    STILL on the stroke's own channels) -> {id(segment): (A, B, |D|)}, D the
+    move's 3D end-to-end carriage chord (the y_c/z_c blend rides the same
+    law). Empty when the arm declares no 'scurve' carriage piece."""
+    segs = sorted((g for g in _finite_segments(S, aid) if g.extra.get('channel') == 'carriage'), key=lambda g: g.t0)
+    if not any(g.law == 'scurve' for g in segs): return {}
+    st = S.stroke(aid); out = {}; run = []
+    def rests(t):
+        return float(np.linalg.norm([st.carriage.ev(t, 1, -1), st.yc.ev(t, 1, -1), st.zc.ev(t, 1, -1)])) <= STILL
+    def close():
+        if run:
+            A, B = run[0].t0, run[-1].t1; D = float(_norm(_carriage_pts(st, B)-_carriage_pts(st, A)))
+            out.update({id(g): (A, B, D) for g in run}); run.clear()
+    for g in segs:
+        if g.law != 'scurve': close(); continue
+        if run and (abs(g.t0-run[-1].t1) > 1e-9 or rests(g.t0)): close()
+        run.append(g)
+    close()
+    return out
+
+def _scurve_peak(ua, ub, r=SCURVE_R):
+    """max |s'''(u)| of the servo S-curve over [ua, ub] (u in [0, 1]):
+    (6 - 12 w)/(r^2 (1 - r)) on each ramp (w = u/r rising, (1 - u)/r
+    falling: linear in w, so its extreme sits at an end of the overlap), 0
+    in the cruise. A piece that only touches a ramp at a point has none of it."""
+    best = 0.0
+    for lo, hi, w in ((0.0, r, lambda u: u/r), (1-r, 1.0, lambda u: (1-u)/r)):
+        a, b = max(ua, lo), min(ub, hi)
+        if b-a > 1e-9: best = max(best, abs(6-12*w(a)), abs(6-12*w(b)))
+    return best/(r*r*(1-r))
+
 def _closed_jerk(S, aid, x):
     """The closed-form peak |p'''| of a mallet segment on its own channel signal,
     from its law and declared boundary data alone: carriage '3-4-5' 60|D|/T^3
@@ -411,23 +488,58 @@ def _closed_jerk(S, aid, x):
     for the blend (as 60|D|/T^3 carries it for the 3-4-5), so a glide piece's
     bound is never its declaration alone; head: the y-z path (h, sigma Z(h))
     of _law_h; each peak on a dense grid refined about the best sample
-    (_peak); 'hold' 0. None where there is none (a homing joint leg's FK path)."""
+    (_peak); 'hold' 0. None where there is none (a mallet's homing joint
+    leg: its FK path has no closed form here). A declaring servo (PLAYERS
+    M2): a carriage 'scurve' piece max |s'''| over its share of its move
+    times |D|/T^3 of the move (_scurve_moves, _scurve_peak); a head on the
+    straight line along n plus the declared (0, hy, hz) offset
+    (_servo_head_jerk), its 'home' legs included (PLAYERS A23: a servo's
+    home leg is a head segment like any other, so its bound is min(declared,
+    closed form), never the declaration alone)."""
     sg = x['seg']; T = sg.t1-sg.t0
     if sg.law == 'hold': return 0.0
     if x['channel'] == 'carriage':
         D = float(np.linalg.norm(x['p1']-x['p0']))
         if sg.law == '3-4-5': return 60*D/T**3
+        if sg.law == 'scurve':
+            mv = _scurve_moves(S, aid).get(id(sg)) if S.declared(aid).native else None
+            if mv is None: return None
+            A, B, Dm = mv; Tm = B-A
+            return _scurve_peak((sg.t0-A)/Tm, (sg.t1-A)/Tm)*Dm/Tm**3
         xp = _law_h(sg.law, sg.extra, T)
         if xp is None: return None
         dx = abs(float(x['p1'][0]-x['p0'][0])); d3 = xp.deriv(3)
         return _peak(lambda tau: np.abs(d3(tau)), T)*(D/dx if dx > 1e-12 else 1.0)
-    if sg.tag == 'home': return None
+    if sg.tag == 'home' and S.kind(aid) == 'mallet': return None      # FK joint leg; a servo's is a line (A23)
     hp = _law_h(sg.law, sg.extra, T)
     if hp is None: return None
+    if S.kind(aid) != 'mallet': return _servo_head_jerk(S, aid, sg, hp, T)
     rho, k = R.stroke.arc(S.kind(aid)); d1, d2, d3 = hp.deriv(1), hp.deriv(2), hp.deriv(3)
     def J(tau):
         h, h1, h2, h3 = hp(tau), d1(tau), d2(tau), d3(tau); z1, z2, z3 = _arc_derivs(h, rho, k)
         return np.hypot(h3, z3*h1**3+3*z2*h1*h2+z1*h3)
+    return _peak(J, T)
+
+def _servo_head_jerk(S, aid, sg, hp, T):
+    """A servo head segment's closed-form peak |p'''| (PLAYERS M2: p = carriage
+    + h n + (0, hy, hz)): h''' along n = clearance/|clearance| (a straight
+    line, no arc map) plus the (0, hy, hz) offset, each rebuilt by _law_h on
+    the segment's law from its own declared boundary data (extra['hy'],
+    extra['hz']: the same keys as h's; absent = no offset, so an undeclared
+    vector part is held to h's bound). None when an offset is declared but
+    cannot be rebuilt."""
+    n = np.asarray(S.rig.clearance(aid), float); n = n/np.linalg.norm(n)
+    off = []
+    for k in ('hy', 'hz'):
+        e = sg.extra.get(k)
+        if e is None: off.append(None); continue
+        q = _law_h(sg.law, e, T) if isinstance(e, dict) else None
+        if q is None: return None
+        off.append(q.deriv(3))
+    d3 = hp.deriv(3)
+    def J(tau):
+        h3 = d3(tau); y = h3*n[1]+(off[0](tau) if off[0] is not None else 0.0); z = h3*n[2]+(off[1](tau) if off[1] is not None else 0.0)
+        return np.sqrt((h3*n[0])**2+y*y+z*z)
     return _peak(J, T)
 
 def _declared_jerk(x, closed=None):
@@ -435,14 +547,16 @@ def _declared_jerk(x, closed=None):
     the segment's declared extra['jerk'] and the ruler's own closed form on its
     law and boundary data (`closed`, _closed_jerk), so the bound is never the
     declaration alone and a curve whose shape leaves its law fails; a declared
-    jerk with no closed form here (a homing joint leg) is used as declared;
+    jerk with no closed form here (a mallet's homing joint leg) is used as declared;
     no declared jerk: the closed form ('3-4-5' 60|D|/T^3, 'hold' 0); a
     'ballistic' or 'quintic hermite' segment without a declared jerk has no
-    bound (a fail, DESIGN 7.4)."""
+    bound (a fail, DESIGN 7.4). A servo 'scurve' carriage piece without one:
+    its closed form (_scurve_peak), as the 3-4-5's."""
     sg = x['seg']; j = sg.extra.get('jerk'); T = sg.t1-sg.t0
     if j is not None:
         return (min(float(j), closed), 'closed form') if closed is not None else (float(j), 'declared')
     if sg.law == '3-4-5': return 60*float(np.linalg.norm(x['p1']-x['p0']))/T**3, 'closed'
+    if sg.law == 'scurve' and closed is not None: return closed, 'closed'
     if sg.law == 'hold': return 0.0, 'closed'
     if sg.law in ('ballistic', 'quintic hermite'): return None, 'undeclared'
     return None, 'na'
@@ -799,30 +913,59 @@ def handoffs(S):
             if a.aid != b.aid and b.t-a.t <= PHRASE_IOI+1e-9: out.append((b.aid, b.i, a.aid, a.t))
     return out
 
+def _r3_rows(rows):
+    """Ruler 3's four tests over prep rows -> (value, fails, held)."""
+    fails = dict(windup=0, depth=0, lead=0, lead415=0)
+    for r in rows:
+        c = r['c']
+        if r['W'] < (6 if c.gap >= .5 else 4)*FRAME-1e-9: fails['windup'] += 1
+        if r['dh'] < .25*r['h_apex']-1e-12: fails['depth'] += 1
+        if r['L'] < min(.2, .9*c.ioi)-1e-9: fails['lead'] += 1
+        if c.gap >= 1.0 and r['L'] < .415-1e-9: fails['lead415'] += 1
+    L = np.array([r['L'] for r in rows]); W = np.array([r['W'] for r in rows])
+    depth = np.array([r['dh']/r['h_apex'] if r['h_apex'] > 0 else 0.0 for r in rows])
+    v = dict(n=len(rows), lead_lt100=int((L < .1).sum()), lead_lt200=int((L < .2).sum()),
+             lead_ms=_mm(L, 1e3, 1), windup_frames=_mm(W, FPS, 2), windup_depth=_mm(depth, 1, 3),
+             gap_ge1=int(sum(r['c'].gap >= 1.0 for r in rows)), fail=fails)
+    held = [r['hold'] for r in rows if r['hold'] > 0]
+    if held: v.update(apex_holds=len(held), hold_ms=_mm(held, 1e3, 1))
+    return v, fails, held
+
 def r3_preparation(S):
     out = []
     for aid in S.arms:
         rows = prep(S, aid)
         if not rows:
-            out.append(Result(3, '3 preparation', aid, dict(n=0), None, 'no contacts on this arm')); continue
-        fails = dict(windup=0, depth=0, lead=0, lead415=0)
-        for r in rows:
-            c = r['c']
-            if r['W'] < (6 if c.gap >= .5 else 4)*FRAME-1e-9: fails['windup'] += 1
-            if r['dh'] < .25*r['h_apex']-1e-12: fails['depth'] += 1
-            if r['L'] < min(.2, .9*c.ioi)-1e-9: fails['lead'] += 1
-            if c.gap >= 1.0 and r['L'] < .415-1e-9: fails['lead415'] += 1
-        L = np.array([r['L'] for r in rows]); W = np.array([r['W'] for r in rows])
-        depth = np.array([r['dh']/r['h_apex'] if r['h_apex'] > 0 else 0.0 for r in rows])
-        v = dict(n=len(rows), lead_lt100=int((L < .1).sum()), lead_lt200=int((L < .2).sum()),
-                 lead_ms=_mm(L, 1e3, 1), windup_frames=_mm(W, FPS, 2), windup_depth=_mm(depth, 1, 3),
-                 gap_ge1=int(sum(r['c'].gap >= 1.0 for r in rows)), fail=fails)
-        held = [r['hold'] for r in rows if r['hold'] > 0]
-        if held: v.update(apex_holds=len(held), hold_ms=_mm(held, 1e3, 1))
-        out.append(Result(3, '3 preparation', aid, v, not any(fails.values()),
-                          '|W| >= 4 frames (6 if gap >= 0.5 s); dh(W) >= 0.25 h(t_apex); L >= min(200 ms, 0.9 IOI); L >= 415 ms if gap >= 1 s'
-                          +('; W skips a declared head hold ending at t_apex (+-2 ms): W is the rise before it, L and dh from its start' if held else '')
-                          +('; plucks: t_i = t and c = the contact (no t_place yet)' if S.kind(aid) == 'pick' else '')))
+            out.append(Result(3, '3 preparation', aid, dict(n=0), None, 'no contacts on this arm'))
+            out.append(Result(3, '3 lead (IOI >= 0.25 s)', aid, dict(n=0), None, 'no contacts on this arm')); continue
+        v, fails, held = _r3_rows(rows)
+        note = ('|W| >= 4 frames (6 if gap >= 0.5 s); dh(W) >= 0.25 h(t_apex); L >= min(200 ms, 0.9 IOI); L >= 415 ms if gap >= 1 s'
+                +('; W skips a declared head hold ending at t_apex (+-2 ms): W is the rise before it, L and dh from its start' if held else '')
+                +('; plucks: t_i = t and c = the contact (no t_place yet)' if S.kind(aid) == 'pick' else ''))
+        out.append(Result(3, '3 preparation', aid, v, not any(fails.values()), note))
+        # the same tests on the contacts at IOI >= 0.25 s (C3: what the servo gate holds a stroke to; the first contact, IOI inf, is one)
+        lead = [r for r in rows if r['c'].ioi >= LEAD_IOI-1e-9]
+        if not lead:
+            out.append(Result(3, '3 lead (IOI >= 0.25 s)', aid, dict(n=0, left_out=len(rows)), None, 'no contact at IOI >= 0.25 s')); continue
+        lv, lf, lh = _r3_rows(lead); lv['left_out'] = len(rows)-len(lead)
+        out.append(Result(3, '3 lead (IOI >= 0.25 s)', aid, lv, not any(lf.values()),
+                          '3 preparation\'s tests on the contacts with IOI >= 0.25 s (left_out: those below): '+note))
+    # D7 (PLAYERS A26): a pick's declared poise is a pause, so the tool point is still through it (core.still)
+    for aid in S.arms_of('pick'):
+        ps = sorted((sg for sg in S.declared(aid).segments if sg.extra.get('channel') == 'head' and sg.tag == 'hold'
+                     and sg.extra.get('hold') == 'poise' and math.isfinite(sg.t1) and sg.t1 > sg.t0), key=lambda sg: sg.t0)
+        sv = [(sg, x) for sg in ps for x in [core.still(S, aid, sg.t0, sg.t1)] if x is not None]
+        if not sv:
+            out.append(Result(3, '3 poise still', aid, dict(n=0), None, 'no declared poise on a planned stroke: nothing to judge')); continue
+        bad = [(sg, x) for sg, x in sv if not x['ok']]
+        out.append(Result(3, '3 poise still', aid,
+                          dict(n=len(sv), moving=len(bad), v_max_mm_s=_mm([x['v_max'] for _, x in sv], 1e3),
+                               still_ms=_mm([x['still_ms'] for _, x in sv], 1.0), drift_mm=_mm([x['drift'] for _, x in sv], 1e3),
+                               failing=[dict(t0=round(sg.t0, 4), t1=round(sg.t1, 4), v_max_mm_s=round(x['v_max']*1e3, 1),
+                                             t_v=round(x['t_v'], 4), still_ms=round(x['still_ms'], 1), drift_mm=round(x['drift']*1e3, 2))
+                                        for sg, x in bad][:8]),
+                          not bad, 'every declared head poise (extra hold = poise): the tool point\'s |v| <= 20 mm/s on the closed '
+                          'form every 1 ms through it (A26 D7); still_ms = the time at <= 20 mm/s, drift = |p(t1) - p(t0)|'))
     # hand-offs, on the incoming holder
     ho = {}
     for b_aid, b_i, a_aid, a_t in handoffs(S):
@@ -1000,6 +1143,16 @@ def r6_smoothness(S):
         def a_peak_at(t):
             return max([apk.get(id(sg), 0.0) for sg in segs if sg.t0-1e-9 <= t <= sg.t1+1e-9] or [0.0])
         imp_t = _knot_times(S, aid, SEG.IMPULSES)
+        # A21: an impulse is a contact's own. A 'contact' knot must sit on one of the arm's scored contacts
+        # (and there is one per contact); a kind that declares no impulse may have none at all. An
+        # unmatched knot fails 6a and is a 6b corner (it excuses nothing); 'detent'/'slip' keep their rules.
+        ct = np.array(sorted(c.t for c in S.contacts(aid))); free = S.kind(aid) in NO_IMPULSE_KINDS
+        ck = [k.t for k in D.knots if k.kind == 'contact']
+        stray = sorted({float(t) for t in (imp_t if free else ck) if free or not _near(ct, t, CONTACT_KNOT_TOL)})
+        short = 0 if free else len(ct)-len(ck)              # contacts minus contact knots: one each
+        a21 = dict(**({'unmatched': len(stray), 'unmatched_at': [round(t, 3) for t in stray[:6]]} if stray else {}),
+                   **({'contacts_minus_knots': short} if short else {}))
+        imp_ok = np.array([t for t in imp_t if not _near(np.array(stray), t, 1e-12)]) if stray else imp_t
         dv_cache = {}
         def jump(t):
             if t not in dv_cache:
@@ -1034,14 +1187,18 @@ def r6_smoothness(S):
                           (bad_v+bad_a == 0) if n_sm else None,
                           '|dv| <= 1e-3 m/s and |da| <= 0.05 a_peak (larger adjoining segment) + the stencil\'s rounding floor, at smooth, click and place knots'))
         imp_v = {kind: _mm(x, 1, 3) for kind, x in imp_dv.items()}
+        why21 = ('; A21: every contact knot on a scored contact (+-1 us), one per contact'
+                 +('; this kind declares none' if free else '')) if a21 else ''
         if not imp_dv:
-            out.append(Result(6, '6a impulse knots', aid, dict(knots=0), True, 'no impulse knots'))
+            out.append(Result(6, '6a impulse knots', aid, dict(knots=0, **a21), not a21,
+                              ('no impulse knots (the rake declares none: one would fail, A21)' if free else 'no impulse knots')+why21))
         elif undeclared:
-            out.append(Result(6, '6a impulse knots', aid, dict(knots=sum(map(len, imp_dv.values())), undeclared=undeclared, dv=imp_v), None,
-                              'the rig declares no dv at its impulse knots yet: measured |dv| reported'))
+            out.append(Result(6, '6a impulse knots', aid, dict(knots=sum(map(len, imp_dv.values())), undeclared=undeclared, dv=imp_v, **a21),
+                              False if a21 else None,
+                              'the rig declares no dv at its impulse knots yet: measured |dv| reported'+why21))
         else:
-            out.append(Result(6, '6a impulse knots', aid, dict(knots=sum(map(len, imp_dv.values())), fail=imp_bad, dv=imp_v), imp_bad == 0,
-                              'measured dv = declared dv within 1e-3 m/s + 0.1 %'))
+            out.append(Result(6, '6a impulse knots', aid, dict(knots=sum(map(len, imp_dv.values())), fail=imp_bad, dv=imp_v, **a21),
+                              imp_bad == 0 and not a21, 'measured dv = declared dv within 1e-3 m/s + 0.1 %'+why21))
         # 6b on the rendered contact point (what the film shows: rule 4 lets
         # velocity jump only at a declared impulse, and its "what goes" names
         # the |sine| bounce): every branch point of the path plus the rings'
@@ -1053,13 +1210,19 @@ def r6_smoothness(S):
         probes = {float(t): kind_at.get(t, 'internal') for t in breakpoints(S, aid)}
         for t, what in ring_corners(S, aid):
             if 0 < t < S.total: probes.setdefault(float(t), what)
+        U = np.array(stray)
         for t, what in sorted(probes.items()):
+            if stray and _near(U, t, 20e-6): continue       # an unmatched impulse knot: counted below
             dv = float(np.linalg.norm(deriv(fr, t, +1, 1)-deriv(fr, t, -1, 1)))
             if dv <= .02: continue
             if not _near(all_t, t, 20e-6): off_knots += 1
-            if not _near(imp_t, t, 20e-6):
+            if not _near(imp_ok, t, 20e-6):
                 n6b += 1; by[what] = by.get(what, 0)+1; w6b = max(w6b, dv)
                 if len(at6b) < 6: at6b.append(round(float(t), 3))
+        for t in stray:                                     # A21: a corner whatever its |dv|
+            dv = float(np.linalg.norm(deriv(fr, t, +1, 1)-deriv(fr, t, -1, 1)))
+            n6b += 1; by['unmatched impulse'] = by.get('unmatched impulse', 0)+1; w6b = max(w6b, dv)
+            if len(at6b) < 6: at6b.append(round(float(t), 3))
         old = sum(float(np.linalg.norm(jump(t)[1]-jump(t)[0])) > .1 for t in at_t)
         out.append(Result(6, '6b corners', aid, dict(count=n6b, by=by, max_dv=_r(w6b, 3), at=at6b, off_knots=off_knots, **{'at_knots_0.1': old}),
                           (n6b == 0) if probes else None, '|dv| > 0.02 m/s (one-sided 5-point, 10 us) more than 20 us from an impulse knot, on the rendered contact point, '
@@ -1077,7 +1240,7 @@ def r6_smoothness(S):
     return out
 
 def _r6c_channels(S, aid):
-    """Ruler 6c on a mallet's declared channels (DESIGN 7.4): every segment,
+    """Ruler 6c on a declaring arm's channels (DESIGN 7.4; a mallet, or a servo from PLAYERS M2): every segment,
     holds included, judged on its own channel's signal against its declared
     jerk (or the closed form): max |da| per 1 ms <= 1.1 J 1e-3 + 1e-3."""
     rows = {ch: dict(segments=0, fail=0, worst_ratio=0.0) for ch in SEG.CHANNELS}
@@ -1109,7 +1272,9 @@ def _r6c_channels(S, aid):
                   'max |da| per 1 ms <= 1.1 J 1e-3 + 1e-3, J = min(the segment\'s declared jerk, this ruler\'s closed form on '
                   'its law and declared boundary data: carriage 3-4-5 60|D|/T^3, a glide\'s hermite halves / ballistic cruise '
                   'peak |x\'\'\'| x |p1 - p0|/|x1 - x0|; head hermite / ballistic / 3-4-5 through the arc), hold 0; a declared jerk below its closed form fails; ballistic and quintic Hermite need a '
-                  'declared jerk (undeclared = fail)')
+                  'declared jerk (undeclared = fail)'+('' if S.kind(aid) == 'mallet' else
+                  '; servo: carriage scurve 6/(r^2(1-r))|D|/T^3 of its move on each piece\'s share of u (0 in the cruise), '
+                  'head a straight line along n + the declared (0, hy, hz) offset, no arc'))
 
 def _r6c(S, aid, sm, f):
     """Ruler 6c on the path signal against today's laws' closed forms (every arm but a declared mallet)."""

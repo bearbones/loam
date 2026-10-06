@@ -1,3 +1,175 @@
+## 2026-10-06 — PLAYERS M2: the picks wind up, the rake announces
+
+The harp picks and the rake no longer dart and stab. A harp pick now:
+- rises from its hover while the carriage slews under it;
+- poises, still, for 0.1 s at the apex;
+- comes down on the string in a quintic action at 2.0–2.8 m/s;
+- leaves it at a constant 0.7 m/s and returns to the hover.
+
+A phrase pluck (gap under 1 s) never rests: it rises straight from the last
+string, turns at 1 g and falls again. The slews leave when the arm is free
+(up to 0.25 s sooner), as jerk-limited S-curves that never overshoot, so the
+arm is seen to set off for the next string instead of waiting and darting.
+
+The rake plays a slow roll and is announced. Before a sweep after a silence
+it swings back for ≥ 0.5 s, holds still at the apex for 0.1 s, runs up and
+strokes through the strings. It then follows through ≥ 0.2 m along the
+sweep before turning, and rises away at a phrase end.
+
+`formlab/servo.py` plans the picks (`plan_pick`) and `formlab/rake.py` the
+rake (`plan_rake`), both numpy only, as two declared channels: the carriage
+on its leadscrew and the head's height off the string plane (the rake adds
+h_y across the strings). Every join is C2 but a pick's contact, a declared
+impulse. `Rig.stroke` consults them, the rulers read them as they read a
+mallet, and `tools/test_servo.py` holds the rig to the plan.
+
+**The picks.**
+
+- **Poised** (≥ 1.0 s after the last contact): rise 0.22 → 0.32 m over
+  0.49 s, a declared 'poise' hold of 0.1 s ending 0.15 s before the pluck,
+  the action, the contact at v_in = 2.0 + 0.8 a' m/s, and a 0.25 s release
+  to the hover. The carriage leaves at the score's go and lands on the
+  poise, so the two arrive together (a ruler 22 sync target).
+- **Phrase**: no hold. The head rises to min(0.22, 1.2 m/s × W), turns at
+  1 g (ruler 5's no-rest floor is 0.5 g) and falls over
+  clamp(0.4 IOI, 0.085, 0.15) s. The head law depends on (IOI, a', next
+  IOI, next a') alone, so a repeated figure repeats exactly (RMS ≤ 2e-11 mm).
+- **Slews**: one S-curve per travel (30 % ramps, cruise 1.43× the mean),
+  within `SERVO_V_MAX` and 3 g (`motion_timing.servo_fast_s`). An
+  unhurried slew leaves up to `SLEW_SLACK_S` 0.25 s sooner when the arm is
+  free: 90 slews leave earlier, with 0 extra refusals, drops or
+  substitutions (A16).
+- `loam/score.py` bounds a servo carriage's occupancy by where its S-curve
+  can be, not the whole interval it crosses. Two travels that ran on into
+  their poise at 561 and 1098 mm/s now leave 0.217 s sooner and stop on it.
+
+**The rake** (Q1 at M2: the 0.541 s roll on the interim comb, A13).
+
+- The comb's path is designed in tool space against D1–D6 and reads no arm
+  cfg. The rail plan then picks the root and links that reach it.
+- **Announced sweeps** (21.43, 34.29, 40.00, 45.71, 77.14): backswing
+  0.5 s (0.9 s at 34.29, where the carriage crosses the rail), apex hold
+  0.10 s, run-up 0.22–0.25 s.
+- **Turns**: a chain of rolls flows from one into the next through the
+  pendulum's turn. 67.14 ends on a ghost pass into 68.57.
+- **Releases** at the phrase ends (68.57, 77.14) rise 236 and 392 mm away
+  from the strings and never return toward them.
+- **Homing**: x home → lo → hi → home, then the elbow and the shoulder
+  windows (x 1.0 of reach_x, shoulder 1.074, elbow 0.887 of their spans).
+- **The rail** is (0.55, −1.35, 1.60): A28's tie-break on ruler 1's link
+  strobe.
+
+**How it was built.** Three rounds of workflows, each built in scratch
+sandboxes against the rulers, merged, then reviewed by fresh agents told to
+refute it. Every review found rows that passed while the rake or a harp did
+what the goal forbids. Each finding tightened a ruler or moved the motion;
+no ruler constant was loosened.
+
+- **Round 1** passed '14' on |v| at the hit alone. Every roll snapped at
+  its last string, 61–110° frame turns at 26 g, and a bounce's arc counted
+  as follow-through. → A20 (D1–D5), A21.
+- **Round 2**: the 34.29 return's carriage arrived inside the apex hold, so
+  the "still" hold moved at 1324 mm/s. Two harp poises moved at 561 and
+  1098 mm/s. The comb slid 62 mm back down the strings after its
+  follow-through. The sync row went PASS, FAIL, PASS as a delay grew.
+  → A22–A27 (D7–D9).
+- **Round 3**: the rail plan picked the rake's rail on a 1-ulp float tie
+  and failed '1 links' (1.177 against 0.955). A carriage arriving late into
+  a hover read as a strike. → A28 and D8's hover arrivals.
+- **Fix 4**: a travel landing in a release, or in a wind-up a hold
+  interrupts, still read as a strike, and its skeptics found a carriage
+  landing past its pluck borrowed the next contact's run-up (41 of 95
+  strikes, on mutated motion). A strike now plays the first contact after
+  its go, crosses none, and ends on it or in the head's run-up to it.
+  `tools/test_sync.py` (new) moves landings early and late in memory, holds
+  each term of the rule (18 mutants of it all fail), and holds ruler 1's
+  strobe mirror to the bit on the rake, a harp, the bars and the hammer.
+
+A20–A28 and the table of D1–D9 are in the goal's "Ruler amendments (M2
+rounds 2–3)". In short:
+
+- **A20**: ruler 14 judges the rake on its scored point (D1, D2, D4, D5),
+  and the M2 gate gains '15 tip accel' on the rake (D3).
+- **A21**: 6a ties impulse knots to scored contacts.
+- **A22**: sync targets every travel into a head hold.
+- **A23**: 6c's 'home' exit is for mallets only.
+- **A24**: the slew cap gains a rake clause (`announce_lead`).
+- **A25**: sync is D8, and an unjudged travel fails.
+- **A26**: D7, a declared hold is still: '3 poise still' (gated) and
+  '14 announce'.
+- **A27**: D9 joins ruler 24 (M10): '24 release' give-back and '24 rest'.
+- **A28**: the rail plan breaks ties on ruler 1's link strobe.
+
+**What M2 measures** (`--gate=M2`, invariants on, both assets): the gate
+passes on both assets, and the M1 gate still passes. Every gated row reads
+the same on the chamber and the expanded asset, except ruler 25.
+
+| row | harp_arm0 | harp_arm1 | harp_arm2 | rake_arm0 |
+|---|---|---|---|---|
+| 3 lead (IOI ≥ 0.25 s) | 55, lead ≥ 714 ms, W ≥ 14.67 fr | 35, ≥ 357 ms, ≥ 6.43 fr | 39, ≥ 357 ms, ≥ 6.43 fr | 21, 819–1249 ms, ≥ 12.96 fr |
+| 3 poise still / 14 announce (D7) | 41 poises, 0 moving | 20, 0 | 26, 0 | 5 holds, ≤ 0.0013 mm/s |
+| 5 no rest | 0 gaps | 8 gaps, 0 violations | 15, 0 | 15, 0 |
+| 6c jerk, worst | 0.896 | 0.900 | 0.898 | 0.908 |
+| 22 sync (D8) | 34/34, ≤ 2.69 ms | 14/14, ≤ 2.52 ms | 23/23, ≤ 2.38 ms | 12/12, ≤ 1.05 ms |
+| 22 repeat | 7 groups, ≤ 1.1e-11 mm | 2, ≤ 1.2e-12 | 7, ≤ 5.2e-12 | 2, ≤ 3.5e-11 |
+
+The rake's ruler 14 and 15:
+
+- **D1 follow-through**: 0.290–0.456 m.
+- **D2 entry**: E 1.082–1.137, run-in 0.210–0.385 m.
+- **D3 tip accel**: max 5.5 g, 0 ms over 10 g.
+- **D4 frame turns**: max 27.0°, 0 over 30°.
+- **ρ**: 0.920 max, 0 frames over 1.
+- **Carriage**: 2.63 m/s, 2.90 g.
+- **Corners**: 0.
+
+Ruler 25: the chamber's ledger is unchanged (239 intended, 221 as written,
+9 substituted, 9 dropped) and the expanded song refuses 0 of 64. The stems
+are pinned (A17), and only the rake's stem, the sympathetic bus and the
+mixdown moved. Ruler 26's suites pass.
+
+Over the whole report (`--report`), chamber reads 212 PASS / 133 FAIL /
+48 n/a / 19 info of 412, against M1's 146 / 167 / 56 / 17 of 386. The
+remaining FAILs are the hands, the hammer, the drives and the endings,
+which later milestones own.
+
+**Rebuilt and rendered.**
+
+- Both assets were rebuilt in Blender in the repo. The manifests, the stems
+  record and the score equal the validated scratch build's. The GLBs equal
+  it node for node, except that 18 cushion balls write their triangles in
+  another order (same vertices, normals, UVs and triangle set).
+- `tools/test_sync.py` is new. It passes, with test_servo, test_motion,
+  test_players_servo, test_gantry, test_linkage_tools, test_bake,
+  test_rail_cache, test_score_plan, test_stroke and test_eyelets.
+- The after reel is in `render/players/m2/`: moments 1–5, m2q and reel.mp4,
+  before | after.
+
+**Left for later milestones.**
+
+- **'15 phases' on harp_arm1 and harp_arm2** (M7's row) fail since round 3.
+  A `yz_s` floor passes them but moves the gated sync row.
+- **harp_arm2's 0.179 s run (13.5–14.4 s)**: twelve 39 ms hops of
+  0.109 m at 53 g. Ruler 3's '3 preparation' and '15 tip accel' fail on
+  them. M7's fingers split the run (A14).
+- **Seven hurried 0.217 s phrase windows** at 3.03–4.43 g (harp_arm1 and
+  harp_arm2) are exactly the score's windows.
+- **The rake's tuck** shimmies: 5 lateral curvature reversals a roll
+  against the cubic's 3, ≤ 5.7 mm, inside D3 and D4. M9's pendulum replaces
+  it.
+- **Ruler 1's reach** (tool, wrist and elbow p95) still fails on the servo
+  arms. M7's hands and M9's rake own it.
+- **The homing chord** uses 2.630 m of a 2.640 m rail. The rake pair's
+  clearance is 26.2 mm.
+- **Ruler 23 (the comb overlapping the strings)** is M9's.
+- **The m3 reel moment** frames the rake from too far off to read the
+  announcement. M11's close shots aim at the hand.
+- **`formlab/servo.py`'s `yz_s` docstring** still names M9 for the harp's
+  '15 phases' (M7). It is fixed with the next servo.py edit (M3), because
+  any edit there changes the rail key.
+- **A28's table** gives bars_arm0's strobe as 1.1654 at root_z 0.07. On the
+  installed root_z 0.069099 it reads 1.16506, equal to ruler 1's.
+
 ## 2026-10-04 — PLAYERS M1: mallets ride the bounce
 
 The mallets no longer punch like a stamp machine. A stroke now:

@@ -50,7 +50,50 @@ Definitions where the goal leaves a choice:
                (`_sounding`). The ring alone is one value per material, which
                would leave both Spearman rulers undefined.
   strum        v_sweep = L_path/(t_end - t_hit), L_path the polyline through the
-               swept contact points; entry = |v(t_hit-)|/v_sweep. Corners are
+               swept contact points. On the scored point p(t) (Rig.path_at; the
+               declared stroke's own vectorised p where the arm declares one),
+               PLAYERS A20, the goal's Rake row read as written ("enters the
+               first string at >= 0.7 x sweep speed with no corners", "follows
+               through >= 0.2 m past the last string, then lifts off"):
+               entry (D2) E = ((p(t_hit) - p(t_hit - 1/30)).t_in) 30/v_sweep,
+               t_in = v(t_hit-)/|v|: the mean speed along the sweep over the
+               last rendered frame before the first string, so a comb that
+               hooks onto the string inside that frame reads low however fast
+               it is at t_hit (a frame of pure sideways or backing motion
+               reads <= 0); RI = the displacement along t_in over the last
+               0.2 s, v_tan_1f = v(t_hit - 1/30).t_in and the old instant
+               |v(t_hit-)|/v_sweep are info. Follow-through (D1): t_out
+               = v(t_end+)/|v|, FT = max over [t_end, t_rev] of (p(t) -
+               p(t_end)).t_out, t_rev the first t > t_end with v.t_out <= 0
+               (the first 0.1 ms step whose projection does not grow) or the
+               next contact (or the piece's end): how far the comb carries on
+               along its exit before it turns, not the arc of the turn itself;
+               the arc from t_end until |v| <= 0.1 v_sweep (the row as M0 wrote
+               it, which counts a 90-degree lift) is reported as '14
+               follow-through arc' (info). Frame turns (D4, info): every 30
+               fps frame vertex in [t_hit - 0.25 s, t_end + 0.25 s] whose two
+               steps are both >= 0.25 v_sweep/30, the angle between the steps;
+               the design target is <= 30 deg (counted by entry / inner / exit
+               and by the vertex's nearer end string); beside it the windows'
+               peak |a| (1 ms second differences, contacts included, which
+               ruler 15's tip row leaves out within 10 ms). Announce (D5, gated): a sweep
+               the score leaves >= 0.8 s free of rake contact (the previous
+               roll's t_free, the strings free again, to t_hit; the first sweep
+               always), but for the pendulum's internal turns (ruler 5's
+               window: the previous contact at >= 45.70 s and this one at <=
+               67.15 s; the window's first sweep is announced), has a
+               backswing >= 0.5 s, then a declared head hold >= 0.1 s (3
+               frames) at the apex that is still (A26, D7: the tool point's
+               |v| <= core.STILL_V, 20 mm/s, on the closed form every 1 ms
+               through it; the M2 review found the 34.29 hold declared over the
+               carriage's crossing at 1324 mm/s), then the run-up.
+               Apex and hold are ruler 3's (r_motion.prep, A4:
+               a run of declared head 'hold' segments ending at t_apex +-2 ms);
+               the backswing is the rise of h into that hold, back from its
+               start while h falls (going back) by more than 1e-12 m a 0.1 ms
+               step, snapped onto a declared breakpoint within a step (a rise
+               from rest starts on its knot; prep's STILL threshold puts a 3-4-5
+               from rest ~1 ms late). Corners are
                counted at every declared knot of the sweep event from its
                stroke start to t_free. E for rho is the arm_capsules tool
                capsule (tip -> swan-neck apex, r 0.03); rho with the 0.19 m pick
@@ -74,8 +117,31 @@ Definitions where the goal leaves a choice:
                frames before the next motion, against 1.5 x the arm's tempo
                apex (median per-stroke apex, 45.71-68.57 s, IOI <= 0.5 s); the
                lift-and-park needs a later rise > 1 cm. Rake: "upward" = the
-               release displacement within 45 deg of +y with follow-through >=
-               0.2 m. Hammer: "slowly" = T >= 0.3 s (the raise's floor) to
+               release displacement p(t1) - p(t_end) (t1 = the next motion,
+               at most t_end + 1.5 s) within 45 deg of +y and rising, with
+               ruler 14's follow-through (D1) >= 0.2 m; and on the path
+               (PLAYERS A20, D6: the M2 review found a release that lifted 0.48
+               m off the strings and came back to 34 mm, its endpoints at 43.67
+               deg): h = (p - c).n never gives back more than 1 um of its
+               running maximum from t_end to the release's rest (the end of the
+               release chain, Park time below), and the release displacement
+               stays within 45 deg of +y at every 1 ms sample of [t_0, t1] once
+               it is >= 1 cm long, t_0 = t_end after an upward exit (t_out.y >
+               0: an up roll's follow-through is the release's start), else
+               the follow-through's turn t_rev (a down roll follows through
+               downward first). D9 (A27: the M2 review found release_hi and
+               park_hi sliding 72 / 64 mm back down the strings after the
+               turn): from the follow-through's turn t_rev to the rest the
+               path never gives back more than 1 um of its running maximum
+               along the exit (t_out in the string plane, h taken out: the lift
+               is D6's); after a down exit at a listed phrase end along the
+               release instead (-t_out: 24's upward release reverses the exit
+               there, so the literal sense is reported, not judged). '24 rest'
+               judges D9 on the rake's other sweeps whose release chain comes
+               to rest (|v| <= STILL_V at its end, before the next note's own
+               start, so before a backswing or announce); a pendulum turn
+               flows on into the next stroke and is not a rest. Hammer:
+               "slowly" = T >= 0.3 s (the raise's floor) to
                within 1 deg of rest, with no reversal. Park time = the end of
                an arm's last non-hold segment; frames are k = ceil(30 t).
 """
@@ -99,6 +165,24 @@ BLADE = dict(h=.07, t=.007)                  # linkage.pick_tool blade_h, blade_
 GAIN = .035          # performance.gd: gain = amp*0.035
 CROSS_AXIS = .35     # wire_string.gdshader cross_axis
 NEXT_TAGS = ('travel', 'wind-up', 'stroke', 'fall', 'place', 'home', 'ghost', 'slide')
+
+# Ruler 14 on the scored point (PLAYERS A20, D1/D2/D4/D5) and 24's rake path (D6).
+FT_MIN = .2          # m: "follows through >= 0.2 m past the last string" (the goal's Rake row)
+ENTRY_MIN = .7       # "enters the first string at >= 0.7 x sweep speed"
+RUN_IN_S = .2        # s: the run-in RI is the displacement along t_in over this long before t_hit (info)
+SCAN_DT = 1e-4       # s: the grid D1's turn and D5's backswing are found on (snapped to a knot within a step)
+RISE_EPS = 1e-12     # m: a SCAN_DT step "grows" past this (float noise on a 90-degree turn or a hold is ~1e-16)
+TURN_PAD = .25       # s: the frame-turn window reaches this far before t_hit and after t_end
+TURN_STEP = .25      # x v_sweep/30: a frame step this short is a stop, its direction not judged
+TURN_MAX = 30.0      # deg: the design target for a turn between two 30 fps steps (D4, info)
+ACC_H = 1e-3         # s: second-difference half-step of D4's peak |a| (ruler 15's 1 kHz)
+ANNOUNCE_GAP = .8    # s: a sweep after this long free of rake contact is announced (rake.ANNOUNCE_S)
+BACKSWING_MIN = .5   # s: an announced sweep's backswing (the rise of h into its apex hold)
+HOLD_MIN = .1        # s: its declared head hold at the apex (3 frames: a pause that reads)
+RETURN_TOL = 1e-6    # m: 24's rake release may give back this much of h's running maximum (float noise), and
+                     # (D9, A27) of the exit-direction coordinate's after the follow-through's turn, to the rest
+ANG_MIN_D = .01      # m: 24's path angle is judged once the release displacement is this long
+REL_ANG = 45.0       # deg: "upward" = within this of +y (24, the endpoints and now the path)
 
 # The goal's lists ("Harp hands" gestures, "Phrase ends and the ending").
 RUNS = [(13.57, 14.11), (16.43, 16.96), (19.29, 19.82), (22.14, 22.68)]
@@ -264,12 +348,12 @@ def _catmull(vals, u):
 
 def _hits(S):
     """performance.gd's `hits`: per string, (t, event) for every event that
-    names it, a sweep's k-th string at t + k*spread."""
+    names it, a sweep's k-th string at its own time (motion_timing.string_times:
+    t + onsets[k] for a rake roll, else t + k*spread)."""
     def build():
         out = {}
         for e in S.score['events']:
-            sp = float(e.get('spread_s', 0))
-            for k, sid in enumerate(e.get('strings', [])): out.setdefault(sid, []).append((float(e['t'])+k*sp, e))
+            for sid, ts in zip(e.get('strings', []), R.motion_timing.string_times(e)): out.setdefault(sid, []).append((ts, e))
         return out
     return _memo(S, 'hits', build)
 
@@ -482,6 +566,48 @@ def _follow(f, t_end, thr, t_stop, dt=1e-3):
         u, p = u2, p2
     return s
 
+def _pts(S, aid, ts):
+    """The scored point p at the times ts, (N, 3): the declared stroke's own
+    vectorised p where the arm plans one (Rig.path_at reads it, so the two
+    are the same numbers), else Rig.path_at sample by sample."""
+    ts = np.atleast_1d(np.asarray(ts, float)); st = S.stroke(aid)
+    if st is not None and S.kind(aid) != 'mallet': return np.asarray(st.p(ts), float).reshape(-1, 3)
+    return np.array([S.path(aid, u) for u in ts], float).reshape(-1, 3)
+
+def _turn(S, aid, t_end, t_out, t_stop):
+    """D1: (FT, t_rev). Along t_out from t_end on the SCAN_DT grid, in 1 s
+    chunks: t_rev is the first step whose projection does not grow (v.t_out
+    <= 0), or t_stop; FT the projection's max up to it."""
+    p0 = _pts(S, aid, [t_end])[0]; u = t_end; best = 0.0
+    while u < t_stop-1e-12:
+        b = min(u+1.0, t_stop); ts = np.linspace(u, b, max(int(math.ceil((b-u)/SCAN_DT-1e-9)), 1)+1)
+        s = (_pts(S, aid, ts)-p0)@t_out; k = np.nonzero(np.diff(s) <= RISE_EPS)[0]
+        if k.size: return max(best, float(s[:k[0]+1].max())), float(ts[k[0]])
+        best = max(best, float(s.max())); u = float(ts[-1])
+    return best, float(t_stop)
+
+def _frame_turns(S, aid, c, v_sw):
+    """D4 on one sweep: the angle between consecutive 30 fps steps of p in
+    [t_hit - TURN_PAD, t_end + TURN_PAD] whose two steps are both >= TURN_STEP
+    v_sweep/30, by the vertex's place (entry: by t_hit, exit: from t_end); and
+    the window's peak |a| (ACC_H second differences, contacts included: the
+    turn sits within 10 ms of them, where ruler 15 does not look)."""
+    k = np.arange(math.ceil((c.t-TURN_PAD)*FPS-1e-9), math.floor((c.t_end+TURN_PAD)*FPS+1e-9)+1)
+    P = _pts(S, aid, k/FPS); d = np.diff(P, axis=0); m = np.linalg.norm(d, axis=1)
+    ok = (m[:-1] >= TURN_STEP*v_sw/FPS) & (m[1:] >= TURN_STEP*v_sw/FPS)
+    cs = np.einsum('ij,ij->i', d[:-1], d[1:])/np.maximum(m[:-1]*m[1:], 1e-300)
+    ang = np.where(ok, np.degrees(np.arccos(np.clip(cs, -1.0, 1.0))), 0.0); tv = k[1:-1]/FPS
+    where = np.where(tv <= c.t+1e-9, 'entry', np.where(tv >= c.t_end-1e-9, 'exit', 'inner'))
+    ta = np.arange(c.t-TURN_PAD, c.t_end+TURN_PAD, SCAN_DT)
+    A = (_pts(S, aid, ta+ACC_H)-2*_pts(S, aid, ta)+_pts(S, aid, ta-ACC_H))/ACC_H**2; g = np.linalg.norm(A, axis=1)
+    i = int(np.argmax(ang)) if ang.size else 0; j = int(np.argmax(g))
+    end = np.where(tv < .5*(c.t+c.t_end), c.event['strings'][0], c.event['strings'][-1])   # the nearer end string
+    return dict(ang=float(ang[i]) if ang.size else 0.0, t_ang=float(tv[i]) if ang.size else None,
+                over={w: int(((ang > TURN_MAX) & (where == w)).sum()) for w in ('entry', 'inner', 'exit')},
+                by_string={sid: int(((ang > TURN_MAX) & (end == sid)).sum()) for sid in set(end.tolist())},
+                over_60=int((ang > 2*TURN_MAX).sum()),
+                t_over=[float(t) for t in tv[ang > TURN_MAX]], g=float(g[j])/G, t_g=float(ta[j]))
+
 def _sweep(S, aid, c):
     f = S.fn(aid, 'path'); e = c.event; ids = e['strings']
     pts = [S.rig.contact(sid, e.get('pick')) for sid in ids]
@@ -491,7 +617,15 @@ def _sweep(S, aid, c):
     ts = np.linspace(c.t, c.t_end, max(int(T/5e-4), 2), endpoint=False)
     sp = np.array([np.linalg.norm(deriv(f, u, +1)) for u in ts])
     t_next = _next_motion(S, aid, c.t_end)
-    ft = _follow(f, c.t_end, .1*v_sw, min(t_next, c.t_end+2.0, S.total))
+    arc = _follow(f, c.t_end, .1*v_sw, min(t_next, c.t_end+2.0, S.total))
+    # D1: along the exit tangent until the comb turns (or the next contact)
+    vo = deriv(f, c.t_end, +1); t_out = _unit(vo)
+    t_stop = min(c.t+c.ioi_next, S.total) if math.isfinite(c.ioi_next) else float(S.total)
+    ft, t_rev = _turn(S, aid, c.t_end, t_out, t_stop) if np.linalg.norm(vo) > 0 else (0.0, c.t_end)
+    # D2: the last frame's displacement along the entry tangent, against v_sweep; RI over RUN_IN_S
+    t_in = _unit(vm); P = _pts(S, aid, [c.t-RUN_IN_S, c.t-1/FPS, c.t])
+    E = float((P[2]-P[1])@t_in)*FPS/v_sw; RI = float((P[2]-P[0])@t_in)
+    v_tan = float(deriv(f, c.t-1/FPS, -1)@t_in)            # info: the tangential speed one frame before
     t0 = _stroke_start(S, aid, c); t_free = float(c.sched['t_free'])
     corners = dict(before=0, entry=0, inner=0, exit=0, after=0); worst_ang = worst_dv = 0.0
     for tk in _knot_times(S, aid):
@@ -503,9 +637,39 @@ def _sweep(S, aid, c):
             where = 'before' if tk < c.t-1e-9 else 'entry' if tk <= c.t+1e-9 else 'inner' if tk < c.t_end-1e-9 \
                 else 'exit' if tk <= c.t_end+1e-9 else 'after'
             corners[where] += 1
-    return dict(t=c.t, L=L, v_sw=v_sw, v_in=float(np.linalg.norm(vm)), v_out=float(np.linalg.norm(vp)),
-                entry=float(np.linalg.norm(vm))/v_sw, ratio=float(sp.max()/max(sp.min(), 1e-12)), vmax=float(sp.max()),
-                vmin=float(sp.min()), follow=ft, corners=corners, ang=worst_ang, dsp=worst_dv, t0=t0, t_free=t_free)
+    return dict(t=c.t, t_end=c.t_end, L=L, v_sw=v_sw, v_in=float(np.linalg.norm(vm)), v_out=float(np.linalg.norm(vp)),
+                entry=E, run_in=RI, v_tan=v_tan, instant=float(np.linalg.norm(vm))/v_sw, first=ids[0], last=ids[-1],
+                ratio=float(sp.max()/max(sp.min(), 1e-12)), vmax=float(sp.max()), vmin=float(sp.min()),
+                follow=ft, t_rev=t_rev, t_out=t_out, arc=arc, turns=_frame_turns(S, aid, c, v_sw),
+                corners=corners, ang=worst_ang, dsp=worst_dv, t0=t0, t_free=t_free)
+
+def _announce(S, aid):
+    """D5: per announced sweep (>= ANNOUNCE_GAP from the previous roll's t_free
+    to t_hit, the first always, the pendulum's internal turns never) the
+    backswing (the rise of h into the apex hold, back on the SCAN_DT grid
+    while it falls by > RISE_EPS a step, snapped to a breakpoint within a
+    step), the declared head hold at the apex (ruler 3's prep) and D7's
+    stillness of the tool point through that hold (core.still: |v| on the
+    closed form every 1 ms, judged against core.STILL_V, PLAYERS A26)."""
+    from players import r_motion as RM
+    C = S.contacts(aid); bp = RM.breakpoints(S, aid); out = []
+    for r in RM.prep(S, aid):
+        c = r['c']
+        if c.kind != 'sweep': continue
+        if c.i > 0:
+            pend = RM.RAKE_PENDULUM[0]-.01 <= C[c.i-1].t and c.t <= RM.RAKE_PENDULUM[1]+.01
+            if pend or c.t-float(C[c.i-1].sched['t_free']) < ANNOUNCE_GAP: continue
+        top = float(r['t_hold']); lo = C[c.i-1].t_end if c.i > 0 else max(top-30.0, 0.0); u = top; t_bs = lo
+        while u > lo+1e-12:                                 # back from the hold's start while h falls
+            a = max(u-1.0, lo); ts = np.linspace(u, a, max(int(math.ceil((u-a)/SCAN_DT-1e-9)), 1)+1)
+            h = (_pts(S, aid, ts)-c.point)@c.normal; k = np.nonzero(h[:-1]-h[1:] <= RISE_EPS)[0]
+            if k.size: t_bs = float(ts[k[0]]); break
+            u = float(ts[-1])
+        j = int(np.argmin(np.abs(bp-t_bs))) if len(bp) else None
+        if j is not None and abs(bp[j]-t_bs) <= SCAN_DT+1e-12: t_bs = float(bp[j])
+        out.append(dict(t=c.t, backswing=top-t_bs, t_bs=t_bs, hold=float(r['hold']), t_hold=top,
+                        still=core.still(S, aid, top, float(r['t_apex'])) if r['hold'] > 0 else None))
+    return out
 
 def _sweeps(S, aid):
     return _memo(S, ('sweeps', aid), lambda: [_sweep(S, aid, c) for c in S.contacts(aid) if c.kind == 'sweep'])
@@ -536,11 +700,59 @@ def strum(S):
             out.append(Result(14, 'strum', aid, dict(sweeps=0), None, 'no sweeps on this arm')); continue
         g = lambda k: np.array([w[k] for w in W], float)
         ent = g('entry'); ft = g('follow'); rat = g('ratio')
-        out.append(Result(14, '14 entry', aid, dict(ratio=_st(ent), v_in=_st(g('v_in')), v_out=_st(g('v_out')),
-                                                    v_sweep=_st(g('v_sw'))), bool(ent.min() >= .7),
-                          '|v(t_hit-)| / (L_path/(t_end-t_hit)); v_out = |v(t_hit+)|'))
-        out.append(Result(14, '14 follow-through', aid, dict(m=_st(ft)), bool(ft.min() >= .2),
-                          'the sweep stops dead at its last string' if ft.max() == 0 else ''))
+        side = lambda k, key: {s: _st([w[key] for w in W if w[k] == s]) for s in sorted({w[k] for w in W})}
+        low = lambda x, lim: [_r(w['t']) for w, v in zip(W, x) if v < lim]
+        out.append(Result(14, '14 entry', aid, dict(ratio=_st(ent), by_first=side('first', 'entry'), failing=low(ent, ENTRY_MIN),
+                                                    run_in_m=_st(g('run_in')), v_tan_1f=_st(g('v_tan')), instant=_st(g('instant')),
+                                                    v_in=_st(g('v_in')), v_out=_st(g('v_out')), v_sweep=_st(g('v_sw'))),
+                          bool(ent.min() >= ENTRY_MIN),
+                          'E = ((p(t_hit) - p(t_hit - 1/30)).t_in) 30/v_sweep, t_in = v(t_hit-)/|v|, v_sweep = '
+                          'L_path/(t_end-t_hit) (A20 D2); run_in = p(t_hit) - p(t_hit - 0.2 s) along t_in, v_tan_1f = '
+                          'v(t_hit - 1/30).t_in, instant = |v(t_hit-)|/v_sweep and v_out = |v(t_hit+)| are info'))
+        out.append(Result(14, '14 follow-through', aid, dict(m=_st(ft), by_last=side('last', 'follow'), failing=low(ft, FT_MIN),
+                                                             turn_ms=_st(g('t_rev')-g('t_end'), 1e3)),
+                          bool(ft.min() >= FT_MIN),
+                          'FT = max (p(t) - p(t_end)).t_out over [t_end, t_rev], t_out = v(t_end+)/|v|, t_rev the '
+                          'first turn (v.t_out <= 0) or the next contact (A20 D1); turn_ms = t_rev - t_end'))
+        arc = g('arc')
+        out.append(Result(14, '14 follow-through arc', aid, dict(m=_st(arc)), core.INFO,
+                          'info: path length from t_end until |v| <= 0.1 v_sweep (the M0 reading of the row)'
+                          +('; the sweep stops dead at its last string' if arc.max() == 0 else '')))
+        tr = [w['turns'] for w in W]; ov = {k: sum(x['over'][k] for x in tr) for k in ('entry', 'inner', 'exit')}
+        bs = {}
+        for x in tr:
+            for sid, n in x['by_string'].items(): bs[sid] = bs.get(sid, 0)+n
+        bs = dict(sorted(bs.items()))
+        kt = int(np.argmax([x['ang'] for x in tr])); kg = int(np.argmax([x['g'] for x in tr]))
+        out.append(Result(14, '14 frame turns', aid, dict(max_deg=_r(tr[kt]['ang']), t_max=_r(tr[kt]['t_ang']) if tr[kt]['t_ang'] else None,
+                                                          over_30=sum(ov.values()), **ov, by_string=bs,
+                                                          over_60=sum(x['over_60'] for x in tr),
+                                                          at=sorted({_r(t) for x in tr for t in x['t_over']}),
+                                                          peak_g=_r(tr[kg]['g']), t_peak_g=_r(tr[kg]['t_g'])),
+                          core.INFO, 'info (A20 D4): the angle between consecutive 30 fps steps of p in [t_hit - 0.25, '
+                          't_end + 0.25] s, both steps >= 0.25 v_sweep/30; design target <= 30 deg (by_string: the '
+                          'vertex\'s nearer end string; over_60 beside it); peak_g = |a| '
+                          '(1 ms second differences) over the same windows, contacts included'))
+        AN = _announce(S, aid)
+        moving = lambda x: x['still'] is not None and not x['still']['ok']        # D7 (A26): a declared hold that moves
+        bad = [x for x in AN if x['backswing'] < BACKSWING_MIN-1e-9 or x['hold'] < HOLD_MIN-1e-9 or moving(x)]
+        sv = [x['still']['v_max'] for x in AN if x['still'] is not None]
+        sf = lambda k, sc, nd=4: [_r(x['still'][k]*sc, nd) if x['still'] is not None else None for x in AN]
+        out.append(Result(14, '14 announce', aid, dict(n=len(AN), at=[_r(x['t']) for x in AN],
+                                                       backswing_s=[_r(x['backswing']) for x in AN],
+                                                       hold_s=[_r(x['hold']) for x in AN],
+                                                       short_backswing=sum(x['backswing'] < BACKSWING_MIN-1e-9 for x in AN),
+                                                       short_hold=sum(x['hold'] < HOLD_MIN-1e-9 for x in AN),
+                                                       moving_hold=sum(moving(x) for x in AN),
+                                                       hold_v_max_mm_s=_r(max(sv)*1e3) if sv else None,
+                                                       hold_v_mm_s=sf('v_max', 1e3), still_ms=sf('still_ms', 1.0),
+                                                       drift_mm=sf('drift', 1e3),
+                                                       failing=[_r(x['t']) for x in bad]),
+                          not bad, 'a sweep >= 0.8 s after the previous roll\'s t_free (the first always; not the '
+                          '45.71-67.14 pendulum\'s turns): backswing >= 0.5 s, then a declared head hold >= 0.1 s '
+                          'ending at the apex (ruler 3\'s), still (A26 D7: the tool point\'s |v| <= 20 mm/s on the '
+                          'closed form every 1 ms through it; hold_v / still_ms = time at <= 20 mm/s / drift per hold), '
+                          'then the run-up (A20 D5)'))
         tot = {k: sum(w['corners'][k] for w in W) for k in W[0]['corners']}
         out.append(Result(14, '14 corners', aid, dict(count=sum(tot.values()), **tot, max_deg=_r(g('ang').max()),
                                                       max_dspeed=_r(g('dsp').max())), sum(tot.values()) == 0,
@@ -652,10 +864,11 @@ def _tool_strings(S, aid):
     sd_b = []; ov = []
     hb = np.linspace(0, BLADE['h'], 15); hts = BLADE['t']/2*(.35+.65*hb/BLADE['h'])
     for c in cs:
-        e = c.event; sp = float(c.sched['spread'])
+        e = c.event; sp = float(c.sched['spread']); st = R.motion_timing.string_times(e)
         for k2, sid in enumerate(e['strings']):
             if sid not in col: continue
-            tc = c.t+k2*sp if len(e['strings']) > 1 and sp > 0 else c.t
+            # the k-th string's own time (a rake roll's onset, else t + k spread); a lone string's is the contact's
+            tc = st[k2] if len(e['strings']) > 1 and (sp > 0 or e.get('onsets') is not None) else c.t
             p = np.asarray(S.tip(aid, tc), float); s = strings[sid]; a = np.asarray(s['a'], float); b = np.asarray(s['b'], float)
             r_s = wire_radius(s['midi'])
             d = _pt_seg(p+hb[:, None]*[0, 1, 0], a, b)-hts-r_s
@@ -711,13 +924,77 @@ def _mallet_end(S, aid, c, apex):
     return dict(aid=aid, t=c.t, held=held, need=need, lift=lift, T=T, dur=_sounding(S, c),
                 ok=bool(apex is not None and held >= need and len(h) > w and lift > .01))
 
+def _give_back(S, aid, c, sw, t_rest, sense=+1):
+    """D9 (PLAYERS A27): the most the rake's path gives back of its running
+    maximum along the exit direction (sense -1: against it) from the
+    follow-through's turn (D1's t_rev) to t_rest, on the SCAN_DT grid. The
+    exit direction is t_out in the string plane (its h part taken out: the
+    lift off the strings is D6's h, not a give-back) -> (m, at) or (0, None)
+    when the chain ends by the turn."""
+    t0 = sw['t_rev']
+    if not t_rest > t0+1e-9: return 0.0, None
+    n = c.normal; u = sw['t_out']-(sw['t_out']@n)*n; L = float(np.linalg.norm(u))
+    if L < 1e-12: return 0.0, None
+    ts = np.linspace(t0, t_rest, max(int(math.ceil((t_rest-t0)/SCAN_DT-1e-9)), 1)+1)
+    x = _pts(S, aid, ts)@(sense*u/L); gb = np.maximum.accumulate(x)-x; k = int(np.argmax(gb))
+    return float(gb[k]), float(ts[k])
+
 def _rake_end(S, aid, c):
     f = S.fn(aid, 'path'); t_next = _next_motion(S, aid, c.t_end); t1 = min(t_next, c.t_end+1.5, S.total)
     D = np.asarray(f(t1))-np.asarray(f(c.t_end)); ang = math.degrees(math.atan2(math.hypot(D[0], D[2]), D[1]))
     sw = next((w for w in _sweeps(S, aid) if abs(w['t']-c.t) < 1e-9), None)
     ft = sw['follow'] if sw else 0.0; T = _park(S, aid, c.t_end, t_next)-c.t_end
-    return dict(aid=aid, t=c.t, rise=float(D[1]), ang=ang, follow=ft, T=T, dur=_sounding(S, c),
-                ok=bool(ft >= .2 and D[1] > 0 and ang <= 45))
+    # D6, on the path: h never gives back its running maximum from t_end to the rest ...
+    ts = np.linspace(c.t_end, c.t_end+T, max(int(math.ceil(T/SCAN_DT-1e-9)), 1)+1)
+    h = (_pts(S, aid, ts)-c.point)@c.normal; ret = float((np.maximum.accumulate(h)-h).max())
+    # ... and the displacement from t_0 (t_end after an upward exit, else the follow-through's turn) stays upward
+    t0 = c.t_end if sw is None or sw['t_out'][1] > 0 else sw['t_rev']
+    tp = np.append(np.arange(t0+1e-3, t1, 1e-3), t1) if t1 > t0 else np.array([t0])
+    Dp = _pts(S, aid, tp)-_pts(S, aid, [t0])[0]; far = np.linalg.norm(Dp, axis=1) >= ANG_MIN_D
+    pa = np.degrees(np.arctan2(np.hypot(Dp[:, 0], Dp[:, 2]), Dp[:, 1]))
+    k = int(np.argmax(np.where(far, pa, -1.0))); p_ang = float(pa[k]) if far.any() else 0.0
+    # D9 (A27): after the turn the comb never slides back along its exit to the rest. After a down exit 24's upward
+    # release must reverse the exit (D6's t_0 = t_rev case), so there the sense is the release's (-t_out): the literal
+    # sense would charge the climb back up the strings that 24 demands (>= FT, 0.2 m) — kept as give_back_exit (info)
+    up = sw is not None and sw['t_out'][1] > 0
+    gb, t_gb = _give_back(S, aid, c, sw, c.t_end+T, +1 if up else -1) if sw else (0.0, None)
+    gx = _give_back(S, aid, c, sw, c.t_end+T, +1)[0] if sw and not up else None
+    why = [w for w, bad in (('follow', ft < FT_MIN), ('rise', not D[1] > 0), ('angle', ang > REL_ANG),
+                            ('return', ret > RETURN_TOL), ('path angle', p_ang > REL_ANG), ('give-back', gb > RETURN_TOL)) if bad]
+    return dict(aid=aid, t=c.t, rise=float(D[1]), ang=ang, follow=ft, arc=sw['arc'] if sw else 0.0, T=T,
+                dur=_sounding(S, c), ret=ret, p_ang=p_ang, t_pang=float(tp[k]) if far.any() else None, t0=t0,
+                gb=gb, t_gb=t_gb, gb_exit=gx, why=why, ok=not why)
+
+def _rake_rests(S, aid, ends):
+    """D9 (A27) on the rake's other sweeps (not the listed phrase ends
+    `ends`), chosen by the declared structure (the stroke's notes and head
+    segments), never by the path's speed: a sweep whose note leaves by 'turn'
+    (the pendulum), or whose release chain runs straight into the next roll's
+    stroke, flows on (counted), and a chain that ends by the turn (the 67.14
+    ghost leaves first) has no rest to judge (counted). Every other chain (a
+    park, a release, a fallback: tools/test_servo.py's d9 takes the same) is
+    judged from the turn (D1's t_rev) to its end (_park: by the next note's
+    own start, so a chain that flows into a backswing or announce is judged to
+    that start), and where a head hold follows it the comb must be still there
+    (|v| <= core.STILL_V): a chain still sinking at its declared rest FAILS.
+    (Round 3 skipped any chain moving at its rest as a flow-on, so a park that
+    slid 49 mm back down the strings into its hold read PASS.)"""
+    st = S.stroke(aid); out = []; flows = no_rest = 0
+    notes = list(getattr(st, 'notes', None) or [])
+    head = [s for s in _segs(S, aid) if s.extra.get('channel') == 'head' and s.t1 > s.t0]
+    for sw, c in zip(_sweeps(S, aid), [c for c in S.contacts(aid) if c.kind == 'sweep']):
+        if any(abs(c.t-e.t) < 1e-9 for e in ends): continue
+        t_rest = _park(S, aid, c.t_end, _next_motion(S, aid, c.t_end))
+        if not t_rest > sw['t_rev']+1e-9: no_rest += 1; continue
+        x = next((x for x in notes if abs(x.t-c.t) < 1e-9), None)
+        nxt = next((s for s in head if s.t0 >= t_rest-1e-9), None)
+        if (x is not None and x.leave == 'turn') or (nxt is not None and nxt.tag == 'stroke'): flows += 1; continue
+        gb, t_gb = _give_back(S, aid, c, sw, t_rest)
+        v = float(np.linalg.norm(st.v(t_rest, -1))) if st is not None else 0.0
+        moving = bool(nxt is not None and nxt.tag == 'hold' and v > core.STILL_V)
+        out.append(dict(t=c.t, t_rev=sw['t_rev'], t_rest=t_rest, gb=gb, t_gb=t_gb, v=v, moving=moving,
+                        ok=gb <= RETURN_TOL and not moving))
+    return out, flows, no_rest
 
 def _hammer_end(S, aid, c):
     rest = S.rig.rest_angle(aid); t_next = _next_motion(S, aid, c.t_end); t1 = min(t_next, c.t_end+2.0, S.total)
@@ -750,9 +1027,37 @@ def phrase_ends(S):
         if not cs: continue
         rs = [_rake_end(S, aid, c) for c in cs]; g = lambda k: np.array([r[k] for r in rs], float)
         out.append(Result(24, '24 release', aid, dict(n=len(rs), follow_m=_st(g('follow')), rise_m=_st(g('rise')),
-                                                      angle_deg=_st(g('ang')), T_s=_st(g('T'))),
-                          bool(all(r['ok'] for r in rs)), 'follow-through then an upward release (<= 45 deg from +y)'))
+                                                      angle_deg=_st(g('ang')), T_s=_st(g('T')),
+                                                      return_m=_st(g('ret')), path_angle_deg=_st(g('p_ang')),
+                                                      follow_arc_m=_st(g('arc')),
+                                                      give_back_mm={_r(r['t']): _r(r['gb']*1e3) for r in rs},
+                                                      give_back_exit_mm={_r(r['t']): _r(r['gb_exit']*1e3) for r in rs
+                                                                         if r['gb_exit'] is not None},
+                                                      failing={_r(r['t']): r['why'] for r in rs if r['why']}),
+                          bool(all(r['ok'] for r in rs)),
+                          'ruler 14\'s follow-through (D1) >= 0.2 m, then an upward release: p(t1) - p(t_end) rising and '
+                          '<= 45 deg from +y, and on the path (A20 D6) h never returns toward the strings (return <= '
+                          '1 um to the rest) and p - p(t_0) stays <= 45 deg from +y once >= 1 cm (t_0: t_end after an '
+                          'upward exit, else the turn); give-back (A27 D9): from the turn to the rest the path never gives '
+                          'back > 1 um of its running maximum along the exit (t_out in the string plane; after a down exit '
+                          'along the release, -t_out: give_back_exit, the literal sense, is info); follow_arc = the arc (info)'))
         per_kind.setdefault('rake', []).extend(rs)
+        rr, flows, no_rest = _rake_rests(S, aid, cs)
+        out.append(Result(24, '24 rest', aid, dict(n=len(rr), at=[_r(r['t']) for r in rr],
+                                                   give_back_mm={_r(r['t']): _r(r['gb']*1e3) for r in rr},
+                                                   t_rest={_r(r['t']): _r(r['t_rest'], 6) for r in rr},
+                                                   v_rest_mm_s={_r(r['t']): _r(r['v']*1e3, 4) for r in rr},
+                                                   moving=[_r(r['t']) for r in rr if r['moving']],
+                                                   failing=[_r(r['t']) for r in rr if not r['ok']],
+                                                   flows_on=flows, no_rest_after_turn=no_rest),
+                          bool(all(r['ok'] for r in rr)) if rr else None,
+                          'A27 D9 on the rake\'s other sweeps, by the declared structure: every release chain but the '
+                          'pendulum\'s turns (its note leaves by turn, or the chain runs straight into the next stroke: '
+                          'flows_on) and those that end by the turn (no_rest_after_turn), judged from the follow-through\'s '
+                          'turn (D1 t_rev) to the chain\'s end (before the next note\'s own start: a backswing or announce): '
+                          'the path never gives back > 1 um of its running maximum along the exit (t_out in the string '
+                          'plane), and where a head hold follows the comb is still there (|v| <= 20 mm/s; moving: '
+                          'still sinking at its declared rest)'))
     for aid in S.arms_of('hammer'):
         cs = S.contacts(aid)
         if not cs: continue

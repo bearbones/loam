@@ -6,7 +6,11 @@
 Re-derives each rail end's bracket from the manifest and the score's motion
 (formlab.gantry.plan_gantries) and checks:
   - a carriage parked at the end of its rail clears the rail head (the pin
-    heads are the widest thing on the carriage plane);
+    heads are the widest thing on the carriage plane), and so does every
+    carriage in motion: its furthest run past reach_x on each side, over
+    every sampled pose, plus the pin heads and MARGIN, stays inside
+    RAIL_OVER + HEAD_INSET (PLAYERS A19: the rake's run-up and
+    follow-through use the rail's overtravel);
   - every arm's swept capsules (pinion included) clear every OTHER rail's
     bars and rack — the planner rule that makes this true lives in
     formlab.layout_search.evaluate_arm; each carriage clears its own rack,
@@ -27,10 +31,35 @@ from formlab.rig import Rig
 from formlab.linkage import parallelogram_arm, check_pieces
 from formlab.clearance import segment_distance
 
+# overtravel(): ternary steps refining a side's extreme between its neighbouring samples (1/120 s to ~1e-12 s)
+OVERTRAVEL_REFINE = 60
+
 failures = []
 def check(ok, msg):
     print(('  PASS ' if ok else '  FAIL ')+msg)
     if not ok: failures.append(msg)
+
+def overtravel(layout, rig, poses, times):
+    """Each arm's furthest run of its carriage (the root's x, Rig.pose) past
+    its reach_x on each side, over the sampled poses, refined between the
+    neighbouring samples of each side's extreme on Rig.pose itself:
+    {aid: {-1: (run, t), +1: (run, t)}} in metres (negative when the carriage
+    never reaches that end)."""
+    out = {}
+    for aid, cfg in layout['arms'].items():
+        x = np.asarray(poses[aid]['root'][:, 0], float); lo, hi = (float(v) for v in cfg['reach_x']); out[aid] = {}
+        for side, past in ((-1, lo-x), (1, x-hi)):
+            def f(t, side=side): xr = float(rig.pose(aid, t)['root'][0]); return lo-xr if side < 0 else xr-hi
+            k = int(np.argmax(past)); best, tb = float(past[k]), float(times[k])
+            a, b = float(times[max(k-1, 0)]), float(times[min(k+1, len(times)-1)])
+            for _ in range(OVERTRAVEL_REFINE):
+                m1, m2 = a+(b-a)/3, b-(b-a)/3
+                if f(m1) < f(m2): a = m1
+                else: b = m2
+            t = .5*(a+b); v = f(t)
+            if v > best: best, tb = v, t
+            out[aid][side] = (best, tb)
+    return out
 
 def run(layout_path, score_path):
     print(f'== {layout_path.name} / {score_path.name}')
@@ -48,6 +77,12 @@ def run(layout_path, score_path):
                 for part in ('carriage', 'shoulder', 'upper', 'upper2'))
     check(x_ext+G.MARGIN <= G.RAIL_OVER+G.HEAD_INSET,
           f'pin heads ({x_ext:.3f} m off the carriage plane) clear the rail head ({G.RAIL_OVER+G.HEAD_INSET:.3f} m past the window)')
+    # 1b. ...and in motion (A19): the carriage's furthest run past reach_x on each side, plus the pin heads and MARGIN
+    for aid, sides in overtravel(layout, rig, poses, times).items():
+        for side, (ran, t) in sorted(sides.items()):
+            spare = G.RAIL_OVER+G.HEAD_INSET-(ran+x_ext+G.MARGIN)
+            check(spare >= 0, f'{aid} {"low" if side < 0 else "high"} end in motion: the carriage runs {ran*1000:+.1f} mm past reach_x '
+                              f'(t={t:.3f} s), the pin heads clear the rail head by {spare*1000:.3f} mm beyond MARGIN')
     # 2. every arm vs every other rail's bars
     worst = (1e9, '')
     for aid, cfg in layout['arms'].items():

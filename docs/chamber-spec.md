@@ -152,7 +152,9 @@ A through-composed ~75 s piece for a designed machine, "the chamber":
 - `harp`   — 16 plucked steel strings, D dorian over two octaves, three
              pick arms with overlapping reach (0–7, 4–11, 8–15).
 - `rake`   — a 5-string bronze cluster, one raking bar: chords as one
-             event sweeping strings with `spread_s`.
+             event sweeping strings with `spread_s` (from PLAYERS M2 a
+             roll at its own `onsets` along the comb's path, `spread_s`
+             its end over n − 1).
 - `bars`   — 8 rosewood bars (modal MARIMBA), two mallets.
 - `chamber`— the resonator: `sympathetic()` driven by the harp+rake
              stems, printed to its OWN stem (no events — a bus that

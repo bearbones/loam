@@ -19,8 +19,9 @@ func check_scene() -> void:
 			if scene.parts[aid][part]==null: failures.append("missing GLB pivot "+aid+"/"+part)
 	if failures.is_empty():
 		for e in scene.score.events:
+			var ts: Array=ScoreDoc.string_times(e)   # a rake roll's at its own onsets
 			for k in range(e["strings"].size()):
-				var t: float=float(e["t"])+k*float(e.get("spread_s",0))
+				var t: float=ts[k]
 				scene.evaluate(t)
 				var tool: Node3D=scene.parts[e["actuator"]]["tool"]
 				var target: Vector3=MotionBake.contact(scene.layout,e["strings"][k],e.get("pick"))

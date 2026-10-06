@@ -25,6 +25,10 @@ HZ = 120            # the rulers' sampling rate for "every sample" checks
 G = 9.81
 H = 1e-5            # one-sided derivative step on the rig (s)
 INFO = 'info'       # Result.passed for a reported, unjudged number
+STILL_V = .02       # m/s: D7 (PLAYERS A26) a declared head hold (an announce apex, a pick's poise) is still when the tool
+                    # point's |v| stays at or under this through it: 0.67 mm a frame, a pause the eye reads as one. A
+                    # declared hold over a carriage still crossing under it (round 2: 561-1324 mm/s) reads as motion
+STILL_DT = 1e-3     # s: D7 samples the closed form this often through a hold (1 kHz, ruler 15's rate)
 
 ASSETS = {
     'chamber': dict(manifest=ROOT/'harness/assets/clockwork.json', score=ROOT/'render/chamber/score.json',
@@ -136,11 +140,15 @@ class Subject:
     def declared(self, aid): return SEG.declared(self.rig, aid)
 
     def stroke(self, aid):
-        """A mallet's planned stroke (formlab/stroke.py ArmStroke: the head and
-        carriage channels, per-note records, travels), or None for any other
-        arm or a rig that plans none (PLAYERS M1)."""
-        if self.kind(aid) != 'mallet' or not hasattr(self.rig, 'stroke'): return None
-        return self.rig.stroke(aid)
+        """An arm's planned stroke when its rig declares one: a mallet's
+        (formlab/stroke.py ArmStroke: the head and carriage channels, per-note
+        records, travels; PLAYERS M1) and, once its declaration is native, a
+        pick's or the rake's (formlab/servo.py ServoStroke, PLAYERS M2: the
+        same surface, .head/.carriage/.yc/.zc, p/v/a/j, notes); None for any
+        other arm or a rig that plans none."""
+        if not hasattr(self.rig, 'stroke'): return None
+        if self.kind(aid) == 'mallet': return self.rig.stroke(aid)
+        return self.rig.stroke(aid) if self.declared(aid).native else None
 
     def impulse_knots(self, aid):
         return [k for k in self.declared(aid).knots if k.kind in SEG.IMPULSES]
@@ -180,7 +188,9 @@ class Subject:
         sched = rig.sched[aid]
         for i, s in enumerate(sched):
             e = s['event']; ids = e['strings']
-            sweep = len(ids) > 1 and s['spread'] > 0
+            # a sweep: strings at distinct times (motion_timing.string_times: a rake roll's onsets, else
+            # t + k spread, so spread > 0 exactly as before)
+            ts = R.motion_timing.string_times(e); sweep = len(ids) > 1 and max(ts) > min(ts)
             kind = 'hammer' if kind_arm == 'hammer' else 'blow' if struck else 'sweep' if sweep else 'pluck'
             out.append(Contact(aid=aid, i=i, event=e, sched=s, kind=kind, t=float(s['hit']), t_end=float(s['end']),
                                point=np.asarray(s['first'], float), normal=n, amp=float(e.get('amp', 1.0)),
@@ -200,6 +210,21 @@ class Subject:
         harness/film_director.gd by harness/dev/export_camera.gd), or None."""
         if self.camera_path is None or not Path(self.camera_path).exists(): return None
         return json.loads(Path(self.camera_path).read_text())
+
+def still(S, aid, t0, t1):
+    """D7 (PLAYERS A26): the tool point's |v| through a declared hold [t0, t1]
+    on the closed form (the arm's stroke .v, every STILL_DT, one-sided inward
+    at both ends) -> dict(v_max, t_v, still_ms: the time spent at |v| <=
+    STILL_V, drift: |p(t1) - p(t0)|, ok: v_max <= STILL_V), or None when the
+    arm plans no stroke or the hold is empty."""
+    st = S.stroke(aid)
+    if st is None or not t1 > t0: return None
+    n = max(int(math.ceil((t1-t0)/STILL_DT-1e-9)), 1); ts = t0+(t1-t0)*np.arange(n+1)/n
+    V = np.concatenate([np.asarray(st.v(ts[:-1], +1), float).reshape(-1, 3), np.asarray(st.v(ts[-1:], -1), float).reshape(-1, 3)])
+    sp = np.linalg.norm(V, axis=1); k = int(np.argmax(sp)); lo = sp <= STILL_V
+    P = np.asarray(st.p(np.array([t0, t1])), float).reshape(-1, 3)
+    return dict(v_max=float(sp[k]), t_v=float(ts[k]), still_ms=float(np.diff(ts)[lo[:-1] & lo[1:]].sum()*1e3),
+                drift=float(np.linalg.norm(P[1]-P[0])), ok=bool(sp[k] <= STILL_V))
 
 def stat(x):
     """p50 / p95 / max of a sample, JSON-able (empty -> None)."""

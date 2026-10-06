@@ -78,9 +78,9 @@ func _draw() -> void:
 			var amp := 0.0
 			var col := Color(0.55, 0.55, 0.6)
 			if hit != null:
-				tau = time - float(hit["t"])
+				# the string's own contact time (a rake roll's at its onset)
 				var idx: int = hit["strings"].find(s["id"])
-				tau -= float(hit.get("spread_s", 0.0)) * idx
+				tau = time - float(ScoreDoc.string_times(hit)[idx])
 				amp = float(hit.get("amp", 1.0))
 				if hit.get("actuator") != null and cols.has(hit["actuator"]):
 					col = cols[hit["actuator"]]

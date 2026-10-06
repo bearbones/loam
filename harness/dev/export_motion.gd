@@ -12,7 +12,7 @@ func _init() -> void:
 	var times: Array=[]
 	for f in range(-120,int(sd.total_s*120)+1): times.append(f/120.0)
 	for e in sd.events:
-		for k in e["strings"].size(): times.append(float(e["t"])+k*float(e.get("spread_s",0)))
+		times.append_array(ScoreDoc.string_times(e))   # a rake roll's at its own onsets
 	times.sort()
 	for aid in aids:
 		for t in times:

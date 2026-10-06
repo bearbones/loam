@@ -48,8 +48,9 @@ def run():
     check(isinstance(base, str) and len(base) == 40, f'the key is a sha1 digest ({base[:12]}…)')
 
     # 1. the modules the plan is measured against
-    check(set(LS.GEOMETRY_SOURCES) == {'rig.py', 'clearance.py', 'linkage.py', 'gantry.py', 'pawl.py', 'stroke.py'},
-          'the key hashes the motion (rig, stroke), the space model (clearance) and the '
+    check(set(LS.GEOMETRY_SOURCES) == {'rig.py', 'clearance.py', 'linkage.py', 'gantry.py', 'pawl.py', 'stroke.py',
+                                       'servo.py', 'rake.py', 'rake_pieces.json'},
+          'the key hashes the motion (rig, stroke, servo, rake and its designed pieces), the space model (clearance) and the '
           'geometry it measures (linkage, gantry, pawl): '+', '.join(LS.GEOMETRY_SOURCES))
     for name in LS.GEOMETRY_SOURCES:
         path = ROOT/'formlab'/name; original = path.read_bytes()
@@ -119,6 +120,33 @@ def run():
             check(key_of(score, layout, mech) != base, f'tuning stroke.{name} ({was} -> {tweak}) changes the key')
         finally:
             setattr(rig_module.stroke, name, was)
+    # M2: the pick's servo stroke vocabulary (formlab/servo.py) is motion too
+    check({'servo.SCURVE_RAMP', 'servo.POISE', 'servo.V_IN', 'servo.V_REL'} <= set(LS.motion_constants()),
+          'motion_constants() reports the servo constants, prefixed')
+    for name, tweak in (('V_REL', .9), ('H_APEX', .3)):
+        was = getattr(rig_module.servo, name)
+        try:
+            setattr(rig_module.servo, name, tweak)
+            check(key_of(score, layout, mech) != base, f'tuning servo.{name} ({was} -> {tweak}) changes the key')
+        finally:
+            setattr(rig_module.servo, name, was)
+    # M2: the rake's stroke vocabulary (formlab/rake.py) is motion too
+    check({'rake.SWEEP_V_END', 'rake.OVER', 'rake.ANNOUNCE_S', 'rake.END_S'} <= set(LS.motion_constants()),
+          'motion_constants() reports the rake constants, prefixed')
+    for name, tweak in (('ANNOUNCE_S', .9), ('END_S', 1.0)):
+        was = getattr(rig_module.rake, name)
+        try:
+            setattr(rig_module.rake, name, tweak)
+            check(key_of(score, layout, mech) != base, f'tuning rake.{name} ({was} -> {tweak}) changes the key')
+        finally:
+            setattr(rig_module.rake, name, was)
+    # ...and the search's reach cut, which evaluate_arm names and the rake's pieces are designed to
+    was = LS.REACH_FRAC
+    try:
+        LS.REACH_FRAC = was-.005
+        check(key_of(score, layout, mech) != base, f'tuning layout_search.REACH_FRAC ({was} -> {was-.005:.3f}) changes the key')
+    finally:
+        LS.REACH_FRAC = was
 
     # 4. keep-mode: it finds the stored plan, and says so in the layout
     cfg = dict(root_y=2.25, root_z=-1.0, l1=1.3, l2=1.3, bend='up', wrist_offset=[0, .28, 0],

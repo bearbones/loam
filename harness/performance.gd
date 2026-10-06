@@ -179,9 +179,10 @@ func _ready() -> void:
 		if not layout["strings"][sid]["struck"]:
 			strings[sid]=_make_string(sid)
 	for e in score.events:
+		var ts: Array=ScoreDoc.string_times(e)   # a rake roll's at its own onsets
 		for k in range(e.get("strings",[]).size()):
 			var sid: String=e["strings"][k]
-			hits[sid].append({"t":float(e["t"])+k*float(e.get("spread_s",0)),"event":e})
+			hits[sid].append({"t":ts[k],"event":e})
 	_environment()
 	_ui()
 	add_child(player)

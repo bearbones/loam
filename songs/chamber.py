@@ -12,7 +12,9 @@ The machine:
   harp    16 steel strings, D dorian from D3, three pick arms with
           overlapping reach (0-7, 4-11, 8-15). Pan follows geometry.
   rake    a 5-string bronze cluster (D A D F A), one raking bar —
-          a chord is ONE event sweeping strings 18 ms apart.
+          a chord is ONE event, a roll across the strings at onsets
+          that follow the comb's path (0.541 s first to last; it was
+          18 ms a string until PLAYERS M2, A13).
   bars    8 rosewood bars (D4-D5), two mallets.
   chamber the resonator: sympathetic() driven by harp+rake, printed
           to its own stem. No events — a bus that hums when the
@@ -42,6 +44,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(
         os.path.abspath(__file__))))
 from loam import SR, hz, Take, write_wav
 from loam import ruler
+from loam import motion_timing
 from loam.score import Score, Instrument, Mechanism
 from loam.rhythm import euclid, rotate, scale_notes
 from loam.strings import sympathetic
@@ -66,6 +69,7 @@ BARS = 28
 DUR = BARS * 4 * SPB                    # 80.0 s
 TAIL = 6.0
 SEED = 0xC4A
+STEM_GAIN = 0.6722237195687149          # the stems' pinned gain (A17, at the export)
 
 
 def beat(bar: float, b: float = 0.0) -> float:
@@ -138,14 +142,20 @@ def ask_pluck(mech, t, sid, amp, voice, alt=None, **kw):
 
 
 def ask_rake(t, up=True, amp=0.8, voice="rake"):
+    """A roll, written by asking. Its onsets follow the comb's path
+    (motion_timing.rake_onsets: RAKE_ROLL_S first to last, slow off the
+    outer strings); spread_s is the roll's end over the four gaps, T/4,
+    which is all the planner needs (its t_last is t + 4 spread_s)."""
     ids = R if up else R[::-1]
+    on = motion_timing.rake_onsets(up)
+    spread = on[-1] / (len(ids) - 1)
     intended[0] += 1
-    if sc.can_play("rake", t, strings=ids, spread_s=0.018) is None:
+    if sc.can_play("rake", t, strings=ids, spread_s=spread) is None:
         dropped.append(("rake", t, "sweep"))
         return None
     as_written[0] += 1
-    return sc.rake("rake", t, ids, amp=amp, spread_s=0.018, voice=voice,
-            dur=2.6)
+    return sc.rake("rake", t, ids, amp=amp, spread_s=spread, onsets=on,
+            voice=voice, dur=2.6)
 
 
 def pick_for(amp: float) -> float:
@@ -274,7 +284,16 @@ sc.attach_shapes(clips)
 sc.ledger = dict(intended=intended[0], as_written=as_written[0],
         substituted=[[m, round(t, 6), w, p] for m, t, w, p in substituted],
         dropped=[[m, round(t, 6), w] for m, t, w in dropped])
-doc = sc.export(ex)
+# The stems' one gain is pinned (docs/goals/the-players.md A17): export would
+# normalise it to the mix's peak, so a change to one stem (the rake's roll)
+# rescaled every other and no stem stayed bit-identical. This is the value it
+# normalised to before the roll changed (0.9 / the mix peak of 2026-10-04); the
+# stems are written as int16 with no clipping, so the pinned mix must stay
+# below full scale.
+peak = float(np.max(np.abs(sc.mixdown()))) * STEM_GAIN
+print(f"  pinned stem gain {STEM_GAIN!r}: mix peak {peak:.4f}")
+assert peak < 1.0, f"the pinned stem gain clips the mix (peak {peak:.4f})"
+doc = sc.export(ex, stem_gain=STEM_GAIN)
 mix = sc.mixdown()
 ir = ir_room(t60=2.2, size=1.3, bright=0.45, seed=SEED)
 wet = convolve_tail(mix, ir, mix=0.28)[:take.n]

@@ -685,11 +685,12 @@ python3 tools/test_score_plan.py          # planner clearance and travel-timing 
 python3 tools/test_formlab.py             # sweeps, frames, layout
 python3 tools/test_form_joints.py         # seamless frame joints
 python3 tools/test_linkage_tools.py       # plectrum, ferrule, swan neck, socket, mallet; the carriage
-python3 tools/test_gantry.py              # rail heads, masts, brackets, racks; arms vs every rail
+python3 tools/test_gantry.py              # rail heads (parked and in motion), masts, brackets, racks; arms vs every rail
 python3 tools/test_oil_cups.py            # the fork ends' lubricators and their room
 python3 tools/test_pawl.py                # the mallet arms' roller detent pawls: kinematics, room
 python3 tools/test_motion.py              # the two motion vocabularies
 python3 tools/test_stroke.py              # the mallet stroke on the rig: homing, rings, the declared contract
+python3 tools/test_players_servo.py       # the motion rulers on a synthetic declaring servo, and a broken variant per row
 python3 tools/test_bake.py                # the motion bake against the rig; the harness's reader against it
 blender -b -t 2 -P tools/test_form_joint_seats.py
 godot --headless --path harness -s dev/test_clockwork.gd

@@ -13,7 +13,8 @@ and `tools/test_motion.py` checks against what each vocabulary promises; the
 constants are at the top of the file. Since PLAYERS M1 a mallet's stroke is
 planned by `formlab/stroke.py` (its constants at the top of that file), which
 the rig consults for `kind == 'mallet'` and `tools/test_stroke.py` checks on the
-rig. The harness plays a bake of it
+rig; since M2 a pick's is planned by `formlab/servo.py` and a rake's by
+`formlab/rake.py` (both checked by `tools/test_servo.py`), below. The harness plays a bake of the rig
 (`formlab/bake.py`; `docs/clockwork-build.md`, "The motion bake") and owns no
 motion of its own. Until 2026-09-28 a GDScript mirror, `ClockworkMotion`,
 recomputed all of this in the harness; the history below names it where it
@@ -631,14 +632,718 @@ reads the channel back. Between rows the baked mallet tip stays within
 
 ## Servo: pick and rake arms
 
-**Slews are S-curves.** A reposition is a jerk-limited profile: a smooth
-acceleration ramp over the first 30 % of the window, a constant-velocity
-cruise, and the mirror ramp — a telescope drive's profile. Velocity and
-acceleration are zero at both ends, the motion is monotone (no overshoot,
-ever) and lands exactly. When the score allows, a slew takes 0.4 s; an
-unhurried slew cruises at 1/(1−0.3) = 1.43× its mean speed, which the ruler
-measures. The pluck itself keeps its wind-up (away from the string, 45 % of
-the lift) on a minimum-jerk curve. Nothing rings.
+Since PLAYERS M2 a **pick** (`kind == 'pick'`: harp_arm0, 1 and 2) is planned
+by `formlab/servo.py` (`plan_pick`; its constants at the top of that file),
+which `Rig.stroke` consults for every pick whose events each pluck one
+string, and `tools/test_servo.py` checks on the rig. It has the mallet
+stroke's surface (channels, declared segments, knots, per-note records), so
+the rulers read a pick as they read a mallet, but it is two declared
+channels rather than a path:
+
+    p(t) = (x, y_c, z_c)(t) + h(t) n
+
+the **carriage** (x on the leadscrew, the contact's y and z riding the same
+normalised law) and the **head**, the tool's height h above the contact
+along the arm's unit clearance n — (0, 0, −1) for a plucked string: the pick
+comes at the string plane from behind. A carriage segment is an 'scurve', a
+head segment a 'quintic hermite' or a 'hold', and every join is C²
+('smooth') except the contact. The **rake** (M2's T5, `formlab/rake.py`)
+has the same surface and is described at the end of this section.
+
+**Slews are S-curves.** A carriage travel is one jerk-limited profile, rest
+to rest: a cubic-quartic ramp over the first 30 % of the window
+(`SCURVE_RAMP`), a constant-velocity cruise and the mirror ramp — a
+telescope drive's profile. Velocity and acceleration are zero at both ends,
+the motion is monotone (no overshoot, ever) and lands exactly. It cruises at
+1/(1−0.3) = 1.43× its mean speed, its peak acceleration is 7.14 L/T² and its
+jerk 95.2 L/T³, the closed form ruler 6c holds it to. It is no single
+polynomial, so the travel is ONE declared segment (`ScurveSeg`) evaluated as
+its three pieces. Since M2 round 3 the servo carriage has a named
+acceleration ceiling, `SERVO_A_MAX_G` (3 g: the goal's "a servo carriage
+moves at ≤ `SERVO_V_MAX` and ≤ 3 g", the ratchet carriage's and ruler 14's
+rake carriage's same 3 g), and `motion_timing.servo_fast_s(L)` is the least
+window the S-curve crosses L in: its cruise (1.43 × the mean) within
+`SERVO_V_MAX`, its 7.14 L/T² within 3 g, never under the floor —
+max(L/3, L/2.1, √(0.243 L)) s, acceleration-bound up to 1.07 m (0.156 s
+for 0.1 m, 0.493 s for 1 m). A slew wants `SLEW_S` (0.4 s) of lead, or its distance at
+`SERVO_V_MAX` (3 m/s) if that is longer, and since M2 an unhurried one sets
+off up to `SLEW_SLACK_S` (0.25 s) sooner when the arm is free
+(`motion_timing.slew_lead`): the arm is seen to leave for the next string
+rather than wait and dart.
+
+**A poised pluck** (the contact ≥ `POISED_GAP`, 1.0 s, after the last) is
+four phases. The head *rises* from the hover, 0.22 m above the string, to
+the apex `H_APEX`, 0.32 m, over [t − 0.74, t − 0.25] (`RISE_LEAD`, `POISE`):
+0.10 m in 0.49 s, peaking at 0.383 m/s and 0.245 g, while the carriage slews
+(below). It *poises*: a declared head 'hold' (`hold='poise'`) of 0.1 s
+ending at t_apex = t − 0.15, the stillness before the pluck the goal's A4
+asks for (the same 0.1 s as the rake's `HOLD_MIN`, D5 below), and the
+TOOL's stillness, not just the head's: D7 (below) reads the tool's |v| on a
+1 ms grid through every poise, ≤ 20 mm/s, and every one of the 87 (41, 20 and
+26) reads 0.000 mm/s (round 2: two read 561 and 1098 mm/s). The
+*action* is a quintic hermite from rest at the apex to the
+string at v_in in 0.15 s, peaking at 3.16–3.26 m/s and 5.0–5.9 g. After the
+*contact* it *releases* (below). Ruler 3 reads the rise as the preparation:
+a lead of 0.74 s, 14.67–16.93 frames of wind-up (the rise before the hold,
+0.49 s), depth 0.312 of the apex.
+
+**A phrase pluck** (gap under 1.0 s) is continuous, with no hold: the head
+leaves the last contact at `V_REL` and rises straight to its apex,
+min(`H_PHRASE` 0.22, 1.2 m/s × W) where W = IOI − T_down is the rise's
+time, turns there at `A_TURN_G` 1 g (ruler 5 asks at least 0.5 g through
+any slow turn, so a phrase never rests) and falls to the string over T_down
+= clamp(0.4 IOI, 0.085, 0.15) s. Ruler 4's struck band is 0.35–0.45 IOI;
+its pluck approach floor is 2.5 frames (83.3 ms), hence a floor of 0.085
+and not 0.08. Measured: at IOI 0.714 s (arm0's fourteen) the rise is 0.564 s
+to the full 0.22 m, peaking at 0.70 m/s; at 0.357 s (most of arm1's and
+arm2's) it is 0.214 s at 1.56 m/s and 2.0 g; arm2's IOI 0.179 s run rises
+0.112 m in 94 ms at up to 5.9 g and strikes in 85 ms. Phrase actions peak
+at 2.12–2.80 m/s and 2.5–4.4 g. Because the apex height is the declared
+`prep(a', IOI)` and T_down a function of IOI alone, the head law is a
+function of (IOI, a', next IOI, next a') and nothing else — not dx, not the
+idle time, not the previous string — so the head relative to the carriage
+repeats exactly (ruler 22's repeat: 7, 2 and 7 groups, RMS under 2e-11 mm).
+
+**The contact is a declared impulse.** The pick meets the string at
+v_in = 2.0 + 0.8 a' m/s (`V_IN`; 2.0–2.8) and leaves it at `V_REL`
+0.7 m/s: dv = (v_in + 0.7)·n, 2.7–3.5 m/s, the one knot that is not C² and
+exactly what ruler 6a's impulse row reads. It is not a rebound. Nothing
+elastic sends a pick back: the string is drawn and slips off, and the servo
+withdraws at its own commanded speed. V_REL is above zero because v+ = 0
+would be the head stopping dead at the string, the flaw M2 removes, and it
+is constant (not e·v_in; e falls out at 0.25–0.35) so nothing after a
+contact depends on a', which is what lets the repeat hold.
+
+**The release.** From a contact whose next pluck is poised (and from the
+last) the head returns to the hover over `T_REL` 0.25 s, peaking at
+1.378 m/s and 1.54 g, and holds there (41, 20 and 26 releases); `RISE_LEAD + T_REL ≤ POISED_GAP`,
+so a release always ends before the next rise begins. A y/z move to another
+pick point on the same string rides the release and lands with it (below).
+
+**The carriage under the stroke.** Only the carriage is bound by the
+score's `arrive` (`motion_timing.arrive_lead`); the action starts before it,
+on the head alone. A poised travel leaves at the score's go and ends at the
+poise, so carriage and head arrive together (a ruler 22 sync target),
+wherever its S-curve can: `servo_fast_s` of its distance fits between the go
+and the poise's start. The distance is the 3-D chord (its peak speed and
+|a| ride it, as `yz_s` and `test_servo`'s cap take it); round 3 timed the
+check on x alone, which reads up to 1.92× short of the chord on the harps,
+though nothing moved for it (every pick and rake stroke, its segments and
+issues hash bit-identical under either distance on both assets, and the
+replan moved no cfg but the rake's tie, A28). The poise is the tool's
+stillness (D7), so a window
+that cannot is an issue ('poise under a moving carriage'), never a quiet run
+on to the arrive, and the planner's occupancy (below) rides the same law, so
+the score leaves none. Round 2's fixed `CAR_MIN` (0.20 s) is retired: POISE
+(.25, .15) left harp_arm1's 45.00 and harp_arm2's 44.29 travels 0.197 s
+from their go, so both ran on to the arrive through the poise at 561 and
+1098 mm/s (ending at the poise would have cost 2.04 g and 4.08 g, the second
+over the cap). The cause was the score's late go. The planner charged
+harp_arm1's carriage (07 → 06 at 43.93) the whole interval it crossed for
+the whole of its travel, so harp_arm2 waited 0.29 s on an interval gap of
+0.218 m under the 0.27 m clearance while the two carriages never came within
+0.326 m. Since round 3 `loam/score.py` bounds a servo-profiled carriage
+(`motion_timing.SERVO_PROFILED`, the picks) by where its S-curve can be,
+leaving at the go and landing anywhere between `servo_fast_s` after it and
+the arrive (`servo_span`, held over 10 ms steps, `OCC_DT`), and carries the
+rig's 10 mm pad (`OCC_PAD`, `formlab.rig.PAD` is this one) so
+`Rig._schedules` still pushes nothing. Both travels now leave 0.217 s
+sooner and end at their poise: harp_arm2's 44.29 over [43.6214, 44.0357]
+(0.414 s, 0.92 g, 0.75 m/s), harp_arm1's 45.00 over [44.3357, 44.75]
+(0.46 g). No other event's t_move moved but the rake's return (A24, below),
+and the onsets did not move at all. A phrase travel runs over the score's
+whole window [go, arrive].
+
+The score schedules x alone, so a move of the contact's y and z only
+(another pick point on the same string) has no window of its own. It leaves
+once the string is free (the last contact plus `recover_s`; the pick is never
+dragged sideways in the string). A phrase's runs to the score's arrive. A
+poised one rides the last contact's release and lands with the head on the
+hover, over `yz_s(L)`: the S-curve whose end jerk (95.2 L/T³) is the
+release's own, (60 H0 − 24 V_REL T_REL)/T_REL³ = 576 m/s³, so the two
+channels settle together at any in-position band, and never under
+`servo_fast_s(L)`. Reposition, then prepare: the rise and the poise are the
+head's alone. Run under the rise into the poise instead, the two channels
+left and arrived together in time but not in ruler 22's in-position reading
+(1 µm, bisected; a frame of skew allowed). Over the rise's 0.49 s an S-curve
+chord L is 1 µm from its start at 0.147 s·(1e-6/(0.4286 L))^⅓ and the 0.10 m
+rise at 0.49 s × 0.01 = 4.9 ms, so any chord under 0.99 cm is read more than
+a frame (4.17 ms) late, whatever law it rides (1.13 cm under the first M2
+roll's 0.54 s rise, when harp_arm1 and harp_arm2 had four such moves each,
+0.56–11.5 mm: sync read 10 of 14 and 19 of 23 targets in step, the worst 18.9
+and 21.4 ms late). Round 2 ran it under the hover just before the rise
+instead, ending where no head segment ends. D8 (below) reads a travel by the
+head hold its tail overlaps, so that was a carriage arriving 0.08–9.0 s into
+the hover's hold, and five of the thirteen left during the release and
+arrived 79–430 ms after the head. Now each ends on the hold's first instant
+(skew 0).
+
+Of the 48, 29 and 48 travels (arm0, 1, 2), 32, 8 and 18 end at the poise
+(sync's targets, back to round 1's count), 14, 15 and 25 at the score's
+arrive, and 2, 6 and 5 are y/z moves riding a release (30.5–61.1 mm over
+0.17–0.20 s, 0.75–74.4 mm over 0.050–0.20 s and 0.56–13.4 mm over
+0.045–0.13 s, ≤ 1.36 g); arm1's phrase travels include one 78.3 mm y/z move.
+The median travel takes 0.49 s and peaks at 0.63 m/s and 0.66 g. The pick is
+at least 34.9 mm off the string plane whenever the carriage moves
+(`test_servo` asks 20 mm).
+
+**The acceleration cap, measured.** `tools/test_servo.py` reads every pick
+travel's peak carriage acceleration (closed form) and holds each to 3 g and
+3 m/s, unless it is hurried AND runs over exactly the score's [go, arrive]
+(then the window is the score's, not the stroke's choice). Over the 125:
+
+| travels | n | peak \|x″\| (g) | 3-D peak (g) | peak \|ẋ\| (m/s) |
+|---|---|---|---|---|
+| poised (all unhurried) | 71 | ≤ 1.65 | ≤ 2.04 | ≤ 1.59 |
+| phrase, unhurried | 32 | ≤ 1.20 | ≤ 1.49 | |
+| phrase, hurried | 22 | up to 53.3 | up to 70.2 | up to 4.03 |
+| all | 125 | median 0.66, p90 3.36, max 53.3 | | |
+
+Every travel the stroke times (the poised and the unhurried) is under 2.04 g:
+the cap is the goal's rule and above all of them, so it costs nothing today
+and stops a fixed window like CAR_MIN from ever again hiding a slide. 19
+travels are over it, every one a hurried phrase travel the score times
+exactly, the same 19 as in round 2: harp_arm2's twelve 39 ms hops in the
+IOI 0.179 s runs (0.109 m of x at 53.3 g and 4.03 m/s; 0.141–0.143 m in
+3-D, 70 g and 5.3 m/s: the goal's own Moments line names them, above
+`SERVO_V_MAX`), and seven 0.217 s windows (harp_arm1 23.57, 24.64, 43.93,
+45.36; harp_arm2 29.29, 36.07, 44.64: 1.68–3.36 g along x, 3.03–4.43 g in
+3-D).
+
+What the rulers read, `tools/test_players.py --report --skip-invariants`
+(identical on the chamber and the expanded asset):
+
+| ruler | harp_arm0 | harp_arm1 | harp_arm2 |
+|---|---|---|---|
+| 3 lead (IOI ≥ 0.25 s) | PASS: 55 strokes, lead ≥ 714 ms, W ≥ 14.67 fr, poise holds 100 ms (41) | PASS: 35, ≥ 357 ms, ≥ 6.4 fr, 100 ms (20) | PASS: 39 (12 under 0.25 s out), ≥ 357 ms, ≥ 6.4 fr, 100 ms (26) |
+| 3 poise still (D7, A26; M2 gate) | PASS: 41 poises, 0 moving: tool \|v\| 0.0 mm/s, still 100 ms, drift 0 | PASS: 20, 0 moving (round 2: 44.75 at 561 mm/s, 52 mm) | PASS: 26, 0 moving (round 2: 44.04 at 1098 mm/s, 102 mm) |
+| 4 action | PASS: approach ≥ 4.5 fr | PASS: ≥ 4.29 fr | PASS: ≥ 2.55 fr |
+| 5 no rest | PASS: 0 gaps | PASS: 8 gaps, 0 violations | PASS: 15 gaps, 0 violations |
+| 6a smooth / impulse | PASS: 208 knots / 55 contacts, dv 2.7–3.5 | PASS: 132 / 35 | PASS: 185 / 51 |
+| 6b corners | PASS: 0 | PASS: 0 | PASS: 0 |
+| 6c laws / jerk | PASS: hold, quintic hermite, scurve; 327 segments, worst 0.896 of the closed form | PASS: 186, 0.900 | PASS: 274, 0.898 |
+| 22 sync (D8, A25) | PASS: 34/34 travel → hold (32 poises + 2 y/z rides), skew ≤ 2.69 ms, 0 unjudged | PASS: 14/14 (8 + 6), ≤ 2.52 ms, 0 unjudged | PASS: 23/23 (18 + 5), ≤ 2.38 ms, 0 unjudged |
+| 22 repeat | PASS: 7 groups, RMS 1.1e-11 mm | PASS: 2, 1.2e-12 mm | PASS: 7, 5.2e-12 mm |
+
+Ruler 22's sync judges every travel that ends on a head hold (D8's
+travel->hold): the 32, 8 and 18 poises (round 2's two slides had dropped
+them to 7 and 17) and the 2, 6 and 5 y/z moves that now land on the hover
+hold's first instant. Its "sync (travels)" info row holds the rest, 14, 15
+and 25 phrase travels that each end at the score's arrive in a run-up into
+a contact (D8's strikes), arriving ≤ 4.5 ms after the head; round 2's read
+up to 424 and 430 ms there, the y/z moves landing inside the hover.
+
+Still open on the pick arms: harp_arm2's IOI 0.179 s runs (four, of three
+travels each, t ≈ 13.6–22.6) leave 0.039 s windows for 0.141–0.143 m of
+carriage (5.3 m/s, 70 g) and 2.8 frames of wind-up, which ruler 3's
+preparation row fails on twelve strokes and no head law fixes (the score
+must give those runs one string an arm, or wider windows); the seven
+hurried 0.217 s phrase windows that take a carriage over the 3 g cap
+(3.03–4.43 g in 3-D: harp_arm1 23.57, 24.64, 43.93, 45.36, harp_arm2 29.29,
+36.07, 44.64; the score's windows, like the hops, and round 2's too); ruler 1's reach
+(the tool's p95 0.81–0.86 of the part's extent a frame, against 0.5); ruler 22's
+home (M7); and ruler 15's phases (M7, harp), which harp_arm1 now fails too: the
+y/z moves that ride the release (`yz_s`) can run under 2.5 frames, 38.77–38.82
+(49.8 ms) and 31.96–32.04 (75.0 ms) on harp_arm1, 29.49–29.54 (45.3 ms) and
+39.84–39.89 (53.1 ms) on harp_arm2 beside its twelve hops. A floor of 2.5
+frames on `yz_s` was tried in the review fix round (0.085 s): it passes
+harp_arm1's row (min 2.55 frames) and lifts harp_arm2's two (14 → 12 short,
+the hops left), and moves no poise and no sync target, but it moves the
+gated sync row: under 3.7 mm a floored ride ends on a gentler jerk than the
+head's release (95.2 L/0.085³ against 576 m/s³), enters the 1 µm band first,
+and every such target's arrival skew changes (skew_arrive p50 1.077 →
+1.086 ms on harp_arm1, 1.186 → 1.389 ms on harp_arm2; verdicts and maxima
+unchanged). No S-curve or 3-4-5 longer than the jerk match ends on the
+release's jerk, so the floor and an unmoved sync row exclude each other on
+these moves: the row stays a known issue (M7).
+`formlab/bake.py` samples every declared knot and segment
+boundary of an arm with a stroke (mallets, picks and the rake), so a bake
+lands on a pick's contacts and poise holds exactly; a pick's schedule
+corners (the planner's approach / end windows) are not corners of its
+stroke and get no row of their own, and every mallet's rows are unchanged.
+
+### The rake
+
+Since PLAYERS M2 (T5) the rake (`kind == 'rake'`, rake_arm0) is planned by
+`formlab/rake.py` (`plan_rake`, constants at the top of the file). numpy
+only: the rig hands it plain data (`Rig._rake_input`) and it returns a
+`RakeStroke`, a `ServoStroke` with no prep function. The point is
+
+    p(t) = (x(t), y_c, z_c) + h(t) n + (0, h_y(t), 0),   n = (0, 0, -1)
+
+the carriage x on the leadscrew and the head's (h, h_y): h off the string
+plane, h_y across the strings (y_c 1.7709, z_c 0.9, the home contact's). The
+laws are 'quintic hermite', '3-4-5' and 'hold'; every join is C²
+('smooth'): a rake has no impulse knot, it strokes through the strings.
+
+**Motion first, then the arm.** The comb's path is designed in tool space
+against physical limits and the definitions below, and reads no arm cfg: no
+root, no link length, no reach cut. The rail plan (`formlab/layout_search`)
+then chooses the rake's root and links so the arm reaches what the comb does;
+its `REACH_FRAC` (|wrist − root| ≤ 0.985 (l1 + l2)) is the search's accept
+rule and nothing else. `tools/test_servo.py` holds both ends: the plan is
+identical (0 m on a 10 ms grid) under a mutated cfg, and the rail plan's cfg
+is one `evaluate_arm` accepts.
+
+**The definitions** every rake roll answers to (p(t) from `Rig.path_at`;
+t_in, t_out the sweep's unit tangents at its first and last string):
+
+- **D1 follow-through.** From every exit the comb runs on ≥ 0.2 m along
+  t_out before v·t_out ≤ 0, decelerating along it at ≤ 3 g while it drops
+  away along n over about 0.2 s.
+- **D2 entry.** E = ((p(t_hit) − p(t_hit − 1/30))·t_in·30)/v_sweep ≥ 0.7,
+  v_sweep = L_path/(t_end − t_hit); RI, the travel along t_in over the last
+  0.2 s, is reported (a run-in, not a drop onto the string).
+- **D3 tool acceleration.** |a| ≤ 10 g outside ±10 ms of a contact; the
+  design aims at about 5 g.
+- **D4 frame turns.** Within [t_hit − 0.25, t_end + 0.25] two consecutive
+  30 fps steps, both ≥ 0.25 v_sweep/30, turn ≤ 30°.
+- **D5 announcements.** A sweep after ≥ 0.8 s without contact (21.43,
+  34.29, 40.00, 45.71, 77.14) gets a backswing ≥ 0.5 s, a declared head
+  'hold' ≥ 0.1 s (`HOLD_MIN`), then the run-up. The pendulum's turns are
+  exempt.
+- **D6 release.** After a phrase-end sweep (68.57, 77.14) h rises with no
+  return toward the plane until it rests; ruler 24's angle is read on that
+  path.
+
+M2 round 3 adds three (the picks answer D7 and D8 too):
+
+- **D7 stillness (A26).** Over every announced apex hold (D5) and every pick
+  'poise', the TOOL's |v| (closed form, every 1 ms, `STILL_DT`) stays ≤
+  20 mm/s (`STILL_V`, 0.67 mm a frame): a carriage moving under a held head
+  fails it. Ruler 14's '14 announce' judges it on the rake (`moving_hold`),
+  the new '3 poise still' on every pick; both are gated at M2.
+- **D8 sync overlap (ruler 22, A25).** Every carriage travel [a, b] is
+  classified by where it ends, the first class that applies: a 'travel →
+  hold' target when the head enters an ARRIVAL hold (a poise or the cocked
+  hold; parks and hovers, `PARK_HOLDS`, are where a head waits while the
+  carriage traverses under it, but on a servo a park or hover the head
+  enters at or after the travel's go waits out nothing and is an arrival
+  too) from the go on, before b + 1/FPS; else when a head hold of any kind
+  starts within a frame of b (A22); else when an arrival hold overlaps the
+  tail (h.t0 < b + 1/FPS and h.t1 > b − 1/FPS). A target is judged on
+  `hold_skew`, the carriage's in-position arrival less the hold's start,
+  ≤ `SKEW_MAX` (1/240 s), besides the in-position window. Else it is a
+  strike (the info row 'sync (travels)') into the first contact after its
+  go, crossing none: it ends at most `SKEW_MAX` after that contact (a
+  carriage landing later moved under the pluck or hit, late into its
+  strike, wherever its end lands), and on it, at most a frame before it,
+  or in the head's run-up to it: the head segment at b moves and is not a
+  'release', and no head hold and no 'release' segment starts between b
+  and that contact. Anything left is unjudged and fails the row.
+  Judging the arrival hold before the contact rule keeps it monotone: a
+  carriage arriving d late into a hold fails for every d > SKEW_MAX, even
+  one that runs on into the run-up. Round 3 left the servo's hovers out of
+  the arrivals, and the y/z moves that ride the release onto a hover were
+  not monotone: one landing 6–20 ms late failed as late, 40–300 ms late was
+  unjudged (FAIL), and 450–700 ms late ran on into the next wind-up and
+  passed as a strike. That fix still took any moving head segment for a
+  run-up, the release after a pluck included, and a contact within a frame
+  on either side for a strike: the same ride moved 40–150 ms early
+  (landing in the 31.79 pluck's release), or leaving after the hover began
+  and landing in the wind-up before the 32.96 poise (450, 700 ms late),
+  passed as a strike, and so did harp_arm0's 25.62 travel landing 20 or
+  110 ms after its pluck (fix 4, the recheck's D8 finding). Fix 4 still
+  read a strike's contact off its end, so a strike landing past its pluck
+  or hit by more than `SKEW_MAX` skipped to the next contact and passed as
+  a run-up whenever no release or hold came between: harp_arm2's 13.66
+  travel 4.5–45 ms past the 13.75 pluck (the next wind-up follows it), a
+  mallet's 4.5–700 ms past its hit (the float follows it), on 41 of the 95
+  strikes an asset. A strike's contact is now the first after its go. Each
+  now fails, and `tools/test_sync.py` holds the grid. The sync row is
+  monotone in a travel's error until its end reaches another contact's
+  strike: the ride moved 250 ms early lands on the 31.79 pluck and is a
+  strike, for rulers 19 and 11 to judge. A mallet's parks stay out: its
+  travels leave on the head's way into the park by design, so a park it
+  enters after the go is still a traverse (A25).
+- **D9 rest.** From D1's turn (t_rev) to the rest (or the next backswing),
+  the in-plane coordinate along the release never gives back more than
+  1e-6 m (`RETURN_TOL`) of its running maximum, and h rises or holds. The
+  sense is the release's (A27, the lead's L4): along +t_out (the exit
+  tangent in the string plane, h taken out) after an up exit and at every
+  rest that is not a listed phrase end; along −t_out after a DOWN exit at a
+  listed phrase end (68.57), where D1's follow-through runs ≥ 0.2 m down the
+  strings and ruler 24's upward release must climb back, so the literal
+  +t_out sense cannot hold there together with D1 and ruler 24 (below). The
+  literal +t_out number is still reported there (`give_back_exit`, info,
+  never judged). Ruler 24 ('24 release', '24 rest') and `tools/test_servo.py`
+  judge the same rests in the same sense, row for row, and print both
+  numbers. Which chains are rests is read from the declared structure,
+  never from the path's speed: a chain flows on only when its note leaves
+  by 'turn' (the pendulum) or the next declared head segment after it is
+  the next roll's stroke; every other (a park, a release, a fallback) is
+  judged from t_rev to its end, or to the backswing or announce it flows
+  into, and where a head hold follows, the comb must be still there too
+  (|v| ≤ `STILL_V`, D7). Round 3 took any chain still moving at its rest
+  for a flow-on, so a park sinking 49 mm back down the strings into its
+  hold (1318 mm/s at the rest) read PASS.
+
+**The sweep.** A roll (21 of them, the five strings rake00 → rake04 'up' or
+back 'down', `RAKE_ROLL_S` 0.541 s first to last) is four quintic hermites a
+channel ('sweep') through the five contacts at their own onsets with h ≡ 0,
+entering and leaving at `SWEEP_V_END` (x′ 0.639, y′ 2.814 m/s). Their knot
+states are the C² clamped cubic's but for one: the knot before the x_hi
+contact (rake03's, on both rolls) turns its velocity onto the chord into
+rake04, 40.0° → 47.7° (`SWEEP_TUCK` = 0: none of the way on toward the end
+slope, 77.2°), its speed (2.747 m/s) and acceleration kept, so the sweep
+stays C². The contacts, their onsets, the end slopes and the other three
+knots are the cubic's, but the path between them is not quite: the turned
+velocity under the kept acceleration puts a shimmy in the xy path, 5
+curvature reversals a roll against the cubic's 3, at most 5.7 mm lateral
+and 7.4° of turn a frame (30 fps), inside D3 and D4, so the acceleration
+is kept as it is, not turned with the velocity (the lead's call). The end
+slope is steeper than the contact line, so the plain cubic
+came into rake04 (up) and left it (down) from under the line, toward the
+strings' feet, where the outer, shortest string's eyelet sits (its contact
+168 mm above its foot at pick 0.28): the comb's 30 mm tool capsule passed
+rake04's eyelet flange (r 34 mm) 18.5 mm off at every roll (round 2 and this
+round before the fix), against `tools/test_eyelets.py`'s 20 mm. On the chord
+it passes at 23.01 mm (1 ms grid; 23.02 mm at the test's 30 fps), every
+roll, both assets. Turning on toward the end
+slope buys more clearance with the carriage's x″, because the contacts' x
+are fixed while the knot's x′ falls: a tenth of the way reads 24.7 mm at
+3.00 g, a quarter 27.0 mm at 3.21 g, past ruler 14's 3 g (the cubic's
+2.87 g, the chord's 2.90 g). 2.886 m/s at both ends, 2.498 m/s at the
+slowest (ratio 1.155, ruler 14 asks ≤ 1.2; the cubic's 2.514 m/s and
+1.148), L/T 2.714 m/s, 3.99 g at most (the cubic's 3.95 g). It never stops at a string: the carriage runs
+out past the last one into the rail's overtravel, `OVER` = rail_over +
+head_inset − pin_x − margin − 1 µm = 14.599 mm past reach_x (A19), on the
+quintic of least peak |x″| that never runs back (`RUN_D`: 0.0404 s and
+2.86 g at rake04, 0.0417 s and 2.61 g at rake00), and runs up out of it the
+same way.
+
+**The pieces.** Between rolls the head flies DESIGNED pieces: piecewise
+quintic hermites in (y, h) (and in x where the carriage crosses under them)
+solved offline by `tools/rake_design.py` (scipy SLSQP, exact Jacobians; the
+planner only reads the result) and stored in `formlab/rake_pieces.json` with
+the frame they were solved for. The live plan checks that fingerprint
+(`LIB_TOL` 1e-9): a mismatch is an issue and a plain fallback, never a
+silent reuse. The design's limits, with margin: D1 (≥ 0.21 m by 0.2 s, ≤ 0.95
+× 3 g along t_out; 0.15 s on the ghost), D2 (E ≥ 0.75, RI ≥ 0.21 m), D3 (≤
+0.95 × 10 g), D4 (below), frame ρ ≤ 0.92 on a 1–4 ms grid (ruler 14 reads
+frames, ≤ 1), carriage |x″| ≤ 0.95 × 3 g and x inside [x_lo, x_hi] (A19),
+strict rise and fall of h about each apex (ruler 3), y inside [0.70, 2.58]
+(40 mm inside the strings' span), h ≥ 0 outside a sweep, the comb clear of an
+end string (h ≥ 0.034 m) from 35 ms after an exit and before an entry,
+≥ 5 mm off every string (h ≥ 0.042 m) from 0.1 s, and since round 3 a rest
+after a sweep in-plane monotone (`mono`, `rest_mono`: (x, y)·t_out never
+decreasing, D9), so it comes to rest where its follow-through ends. D4 is designed on the
+frame chords themselves, from six phases of the 30 fps clock (the score's
+hits fall anywhere on it) with the sweep's own frames joined on:
+|a × b|² ≤ sin²27° |a|²|b|² + (0.35 lim)⁴ and a·b ≥ −(0.35 lim)², the
+short-step terms freeing the steps D4 skips (an instantaneous curvature bound
+was infeasible: the run-up's apex and the ghost's turn have to fold). The
+objective is the peak tool |a|, staged (mean |a|² without D3 and D4, then
+constrained, then the peak; odd restarts re-enter through the constrained
+stage).
+
+| piece | D (s) | from → to | peak \|a\| (g) | ρ | D1 FT (m) / decel (g) | D2 E / RI (m) | D4 max (°) |
+|---|---|---|---|---|---|---|---|
+| runup_lo | 0.25 | apex (0.795, 0.32) → rake00 | 5.17 | 0.922 | | 1.08 / 0.358 | 24.7 |
+| runup_lo_b | 0.25 | apex (0.821, 0.25) → rake00 (after the return) | 5.17 | 0.920 | | 1.08 / 0.333 | 24.8 |
+| runup_hi | 0.22 | apex (2.58, 0.30) → rake04 | 5.46 | 0.779 | | 1.14 / 0.385 | 24.4 |
+| park_hi | 0.45 | rake04 → (2.58, 0.15), monotone | 5.21 | 0.681 | 0.385 / 2.50 | | 23.5 |
+| park_lo | 0.45 | rake00 → (0.70, 0.15), monotone | 5.15 | 0.920 | 0.456 / 1.34 | | 24.1 |
+| release_lo | 0.70 | rake00 → (1.40, 0.15) | 5.05 | 0.920 | 0.391 / 1.68 | | 24.0 |
+| release_hi | 0.70 | rake04 → (2.58, 0.20), monotone | 5.11 | 0.690 | 0.385 / 2.42 | | 24.0 |
+| turn_hi | 0.888 | rake04 → apex h 0.828 → rake04 | 5.26 | 0.926 | 0.385 / 2.60 | 1.13 / 0.384 | 24.7 / 25.0 |
+| turn_lo | 0.888 | rake00 → apex h 0.448 → rake00 | 5.12 | 0.932 | 0.376 / 1.67 | 1.08 / 0.299 | 24.5 / 24.6 |
+| ghost_down | 0.888 | rake00 → apex h 0.465 → rake04, x crossing | 5.26 | 0.932 | 0.290 / 2.85 | 1.11 / 0.210 | 27.1 / 27.1 |
+| home_up | 0.50 | rest (1.771, 0.22) → apex (0.795, 0.32), x home → x_lo over [0.05, 0.50] | 2.54 | 0.920 | | | |
+| return_up | 0.90 | park (2.58, 0.15) → apex (0.821, 0.25), x_hi → x_lo over [0.244, 0.90] | 1.43 | 0.920 | | | |
+
+(ρ is the design's on its fine grid, over the piece and the sweep frames
+joined to it; the turns' 0.93 is the sweep side's, which ruler 14 reads per
+frame: 0.92 at most, 0.9185 in the sweeps.) Round 3 re-solved park_hi and
+release_hi (D9), park_lo (the same constraint: it gave back 0.6 mm in
+round 2), runup_lo_b (A24's 0.25 s), and the two backswings that start or end
+at those (home_up, return_up). The merge's sweep (the knot on its chord)
+changed the sweep's frames and knot states at x_hi, so the pieces that join
+it there were solved again from cold: runup_hi, park_hi and release_hi came
+out with their shapes (peak |a|, ρ, FT the same to three digits; the joined
+turns within 0.1°), ghost_down within 0.003 g (5.261 → 5.259 g, apex h
+0.468 → 0.465), return_up (it starts at park_hi's rest) the same to seven
+digits, and turn_hi new. turn_hi is the pendulum's turn at rake04,
+which ruler 5 reads as a rest wherever its speed stays under 0.15 of its own
+peak (4.24 m/s) for over a frame. Its speed floor (`LOOP_VMIN`, the design's)
+was 0.6 m/s, 0.146 of round 3's design's peak, which passed only while the
+stretch under 0.15 stayed under a frame. With the merged sweep's knot states
+at 0.6 the cold solve stops at its iteration limit (6.09 g), solved on it
+sits at 0.142, and the quarter-way sweep's design read 54 ms under at every
+apex (8 slow intervals, ruler 5 FAIL). At 0.7 m/s it converges (1441
+iterations) and holds 0.165 (turn_lo reads 0.156 at 0.5): apex h 0.646 →
+0.828, RI 0.309 → 0.384 m, 5.256 → 5.262 g, ρ 0.951 → 0.926. The x_lo
+pieces are round 3's design's, digit for digit. The backswings home_up and return_up are designed
+pieces like the rest — quintic hermites in (y, h) and x, the head on its
+(y, h) chord within 0.1 mm (ruler 22 reads its progress from wherever the
+carriage starts), the carriage crossing over exactly the score's window,
+from its go to the apex hold's start (`Frame.cross`, read from the score as
+the ghost's window is). Only the backswings from a park to the apex at the
+same end (39.18, 44.86, 76.29) are 3-4-5 head legs (`BACKSWING_S` 0.5 s, the
+carriage still); the 39.18 one is now h alone, 0.15 → 0.30 at y 2.58,
+because park_hi rests at the apex's y (0.35 g, 0.56 m/s).
+
+The return is the longest: 1.76 m of head over the carriage's 1.079 m
+crossing. Since A24 the score gives that crossing a window of its own: the
+carriage leaves `announce_lead`(1.05 m of score dx) = 0.656 + 0.10 + 0.25 =
+1.006 s before the roll, at 33.2795, and lands at 33.9357 as the apex hold
+starts; the head leaves 0.244 s before it, at 33.0357. Its least peak ρ at
+0.656 s is 0.78; designed at ρ 0.92 it peaks at 1.43 g (the carriage at
+2.58 m/s). Round 2's fixed 0.8 s lead left the crossing 0.52 s, past ρ 1
+(the least ρ is 1.01 at 0.52 s and 1.0 at 0.524 s), so its carriage ran on
+0.10 s under the hold (1.32 m/s at the hold's start, still for 10.5 ms of
+the 100, 60 mm of drift) and launched into a 0.18 s runup_lo_b at 6.59 g.
+Now D7 reads the hold [33.9357, 34.0357] at 0.000 mm/s, D8 judges the
+crossing a 'travel → hold' target with skew 0, and runup_lo_b runs up over
+the same 0.25 s as runup_lo (5.17 g). home_up's crossing (0.678 m of rail,
+home → x_lo) keeps round 2's window [20.629, 21.079]: its 0.8 s slew lead is
+already longer than announce_lead's 0.764 s (1.99 g, 2.33 m/s).
+
+**The rests.** Every rest after a sweep, from D1's turn on (D9; `tools/
+test_servo.py`, `m2work` probe d79):
+
+| rest | piece | t_rev / rest (s after t_end) | shape from the turn | gives back in D9's sense (round 2) | rest (y, h) |
+|---|---|---|---|---|---|
+| 21.43, 34.29 up | park_hi | 0.250 (D1 reads 0.450) / 0.450 | climbs on up the strings to the Y cap, h 0.15 by 0.18 s, then holds | 0 (round 2: 62.1 mm) | (2.58, 0.15) |
+| 40.00 down | park_lo | 0.400 / 0.450 | runs on down the strings to the bottom cap, h 0.15 by 0.18 s | 0 (0.6 mm) | (0.70, 0.15) |
+| 68.57 down | release_lo | 0.226 / 0.700 | turns at y 0.766 and climbs 0.63 m back UP the strings (ruler 24), h 0.15 by 0.18 s | along −t_out (a down exit at a listed end): 0; the literal +t_out 618.25 mm is info (round 2: the same) | (1.40, 0.15) |
+| 77.14 up | release_hi | 0.261 / 0.700 | climbs on to the Y cap, h 0.20 by 0.18 s, then holds | 0 (71.4 mm) | (2.58, 0.20) |
+
+park_hi's follow-through reaches its 385.3158 mm at +0.25 s and stops
+there; from then to the rest its speed along t_out stays at or under
+4e-7 mm/s but never crosses zero, so D1's turn (the first instant at or
+under zero) reads the rest, +0.450, and D9's window is empty: the whole
+path from the exit to the rest is monotone along t_out. h gives back 0
+everywhere. Round 2's park_hi ran on to 2.5797 and settled
+64 mm back to 2.516; its release_hi ran to 2.579, rocked 72 mm back to
+2.507 and up again to 2.56, two turns of about 180° at h 0.20. Both now stop
+where the follow-through stops. release_lo cannot: its exit tangent runs
+down the strings, t_out = (−0.221, −0.975), 167.2° from +y, and ruler 24
+asks the release to rise within 45° of +y from the turn, so every
+displacement it accepts has (d·t_out) ≤ cos 122.2° |d| = −0.533 |d|. D1
+holds the comb ≥ 0.2 m down the strings before it turns, so a literal D9
+(along +t_out) and ruler 24 contradict each other there by construction.
+The lead's L4 (A27) takes the release's sense there: along −t_out, once
+the climb has started the comb never sinks back down the strings, and
+release_lo gives back 0 (its literal 618.25 mm is reported as info). The
+rule itself is unchanged (`RETURN_TOL` 1e-6 m, from the turn to the rest);
+a 5 mm sink back down the strings in the climb fails both ruler 24 and
+`tools/test_servo.py`. The pendulum turns and the ghost do not rest.
+
+**The homing poses** are tool space too. Ruler 22 home asks the sweep in
+the first rest for ≥ 0.8 of the shoulder's and the elbow's IK spans, which
+are the arm's; so the poses are chosen against every rail the search can
+accept (`tools/rake_design.py --homing`: the 30 `layout_search.candidates`
+that `evaluate_arm` passes with worst ≥ 0; the root y 2.75 rows fold the
+links through each other, −56 mm and worse), each inside that rail's own
+|wrist − root| range over the rest of the motion by ≥ 10 mm (the homing
+never decides a rail), the chords inside the score's windows at
+`HOME_SERVO_V` 1.1 m/s (elbow 2.630 of 2.640 m, shoulder 1.229 of 1.232 m):
+(2.565, 0.155), (2.375, 0.44), (0.885, 0.395) in the elbow window, (0.775,
+0.19), (1.61, 0.225) in the shoulder window. The least share over the 30
+rails is 0.845 (the first poses, designed on one rail, swept 0.12 of the
+shoulder on others).
+
+**The timeline** (chamber; expanded identical):
+
+| when (s) | what | measured |
+|---|---|---|
+| 0.25–10.55 | homing (`motion_timing.servo_home_legs`): x home → lo (0.25–1.45), lo → hi (1.45–3.25), hi → home (3.25–3.95), 3-4-5 legs at ≤ 1.1 m/s on 0.1 s steps; then the elbow window (3.95–8.45) and the shoulder window (8.45–10.55) through the poses above | x swept 1.0 of reach_x; shoulder 1.074, elbow 0.887 of their spans on the (0.55, −1.35) rail (1.053, 0.955 on round 3's −0.90); peak 1.098 m/s (limit 1.5); land 0 m |
+| 20.58–21.43 | the announcement from home: home_up 0.50 s (the head leaves at 20.579; the carriage home → x_lo, 0.678 m, from the score's go 20.629 to 21.079, landing as the hold starts), apex hold 0.10 s at h 0.32, runup_lo 0.25 s into rake00 | carriage 1.99 g, 2.33 m/s; head 2.54 g; hold 0.000 mm/s; run-up 5.17 g |
+| 21.97–22.42 | park_hi on up the strings to (2.58, 0.15), monotone (h 0.15 by 22.15, y at the cap by 22.22), held to 33.04 | FT 0.385 m, 5.21 g |
+| 33.04–34.29 | the return: return_up 0.90 s from 33.036 (the carriage x_hi → x_lo, 1.079 m, from the go 33.280 to 33.936, landing as the hold starts: A24), hold 0.10 s at h 0.25, runup_lo_b 0.25 s | carriage 1.43 g, 2.58 m/s; head 1.43 g, 3.67 m/s (tool 3.94 m/s); hold 0.000 mm/s; run-up 5.17 g |
+| 34.83–35.28 | park_hi, held to 39.18 | as 21.97 |
+| 39.18–40.00 | the 3-4-5 backswing 0.50 s at rake04, h alone 0.15 → 0.30 at y 2.58 (park_hi rests at the apex's y), hold 0.10 s, runup_hi 0.22 s into rake04 (the down roll) | 0.35 g, 0.56 m/s; run-up 5.46 g (D3's peak, at 39.98) |
+| 40.54–40.99 | park_lo on down the strings to (0.70, 0.15), monotone (y at the cap by 40.94), held to 44.86 | FT 0.456 m, 5.15 g |
+| 44.86–45.71 | the 3-4-5 backswing 0.50 s (0.70, 0.15) → (0.795, 0.32), hold 0.10 s, runup_lo 0.25 s | 0.46 g |
+| 46.26–67.14 | the pendulum: 15 turns of 0.888 s that never stop ('follow-through', then 'stroke' from the apex): at rake04 apex h 0.828, at rake00 h 0.448 | ruler 5: 0 slow intervals; 5.26 / 5.12 g; repeat RMS 3.5e-11 mm |
+| 67.68–68.57 | the ghost, down → down: the comb out of rake00 (FT 0.290 m to the 'ghost' cut at t_end + 0.10) while the carriage crosses under it x_lo → x_hi in [67.784, 68.421], apex h 0.465, into rake04 | carriage 2.85 g, 2.63 m/s; head 5.26 g |
+| 69.11–69.81 | release_lo: on down the strings to y 0.766 (the turn, +0.226 s), then up them to (1.40, 0.15) in 0.70 s, held to 76.29 | ruler 24: rise 0.236 m at 32.6°; D9 0 along −t_out (the literal +t_out 618 mm is info, A27) |
+| 76.29–77.14 | the 3-4-5 backswing 0.50 s (1.40, 0.15) → (0.795, 0.32), hold 0.10 s, runup_lo 0.25 s | 1.48 g, 2.36 m/s |
+| 77.68–78.38 | release_hi on up the strings to (2.58, 0.20) in 0.70 s, monotone (h 0.20 by 77.86, y at the cap by 77.95), held to 78.57 | ruler 24: rise 0.392 m at 27.1°; 5.11 g |
+| 78.57–79.37 | home with the last onset: 3-4-5 'travel' on both channels, 0.8 s (`END_S`), (2.58, 0.20) → (1.771, 0.22), the carriage x_hi → home 0.401 m | 0.83 g, 2.12 m/s; carriage 0.37 g |
+
+The D-definitions per sweep (`tools/test_servo.py` checks D1–D9 against
+these; identical on both assets):
+
+| roll | t | enter → leave | D1 FT (m) | D2 E / RI (m) | D3 peak (g) | D4 max (°) |
+|---|---|---|---|---|---|---|
+| 0 | 21.429 up | home → park | 0.385 | 1.08 / 0.358 | 5.21 | 23.4 |
+| 1 | 34.286 up | return → park | 0.385 | 1.08 / 0.333 | 5.21 | 24.8 |
+| 2 | 40.000 down | announce → park | 0.456 | 1.14 / 0.385 | 5.46 | 23.1 |
+| 3 | 45.714 up | announce → turn | 0.385 | 1.08 / 0.358 | 5.26 | 24.1 |
+| 4–17 | 47.14–65.71 | turn → turn | 0.376–0.385 | 1.08–1.13 / 0.299–0.384 | 5.26 | 24.9 |
+| 18 | 67.143 down | turn → ghost | 0.290 | 1.13 / 0.384 | 5.26 | 27.0 |
+| 19 | 68.571 down | ghost → release | 0.391 | 1.11 / 0.210 | 5.26 | 25.6 |
+| 20 | 77.143 up | announce → release | 0.385 | 1.08 / 0.358 | 5.17 | 23.8 |
+
+D3's peak anywhere is 5.46 g (39.98, runup_hi; round 2: 6.54 g at 34.13,
+runup_lo_b), 0 ms over 10 g. D5: the five announced rolls hold 0.100 s each
+after backswings of 0.50, 0.90, 0.50, 0.50 and 0.50 s (run-ups 0.25, 0.25,
+0.22, 0.25, 0.25 s). D6: neither release returns toward the plane after its
+lift (0.0 mm). D7: all five apex holds read 0.000 mm/s (round 2: 1325 mm/s
+at 34.29). D8: the rake's travels are the nine homing legs, three
+'travel → hold' targets (the home crossing e37 and the return e76 into their
+apex holds, the end travel into the rest), skew 0, and the ghost, a strike
+into its run-up; none unjudged. D9: all five rests give back 0 mm in D9's
+sense (release_lo along −t_out; its literal +t_out 618.25 mm is info). The comb is at
+least 89.8 mm off every string more than 0.1 s from a sweep.
+
+What the rulers read, `tools/test_players.py --report --skip-invariants`
+(identical on both assets):
+
+| ruler | rake_arm0 |
+|---|---|
+| 3 lead / preparation | PASS: 21 strokes, lead 819–1249 ms, W ≥ 12.96 frames, depth ≥ 0.312, apex holds 100 ms (5) |
+| 4 action | PASS: approach ≥ 6.6 frames (5.4 in round 2: runup_lo_b's 0.18 s) |
+| 5 no rest | PASS: 15 gaps, 0 violations |
+| 6a smooth / impulse | PASS: 723 knots, da ratio ≤ 0.04 / 0 impulse knots (A21: the rake declares none, so one would fail) |
+| 6b corners | PASS: 0 |
+| 6c laws / jerk | PASS: 3-4-5, hold, quintic hermite; 834 segments (head 652, carriage 182), every one bounded by the closed form (A23: the home legs too), worst 0.908 |
+| 14 entry (D2) | PASS: E 1.082–1.137 (rake00 1.082–1.085, rake04 1.112–1.137); RI 0.210–0.385 m, v_tan a frame before the hit 2.81–3.13 m/s |
+| 14 follow-through (D1) | PASS: FT 0.290–0.456 m (rake04 0.385, rake00 0.290–0.456), turning 169–400 ms after t_end (park_lo's t_rev 0.400); the old arc (info) 0.292–1.042 m |
+| 14 announce (D5; D7, A26: M2 gate) | PASS: 5 (21.43, 34.29, 40.00, 45.71, 77.14), backswings 0.50 / 0.90 / 0.50 / 0.50 / 0.50 s, holds 0.100 s, 0 moving: the tool through every hold ≤ 0.0013 mm/s, still 100 ms, drift ≤ 3.2e-08 mm (round 2: 34.29 at 1325 mm/s, still 5.9 ms, drift 60 mm, which A26 fails) |
+| 14 frame turns (D4, info) | 27.0° max (67.87), 0 over 30°; peak 5.46 g (39.97, the down roll's runup_hi; 6.55 g at 34.13 in round 2) |
+| 14 corners / speed ratio | PASS: 0; 1.155 (2.498–2.886 m/s) |
+| 14 ρ / carriage | PASS: 0.920 max (68.10), 0 frames over 1; 2.63 m/s, 2.90 g (64.29, a sweep; ≤ 3 g), dv step 8e-10 |
+| 15 tip accel (D3; M2 gate, A20) | PASS: max 5.5 g (39.97, runup_hi), p99 5.3 g, 0 ms over 10 g (6.5 g at 34.13, runup_lo_b, in round 2) |
+| 22 sync (D8, A25) / repeat / home | PASS: 12/12 (9 home legs, 3 travel → hold: e37, e76, the end), skew ≤ 1.05 ms, 0 unjudged; 2 groups, RMS ≤ 3.5e-11 mm; x 1.0, shoulder 1.074, elbow 0.887 of their spans, peak 1.098 m/s, land 0. 'sync (travels)' (info, A22's strikes): the ghost alone, 1.83 ms (round 2 also held the return's crossing there, 100.9 ms after the hold's start) |
+| 24 release (D6; D9, A27; M10) | PASS: follow (D1) 0.385–0.391 m, rise 0.236–0.392 m, 27.1–32.6°, return 0 m, path angle ≤ 28.9° (release_hi's mono rest); give-back 68.57 0 along −t_out (literal +t_out 618.3 mm, info), 77.14 3.5e-05 mm along +t_out (round 2: 71.37 mm, the rock) |
+| 24 rest (D9, A27; M10) | PASS: 3 rests (21.43, 34.29, 40.00), chosen by the declared structure, give back ≤ 1.0e-08 mm along +t_out and are still at their holds (\|v\| ≤ 4.6e-16 mm/s; round 2: 62.14, 62.14, 0.56 mm); the pendulum's 15 turns flow on into the next stroke (their notes leave by 'turn'), the 67.14 ghost leaves before its turn |
+
+Still open on the rake, outside M2's gate (chamber, the review fix's
+report; each fails as in round 2; ruler 16's reversals, which pass, fell
+6 → 1): ruler
+1's tool p95 over active frames 0.913 (≤ 0.5; max 0.920, no frame over 1);
+ruler 2 on the screen, ρ_px 2.00 at 40.07 (camera.json is stale against the
+score: re-export); ruler 15's order, shares and phases (M9: joint-space, and
+592 of 796 declared segments are under 2.5 frames, the sweep's and pieces'
+knots); ruler 17's driven share (only the carriage is driven) and the
+leadscrew at 19 700 rpm for 2.63 m/s on an 8 mm lead, ruler 18's thread
+aliasing (M4); ruler 23 (M9): the comb's 30 mm capsule is inside rake00 by
+up to 35.6 mm as the down roll leaves it at 40.54 (the ruler's exemption
+ends at t_end; the pieces clear h ≥ 0.034 m from 35 ms after it), and the
+plectrum blade the rake does not have; and ruler 24's ending (all arms).
+Ruler 1's links, which round 3's −0.90 rail failed (upper 1.017 at 64.13,
+18 frames over; lower 1.177 at 68.00, 4 frames), pass on the −1.35 rail the
+plan's tie-break takes (upper 0.906 at 47.00, lower 0.955 at 68.03, 0 frames
+over; A28, below). Outside the rulers, `tools/test_eyelets.py` failed on
+the rake from round 2
+on: the comb's tool capsule passed rake04's eyelet flange 18.5 mm off at
+every roll, against 20 mm (the repo's straight fast roll passed at 49.3 mm).
+Round 3 fixes the motion, not the test: the sweep's knot on its chord
+(above) passes it at 23.01 mm, and the test's least clearance anywhere is
+now 23.02 mm (rake04; harp14 vs harp_arm2 27.29 mm).
+
+**The rail plan** (`layout_search.plan_arms`, rerun in python on both
+assets for this motion; the Blender build derives the rest later, below):
+
+| arm | before: root (y, z), l1 = l2 | after | margins after (mm) |
+|---|---|---|---|
+| rake_arm0 (both assets) | (0.55, −0.50), 1.15, pinion down | (0.55, −1.35), 1.60, pinion down (round 2's and round 3's design rail; round 3's merge took (0.55, −0.90) on a 1-ulp tie, which the review fix's tie-break settles) | self 53.0, pair 26.2, strings 23.0, scene 170, mast 85.0, fine 23.0 |
+| harp_arm0, 1, 2 (chamber) | (2.75, −2.25) 1.45; (3.15, −1.80) 1.15; (0.55, −2.25) 1.60 | the same rails; o1 re-chosen on arm0 and arm2 | self 21.5 / 24.9 / 53.0, strings 23.0 each |
+| harp_arm0, 1 (expanded) | as chamber | the same rails | as chamber |
+| harp_arm2 (expanded) | (0.55, −0.75), 1.15, pinion down | (4.10, −1.40), 1.30, pinion back | self 20.8, pair 44.0, strings 23.0, cross harp_arm1 27.2 |
+| bars, bells, blocks | | identical, margins included | |
+
+The rake on its old rail would need |wrist − root| = 1.091 (l1 + l2) (2.509 m
+at 22.17, the park after the first roll): the search drops it. Of the
+search's rake candidates 27 pass `evaluate_arm` with worst ≥ 0 (root y 0.55,
+3.15 and 3.6; at 2.75 the links fold through each other, −56 mm and worse);
+none reaches `enough` (80 mm), and the clearest two, (0.55, −0.90, 1.60)
+and (0.55, −1.35, 1.60), are held to 23.0 mm by the links' and shank's
+clearance to the strings. They tie on all four of the objective's keys
+(worst, l1, |root_y − 2.75|, worst; equal within `TIE_TOL`, 1e-9 m), and
+the tie goes to the rail whose links strobe least over the arm's own motion
+(`clearance.link_strobe`, ruler 1's '1 links' measure, then the order
+`candidates` lists them in): (0.55, −1.35, 1.60) at 0.955 against
+(0.55, −0.90, 1.60)'s 1.177 (pair 26.2 mm against 25.3). The ruler does
+not call the planner it judges, so the two copies of the measure are held
+together by `tools/test_sync.py`: the same head radius and bar floor, and
+the same value to 1e-12 on the chamber's installed rake, harp_arm1 and
+bars_arm0 rails and the expanded's blocks_arm0 (a hammer, read on its
+head), so each of the measure's three tool branches is held (equal to the
+bit today).
+There the comb's path needs at most 2.9955 m = 0.936 (l1 + l2) (at 35.07,
+the park after the isolated sweep): 156.5 mm inside the search's cut
+(0.985 × 3.20 = 3.152 m), 204.5 mm inside l1 + l2, at least 1.772 m from
+the root (floor 0.30), the elbow 67.2–138.8°. The homing poses still sweep
+≥ 0.845 of both joints' spans on every one of the 27 rails, 14.5 mm inside
+each rail's envelope (`tools/rake_design.py --homing`, run on a copy: it
+rewrites the library byte-identical). The expanded harp_arm2 moved because the M2 pick motion
+(not the rake, which is planned after it, and not POISE: the same numbers
+under (.20, .15)) takes its old rail's self clearance to 20.0 mm against the
+new rail's 20.8 mm. No arm is dropped and none is stale (`stale_rails`
+absent); the merged cache (`render/form-study/rails-cache.json`) holds both
+assets' new keys.
+
+Round 3's design (A24's return, the poise and y/z re-timing, the re-solved
+rests) changed t_move, `servo.py`, `rake.py` and `rake_pieces.json`, so the
+plan reran on both assets under the new rail key (it hashes
+`motion_timing`'s new constants too): every arm's cfg came out round 2's on
+both, the rake's (0.55, −1.35, 1.60) included, and so did every margin but
+one (on the chamber the harp_arm0 / harp_arm2 cross gap, 342.7 mm against
+342.3). The merge's sweep (the knot before x_hi on its chord, `SWEEP_TUCK`)
+and the pieces re-solved with it (`LOOP_VMIN`) changed `rake.py` and
+`rake_pieces.json` again and the rail key with them
+(`layout_search.geometry_digest` 3a876e6c…; `motion_constants` collects
+`SWEEP_TUCK`), so the plan reran once more on both assets: the rake moved
+to (0.55, −0.90, 1.60), pinion down, on both, and every other arm's cfg and
+margins are the design run's. No arm is dropped or stale. The review fix
+(the poised check's 3-D chord in `servo.py`, `TIE_TOL` and the tie-break in
+`layout_search.py`, the `SWEEP_TUCK` comment in `rake.py`) changed the rail
+key again (`geometry_digest` 8e83fa28…; `_mech_key` hashes `TIE_TOL` by
+hand), and the plan reran on both assets: the rake is back on
+(0.55, −1.35, 1.60), pinion down, o1 (0, 0.0191, −0.10833), o2
+(0, 0.10958, 0.00959), with the design's margins (self 53.0, pair 26.2,
+behind 1432.2 mm; its o2 too, its o1 (0, 0.02847, −0.10625) under the cubic
+sweep), and every other arm's cfg and margins are round 3's, on both. The
+expanded blocks_arm0 ties three rails, (2.75, −3.54 / −3.79 / −4.09, 1.00),
+and keeps −3.54, which strobes least (0.980 against 1.011 and 1.243) and
+which the order took before. No arm is dropped or stale.
+
+Round 3's move was a tie broken by rounding. The upper link's parallel bar
+o1 is
+`clearance.choose_offset`'s best of 72 directions; o and −o separate the
+bars identically, and `half_plane` keeps both 90° and 270° (cos 270° =
+−1.8e-16 passes its −1e-12 guard). On the cubic sweep the two read equal to
+the last bit (0.105166 m) and 90°, o1 up, won as the first; on the merged
+sweep 270° reads 1 ulp more (0.102504 m) and wins (so did it at a quarter
+of the way on, 0.104170 m). With o1 up the −0.90 rail's self
+clearance is 19.8 mm (the lower link against the upper link's partner, in
+the homing at 0.43 s) and it ranked 15th; with o1 down it is 53.0 mm, and
+the rail ties −1.35 as above. Both rails pass everything the plan measures,
+so the order decided, and the links it chose strobed (ruler 1, above). A28:
+a tie within `TIE_TOL` goes to the least link strobe before the order, so
+float noise no longer chooses a visible quality. The cache
+(`render/form-study/rails-cache.json`) holds every run's keys: 141 entries,
+the design's 117, the quarter-way sweep's 3 chamber and 5 expanded, the
+merge's 3 and 5, and the review fix's 3 and 5, with the `mech:` aliases from
+the expanded runs, as in round 2.
+
+The replan writes each arm's `CFG_KEYS` (root, links, bend, wrist offset,
+o1, o2, pinion) and `margins`; the Blender build (`tools/build_clockwork.py`
+→ `tools/build_forms.py`) derives the rest from them: per arm `gantry`
+(ends' bar_x / setback / outreach / mast, rack mount, margin), `screw`
+(axis y, z, pitch), `drive`, `layers`, `oil_cups`, `link_extent_y`, the
+pair separations and self / string clearances, the strings' `neck`, and
+`render/form-study/recipe.json`. Readers: `tools/test_gantry.py` (rack
+mount, ends, screw axis and pitch, drive, `margins.others`, `stale_rails`,
+the recipe's form boxes), rulers 1 and 2 (`r_motion`, `r_screen`: `layers`,
+`default_layers` when absent), rulers 12–14, 23 and 24 (`r_strings`: the
+necks), rulers 17 and 18 (`r_machine`: the screw's pitch, which no rail
+changes), `Rig` (the mechanisms' `arm_clearance_m`). As in round 2, the
+manifests carry the plan's cfg and margins, and the build rewrites the
+records at integration. The rake is back on the −1.35 rail whose records
+the manifests carry (screw z −1.585), so test_gantry passes on them as they
+stand, on both assets (303 checks; round 3's −0.90 rail failed the rake's
+leadscrew, recorded at z −1.585 against its z −1.135). Written from
+`formlab.gantry.plan_gantries` as the build writes them, only the chamber
+harp_arm0's rack gap changes (0.2464 → 0.2471 m), and test_gantry passes on
+those copies too (123 and 180 checks).
+A19 reads only the motion and `reach_x`: the carriage runs 14.6 mm past
+reach_x at both ends and the pin heads clear the rail heads by 0.001 mm
+beyond `MARGIN` (`RAIL_SPARE`).
 
 ## A machine moves, then waits
 

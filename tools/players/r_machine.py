@@ -73,7 +73,18 @@ next IOI) as time-normalised contact-point paths over [stroke start, release
 end], max pairwise RMS. home: the first rest ≥ 2 s holds a `home` segment
 that sweeps ≥ 0.9 of reach_x and ≥ 0.8 of the shoulder's and elbow's IK spans
 (ruler 16's) with the scored path ≤ 0.5·SERVO_V_MAX, landing on the home rest
-to 1e-9 m.
+to 1e-9 m. Sync's targets on a declaring arm are classified by where each
+carriage travel ends (D8, PLAYERS A25; _sync_targets_m): into a head hold
+(the first arrival hold the head enters from the go on — any but a
+park/hover, and on a servo a park/hover too when it starts after the go —
+else one of any kind starting within a frame of its end, else an arrival
+hold over its tail), judged with its carriage arriving <= SKEW_MAX past
+that hold's start; else a strike into the first contact after the go,
+crossing none (on it, from a frame before it to SKEW_MAX after it; or in
+the head's run-up to it: moving at b, not in a 'release', and running on
+to that contact with no head hold and no 'release' starting between; a
+carriage landing more than SKEW_MAX past it crossed it, late into its
+strike); else unjudged, which fails the row.
 """
 import functools, math, re
 from pathlib import Path
@@ -158,6 +169,14 @@ def _mallet(S, aid):
     plus the detent ring; the root no longer follows the tip's recoil x)."""
     return S.kind(aid) == 'mallet' and S.declared(aid).native
 
+def _native(S, aid):
+    """Any arm whose rig declares its own stroke (Declared.native): the M1
+    mallet, and from PLAYERS M2 a servo pick or the rake (formlab/servo.py,
+    rake.py; the same channels, segments and knots). Ruler 22 measures every
+    such arm on its declared channels (sync, repeat, home); what is the
+    mallet's own (the detent ring, the pawl, Rig.carriage_x) stays on _mallet."""
+    return S.declared(aid).native
+
 def carriage_x_fn(S, aid):
     """t (scalar or array) -> the rendered carriage x: a mallet's
     Rig.carriage_x (formlab.stroke, vectorised), else the tip's x (Rig.pose
@@ -183,6 +202,12 @@ def _x_windows(S, aid):
     if _mallet(S, aid):
         return _merge([(g.t0, g.t1) for g in S.declared(aid).segments if g.extra.get('channel') == 'carriage'
                        and g.tag in ('travel', 'home') and np.isfinite(g.t0) and np.isfinite(g.t1)], 0.0, S.total)
+    if _native(S, aid):
+        # a declaring servo: wherever its carriage channel is not a hold (its slews, its homing legs, and the
+        # rake's carriage under a sweep, which no 'travel' tag names); the sched no longer bounds them (an
+        # unhurried slew leaves before go when the arm is free, PLAYERS M2)
+        return _merge([(g.t0, g.t1) for g in S.declared(aid).segments if g.extra.get('channel') == 'carriage'
+                       and g.law != 'hold' and np.isfinite(g.t0) and np.isfinite(g.t1)], 0.0, S.total)
     rig = S.rig; sched = rig.sched[aid]; wins = []
     rings = rig.stepped(aid) and not rig.hammer(aid)
     for i, s in enumerate(sched):
@@ -734,10 +759,10 @@ def _mech_rings(S, cam):
         if S.layout['mechanisms'][mid].get('material') != 'glass':      # glass elements are '<sid> bell' nodes: the harness moves only '<sid> bar'
             hits = {}
             for e in S.score['events']:
-                for k, sid in enumerate(e['strings']):
+                for sid, th in zip(e['strings'], RIG.motion_timing.string_times(e)):     # each string at its own time
                     s = S.layout['strings'].get(sid)
                     if s and s['struck'] and s['mid'] == mid:
-                        hits.setdefault(sid, []).append((float(e['t'])+k*float(e.get('spread_s', 0)), float(e.get('amp', 1.0))))
+                        hits.setdefault(sid, []).append((th, float(e.get('amp', 1.0))))
             worst = 0.0; peak = 0.0; n = 0; bad = 0; vmin = None
             f_b, tau_b = 80/(2*np.pi), 1/8.0
             for sid, hs in hits.items():
@@ -891,13 +916,18 @@ def _sync(S, aid):
                           'overshoot per channel as mm at the link end'))
     return out
 
-# ---- 22 on a declaring mallet (DESIGN §7.7) -----------------------------------
+# ---- 22 on a declaring arm (DESIGN §7.7) ---------------------------------------
 # The sync channels are the DECLARED channels (the lead's M1 decision on A3's
 # open question): the carriage x and the head, the path minus the carriage
 # (path - (x, 0, 0): the head along its arc, or a homing joint leg's sweep) —
 # not IK joints, which once the root rides the carriage are a function of the
 # head alone and would count it twice. Both on the ring-free scored path
-# (Rig.path_at; the detent and recoil rings are ruler 20's).
+# (Rig.path_at; the detent and recoil rings are ruler 20's). A declaring servo
+# (PLAYERS M2, A6: a pick or the rake) is measured the same way on ITS
+# declared channels: the carriage is the point (x, y_c, z_c) its stroke
+# declares (a harp string's contact y differs string to string, and that
+# blend rides the carriage's own law), the head the path minus that point
+# (h n + (0, hy, hz): a straight line along n, the rake's (y, z) vector).
 
 def _decl_segments(S, aid, channel):
     return sorted((g for g in S.declared(aid).segments if g.extra.get('channel') == channel), key=lambda g: g.t0)
@@ -908,11 +938,33 @@ def _mallet_path(S, aid, ts):
 
 SYNC_POS = 1e-6           # m: a channel has left its start (arrived at its end) when it is beyond (within) 1 um of it
 SYNC_BISECT = 48          # bisection steps on the closed form for each start and arrival instant (to ~1e-17 s of a 0.5 ms bracket)
+PARK_HOLDS = ('hover', 'park')   # D8 (A25): head holds that wait OUT a traverse (a mallet's park, a pick's or the rake's hover):
+                                 # the carriage runs under them by design, so a travel ending inside one is not late into it;
+                                 # every other head hold (a poise, the cocked hold) is an ARRIVAL the carriage must make. On a
+                                 # servo (a pick, the rake) one the head ENTERS after the travel's go is an arrival too: it
+                                 # waits out nothing (round 3's fix: a y/z move landing 450-700 ms late into the hover it rides
+                                 # the release onto read as a strike into the next wind-up); a mallet's parks stay out (its
+                                 # travels leave on the head's way into the park by design: the clause would retarget 5 + 2
+                                 # bars travels on either asset and 5 + 1 bells travels on the expanded onto a park entered
+                                 # after their go)
+
+def _servo_carriage(S, aid):
+    """t (scalar) -> a declaring servo's carriage point (x, y_c, z_c): its
+    stroke's 'carriage' channel and the y/z blend on the carriage segments'
+    cy/cz (formlab/servo.py ServoStroke .carriage, .yc, .zc)."""
+    st = S.stroke(aid)
+    return lambda t: np.array([float(st.carriage.ev(t)), float(st.yc.ev(t)), float(st.zc.ev(t))])
 
 def _mallet_channels(S, aid):
     """The declared channels as closed-form functions of t, on the ring-free
-    scored path: 'carriage x' (path x) and 'head' (path - (x, 0, 0))."""
+    scored path: a mallet's 'carriage x' (path x) and 'head' (path - (x, 0,
+    0)); a declaring servo's 'carriage' (its declared point (x, y_c, z_c))
+    and 'head' (path - that point)."""
     rig = S.rig
+    if not _mallet(S, aid):
+        car = _servo_carriage(S, aid)
+        def sh(t): return np.asarray(rig.path_at(aid, t), float)-car(t)
+        return {'carriage': car, 'head': sh}
     def cx(t): return np.array([float(rig.path_at(aid, t)[0])])
     def hd(t):
         p = np.asarray(rig.path_at(aid, t), float).copy(); p[0] = 0.0; return p
@@ -987,35 +1039,109 @@ def _sync_window_m(S, aid, a, b, tail=0.0):
                 at_end=at_end, moving=sorted(arrives), starts=dict(starts), arrives=dict(arrives), ok=bool(ok))
 
 def _sync_targets_m(S, aid):
-    """A declaring mallet's sync targets: each carriage travel (its 'travel'
-    segments grouped by extra['travel']) whose end is within a frame of the
-    start of a HEAD 'hold' segment (a park or the cocked hold) — a reposition
-    ending in a hold — and every 'home' leg (a carriage x leg, grouped by its
-    travel id; a head joint leg). Travels ending at a contact are strikes
-    (rulers 19 and 11), returned apart. The tail runs up to 2 frames past the
-    target's end, never into the next declared motion of either channel."""
+    """A declaring arm's sync targets: each carriage travel (its segments
+    grouped by extra['travel'], whatever their tag but 'home': PLAYERS A22,
+    the rake's 'ghost' travels are travels) classified by where it ends (D8,
+    PLAYERS A25), first rule that holds:
+      hold    the head enters an ARRIVAL hold (any head 'hold' segment but
+              PARK_HOLDS: a servo's poise, the cocked hold; on a servo a
+              PARK_HOLDS hold too, when it starts at or after the go) from the
+              go on, before b + 1/FPS (the first such); else a head hold of any kind
+              (a park too) starts within a frame of b (A22's rule); else an
+              arrival hold overlaps the tail (h.t0 < b + 1/FPS and h.t1 >
+              b - 1/FPS) — a 'travel->hold' target whose carriage must
+              arrive within SKEW_MAX of that hold's start. Tested before the
+              contact rule, and on the first hold entered, so the judgement
+              is monotone: a carriage d late into a poise is d late wherever
+              its end lands (in the poise, in the run-up, at the strike);
+      strike  into the first contact after the go (a mallet's travel leaves
+              at the contact it just played), crossing none: b at most
+              SKEW_MAX after that contact (a carriage landing later crossed
+              it, moving under the pluck or hit: late into its strike wherever
+              its end lands, not running into it), and either on it, b at
+              most a frame before it (a mallet's travels land on theirs), or,
+              more than a frame before it, in the head's run-up to it: the
+              head segment at b moves (no hold) and is not a 'release', and
+              the head runs on from b to that contact with no head hold and
+              no 'release' segment starting in [b, contact) (a harp slew ends
+              in its stroke or wind-up, the rake's 68.42 ghost inside the
+              run-up): rulers 19 and 11, returned apart. A travel ending in a
+              release (the way out of the contact just played) or ahead of a
+              hold the head waits in before the contact (a hover, a poise) is
+              no run-up;
+      unjudged  none of these: returned apart, and it FAILS the sync row.
+    Every 'home' leg (a carriage x leg, grouped by its travel id; a head
+    joint leg) is a target too. A carriage piece that declares no travel id
+    joins the contiguous pieces of its tag (a servo slew's S-curve ramps and
+    cruise), a leg ending where the carriage comes to rest (<= 1 mm/s). The
+    tail runs up to 2 frames past the target's end, never into the next
+    declared motion of either channel. -> (targets (a, b, kind, tail, hold
+    start or None, 'arrival' when only D8's arrival-hold clause took it),
+    strikes, unjudged)"""
     car = _decl_segments(S, aid, 'carriage'); head = _decl_segments(S, aid, 'head')
     holds = [g for g in head if g.tag == 'hold' and g.t1 > g.t0]
+    arrive = [h for h in holds if h.extra.get('hold') not in PARK_HOLDS]; servo = not _mallet(S, aid)
     moves = sorted(g.t0 for g in car+head if g.law != 'hold' and np.isfinite(g.t0))
     def tail(b):
         nxt = next((t for t in moves if t > b-1e-9), np.inf)
         return max(0.0, min(2/FPS, nxt-b, S.total-b))
-    tv, hm = {}, {}
+    tv, hm = {}, {}; anon = []; cf = None
     for g in car:
         if not (np.isfinite(g.t0) and np.isfinite(g.t1)): continue
         k = g.extra.get('travel')
-        if g.tag == 'travel' and k is not None: d = tv
-        elif g.tag == 'home' and k is not None: d = hm
-        else: continue
+        if k is None and g.tag in ('travel', 'home') and g.law != 'hold':
+            if cf is None: cf = next(iter(_mallet_channels(S, aid).values()))
+            if (anon and anon[-1][2] == g.tag and abs(anon[-1][1]-g.t0) <= 1e-9
+                    and float(np.linalg.norm(deriv(cf, g.t0, -1, 1))) > V_THR): anon[-1][1] = g.t1
+            else: anon.append([g.t0, g.t1, g.tag])
+            continue
+        if k is None: continue
+        d = hm if g.tag == 'home' else tv                   # A22: a travel id of any other tag is a travel
         a, b = d.get(k, (g.t0, g.t1)); d[k] = (min(a, g.t0), max(b, g.t1))
-    targets, strikes = [], []
+    for i, (a, b, tag) in enumerate(anon): (tv if tag == 'travel' else hm)[('piece', i)] = (a, b)
+    ct = np.array(sorted(c.t for c in S.contacts(aid)))
+    def to_contact(a, b):
+        """D8's strike. Its contact c is the first after the go (a mallet's travel leaves at the contact it just
+        played and plays the next). The travel ends at most SKEW_MAX after c: one landing later crossed c, the
+        carriage moving under the pluck or hit, and is late into its strike wherever its end lands (in the release,
+        the float, the next wind-up), not running into it. Then it ends on c, at most a frame before it; or, more
+        than a frame before c, in the head's run-up to it: the head segment at b moves and is not a 'release' (the
+        way out of the contact just played), and the head runs on from b to c with no head hold and no 'release'
+        segment starting in [b, c). Anything else is no strike (unjudged, unless a hold took it)."""
+        i = int(np.searchsorted(ct, a+1e-9, side='right'))
+        if i == len(ct): return False
+        c = ct[i]
+        if b > c+SKEW_MAX+1e-9: return False
+        if c-b <= 1/FPS+1e-9: return True
+        stops = lambda g: g.law == 'hold' or g.tag in ('hold', 'release')
+        g = next((g for g in head if g.t0 <= b+1e-9 < g.t1), None)
+        if g is None or stops(g): return False
+        return not any(stops(x) and x.t1 > x.t0 and b-1e-9 <= x.t0 < c-1e-9 for x in head)
+    def ends_in(a, b):
+        """D8: (the head hold a travel [a, b] ends in — its start is the arrival the carriage is judged against —
+        and 'arrival' when A22's within-a-frame rule alone would not have taken it), or (None, None)"""
+        near = lambda h: abs(h.t0-b) <= 1/FPS+1e-9
+        # a servo's hover or park the head enters after the go is an arrival: the head got there first and waits for the
+        # carriage, which is late into it however late (monotone: no lateness carries the travel's end past it into a
+        # run-up and a strike); one entered before the go waits out the traverse (a slew under the hover)
+        arr = arrive+([h for h in holds if h.extra.get('hold') in PARK_HOLDS and h.t0 >= a-1e-9] if servo else [])
+        entered = [h for h in arr if a-1e-9 <= h.t0 < b+1/FPS]
+        if entered: h = min(entered, key=lambda h: h.t0); return h, (None if near(h) else 'arrival')
+        at = [h for h in holds if near(h)]
+        if at: return min(at, key=lambda h: abs(h.t0-b)), None
+        over = [h for h in arr if h.t0 < b+1/FPS and h.t1 > b-1/FPS]
+        return (max(over, key=lambda h: h.t0), 'arrival') if over else (None, None)
+    targets, strikes, unjudged = [], [], []
     for k, (a, b) in sorted(tv.items(), key=lambda kv: kv[1]):
-        if any(abs(h.t0-b) <= 1/FPS+1e-9 for h in holds): targets.append((a, b, 'travel->hold', tail(b)))
-        else: strikes.append((a, b, 'travel->contact', 0.0))
-    for k, (a, b) in sorted(hm.items(), key=lambda kv: kv[1]): targets.append((a, b, 'home x', tail(b)))
+        h, via = ends_in(a, b)
+        if h is not None: targets.append((a, b, 'travel->hold', tail(b), h.t0, via))
+        elif to_contact(a, b): strikes.append((a, b, 'travel->contact', 0.0, None, None))
+        else: unjudged.append((a, b))
+    for k, (a, b) in sorted(hm.items(), key=lambda kv: kv[1]): targets.append((a, b, 'home x', tail(b), None, None))
     for g in head:
-        if g.tag == 'home' and g.law != 'hold' and np.isfinite(g.t0): targets.append((g.t0, g.t1, 'home '+str(g.extra.get('joint')), tail(g.t1)))
-    return sorted(targets), strikes
+        if g.tag == 'home' and g.law != 'hold' and np.isfinite(g.t0):
+            targets.append((g.t0, g.t1, 'home '+str(g.extra.get('joint')), tail(g.t1), None, None))
+    return sorted(targets, key=lambda r: r[:4]), strikes, unjudged
 
 def _sync_summary_m(rows):
     chans = sorted({c for r in rows for c in r['over']})
@@ -1026,28 +1152,55 @@ def _sync_summary_m(rows):
                 settle_v_mm_s_max=round(max(r['settle_v'] for r in rows)*1e3, 4), nonmonotone=int(sum(r['nonmono'] for r in rows)),
                 moving_at_end=int(sum(r['at_end'] for r in rows)), worst_t=round(worst['t'], 3))
 
+D8_NOTE = ('; D8 (A25): a travel whose head enters an arrival hold (any head hold but a park/hover; on a servo a '
+           'park/hover too when it starts after the go) from the go on, '
+           'or ends with one over its tail, is a target too, and every travel->hold target\'s carriage arrives <= '
+           '1/240 s past its hold\'s start (hold_skew); a strike plays the first contact after its go and crosses '
+           'none: it ends <= 1/240 s after that contact (a carriage landing later moved under it, late into its '
+           'strike) and on it (<= a frame before it) or in the head\'s run-up to it (moving from its end to that '
+           'contact with no head hold and no release starting between, its end not in a release); a travel neither '
+           'a target nor a strike (unjudged) FAILS the row')
+
 def _sync_mallet(S, aid):
-    out = []; targets, strikes = _sync_targets_m(S, aid)
-    rows = [(k, r) for a, b, k, tl in targets for r in [_sync_window_m(S, aid, a, b, tl)] if r]
+    out = []; targets, strikes, unjudged = _sync_targets_m(S, aid)
+    cn = 'carriage x' if _mallet(S, aid) else 'carriage'
+    rows = []; d8 = bool(unjudged) or any(t[5] == 'arrival' for t in targets)
+    for a, b, k, tl, h0, _ in targets:
+        r = _sync_window_m(S, aid, a, b, tl)
+        if not r: continue
+        if h0 is not None:
+            # D8 (A25): the carriage's in-position arrival past the start of the hold its travel ends in — a
+            # carriage d late into a poise is d late however long the poise, wherever the travel's end lands
+            r['hold_skew'] = r['arrives'].get(cn, b)-h0; r['ok'] = bool(r['ok'] and r['hold_skew'] <= SKEW_MAX)
+        rows.append((k, r))
+    uj = {'unjudged': dict(n=len(unjudged), at=[round(b, 3) for _, b in unjudged][:6])} if unjudged else {}   # A22/A25: shown, and FAILS
     if rows:
         v = _sync_summary_m([r for _, r in rows])
         kinds = {}
         for k, r in rows:
             n, ok = kinds.get(k.split()[0], (0, 0)); kinds[k.split()[0]] = (n+1, ok+int(r['ok']))
         v['by_kind'] = {k: dict(n=n, ok=ok) for k, (n, ok) in kinds.items()}
+        late = [r['hold_skew'] for _, r in rows if r.get('hold_skew', 0.0) > SKEW_MAX]
+        if late: v['late_into_hold'] = dict(n=len(late), worst_ms=round(max(late)*1e3, 2))
         v['failing'] = [dict(t=round(r['t'], 3), what=k, skew_ms=[round(r['skew_start']*1e3, 2), round(r['skew_arrive']*1e3, 2)],
                              over_mm={c: round(o*1e3, 3) for c, o in r['over'].items()}, settle_v_mm_s=round(r['settle_v']*1e3, 3),
-                             nonmono=r['nonmono'], at_end=r['at_end'], moving=r['moving']) for k, r in rows if not r['ok']][:6]
-        out.append(Result(22, 'sync', aid, v, bool(v['ok'] == v['n']),
-                          'declared channels (carriage x; head = path - carriage) on the ring-free path; targets: travels ending '
+                             nonmono=r['nonmono'], at_end=r['at_end'], moving=r['moving'],
+                             **({'hold_skew_ms': round(r['hold_skew']*1e3, 2)} if 'hold_skew' in r else {}))
+                        for k, r in rows if not r['ok']][:6]
+        v.update(uj)
+        out.append(Result(22, 'sync', aid, v, bool(v['ok'] == v['n'] and not unjudged),
+                          'declared channels ('+('carriage x' if _mallet(S, aid) else 'carriage = the declared (x, y_c, z_c)')+
+                          '; head = path - carriage) on the ring-free path; targets: travels ending '
                           'within a frame of a head hold, and every home leg; start/arrival = in-position instants (left the '
                           'start value by > 1 um / within 1 um of the end value for good), bisected on the closed form; start '
                           'skew over channels at rest at the start that move inside, arrival skew over every moving channel, '
                           '<= 1/240 s; overshoot <= 0.5 mm along each channel\'s line; |v| < 1 mm/s from a frame after arrival on; '
-                          'monotone'))
+                          'monotone'+(D8_NOTE if d8 else '')))
     else:
-        out.append(Result(22, 'sync', aid, dict(n=0, homing_sweeps=0), None, 'no travel ends in a hold and no home leg: nothing to judge'))
-    srows = [r for r in (_sync_window_m(S, aid, a, b, 0.0) for a, b, _, _ in strikes) if r]
+        out.append(Result(22, 'sync', aid, dict(n=0, homing_sweeps=0, **uj), False if unjudged else None,
+                          'unjudged travels (D8, A25): neither into a hold nor a strike' if unjudged else
+                          'no travel ends in a hold and no home leg: nothing to judge'))
+    srows = [r for r in (_sync_window_m(S, aid, a, b, 0.0) for a, b, *_ in strikes) if r]
     if srows:
         out.append(Result(22, 'sync (travels)', aid, _sync_summary_m(srows), INFO,
                           'travels ending at a contact (strikes: rulers 19 and 11), measured as sync would be, not judged'))
@@ -1068,12 +1221,16 @@ def _repeat_window_m(heads, c, nxt, total):
     return a, end
 
 def _repeat_mallet(S, aid, n=64):
-    """22 repeat on a declaring mallet (DESIGN §7.7): groups keyed (arm,
+    """22 repeat on a declaring arm (DESIGN §7.7, A6): groups keyed (arm,
     contact, a', IOI, next a', next IOI); per stroke the head relative to the
     carriage, p - (x_c(t) - x_c(t_i), 0, 0) on the ring-free scored path, over
     [the stroke's wind-up or float start, the next contact], time-normalised;
-    max pairwise RMS per group."""
+    max pairwise RMS per group. A declaring servo's carriage is its declared
+    point (x, y_c, z_c), so it is p - (c(t) - c(t_i)) with the whole point
+    taken out: a harp's contact y changes string to string, and a vector
+    head's (hy, hz) stays in."""
     cs = S.contacts(aid); heads = _decl_segments(S, aid, 'head')
+    car = None if _mallet(S, aid) else _servo_carriage(S, aid)
     def r3(x): return None if x is None or not math.isfinite(x) else round(x, 3)
     def r2(x): return None if x is None else round(x, 2)
     groups = {}
@@ -1089,8 +1246,11 @@ def _repeat_mallet(S, aid, n=64):
         for c, nxt in mem:
             a, b = _repeat_window_m(heads, c, nxt, S.total)
             if a is None: missing += 1; a = c.t
-            u = np.linspace(a, b, n); P = _mallet_path(S, aid, u); xi = float(S.rig.path_at(aid, c.t)[0])
-            P[:, 0] = xi                      # p - (x_c(t) - x_c(t_i), 0, 0): the scored x is the carriage's
+            u = np.linspace(a, b, n); P = _mallet_path(S, aid, u)
+            if car is None:
+                P[:, 0] = float(S.rig.path_at(aid, c.t)[0])     # p - (x_c(t) - x_c(t_i), 0, 0): the scored x is the carriage's
+            else:
+                P -= np.array([car(t) for t in u])-car(c.t)     # p - (c(t) - c(t_i)): the servo's whole carriage point
             paths.append(P)
         strokes += len(mem); g = 0.0
         for i in range(len(paths)):
@@ -1103,11 +1263,12 @@ def _repeat_mallet(S, aid, n=64):
     v = dict(groups=len(rms), strokes=strokes, rms_mm=stat(np.array(rms)*1e3), over_1mm=int(sum(r > REPEAT_MAX for r in rms)),
              worst_t=round(worst[1], 3) if worst[1] is not None else None, no_declared_stroke=missing)
     return Result(22, 'repeat', aid, v, v['over_1mm'] == 0 and missing == 0,
-                  'groups by (arm, contact, a\', IOI, next a\', next IOI); the head relative to the carriage (ring-free scored path) '
+                  'groups by (arm, contact, a\', IOI, next a\', next IOI); the head relative to the carriage '+
+                  ('' if car is None else '(x, y_c, z_c) ')+'(ring-free scored path) '
                   'over [wind-up or float start, next contact], time-normalised to 64 samples; max pairwise RMS per group')
 
 def _home_sweep_m(S, aid, homes, rest):
-    """22 home on a declaring mallet: over the UNION of its 'home' segments
+    """22 home on a declaring arm (a mallet, a declaring servo): over the UNION of its 'home' segments
     (both channels) in the rest, sampled at 2 HZ each: x swept on the
     ring-free scored x, the joints by IK of Rig.poses (ruler 16's spans), the
     peak speed of the scored tool path within each segment, the landing at
@@ -1189,7 +1350,7 @@ def _home(S, aid):
     v = dict(rest=[round(rest[0], 3), round(rest[1], 3)], homes=len(homes), x_swept_frac=round(swept, 4))
     if not homes:
         return Result(22, 'home', aid, v, False, 'no arm homes today: no segment tagged home in its first rest >= 2 s')
-    v.update(_home_sweep_m(S, aid, homes, rest) if _mallet(S, aid) else _home_sweep(S, aid, homes, rest))
+    v.update(_home_sweep_m(S, aid, homes, rest) if _native(S, aid) else _home_sweep(S, aid, homes, rest))
     j = v['joint_swept_frac']
     ok = (v['x_swept_frac'] >= .90-1e-12 and j is not None and all(f is not None and f >= .80-1e-12 for f in j.values())
           and v['v_peak'] <= .5*RIG.SERVO_V_MAX+1e-12 and v['land_m'] <= 1e-9)
@@ -1235,7 +1396,7 @@ def precision(S):
     for aid in S.arms:
         if not S.rig.sched.get(aid):
             out.extend(Result(22, m, aid, {}, None, NO_MOTION) for m in ('sync', 'repeat', 'home')); continue
-        if _mallet(S, aid):
+        if _native(S, aid):                       # a mallet (M1) or a declaring servo (M2): its declared channels
             out.extend(_sync_mallet(S, aid))
             out.append(_repeat_mallet(S, aid))
         else:

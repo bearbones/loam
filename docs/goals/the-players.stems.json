@@ -1,20 +1,20 @@
 {
  "chamber": {
-  "chamber.wav": "753f4cc530859165dffd50ce6bb4f17573bf6404a8c69bf53e5ce581a478d5d9",
+  "chamber.wav": "74dc02e6ef34e1caa2edaac0f8388c775800735e5acf9bc32d51c66ebd0617e2",
   "shapes.f32": "468fc09dc6e45b8e8d6c16f1f7419f7e8f6e380c655f7106cc41aeba42388850",
   "stems/bars.wav": "9700a2990dcbb44e119275dd737bbf0ac852f35ee94e9169e529258e9370a77b",
-  "stems/chamber.wav": "59b02c0de129dbf9672677a08ea37e31ce2073967334171563cb9a04ec963b40",
+  "stems/chamber.wav": "a6da68448922c513301567d388b2fc0618651f4ce43a0cb20fc985f2c377bac5",
   "stems/harp.wav": "2fe5da4d281d6df3d256236c76402b565a1e7795be816cf3fe0bdb61dd5f8789",
-  "stems/rake.wav": "efec8da67e7782e4b66cd081559e8d5788bb2e240d7017b7794edb713a8ece9b"
+  "stems/rake.wav": "61f6ae64a402d4014225a4c0daff5a4ebc7baa152c73ff8d6d2b8454cd245f66"
  },
  "expanded": {
-  "chamber.wav": "adc8f3a361f36dc7d0ee2643c4359bbaabaa7c7dde06f839168963f6e315d06e",
+  "chamber.wav": "a233b761861e80f44b7afa153dc01dca24b11d3f5b54ab243b6cbdb5da3786e1",
   "shapes.f32": "468fc09dc6e45b8e8d6c16f1f7419f7e8f6e380c655f7106cc41aeba42388850",
   "stems/bars.wav": "3901f21c6555775406da4070e644d78be4b508ec61e9251cc7e49ce046255a98",
   "stems/bells.wav": "ca161a6df10e9f0452fa64b4d56614284e11e0bbeb5fd82511563934bf3ccab7",
   "stems/blocks.wav": "4b79bbc5ee7ff2d63aa2276c2ee840646c8f915ba1308cc2f544440dfa24d117",
-  "stems/chamber.wav": "4c1ea7d525fc5d2ece42045fd3d14e31178b379feb4348187d93f16dd75b4d8b",
+  "stems/chamber.wav": "09beeeba5f52dbc47d5f4f49a79bfca40d56928df8d817b354a3d4daa5e2a498",
   "stems/harp.wav": "30ee7ee74a2dc7d51e43143ad964ae51b9abe94d7bf319d7f97f2618c7cbd22e",
-  "stems/rake.wav": "dbf079e05d298c6c7200fa2ab45e3213f8444c89d3c387acbe5c6d39ff933d56"
+  "stems/rake.wav": "dcb313a70d6233a929a7ac44db96a67733477c4f5f5eb3b549954f2931785d6c"
  }
 }

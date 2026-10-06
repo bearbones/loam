@@ -275,14 +275,22 @@ class _Solver:
         self.last_t = -np.inf
         # Occupancy timeline per arm, one entry a contact:
         # (t_move, t_arrive, t_last, travel interval, contact interval,
-        # where it comes to rest), t_arrive = t - motion_timing.arrive_lead:
+        # where it comes to rest, law), t_arrive = t - motion_timing.arrive_lead:
         # the wind-up before the contact, or the contact itself for a
         # carriage that travels contact to contact. An arm crossing the rail is charged
         # the whole interval between where it left and where it lands,
         # because the plan does not model the profile in between; once
         # it has ARRIVED it is charged only the strings it is playing,
         # and afterwards the one it hovers over. Three phases, not two:
-        # the interval it crossed is not where it stands.
+        # the interval it crossed is not where it stands. A servo-profiled
+        # carriage (motion_timing.SERVO_PROFILED: one S-curve a travel) has
+        # a law, (xa, xb, t_fast), and is charged only where that S-curve
+        # can be (motion_timing.servo_span, held over OCC_DT steps): two
+        # carriages crossing the same way were kept apart by intervals
+        # neither occupied (PLAYERS M2 round 3: harp_arm2's 44.29 travel
+        # waited 0.29 s on harp_arm1 07 -> 06, a 0.218 m interval gap
+        # under the 0.27 m clearance, while the carriages never came
+        # within 0.326 m). Every other kind keeps law None.
         self.moves = {a.id: [] for a in mech.actuators}
         # each arm's homing sweep (_Solver.home), also the first entry of its
         # moves once committed
@@ -314,14 +322,48 @@ class _Solver:
         home before any)."""
         hover = self.mech.axis_pos(self.mech.actuator(aid).home)
         latest = -np.inf
-        for t0, t_arr, t1, mv, pl, dest in self.moves[aid]:
+        for t0, t_arr, t1, mv, pl, dest, law in self.moves[aid]:
             if t0 <= t < t_arr:
-                return mv
+                return self._moving(t0, t_arr, mv, law, t)
             if t_arr <= t <= t1:
                 return pl
             if t1 < t and t1 > latest:
                 latest, hover = t1, dest
         return hover, hover
+
+    @staticmethod
+    def _moving(t0, t_arr, mv, law, t):
+        """The interval a carriage travelling over [t0, t_arr) is charged
+        at t: the whole crossed one, or, with a law, where its S-curve can
+        be over the OCC_DT step that holds t."""
+        if law is None:
+            return mv
+        a = t0 + np.floor((t - t0) / _mt.OCC_DT) * _mt.OCC_DT
+        return _mt.servo_span(law[0], law[1], t0, law[2], t_arr, a,
+                min(a + _mt.OCC_DT, t_arr))
+
+    @staticmethod
+    def _steps(t0, t_arr, law):
+        """The breakpoints a law's moving phase adds (its OCC_DT steps)."""
+        if law is None or t_arr <= t0:
+            return []
+        n = int(np.ceil((t_arr - t0) / _mt.OCC_DT - 1e-9))
+        return [t0 + k * _mt.OCC_DT for k in range(1, n)]
+
+    def _law(self, act: Actuator, sids, t_move: float, t_arrive: float):
+        """The travel law a servo-profiled carriage moves by (it leaves
+        its string at t_move and lands on sids[0] in [t_fast, t_arrive],
+        t_fast = t_move + motion_timing.servo_fast_s), or None."""
+        s_from = self.at[act.id]
+        if not _mt.servo_profiled(act.kind) or not s_from \
+                or t_arrive <= t_move:
+            return None
+        m = self.mech
+        xa, xb = m.axis_pos(s_from), m.axis_pos(sids[0])
+        if xa == xb:
+            return None
+        return (xa, xb, min(t_arrive, t_move
+                + _mt.servo_fast_s(self.span_m(s_from, sids[0]))))
 
     def _spans(self, act: Actuator, sids):
         """((lo, hi) crossed on the way, (lo, hi) played on arrival)."""
@@ -351,23 +393,34 @@ class _Solver:
         w = float(self.mech.arm_clearance)
         if w <= 0.0:
             return True
+        # a servo-profiled carriage is charged only where its S-curve can
+        # be, so its plan can come as close to the clearance as the rig's
+        # own check allows: it carries the rig's pad (motion_timing.OCC_PAD,
+        # world metres), so formlab.rig._schedules never pushes it
+        if _mt.servo_profiled(act.kind):
+            w += _mt.OCC_PAD / _mt.WORLD_SCALE
         m = self.mech
         moving, played = self._spans(act, sids)
         rest = m.axis_pos(sids[-1])
+        law = self._law(act, sids, t_move, t_arrive)
 
         def mine(t):
             if t < t_arrive:
-                return moving
+                return self._moving(t_move, t_arrive, moving, law, t)
             return played if t <= t_last else (rest, rest)
         for other in m.actuators:
             if other.id == act.id:
                 continue
             times = {t_move, t_arrive, t_last, t_last + 1e-6}
-            for t0, t_arr, t1, _, _, _ in self.moves[other.id]:
+            times.update(self._steps(t_move, t_arrive, law))
+            for t0, t_arr, t1, _, _, _, olaw in self.moves[other.id]:
                 for tb in (t0, t_arr, t1):
                     if tb >= t_move:
                         times.add(tb)
                     times.add(max(t_move, tb))
+                if t_arr > t_move:
+                    times.update(tb for tb in self._steps(t0, t_arr, olaw)
+                                 if tb >= t_move)
             ts = sorted(times)
             probes = list(ts) + [0.5 * (u + v) for u, v in zip(ts, ts[1:])] \
                 + [ts[-1] + 1.0]
@@ -398,9 +451,10 @@ class _Solver:
             if other.id == act.id:
                 continue
             for seg in self.moves[other.id]:
-                for tb in (seg[0] + 1e-9, seg[1] + 1e-9):
-                    if t0 < tb <= t_hi:
-                        cands.add(tb)
+                # a law's range changes every OCC_DT step: each is a change
+                for tb in (seg[0], seg[1], *self._steps(seg[0], seg[1], seg[6])):
+                    if t0 < tb + 1e-9 <= t_hi:
+                        cands.add(tb + 1e-9)
         for start in sorted(cands):
             if self._separated(act, start, t_arrive, t_last, sids):
                 return start
@@ -413,8 +467,11 @@ class _Solver:
         `dx` is the world distance the arm has to cross (what "least
         travel wins" is decided on) and `travel` what the score actually
         leaves for the crossing. An arm with room takes the whole
-        unhurried want; one without is charged everything between the
-        moment it comes free and the wind-up, and leaves at that moment.
+        unhurried want (a servo that repositions, up to SLEW_SLACK_S more,
+        an announced rake crossing what announce_lead charges it:
+        motion_timing.slew_lead); one without is charged everything
+        between the moment it comes free and the wind-up, and leaves at
+        that moment.
         `t_move` is therefore the instant the carriage really starts, and
         `formlab.rig._windows` takes it as given rather than deriving a
         second, earlier one of its own.
@@ -452,7 +509,14 @@ class _Solver:
         # a contact-to-contact carriage that does not move has nothing to
         # start late (every other kind keeps its floor-bounded latest start)
         still = dx <= 0.0 and _mt.contact_to_contact(a.kind)
-        t_move = self._push(a, arrive - tr,
+        # an unhurried servo reposition leaves up to SLEW_SLACK_S before its
+        # want (an announced rake crossing, early enough to have crossed by
+        # its apex hold: A24), never before it is free (motion_timing.
+        # slew_lead); a hurried one (room < want) already leaves the moment
+        # it comes free
+        lead_t = _mt.slew_lead(a.kind, dx, want, room, lead) if room >= want \
+            else tr
+        t_move = self._push(a, arrive - lead_t,
                 arrive - (tr if still else flr), arrive, t_last, sids)
         if t_move is None:
             return None
@@ -461,7 +525,8 @@ class _Solver:
     def home(self, aid: str, t0: float):
         """Commit arm `aid`'s homing sweep from t0 (motion_timing.home_legs:
         its home, the low end of its reach, the high end, home again, tooth by
-        tooth, and the elbow and shoulder sweeps at a still x) if it
+        tooth, and the elbow and shoulder sweeps at a still x; a servo kind's
+        motion_timing.servo_home_legs, the same shape on one 3-4-5 a leg) if it
         ends HOME_GAP before the first travel of any arm of its mechanism
         (the mechanism warms up before it plays) and keeps arm_clearance
         from every sibling's committed occupancy throughout; the sweep owns
@@ -473,7 +538,7 @@ class _Solver:
         ids = sorted(a.reach, key=m.axis_pos)
         xh, lo, hi = m.axis_pos(a.home), m.axis_pos(ids[0]), m.axis_pos(ids[-1])
         W = _mt.WORLD_SCALE
-        legs = _mt.home_legs(xh * W, lo * W, hi * W)
+        legs = (_mt.servo_home_legs if _mt.servo_homes(a.kind) else _mt.home_legs)(xh * W, lo * W, hi * W)
         if not legs:
             return None
         t1 = t0 + legs[-1][1]
@@ -490,12 +555,14 @@ class _Solver:
             ts = {t0, t1}
             for mv in self.moves[other.id]:
                 ts |= {tb for tb in mv[:3] if t0 <= tb <= t1}
+                ts |= {tb for tb in self._steps(mv[0], mv[1], mv[6])
+                       if t0 <= tb <= t1}
             ts = sorted(ts)
             for tp in ts + [0.5 * (u + v) for u, v in zip(ts, ts[1:])]:
                 b_lo, b_hi = self._range_at(other.id, tp)
                 if max(lo - b_hi, b_lo - hi) < w:
                     return None
-        self.homes[aid] = (t0, t1, t1, (lo, hi), (xh, xh), xh)
+        self.homes[aid] = (t0, t1, t1, (lo, hi), (xh, xh), xh, None)
         self.moves[aid].insert(0, self.homes[aid])
         return dict(t=float(t0), kind="home", mech=m.id, actuator=aid,
                 t_end=float(t1), path=[a.home, ids[0], ids[-1], a.home])
@@ -544,9 +611,10 @@ class _Solver:
         m = self.mech
         moving, played = self._spans(act, sids)
         t_last = p["t_free"] - act.recover_s
-        self.moves[act.id].append((p["t_move"],
-                t - _mt.arrive_lead(act.kind, act.approach_s), t_last,
-                moving, played, m.axis_pos(sids[-1])))
+        t_arr = t - _mt.arrive_lead(act.kind, act.approach_s)
+        self.moves[act.id].append((p["t_move"], t_arr, t_last,
+                moving, played, m.axis_pos(sids[-1]),
+                self._law(act, sids, p["t_move"], t_arr)))
         self.free_at[act.id] = p["t_free"]
         self.head_free_at[act.id] = p.get("t_head_free", p["t_free"])
         self.at[act.id] = sids[-1]
@@ -705,16 +773,33 @@ class Score:
 
     def rake(self, mech: str, t: float, strings, amp: float = 1.0,
             spread_s: float = 0.018, pick=None, dur=None, pan=None,
-            voice: str = "", seed=None, **extra) -> dict:
+            voice: str = "", seed=None, onsets=None, **extra) -> dict:
         """One sweep across several strings: ONE event, one
-        actuator, onsets spread_s apart in order given."""
+        actuator, onsets spread_s apart in order given — or, given
+        `onsets` (offsets from t, one a string: a roll that follows the
+        comb's path, motion_timing.rake_onsets), at those. The event
+        stores them (ev['onsets'], what motion_timing.string_times
+        reads); spread_s must then be the roll's end over n - 1, so the
+        planner, which only needs the end, prices the same roll."""
         m = self.instrument.mech(mech)
         seed = len(self.events) if seed is None else seed
         sids = list(strings)
+        if onsets is not None:
+            on = [float(o) for o in onsets]
+            assert len(on) == len(sids) and on[0] == 0.0 \
+                and all(b > a for a, b in zip(on, on[1:])) \
+                and abs(on[-1] - spread_s * (len(sids) - 1)) <= 1e-12, \
+                (f"rake onsets {on} break the contract: one a string, from "
+                 f"0, rising, ending at spread_s * (n - 1) = "
+                 f"{spread_s * (len(sids) - 1)}")
+            extra["onsets"] = on
         parts = []
         for k, sid in enumerate(sids):
             v, pk, d = self._synth(m, sid, amp, pick, dur, seed + k)
-            parts.append((int(k * spread_s * SR), v))
+            # a roll places each string at its own onset, to the nearest
+            # sample; a uniform sweep keeps its truncated k * spread_s
+            parts.append((int(round(on[k] * SR)) if onsets is not None
+                          else int(k * spread_s * SR), v))
         n = max(o + len(v) for o, v in parts)
         mono = np.zeros(n)
         for o, v in parts:
@@ -784,14 +869,15 @@ class Score:
             if ev.get("actuator") != was:
                 reassigned += 1
         # Homing sweeps fill the first rest of every contact-to-contact arm
-        # (one arm of a mechanism after another), after the plan they cannot
-        # disturb. The cue is what the rig reads them from.
+        # and every homing servo kind (the rake, PLAYERS M2; the harps' is
+        # M7) (one arm of a mechanism after another), after the plan they
+        # cannot disturb. The cue is what the rig reads them from.
         self.cues = [c for c in self.cues if c.get("kind") != "home"]
         if _mt.HOME_T0 is not None:
             for mid, sv in fresh.items():
                 t0 = _mt.HOME_T0
                 for a in sv.mech.actuators:
-                    if not _mt.contact_to_contact(a.kind):
+                    if not _mt.homes(a.kind):
                         continue
                     c = sv.home(a.id, t0)
                     if c is not None:

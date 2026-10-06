@@ -18,13 +18,14 @@ Its poses are sampled here and written next to the score as
 The time grid is uniform at `hz` plus every instant the path turns a corner
 exactly on, so linear interpolation between rows lands every contact exactly
 and never rounds off a boundary:
-  - a mallet (PLAYERS M1, formlab/stroke.py): every knot and every segment
-    boundary the arm declares (Rig.declared: each contact, each step's start
-    and its landing on the detent, the apex, the park, the cocked hold, each
-    homing leg) and every hit;
-  - every other arm: each contact, each move's start and landing, each
-    release, and for the hinged hammer rows packed through every ratchet
-    click (a tooth in ~16 ms).
+  - an arm with a stroke (a mallet, PLAYERS M1, formlab/stroke.py; a pick or
+    the rake, M2, formlab/servo.py and formlab/rake.py): every knot and every
+    segment boundary the arm declares (Rig.declared: each contact, a mallet's
+    step start and its landing on the detent, the apex, the park, the cocked
+    or poised hold, a rake's roll knots, each homing leg) and every hit;
+  - every other arm (the hinged hammer, a pick's multi-string event): each
+    contact, each move's start and landing, each release, and for the hammer
+    rows packed through every ratchet click (a tooth in ~16 ms).
 Rows closer than MERGE_S are one row: a hit's time wins, then a declared
 knot's. Before the first row and after the last a reader holds the end row.
 
@@ -79,8 +80,8 @@ MECH_CHANNELS = [('stand', 1)]
 PAWL_TABLE_N = 1024
 CLICK_SAMPLES = 8
 MERGE_S = 1e-7       # rows closer than this are one row
-# which time a merged row keeps: a hit's, then a mallet's declared knot or
-# boundary, then another arm's schedule corner, then the grid's
+# which time a merged row keeps: a hit's, then a stroke's declared knot or
+# boundary, then a strokeless arm's schedule corner, then the grid's
 _GRID, _CORNER, _KNOT, _HIT = 0, 1, 2, 3
 
 def sha256(path): return hashlib.sha256(Path(path).read_bytes()).hexdigest()
@@ -99,24 +100,30 @@ def _merge(times, prio, tol=MERGE_S):
 
 def sample_times(rig, hz):
     """The uniform grid from one second before the piece to its end, plus the
-    corners of every arm's path (see the module docstring): a mallet's every
-    declared knot and segment boundary, every other arm's schedule corners
-    (and the hammer's rows through each ratchet click), every hit."""
+    corners of every arm's path (see the module docstring): every declared
+    knot and segment boundary of an arm with a stroke, every other arm's
+    schedule corners (and the hammer's rows through each ratchet click),
+    every hit."""
     total = float(rig.score['total_s'])
     T = [np.arange(-hz, int(np.ceil(total*hz))+1)/hz]; Pr = [np.full(len(T[0]), _GRID)]
     def add(ts, prio):
         ts = np.asarray(ts, float).ravel(); T.append(ts); Pr.append(np.full(len(ts), prio))
     for aid in rig.plans:
         sched = rig.schedule(aid)
-        add([s['hit']+k*s['spread'] for s in sched for k in range(len(s['event']['strings']))], _HIT)
-        if rig.mallet(aid) and rig.stroke(aid) is not None:
+        # every string's contact (a rake roll's at its own onsets: motion_timing.string_times)
+        add([t for s in sched for t in R.motion_timing.string_times(s['event'])], _HIT)
+        if rig.stroke(aid) is not None:
             # the stroke is closed form between its declared knots and
             # boundaries (a contact reverses the head's velocity, a stepped
-            # landing starts the detent ring), smooth everywhere else
+            # landing starts the detent ring, a servo's piece changes law),
+            # smooth everywhere else. A servo's schedule corners (the
+            # planner's approach / end windows) are not corners of its
+            # stroke; its pieces' bounds are (the poise hold, the rake's roll
+            # knots, run-up and follow-through pieces of a few ms)
             d = rig.declared(aid)
             add([k.t for k in d.knots], _KNOT)
             add([t for g in d.segments for t in (g.t0, g.t1)], _KNOT)
-            # ...and where the pawl's ride (a smoothstep of the tooth rate) bends
+            # ...and where the pawl's ride (a smoothstep of the tooth rate) bends (a servo: none)
             add(rig.stroke(aid).ride_times(), _GRID)
             continue
         corners = []

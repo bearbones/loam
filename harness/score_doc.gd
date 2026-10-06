@@ -82,6 +82,28 @@ func load(p: String) -> bool:
 	return errors.is_empty()
 
 
+## Each string's contact time in score event `e`, in its order: t + onsets[k]
+## when the event carries its own onsets (a rake roll, PLAYERS M2: they follow
+## the comb's path), else t + k * spread_s. The mirror of
+## loam/motion_timing.py string_times; every per-string time the harness
+## reads comes from here.
+static func string_times(e: Dictionary) -> Array:
+	var t := float(e["t"])
+	var n: int = e.get("strings", []).size()
+	var out: Array = []
+	var on = e.get("onsets")
+	if on != null:
+		if on.size() != n:
+			push_error("event %s: %d onsets for %d strings" % [str(e.get("i")), on.size(), n])
+		for k in range(mini(n, on.size())):
+			out.append(t + float(on[k]))
+	else:
+		var sp := float(e.get("spread_s", 0.0))
+		for k in range(n):
+			out.append(t + k * sp)
+	return out
+
+
 func stem_ids() -> Array:
 	var out: Array = []
 	for m in mechs:

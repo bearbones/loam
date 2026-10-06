@@ -56,8 +56,7 @@ def run(layout_path, score_path):
     worst_contact = 0.0; worst_step = 0.0
     for e in score['events']:
         aid = e['actuator']
-        for k, sid in enumerate(e['strings']):
-            t = float(e['t'])+k*float(e.get('spread_s', 0))
+        for sid, t in zip(e['strings'], motion_timing.string_times(e)):     # a roll's at its onsets
             worst_contact = max(worst_contact, np.linalg.norm(rig.tip_at(aid, t)-rig.contact(sid, e.get('pick'))))
         for key in ('t_move', 't', 't_free'):
             t = float(e[key]); worst_step = max(worst_step, np.linalg.norm(rig.tip_at(aid, t-1e-6)-rig.tip_at(aid, t+1e-6)))
@@ -91,7 +90,9 @@ def run(layout_path, score_path):
             # A mallet no longer crosses [go, approach] in one click a window
             # under a cocked head: its carriage is judged on its stroke's
             # declared travels below. Past this line `stepped` is the hammer.
-            if rig.mallet(aid): continue
+            # A pick's servo stroke (PLAYERS M2) travels to its poise, not
+            # [go, approach]: tools/test_servo.py holds its declared travels.
+            if rig.mallet(aid) or rig.stroke(aid) is not None: continue
             if s['moving'] and abs(s['first'][0]-s['rest'][0]) > .02:
                 T = s['approach']-s['go']; ts = s['go']+np.arange(0, int(T*1000)+1)/1000.0
                 x = np.array([rig.path_at(aid, t)[0] for t in ts]); dx = np.diff(x)
@@ -122,6 +123,24 @@ def run(layout_path, score_path):
                 # lay-back holds the felt face the rest of the way up.
                 cock_min = min(cock_min, (y.max()-(s['first'][1]+rig.hover(aid)[1]))/rig.hover(aid)[1])
                 half = len(y)//2; drop_pause += int(np.any(np.diff(y[half:]) > 1e-9)); cocked += 1
+    # A pick's servo stroke (PLAYERS M2) declares its slews: each carriage
+    # travel is one 'scurve' segment over its own [t0, t1], judged here by the
+    # same rules on the same samples (the drawn carriage, x). The rake's
+    # carriage plays designed pieces, not slews: tools/test_servo.py holds it.
+    for aid in rig.acts:
+        st = rig.stroke(aid)
+        if st is None or rig.mallet(aid): continue
+        for g in st.carriage.segs:
+            if g.law != 'scurve' or abs(g.P1[0]-g.P0[0]) <= .02: continue
+            T = g.t1-g.t0; ts = g.t0+np.arange(0, int(T*1000)+1)/1000.0
+            x = st.carriage_x(ts); dx = np.diff(x)
+            sign = np.sign(g.P1[0]-g.P0[0]); span = abs(g.P1[0]-g.P0[0])
+            land_worst = max(land_worst, abs(float(st.carriage_x(g.t1))-g.P1[0]))
+            servo_travels += 1; servo_rate.append(span/T)
+            monotone &= bool(np.all(sign*dx >= -1e-12))
+            v = dx/1e-3; a = np.diff(v)/1e-3
+            if T > .8*R.SLEW_S: ratios.append(np.abs(v).max()/(span/T))
+            jerk &= bool(np.abs(np.diff(a)).max() < 10*span/(R.SCURVE_RAMP**2*(1-R.SCURVE_RAMP)*T**3)*1e-3+1e-9)
     # A mallet's carriage, by its stroke's declared travels (DESIGN §2-§4):
     # contact to contact (freewheel: one 3-4-5; stepped: a 3-4-5 step and a
     # detent dwell a tooth) and the homing x legs (stepped, tooth by tooth).
@@ -131,7 +150,7 @@ def run(layout_path, score_path):
     m_gap = np.inf; m_click_x = 0.0; m_teeth = set(); m_hurried = m_hurry_off = 0
     for aid in rig.acts:
         st = rig.stroke(aid)
-        if st is None: continue
+        if st is None or not rig.mallet(aid): continue      # a pick's servo stroke: tools/test_servo.py
         row = {id(s['event']): s for s in rig.schedule(aid)}
         by_travel = {}
         for c in st.clicks(): by_travel.setdefault(c['travel'], []).append(c)

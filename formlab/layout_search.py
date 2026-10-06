@@ -12,18 +12,21 @@ Greedy then coordinate descent; the objective is the WORST of
   self-clearance (parallel bars, crossheads, tool), string clearance, cabinet
   and stage clearance, elbow-behind-the-strings margin, and cross-arm gaps —
 clipped at `enough` so that beyond a comfortable gap the tie-breaks decide:
-shorter links first, then rails near the original height.
+shorter links first, then rails near the original height. Keys within
+TIE_TOL of the best are a tie, and the links' strobe (ruler 1) breaks it.
 """
 import os, json
 import numpy as np
 try:
     from .rig import Rig
     from .clearance import (DEFAULT_SPEC, default_layers, arm_capsules, pairwise_clearance, choose_offset, segment_distance,
-                            pinion_mount, pinion_centre, rack_direction, rail_keep_clear, PINION, GANTRY, mast_columns, head_box, bracket_solids, foot_level)
+                            pinion_mount, pinion_centre, rack_direction, rail_keep_clear, PINION, GANTRY, mast_columns, head_box, bracket_solids, foot_level,
+                            link_strobe)
 except ImportError:   # imported bare from Blender's Python (formlab/ on sys.path, no SciPy)
     from rig import Rig
     from clearance import (DEFAULT_SPEC, default_layers, arm_capsules, pairwise_clearance, choose_offset, segment_distance,
-                           pinion_mount, pinion_centre, rack_direction, rail_keep_clear, PINION, GANTRY, mast_columns, head_box, bracket_solids, foot_level)
+                           pinion_mount, pinion_centre, rack_direction, rail_keep_clear, PINION, GANTRY, mast_columns, head_box, bracket_solids, foot_level,
+                           link_strobe)
 
 def box_gap(P, Q, r, lo, hi, samples=16):
     """Conservative gap between capsule PQ (radius r) and an axis-aligned box."""
@@ -38,6 +41,12 @@ def scene_boxes(layout):
     for lo, hi in layout.get('obstacles', []): boxes.append((tuple(lo), tuple(hi)))
     return [(np.array(lo, float), np.array(hi, float)) for lo, hi in boxes]
 
+# A plucked or raked arm's wrist pin relative to its tool's contact point, the same for every
+# candidate: room for plectrum, ferrule, swan neck, socket. Named because the rake's pieces
+# (tools/rake_design.py) read the comb's capsule off it: they are designed in tool space and
+# read no arm cfg, and this is the one piece of the arm every rail the search can pick shares.
+WRIST_SERVO = (0, .20, -.10)
+
 def candidates(mech, layout):
     """Rail (y, z) and link length options for one mechanism's arms."""
     strings = [s for s in layout['strings'].values() if s['mid'] == mech['id']]
@@ -48,11 +57,23 @@ def candidates(mech, layout):
     else:
         zs_plane = float(np.mean([s['a'][2] for s in strings]))
         ys = [.55, 2.75, 3.15, 3.6, 4.1]; zs = [zs_plane+d for d in (-.75, -1.05, -1.4, -1.8, -2.25)]
-        bend = 'back'; wrist = [0, .20, -.10]   # room for plectrum, ferrule, swan neck, socket
+        bend = 'back'; wrist = list(WRIST_SERVO)
     ls = [1.0, 1.15, 1.3, 1.45, 1.6]
     return [dict(root_y=y, root_z=z, l1=l, l2=l, bend=bend, wrist_offset=wrist) for y in ys for z in zs for l in ls]
 
 CFG_KEYS = ('root_y', 'root_z', 'l1', 'l2', 'bend', 'wrist_offset', 'o1', 'o2', 'pinion')
+# An arm whose |wrist - root| ever passes this share of l1 + l2 is infeasible (evaluate_arm):
+# the elbow keeps a working bend. It is the search's accept rule and nothing else: the
+# motion comes first (the rake's pieces, tools/rake_design.py, are designed in tool space
+# against physical limits and read no arm), and the search chooses each arm's root and
+# links so its whole path stays inside this cut.
+REACH_FRAC = .985
+# m: objective keys this close are one value (plan_arms' pick): a tie the arm's own motion breaks, the option whose
+# links strobe least (clearance.link_strobe, ruler 1's '1 links'), then the candidates' order. Float noise must not
+# choose a visible quality: round 3's rake took (0.55, -0.90) over (0.55, -1.35), tied on every key, because a 1-ulp
+# flip in choose_offset's o1 put it first, and its links strobed 1.177 (lower link, 4 frames over 1; upper 1.017)
+# where -1.35's read 0.955. 1e-9 m is far under any clearance the search tells apart and far over float noise
+TIE_TOL = 1e-9
 
 def _bounds(stack):
     """Axis-aligned bounds of a capsule stack over every pose (lo, hi)."""
@@ -86,13 +107,15 @@ def evaluate_arm(rig, aid, cfg, times, spec=DEFAULT_SPEC, layers=None, boxes=(),
         rig.geometry['arms'][aid] = old
     dist = np.linalg.norm(poses['wrist']-poses['root'], axis=1)
     l = float(cfg['l1'])+float(cfg['l2'])
-    if dist.max() > l*.985 or dist.min() < .30: return None
+    if dist.max() > l*REACH_FRAC or dist.min() < .30: return None
     # the carriage's second-bar boss must miss the guide bars; the pinion sits
     # on whichever mount the links never swing through
     o1, sep1, _ = choose_offset(poses, 'upper', .11, keep_clear=rail_keep_clear()); o2, sep2, _ = choose_offset(poses, 'lower', .11)
     mount, _ = pinion_mount(poses, o1, o2, layers, spec)
     caps, adjacent = arm_capsules(poses, o1, o2, layers, spec, mount)
     gaps = pairwise_clearance(caps, adjacent); self_gap = min(v[0] for v in gaps.values())
+    # the links' strobe over the arm's own motion: plan_arms' tie-break, ruler 1's '1 links' on a 30 Hz plan
+    strobe = link_strobe(poses, caps, rig.acts[aid]['kind'])
     margins = dict(self=self_gap, pair=min(sep1, sep2)-spec['depth'])
     if string_plane_z is not None and cfg['bend'] == 'back':
         margins['behind'] = float(string_plane_z-(poses['elbow'][:, 2].max()+spec['depth']/2))
@@ -150,7 +173,7 @@ def evaluate_arm(rig, aid, cfg, times, spec=DEFAULT_SPEC, layers=None, boxes=(),
     stack = stack_caps(caps, shifts)
     caps = {n: (stack['A'][i], stack['B'][i], stack['r'][i]) for i, n in enumerate(stack['names'])}     # views into the stack: one copy per arm
     ev = dict(cfg=dict(cfg, o1=o1.tolist(), o2=o2.tolist(), pinion=mount), poses=poses, caps=caps, shifts=shifts, stack=stack,
-              ends=ends, mast_memo={}, margins=margins, bounds=_bounds(stack), bracket_bounds=_bracket_bounds(ends))
+              ends=ends, mast_memo={}, margins=margins, bounds=_bounds(stack), bracket_bounds=_bracket_bounds(ends), strobe=strobe)
     margins['mast'] = mast_margin(ev, [], boxes, enough)
     if others:
         # The arms of the mechanisms planned before this one: their links and
@@ -360,11 +383,14 @@ def verify_fine(rig, aids, chosen, times, boxes, plane_z, enough, placed=()):
 
 # The formlab modules the rail plan is measured against, hashed by source text
 # so a change to the space model (clearance) OR to the geometry it measures
-# (linkage, gantry, pawl) OR to the motion it samples (rig, stroke) replans the rails.
+# (linkage, gantry, pawl) OR to the motion it samples (rig, stroke, servo, rake) replans the rails.
+# rake_pieces.json is motion too: the rake's designed pieces (tools/rake_design.py), which
+# formlab/rake.py plays as data, so a redesign with no source line changed must replan.
 # Read from disk rather than through `inspect.getsource`: layout_search is also
 # imported bare from Blender's Python, where `formlab` is not a package and the
 # sibling modules are not all imported.
-GEOMETRY_SOURCES = ('rig.py', 'clearance.py', 'linkage.py', 'gantry.py', 'pawl.py', 'stroke.py')
+GEOMETRY_SOURCES = ('rig.py', 'clearance.py', 'linkage.py', 'gantry.py', 'pawl.py', 'stroke.py', 'servo.py', 'rake.py',
+                    'rake_pieces.json')
 # ...and the timing rules the rig and the stroke move by (step vs freewheel,
 # the tooth period, the homing legs: travel_regime, stepped_period, step_period,
 # smooth_s, home_legs), loaded by path from loam/ exactly as formlab/stroke.py
@@ -402,6 +428,18 @@ def motion_constants():
     if st is not None:
         out.update({'stroke.'+k: getattr(st, k) for k in sorted(dir(st))
                     if k.isupper() and isinstance(getattr(st, k), (int, float, dict, list, tuple))})
+    # ...and formlab.servo's, the pick's stroke vocabulary (poise, action, the
+    # s-curve carriage), prefixed the same way
+    sv = getattr(m, 'servo', None)
+    if sv is not None:
+        out.update({'servo.'+k: getattr(sv, k) for k in sorted(dir(sv))
+                    if k.isupper() and isinstance(getattr(sv, k), (int, float, dict, list, tuple))})
+    # ...and formlab.rake's, the rake's stroke vocabulary (the sweep's end
+    # speeds, the rail runs and overtravel, the announcement), prefixed the same way
+    rk = getattr(m, 'rake', None)
+    if rk is not None:
+        out.update({'rake.'+k: getattr(rk, k) for k in sorted(dir(rk))
+                    if k.isupper() and isinstance(getattr(rk, k), (int, float, dict, list, tuple))})
     return out
 
 def _mech_key(score, layout, mech, hz, enough, placed=None):
@@ -415,8 +453,9 @@ def _mech_key(score, layout, mech, hz, enough, placed=None):
     # event of its voice (formlab.stroke.a_norm), so each event carries its amp,
     # its voice and that a' (a dynamics-only edit anywhere in the voice replans)
     a_n = sys.modules[Rig.__module__].stroke.a_norm(score['events'])
-    ev = [dict({k: e.get(k) for k in ('t', 't_move', 't_free', 't_head_free', 'strings', 'pick', 'spread_s', 'actuator',
-                                     'amp', 'voice')}, a_norm=an)
+    # (and a rake roll's onsets: where along its path each string sounds, motion_timing.string_times)
+    ev = [dict({k: e.get(k) for k in ('t', 't_move', 't_free', 't_head_free', 'strings', 'pick', 'spread_s', 'onsets',
+                                     'actuator', 'amp', 'voice')}, a_norm=an)
           for e, an in zip(score['events'], a_n) if e.get('mech') == mech['id']]
     # the homing sweeps the rig draws in the first rest (loam.score._Solver.home)
     ev.append([c for c in score.get('cues', []) if c.get('kind') == 'home' and c.get('mech') == mech['id']])
@@ -427,7 +466,9 @@ def _mech_key(score, layout, mech, hz, enough, placed=None):
                        inspect.getsource(plan_arms), inspect.getsource(verify_fine), inspect.getsource(mast_margin), inspect.getsource(column_gap),
                        inspect.getsource(mast_gaps), inspect.getsource(pin_shifts), inspect.getsource(stack_caps), inspect.getsource(stack_view), inspect.getsource(solids_gap), inspect.getsource(cross_gap),
                        inspect.getsource(sys.modules[arm_capsules.__module__]), DEFAULT_SPEC,
-                       geometry_digest(), motion_constants()], sort_keys=True, default=str)
+                       # evaluate_arm's source names the reach cut, candidates' the servo wrist and plan_arms' the tie
+                       # tolerance, so their values go in by hand (link_strobe is clearance's: GEOMETRY_SOURCES)
+                       REACH_FRAC, WRIST_SERVO, TIE_TOL, geometry_digest(), motion_constants()], sort_keys=True, default=str)
     return hashlib.sha1(blob.encode()).hexdigest()
 
 def plan_arms(score, layout, hz=30, enough=.08, verbose=print, cache=None, rails='replan', keep_from=None):
@@ -527,6 +568,15 @@ def plan_arms(score, layout, hz=30, enough=.08, verbose=print, cache=None, rails
                 for other, oev in others.items():
                     worst = min(worst, mast_margin(oev, [ev]+[x for o, x in others.items() if o != other], boxes, enough))
             return (min(worst, enough), -ev['cfg']['l1'], -abs(ev['cfg']['root_y']-2.75), worst)
+        def keys(aid, ev):
+            o = objective(aid, ev); return o+(-np.inf,)*(4-len(o))       # an incompatible rail's (-1e9,), padded
+        def pick(aid):
+            # the objective's best, its keys compared to TIE_TOL in turn (each keeps the options within TIE_TOL of
+            # that key's best); of the tied, the least link strobe (ev['strobe']), then the candidates' order
+            keyed = [(keys(aid, ev), ev) for ev in options[aid]]
+            for k in range(4):
+                top = max(o[k] for o, _ in keyed); keyed = [(o, ev) for o, ev in keyed if o[k] >= top-TIE_TOL]
+            return min(keyed, key=lambda oe: oe[1]['strobe'])[1]
         from itertools import permutations
         orders = list(permutations(aids)) if len(aids) <= 3 else [tuple(aids[k:]+aids[:k]) for k in range(len(aids))]
         def set_worst(): return min(objective(aid, chosen[aid])[3] for aid in aids)
@@ -540,10 +590,10 @@ def plan_arms(score, layout, hz=30, enough=.08, verbose=print, cache=None, rails
             for order in orders:
                 chosen.clear()
                 for aid in order:                     # greedy
-                    chosen[aid] = max(options[aid], key=lambda ev: objective(aid, ev))
+                    chosen[aid] = pick(aid)
                 for _ in range(2):                    # coordinate descent
                     for aid in order:
-                        chosen[aid] = max(options[aid], key=lambda ev: objective(aid, ev))
+                        chosen[aid] = pick(aid)
                 w = set_worst()
                 if best is None or w > best[0]: best = (w, dict(chosen))
                 if w >= enough: break
@@ -569,8 +619,13 @@ def plan_arms(score, layout, hz=30, enough=.08, verbose=print, cache=None, rails
             ev['margins']['mast'] = min(ev['margins']['mast'], mast_margin(ev, [chosen[o] for o in aids if o != aid], boxes, enough))
             layout['arms'][aid].update(cfg)
             layout['arms'][aid]['margins'] = dict({k2: round(v, 4) for k2, v in ev['margins'].items()}, cross={o: round(g, 4) for o, g in cross.items()})
-            if verbose: verbose(f"  RAIL {aid}: y={cfg['root_y']:.2f} z={cfg['root_z']:.2f} l={cfg['l1']:.2f} bend={cfg['bend']} margins="+
-                                ' '.join(f'{k2}={v:.3f}' for k2, v in ev['margins'].items())+' cross='+' '.join(f'{o}={g:.3f}' for o, g in cross.items()))
+            if verbose:
+                mine = keys(aid, ev); tied = [o for o in options[aid] if all(abs(a-b) <= TIE_TOL for a, b in zip(keys(aid, o), mine))]
+                verbose(f"  RAIL {aid}: y={cfg['root_y']:.2f} z={cfg['root_z']:.2f} l={cfg['l1']:.2f} bend={cfg['bend']} margins="+
+                        ' '.join(f'{k2}={v:.3f}' for k2, v in ev['margins'].items())+' cross='+' '.join(f'{o}={g:.3f}' for o, g in cross.items())
+                        +f" links={ev['strobe']:.3f}"+(' tie: '+' '.join(f"(y={o['cfg']['root_y']:.2f} z={o['cfg']['root_z']:.2f} "
+                                                                       f"l={o['cfg']['l1']:.2f}) links={o['strobe']:.3f}" for o in tied)
+                                                       if len(tied) > 1 else ''))
         if key:
             store[key] = {aid: dict(chosen[aid]['cfg'], margins=layout['arms'][aid]['margins']) for aid in aids}
             store['mech:'+mech['id']] = key

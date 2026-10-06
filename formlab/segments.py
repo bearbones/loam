@@ -63,11 +63,11 @@ class Declared:
     native: bool = False      # True when the rig declared this itself
 
 # The laws a rig that declares itself names (formlab/stroke.py LAWS, PLAYERS M1:
-# the mallet), and the channels its segments ride: each channel covers
-# (-inf, +inf) with no hole and no overlap.
-LAWS = ('3-4-5', 'quintic hermite', 'ballistic', 'hold')
+# the mallet; formlab/servo.py LAWS, M2: the pick's 'scurve' carriage), and the
+# channels its segments ride: each channel covers (-inf, +inf) with no hole and no overlap.
+LAWS = ('3-4-5', 'quintic hermite', 'ballistic', 'hold', 'scurve')
 CHANNELS = ('head', 'carriage')
-HOLD_KINDS = ('park', 'cocked')           # a mallet head 'hold' segment's extra['hold']
+HOLD_KINDS = ('park', 'cocked', 'hover', 'poise')   # a head 'hold' segment's extra['hold']: a mallet's, then a servo's
 REGIMES = ('step', 'freewheel', 'home')   # a carriage travel's extra['regime'] (and a click's)
 
 # Today's laws, named after the rig functions that implement them.
@@ -125,7 +125,8 @@ def _today(rig, aid):
         knots.append(Knot(hit, 'smooth' if sweep and not struck else 'contact', event=ev))
         if end > hit:
             segs.append(Segment(hit, end, LAW_TODAY['sweep'], 'sweep', ev))
-            for k in range(1, len(ids)-1): knots.append(Knot(hit+k*s['spread'], 'smooth', event=ev))
+            # the inner strings at their own times (a roll's onsets: motion_timing.string_times)
+            for tk in R.motion_timing.string_times(e)[1:-1]: knots.append(Knot(tk, 'smooth', event=ev))
             knots.append(Knot(end, 'smooth', event=ev))
         if free > end:
             segs.append(Segment(end, free, LAW_TODAY['release'], 'release', ev))

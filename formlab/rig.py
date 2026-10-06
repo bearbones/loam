@@ -31,6 +31,16 @@ try:
     from . import stroke
 except ImportError:
     import stroke
+# formlab/servo.py (a pick's stroke, PLAYERS M2) is the servo arms' as
+# stroke.py is the mallet's; the rake's (formlab/rake.py, T5) is a ServoStroke too.
+try:
+    from . import servo
+except ImportError:
+    import servo
+try:
+    from . import rake
+except ImportError:
+    import rake
 motion_timing = stroke.motion_timing
 PITCH = motion_timing.PITCH
 CLICK_S = motion_timing.CLICK_S; CLICK_MIN_S = motion_timing.CLICK_MIN_S
@@ -41,12 +51,12 @@ CLICK_MOVE = .4
 # The detent ring's constants live in formlab/stroke.py (the mallet's stroke
 # vocabulary, PLAYERS M1); re-exported here for the harness mirror and the cache.
 OVERSHOOT = stroke.OVERSHOOT; RING_HZ = stroke.RING_HZ; RING_TAU = stroke.RING_TAU
-SCURVE_RAMP = .3
+SCURVE_RAMP = servo.SCURVE_RAMP   # the servo S-curve's ramp share (formlab/servo.py owns it; re-exported for the harness mirror)
 COCK = .5; COCK_AT = .4
 RECOIL = dict(x=[.004, 11.0, .14], z=[.0025, 17.0, .10], bounce=[.06, 8.0, .16]); RECOIL_GATE = .08
 # (a mallet keeps the x and z rings; its |sine| 'bounce' is retired, PLAYERS M1:
 # the head's rebound is the scored float now. 'bounce' stays importable.)
-PAD = .01
+PAD = motion_timing.OCC_PAD   # m: kept over arm_clearance_m (loam.score carries it for servo-profiled arms)
 # A HINGED HAMMER (`kind == 'hammer'`, the expanded asset's block arm): the arm
 # positions and dips a little, and a head hinged on a pin at the shank's end
 # does the rest of the blow. The head lies back on a felt-faced check at rest,
@@ -281,11 +291,14 @@ class Rig:
         tooth at step_period, then the 'elbow' and 'shoulder' sweeps at a still
         x: `x_joint`, or home when None)."""
         out = []
+        # a servo (the rake, PLAYERS M2) sweeps on its own legs: motion_timing.servo_home_legs
+        servo_legs = motion_timing.servo_homes(self.acts[aid]['kind'])
         for c in self.score.get('cues', []):
             if c.get('kind') != 'home' or c.get('actuator') != aid: continue
             xh, xlo, xhi = (float(self.contact(sid)[0]) for sid in c['path'][:3])
             t0 = float(c['t'])
-            legs = [(t0+a, t0+b, what, xa, xb) for a, b, what, xa, xb in motion_timing.home_legs(xh, xlo, xhi, x_joint)]
+            raw = motion_timing.servo_home_legs(xh, xlo, xhi) if servo_legs else motion_timing.home_legs(xh, xlo, xhi, x_joint)
+            legs = [(t0+a, t0+b, what, xa, xb) for a, b, what, xa, xb in raw]
             # the planner charged the sweep over axis x WORLD_SCALE, the rig draws it over the contacts'
             # world x: the drawn sweep must end where the occupancy the planner cleared ends
             if 't_end' in c and abs(legs[-1][1]-float(c['t_end'])) > 1e-9:
@@ -301,7 +314,9 @@ class Rig:
         it lands until it ARRIVES (`arrive`: the wind-up before the contact,
         or the contact itself for a carriage that travels contact to
         contact), then only the strings it is playing, then the one it hovers
-        over; a homing sweep owns the whole reach it sweeps. Mirrors
+        over; a homing sweep owns the whole reach it sweeps; a servo-profiled
+        carriage (motion_timing.SERVO_PROFILED) owns, while it moves, only
+        where its S-curve can be, OCC_DT step by step (_moving). Mirrors
         loam.score._Solver's model exactly — that is the point of the plan it
         is checking."""
         home = self.contact(self.acts[aid]['home'])[0]
@@ -311,10 +326,25 @@ class Rig:
         segs.append((t, win[0]['go'] if win else np.inf, home, home))
         for i, o in enumerate(win):
             until = win[i+1]['go'] if i+1 < len(win) else np.inf
-            segs.append((o['go'], o['arrive'], o['mlo'], o['mhi']))
+            segs += self._moving(o, o['go'])
             segs.append((o['arrive'], o['end'], o['plo'], o['phi']))
             segs.append((o['end'], until, o['last'][0], o['last'][0]))
         return segs
+
+    @staticmethod
+    def _moving(o, go):
+        """A window's moving phase from `go` to its arrive as (t0, t1, lo, hi)
+        spans: the whole crossed interval, or for a servo-profiled carriage its
+        OCC_DT steps, each where the S-curve leaving at go and landing in
+        [go + servo_fast_s, arrive] can be (motion_timing.servo_span; the
+        planner's _Solver._moving)."""
+        arr = o['arrive']
+        if not o['profiled'] or arr <= go:
+            return [(go, arr, o['mlo'], o['mhi'])]
+        DT = motion_timing.OCC_DT; t_fast = min(arr, go+motion_timing.servo_fast_s(o['xb']-o['xa']))
+        n = int(np.ceil((arr-go)/DT-1e-9))
+        return [(go+k*DT, min(go+(k+1)*DT, arr))+motion_timing.servo_span(o['xa'], o['xb'], go, t_fast, arr, go+k*DT, min(go+(k+1)*DT, arr))
+                for k in range(n)]
 
     def _windows(self, aid):
         lift = self.hover(aid); act = self.acts[aid]
@@ -339,7 +369,9 @@ class Rig:
             ps = [self.contact(sid, e.get('pick'))[0] for sid in ids]
             out.append(dict(event=e, rest=rest, first=first, last=last, spread=spread, tm=tm, g0=g0, go=g0, approach=approach,
                             arrive=arrive, head_free=head_free, hit=hit, end=hit+spread*(len(ids)-1), t_free=float(e['t_free']), lo=min(xs), hi=max(xs), want=want,
-                            mlo=min(rest[0], first[0]), mhi=max(rest[0], first[0]), plo=min(ps), phi=max(ps), moving=False))
+                            mlo=min(rest[0], first[0]), mhi=max(rest[0], first[0]), plo=min(ps), phi=max(ps), moving=False,
+                            xa=float(rest[0]), xb=float(first[0]),
+                            profiled=motion_timing.servo_profiled(act['kind']) and abs(first[0]-rest[0]) > 1e-12))
             # the carriage is free at t_head_free: t_free, or the contact
             # itself for a head that rides its rebound into the next travel
             rest = last+lift; free_prev = head_free
@@ -363,11 +395,14 @@ class Rig:
             for s in win[aid]:
                 go = s['g0']
                 if need > 0.0:
+                    own = self._moving(s, go)
                     for other in self.plans:
                         if other == aid or self.mech_of[other] != self.mech_of[aid]: continue
                         for t0, t1, lo, hi in self._segments(other, win[other]):
                             if t0 >= s['arrive'] or t1 <= go: continue
-                            if max(s['mlo']-hi, lo-s['mhi'])-PAD < need: go = max(go, min(t1, s['arrive']))
+                            for a, b, mlo, mhi in own:
+                                if t0 >= b or t1 <= a: continue
+                                if max(mlo-hi, lo-mhi)-PAD < need: go = max(go, min(t1, s['arrive']))
                 if go > s['g0']+1e-9: self.pushed.append((aid, s['g0'], go))
                 s['go'] = go; s['moving'] = s['arrive'] > go+1e-6
         self.sched = win
@@ -454,18 +489,68 @@ class Rig:
                             sigma=self._sigma(aid), homing=hm[0][4] if hm else [], joint_spans=None,
                             kind=self.acts[aid]['kind'], name=aid)
 
+    def _servo_input(self, aid):
+        """A pick arm's plan inputs (formlab.servo.PickIn) from the schedule:
+        each contact with its a', the score's go and where the carriage must
+        stand (arrive_lead), home, and the clearance the tool rests at."""
+        act = self.acts[aid]
+        hits = [stroke.HitIn(t=float(s['hit']), point=tuple(float(v) for v in s['first']), a=self._a_norm(s['event']),
+                             go=float(s['go']), event=int(s['event'].get('i', i)), amp=float(s['event'].get('amp', 1.0)))
+                for i, s in enumerate(self.sched[aid])]
+        return servo.PickIn(hits=hits, home=tuple(float(v) for v in self.contact(act['home'])),
+                            hover=tuple(float(v) for v in self.clearance(aid)),
+                            arrive_lead=float(motion_timing.arrive_lead(act['kind'], float(act['approach_s']))),
+                            recover=float(act.get('recover_s', 0.0)), kind=act['kind'], name=aid)
+
     def stroke(self, aid):
-        """A mallet arm's planned stroke (formlab.stroke.ArmStroke: the two
-        channels, knots, per-note records with t_apex, T_down, v_in, e, a_f, h,
-        regime and travel windows, the travels), or None for any other arm. The
-        plan reads only the score and the contacts (and which side the root is
-        on), so it is made once; what depends on the arm's cfg (the homing
+        """An arm's planned stroke, or None for an arm that plans none (the
+        hinged hammer, a pick with a multi-string event): a mallet's
+        formlab.stroke.ArmStroke (the two channels, knots, per-note records
+        with t_apex, T_down, v_in, e, a_f, h, regime and travel windows, the
+        travels), a pick's formlab.servo ServoStroke and a rake's
+        formlab.rake RakeStroke (the same surface, PLAYERS M2). The plan reads only the
+        score and the contacts (and, for a mallet, which side the root is on),
+        so it is made once; what depends on the arm's cfg (a mallet's homing
         joint sweeps) is computed from the cfg at pose time."""
-        if not self.mallet(aid) or not self.sched.get(aid): return None
-        sig = self._sigma(aid); c = self._strokes.get(aid)
-        if c is None or c[0] != sig:
-            c = (sig, stroke.plan(self._arm_input(aid), jerk=False)); self._strokes[aid] = c
-        return c[1]
+        if not self.sched.get(aid): return None
+        kind = self.acts[aid]['kind']
+        if kind == 'mallet':
+            sig = self._sigma(aid); c = self._strokes.get(aid)
+            if c is None or c[0] != sig:
+                c = (sig, stroke.plan(self._arm_input(aid), jerk=False)); self._strokes[aid] = c
+            return c[1]
+        if kind == 'pick':
+            # a sweep (several strings in one event) is no pick stroke yet: today's vocabulary keeps it
+            if any(len(s['event']['strings']) > 1 for s in self.sched[aid]): return None
+            if aid not in self._strokes: self._strokes[aid] = (None, servo.plan_pick(self._servo_input(aid)))
+            return self._strokes[aid][1]
+        if kind == 'rake':
+            # PLAYERS M2, T5: the comb's whole path (formlab/rake.py) from the schedule
+            if aid not in self._strokes: self._strokes[aid] = (None, rake.plan_rake(self._rake_input(aid)))
+            return self._strokes[aid][1]
+        return None
+
+    def _rake_input(self, aid):
+        """A rake arm's plan inputs (formlab.rake.RakeIn): each roll's string
+        contacts at the event's pick and their own times
+        (motion_timing.string_times), a', the score's go and t_free; home, the
+        clearance, the reach strings' contacts (the rail the overtravel is
+        measured from), the homing legs and the score's last onset (the comb
+        goes home with it)."""
+        act = self.acts[aid]; rolls = []
+        for i, s in enumerate(self.sched[aid]):
+            e = s['event']
+            rolls.append(rake.RollIn(t=float(s['hit']), times=[float(v) for v in motion_timing.string_times(e)],
+                                     points=[tuple(float(v) for v in self.contact(sid, e.get('pick'))) for sid in e['strings']],
+                                     a=self._a_norm(e), go=float(s['go']), t_free=float(s['t_free']),
+                                     event=int(e.get('i', i)), amp=float(e.get('amp', 1.0))))
+        hm = self.homes(aid)
+        t_ret = max((max(motion_timing.string_times(e)) for e in self.score['events']), default=-np.inf)
+        return rake.RakeIn(rolls=rolls, home=tuple(float(v) for v in self.contact(act['home'])),
+                           hover=tuple(float(v) for v in self.clearance(aid)),
+                           reach=[tuple(float(v) for v in self.contact(sid)) for sid in act.get('reach', [act['home']])],
+                           homing=hm[0][4] if hm else [], t_return=float(t_ret), approach=float(act['approach_s']),
+                           recover=float(act.get('recover_s', 0.0)), kind=act['kind'], name=aid)
 
     def _home_joints(self, aid):
         """The homing joint sweeps for the arm's cfg AS IT IS NOW (the rail
@@ -688,13 +773,15 @@ class Rig:
     def path_at(self, aid, t):
         """The scored path alone: rest, travel, strike, sweep, release, rest.
         A mallet's is its stroke's ring-free closed form (formlab/stroke.py),
-        with the homing joint sweeps turned in joint space for the cfg as it is."""
-        st = self.stroke(aid) if self.mallet(aid) else None
+        with the homing joint sweeps turned in joint space for the cfg as it is;
+        a pick's is its servo stroke's (formlab/servo.py, PLAYERS M2)."""
+        st = self.stroke(aid)
         if st is not None:
-            hj = self._home_joints(aid)
-            if hj is not None:
-                gq = self._home_q(hj, t)
-                if gq is not None and gq[1] != 0.0: return self._fk(gq[0]['frame'], gq[0]['joint'], gq[1])
+            if self.mallet(aid):
+                hj = self._home_joints(aid)
+                if hj is not None:
+                    gq = self._home_q(hj, t)
+                    if gq is not None and gq[1] != 0.0: return self._fk(gq[0]['frame'], gq[0]['joint'], gq[1])
             return _v(st.p(t))
         lift = self.hover(aid); clicky = self.stepped(aid)
         rest = self.contact(self.acts[aid]['home'])+lift
@@ -710,9 +797,12 @@ class Rig:
                 return strike(origin, first, lift, u, clicky)
             if t <= s['end']:
                 if len(ids) == 1 or s['spread'] <= 0: return first
-                index = min((t-hit)/s['spread'], len(ids)-1); k = min(int(index), len(ids)-2)
+                # string to string at each string's own time (a roll's onsets: motion_timing.string_times)
+                ts = motion_timing.string_times(e)
+                k = min(max(int(np.searchsorted(ts, t, 'right'))-1, 0), len(ids)-2)
+                u = min(max((t-ts[k])/(ts[k+1]-ts[k]), 0.0), 1.0) if ts[k+1] > ts[k] else 1.0
                 a = self.contact(ids[k], e.get('pick')); b = self.contact(ids[k+1], e.get('pick'))
-                return a+(b-a)*(index-k)
+                return a+(b-a)*u
             if t < s['t_free']:
                 return s['last']+lift*quintic((t-s['end'])/max(s['t_free']-s['end'], 1e-6))
             rest = s['last']+lift
@@ -770,12 +860,13 @@ class Rig:
         return float(radius*np.sqrt(9*p1*p1*p2*p2+(p3-p1**3)**2).max())
 
     def declared(self, aid):
-        """The arm's declared structure (formlab.segments.Declared). A mallet
-        declares its own (PLAYERS M1): its stroke's segments on the 'head' and
-        'carriage' channels with their extras, the knots ('contact' with the
-        declared impulse, 'click' a tooth, 'detent' at each stepped landing,
-        'smooth' at every other join), its rings, and the prep function. Every
-        other arm keeps today's reading of its schedule (segments._today)."""
+        """The arm's declared structure (formlab.segments.Declared). An arm
+        with a stroke declares its own (a mallet from PLAYERS M1, a pick from
+        M2): its stroke's segments on the 'head' and 'carriage' channels with
+        their extras, the knots ('contact' with the declared impulse, 'click' a
+        tooth, 'detent' at each stepped landing, 'smooth' at every other join),
+        its rings (a servo: none) and the prep function. Every other arm keeps
+        today's reading of its schedule (segments._today)."""
         try:
             from . import segments as SEG
         except ImportError:
@@ -784,9 +875,11 @@ class Rig:
         if st is None: return SEG._today(self, aid)
         stroke.declare_jerk(st)
         def ext(d): return {k: (list(v) if isinstance(v, (list, tuple, np.ndarray)) else v) for k, v in d.items()}
+        # a mallet's head 'home' pieces are replaced by its joint legs below; a rake's head homing
+        # legs (straight 3-4-5 chords through its homing poses) are declared as they are
         segs = [SEG.Segment(g.t0, g.t1, g.law, g.tag, g.event, ext(g.extra))
-                for g in st.head.segs+st.carriage.segs if not (g.channel == 'head' and g.tag == 'home')]
-        hj = self._home_joints(aid)
+                for g in st.head.segs+st.carriage.segs if not (self.mallet(aid) and g.channel == 'head' and g.tag == 'home')]
+        hj = self._home_joints(aid) if self.mallet(aid) else None
         if hj is not None:
             # the homing joint legs for this cfg: the head holds the hover while
             # one joint turns (stroke.joint_legs), each leg a 3-4-5 in the angle
@@ -808,6 +901,9 @@ class Rig:
             if imp.size and np.min(np.abs(imp-t)) <= 1e-9: continue
             knots.append(SEG.Knot(t, 'smooth'))
         knots.sort(key=lambda k: (k.t, k.kind))
+        if not self.mallet(aid):
+            # a servo: nothing rings (no recoil, no shudder bus, no detent: segments._rings_today's servo)
+            return SEG.Declared(segs, knots, [], st.prep, native=True)
         rings = [dict(name=f'recoil.{a}', channel='tip', amp=RECOIL[a][0], f=RECOIL[a][1], tau=RECOIL[a][2]) for a in ('x', 'z')]
         rings += [dict(name='stand_thump', channel='stand', amp=STAND_THUMP[0], f=STAND_THUMP[1], tau=STAND_THUMP[2]),
                   dict(name='rail_sag', channel='root', amp=RAIL_SAG[0], f=RAIL_SAG[1], tau=RAIL_SAG[2]),
@@ -818,8 +914,7 @@ class Rig:
     def sample_times(self, hz=120):
         total = float(self.score['total_s'])
         times = set(np.arange(-hz, int(total*hz)+1)/hz)
-        for e in self.score['events']:
-            for k in range(len(e['strings'])): times.add(float(e['t'])+k*float(e.get('spread_s', 0)))
+        for e in self.score['events']: times.update(motion_timing.string_times(e))
         return np.array(sorted(times))
 
     def poses(self, aid, times=None):

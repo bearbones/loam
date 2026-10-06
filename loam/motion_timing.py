@@ -26,7 +26,10 @@ Two vocabularies, two speeds (`docs/motion-design.md`):
   m/s of carriage. A mallet travels contact to contact instead (below).
 * **Servo** (pick, rake). A short move wants `SLEW_S` of lead whatever its
   length — an S-curve needs its ramps — and a long one is limited by the
-  carriage's top speed `SERVO_V_MAX`, which is also its floor.
+  carriage's top speed `SERVO_V_MAX`, which is also its floor. An unhurried
+  one sets off up to `SLEW_SLACK_S` sooner when the arm is free (`slew_lead`);
+  an announced rake roll's crossing sooner still, so it has crossed by the
+  apex hold (`announce_lead`).
 
 `WORLD_SCALE` is the other half of the fix: the score's positions are in its
 own units and `tools/build_clockwork.py` multiplies them by three to place
@@ -58,7 +61,34 @@ CLICK_S = .09                       # a click, unhurried
 CLICK_MIN_S = .04                   # ...and the fastest one can come
 CLICK_TEETH_MAX = 4                 # ...spanning at most this many teeth
 SLEW_S = .4                         # a servo slew's lead for a short move
+SLEW_SLACK_S = .25                  # PLAYERS M2: an unhurried servo slew leaves up to this much earlier (slew_lead)
 SERVO_V_MAX = 3.0                    # m/s: the fastest a servo carriage runs
+# PLAYERS M2 round 3: the servo carriage's acceleration ceiling, the goal's rule ("a servo carriage moves at <= SERVO_V_MAX
+# and <= 3 g"; ruler 14 holds the rake's to it). A poised pick travel ends at its poise wherever its S-curve keeps both
+# (servo_fast_s); the pick travels the score leaves no such choice (the M7 run's 39 ms hops) are the goal's known exception
+SERVO_A_MAX_G = 3.0
+SERVO_RAMP = .3                     # the servo S-curve's ramp share at each end (formlab/servo.py SCURVE_RAMP is this one)
+# the kinds whose carriage is ONE servo S-curve a travel, leaving at the score's go and arriving between servo_fast_s
+# after it and the score's arrive (formlab/servo.py): the planner bounds where such a carriage is in between instead of
+# charging it the whole crossed interval (servo_span); OCC_DT is the step that bound is held constant over
+SERVO_PROFILED = ('pick',)
+OCC_DT = .01
+# m (world): the margin formlab.rig._schedules keeps over a mechanism's arm_clearance (its PAD). The interval model never
+# came within it; a servo-profiled plan can (harp_arm1's 43.93 travel passed harp_arm2's 44.29 at 0.2787 m), so the
+# planner carries it for those arms and the rig, which only asserts the plan, still pushes nothing
+OCC_PAD = .01
+# PLAYERS M2 round 3 (A24), the slew cap's rake clause: an ANNOUNCED roll (the comb rises to an apex, holds it still for
+# RAKE_HOLD_S, D5/D7, and runs up into its first string over RAKE_RUNUP_S) whose carriage crosses the rail under the
+# backswing must have crossed by the hold's start, so slew_lead charges it announce_lead(dx) = rake_cross_s(dx) + hold +
+# run-up before the contact. RAKE_CROSS_V is that crossing's mean speed, from the least-rho backswing designs (tools/
+# rake_design.py, the carriage arriving with the head): ruler 14's rho reaches 1.0 at 0.406 s over the home crossing
+# (0.663 m: 1.63 m/s) and at 0.524 s over the return (1.05 m: 2.00 m/s); the slower one, rounded down, holds both
+# under it (the return's 0.656 s: least rho 0.78; designed at RHO_D 0.92, a 1.43 g peak). Round 2's fixed 0.8 s lead
+# left the return 0.52 s and its carriage ran on under the hold at up to 1.3 m/s
+ANNOUNCE_KINDS = ('rake',)
+RAKE_CROSS_V = 1.6                  # m/s: an announced crossing's mean carriage speed (rake_cross_s)
+RAKE_HOLD_S = .10                   # s: the apex hold (formlab/rake.py HOLD_MIN is this one; D5: >= 0.1 s)
+RAKE_RUNUP_S = .25                  # s: the run-up from the apex into the first string (tools/rake_design.py RU_LO, RU_LO_B)
 WORLD_SCALE = 3.0                   # score position units -> rig metres
 
 # Wind-up before the contact, per arm kind. A mallet throws its downstroke
@@ -137,9 +167,99 @@ def servo_travel_s(dx):
     return max(SLEW_S, abs(dx) / SERVO_V_MAX) if abs(dx) > 0 else 0.0
 
 
+def slew_lead(kind, dx, want, room, arrive_s=None):
+    """How long before `arrive` (the instant it stands on the contact's x)
+    an UNHURRIED arm leaves: `want` is its travel's unhurried lead and `room`
+    the time from when it came free to arrive, room >= want (a hurried arm
+    is charged all of room and leaves the moment it is free). A servo that
+    has to move (dx > 0) leaves up to SLEW_SLACK_S earlier than its want,
+    and never before it is free: the slew is the same S-curve, only started
+    sooner, so the arm is seen to set off for the next string rather than
+    wait and then dart (PLAYERS M2, the goal's t_move = max(free_at, t -
+    approach - min(idle, travel + 0.25 s))). An announced kind (the rake;
+    `arrive_s` its arrive_lead, the contact less arrive) leaves at least
+    announce_lead(dx) before the contact when the room holds it, so the
+    crossing ends by the apex hold's start (A24); with less room it leaves
+    the moment it is free, as before. Every other arm leaves at its
+    want: a contact-to-contact carriage already owns the whole window from
+    its last contact, and a still servo (dx = 0) keeps the M0 rule (t_move
+    = arrive - travel), so only a real reposition gains the slack."""
+    if dx > 0 and not stepped(kind):
+        lead = want + SLEW_SLACK_S
+        if announced(kind) and arrive_s is not None:
+            lead = max(lead, announce_lead(dx) - arrive_s)
+        return min(room, lead)
+    return want
+
+
+def announced(kind):
+    """Does an arm of this kind announce a roll (a backswing to an apex it
+    holds, then the run-up), its crossing charged by announce_lead?"""
+    return kind in ANNOUNCE_KINDS
+
+
+def rake_cross_s(dx):
+    """An announced crossing of |dx| metres at RAKE_CROSS_V mean speed: the
+    least the backswing's designed carriage needs under ruler 14's rho."""
+    return abs(dx) / RAKE_CROSS_V
+
+
+def announce_lead(dx):
+    """How long before its first string an announced roll's carriage leaves
+    to cross |dx| metres: the crossing, then the apex hold over a still
+    carriage, then the run-up (formlab/rake.py announce)."""
+    return rake_cross_s(dx) + RAKE_HOLD_S + RAKE_RUNUP_S
+
+
 def servo_floor_s(dx):
     """A servo has no ratchet to coarsen: its floor is its top speed."""
     return abs(dx) / SERVO_V_MAX
+
+
+def servo_s(u):
+    """The servo's unit S-curve, 0 -> 1 over u in [0, 1]: w^3 - w^4/2 ramps
+    on SERVO_RAMP at each end, a cruise between (formlab.rig.scurve and
+    formlab/servo.py scurve_pieces are this law)."""
+    u = min(max(u, 0.0), 1.0); r = SERVO_RAMP
+    if u < r:
+        w = u / r; s = r * (w**3 - w**4 / 2)
+    elif u <= 1 - r:
+        s = r / 2 + (u - r)
+    else:
+        w = (1 - u) / r; s = (1 - r) - r * (w**3 - w**4 / 2)
+    return s / (1 - r)
+
+
+def servo_fast_s(dx):
+    """The least time the servo S-curve crosses |dx| metres: its peak speed
+    (1/(1 - r) of the mean) within SERVO_V_MAX, its peak |x''| (1.5/(r (1 -
+    r)) |dx|/T^2) within SERVO_A_MAX_G, and never under servo_floor_s. A
+    poised pick travel ends at its poise when its window holds this
+    (formlab/servo.py); the planner bounds a pick carriage by it."""
+    d = abs(dx)
+    if d <= 0:
+        return 0.0
+    r = SERVO_RAMP
+    return max(servo_floor_s(d), d / ((1 - r) * SERVO_V_MAX),
+               math.sqrt(1.5 * d / (r * (1 - r) * SERVO_A_MAX_G * G)))
+
+
+def servo_profiled(kind):
+    """Is this arm's carriage one servo S-curve a travel (SERVO_PROFILED)?"""
+    return kind in SERVO_PROFILED
+
+
+def servo_span(xa, xb, t0, t_fast, t_arr, ta, tb):
+    """Where a servo-profiled carriage can be over [ta, tb] (inside its
+    travel [t0, t_arr]): it leaves xa at t0 on the S-curve and lands on xb
+    somewhere in [t_fast, t_arr], so at each instant it is between the
+    curve that lands at t_arr (the slowest) and the one at t_fast; being
+    monotone, over [ta, tb] it is between the slow one's position at ta and
+    the fast one's at tb. The (lo, hi) of that, in xa's units."""
+    def at(t, t1):
+        return xa + (xb - xa) * (servo_s((t - t0) / (t1 - t0)) if t1 > t0 else 1.0)
+    a, b = at(ta, t_arr), at(tb, t_fast)
+    return (min(a, b), max(a, b))
 
 
 def contact_to_contact(kind):
@@ -277,6 +397,53 @@ def home_legs(x_home, x_lo, x_hi, x_joint=None):
     return out
 
 
+# A servo arm's homing (PLAYERS M2, T5: the rake; the harps' is M7, A15). A
+# servo has no detent to count teeth on: each x leg is one rest-to-rest 3-4-5
+# peaking at <= HOME_SERVO_V (V345 x its mean speed), its time rounded UP to
+# HOME_SERVO_DT, so the planner (axis x WORLD_SCALE) and the rig (the contacts'
+# world x) draw the same legs whatever their last bits. Then, at home, the two
+# joint windows: a servo's whole arm follows its head, so formlab/rake.py
+# carries the head (y, h) through designed poses inside them, and the windows
+# are sized for those poses' chords at the same peak (the rake: elbow 2.630 m,
+# shoulder 1.229 m -> >= 4.48 s and >= 2.09 s; ruler 22 home allows 1.5 m/s;
+# tools/rake_design.py --homing keeps the poses' chords inside these windows).
+HOME_SERVO_KINDS = ('rake',)
+HOME_SERVO_V = 1.1                  # m/s: a servo homing leg's peak tool speed
+HOME_SERVO_DT = 0.1                 # s: an x leg's time is a whole number of these
+HOME_SERVO_JOINT_S = dict(elbow=4.5, shoulder=2.1)
+
+
+def servo_homes(kind):
+    """Does a servo arm of this kind sweep its reach in its first rest?"""
+    return kind in HOME_SERVO_KINDS
+
+
+def homes(kind):
+    """Does an arm of this kind get a homing sweep (a `home` cue)?"""
+    return contact_to_contact(kind) or servo_homes(kind)
+
+
+def servo_home_legs(x_home, x_lo, x_hi):
+    """A servo's homing sweep as (t0, t1, what, a, b) legs from 0, the shape
+    home_legs gives: 'x' legs home -> lo -> hi -> home (each one 3-4-5,
+    HOME_SERVO_V peak, HOME_SERVO_DT steps), then the 'elbow' and 'shoulder'
+    windows (HOME_SERVO_JOINT_S) at home, a == b. Only distances count, so any
+    coordinate in metres will do (as home_legs). The 1e-6 guard keeps a leg
+    whose ideal time is a whole number of steps from gaining one on a last bit."""
+    out, t = [], 0.0
+    for a, b in ((x_home, x_lo), (x_lo, x_hi), (x_hi, x_home)):
+        if abs(b - a) <= 1e-12:
+            continue
+        T = math.ceil(V345 * abs(b - a) / HOME_SERVO_V / HOME_SERVO_DT - 1e-6) * HOME_SERVO_DT
+        out.append((t, t + T, 'x', a, b))
+        t += T
+    if out:
+        for j in HOME_JOINTS:
+            out.append((t, t + HOME_SERVO_JOINT_S[j], j, x_home, x_home))
+            t += HOME_SERVO_JOINT_S[j]
+    return out
+
+
 def travel_s(kind, dx):
     """What a move of `dx` metres wants, given the arm's vocabulary."""
     if contact_to_contact(kind):
@@ -290,3 +457,47 @@ def floor_s(kind, dx):
     if contact_to_contact(kind):
         return contact_floor_s(kind, dx)
     return stepped_floor_s(dx) if stepped(kind) else servo_floor_s(dx)
+
+
+# The rake's roll (PLAYERS M2, Q1 and docs/goals/the-players.md A13). A sweep
+# is ONE event whose strings sound in order along the comb's path, at onsets
+# that follow the path rather than a fixed spacing: ev['onsets'], offsets from
+# ev['t'], one a string, onsets[0] = 0 (the roll's first onset stays at the
+# scored time) and onsets[-1] = spread_s * (n - 1), the roll's whole length.
+# That last identity keeps every consumer that only needs the roll's END (the
+# planner's t_last, the rig's window, ruler 25's ledger) right with spread_s
+# alone; every consumer that needs a string's own time asks `string_times`.
+# 0.541 s is the shortest roll that meets every ruler-14 bound on the interim
+# comb with a 5 % margin (ρ <= 1.0 at E ~ 0.128 m, the speed ratio, the
+# carriage's 3 g and its 0.0146 m of rail overtravel past the outer strings,
+# which caps it at 0.639 m/s there); the 0.26 s default needs M9's hand.
+RAKE_ROLL_S = 0.541                 # s: first string to last, both directions
+# ...and the onsets of an UP roll (rake00 -> rake04, x rising) as fractions of
+# it: the SLSQP optimum at 0.541 s (0, 0.191, 0.328, 0.413, 0.541 s), slow off
+# the outer strings and fast across the middle. Fractions, so RAKE_ROLL_S is
+# retuned in one place; a DOWN roll is the mirror (rake_onsets).
+RAKE_ONSET_FRACTIONS = (0.0, 191/541, 328/541, 413/541, 1.0)
+
+
+def rake_onsets(up=True, T=RAKE_ROLL_S):
+    """A roll's onsets, offsets from its first string's time: T times
+    RAKE_ONSET_FRACTIONS going up; going down the mirror, T (1 - f) read
+    backwards, so the path the comb crosses fast is the same middle."""
+    f = RAKE_ONSET_FRACTIONS
+    return [T * u for u in f] if up else [T * (1.0 - u) for u in f[::-1]]
+
+
+def string_times(ev):
+    """Each string's absolute contact time in a score event: t + onsets[k]
+    when the event carries its own onsets (a rake roll, from M2), else
+    t + k * spread_s (uniform; a single string's is just t). The one rule
+    every per-string-time consumer reads (the bake, the declared structure,
+    the motion and bake rulers, the harness's ScoreDoc.string_times)."""
+    t = float(ev['t']); n = len(ev.get('strings') or ())
+    on = ev.get('onsets')
+    if on is not None:
+        if len(on) != n:
+            raise ValueError(f"event {ev.get('i')}: {len(on)} onsets for {n} strings")
+        return [t + float(o) for o in on]
+    sp = float(ev.get('spread_s', 0))
+    return [t + k * sp for k in range(n)]

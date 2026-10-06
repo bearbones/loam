@@ -23,8 +23,9 @@ func _init() -> void:
 	for e in sd.events:
 		if e.get("actuator")==null: failures.append("unassigned event"); continue
 		var aid: String=e["actuator"]
+		var ts: Array=ScoreDoc.string_times(e)   # a rake roll's at its own onsets
 		for k in range(e["strings"].size()):
-			var t := float(e["t"])+k*float(e.get("spread_s",0))
+			var t: float=ts[k]
 			var actual := rig.tip_at(aid,t)
 			var expected := MotionBake.contact(layout,e["strings"][k],e.get("pick"))
 			worst_contact=maxf(worst_contact,actual.distance_to(expected)); contacts+=1

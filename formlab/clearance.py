@@ -370,6 +370,35 @@ def arm_capsules(poses, o1, o2, layers, spec, mount='back', drive='rack'):
         *[(a, b) for a in ('head', 'head_rod', 'head_tail') for b in ('head', 'head_rod', 'head_tail', 'tool') if a != b]]}
     return caps, adjacent
 
+# m: formlab.linkage.mallet_tool's wound head (its head_r): a mallet's tool for link_strobe, as ruler 1 takes it
+MALLET_HEAD_R = .06
+
+def link_strobe(poses, caps, kind):
+    """Ruler 1's '1 links' measure (tools/players/r_motion.py r1_strobe), the
+    same expressions in the same order, on poses a film frame apart: per link
+    (upper root -> elbow, lower elbow -> wrist) and frame, the arc its far end
+    sweeps, R |dtheta| (R the mean of the frame's two lengths), over the extent
+    of the tool head it carries along the swing (the spread of the head's body
+    points along the swing plus 2r, the mean of the frame's two), floored at
+    the bar's own width -> the max over both links and every frame (over 1: a
+    link end jumps further a frame than the head it carries is wide, and
+    strobes). The head is ruler 1's: a mallet's wound head on its felt, a
+    hinged hammer's head, else the tool capsule (`caps`: arm_capsules')."""
+    if kind == 'mallet': body, r = (poses['felt']+[0, MALLET_HEAD_R, 0])[:, None, :], MALLET_HEAD_R
+    else:
+        a, b, r = caps.get('head', caps['tool']) if kind == 'hammer' else caps['tool']; body = np.stack([a, b], 1)
+    w = max(DEFAULT_SPEC['width'], DEFAULT_SPEC['depth']); worst = 0.0     # arm_capsules' bar diameter (ruler 1's LINK_W)
+    for a_, b_ in (('root', 'elbow'), ('elbow', 'wrist')):
+        u = poses[b_]-poses[a_]; L = np.linalg.norm(u, axis=-1); uh = u/L[:, None]
+        dth = np.arccos(np.clip((uh[1:]*uh[:-1]).sum(1), -1, 1))
+        arc = .5*(L[1:]+L[:-1])*dth
+        sw = uh[1:]-uh[:-1]; sn = np.linalg.norm(sw, axis=-1)
+        sw = np.where(sn[:, None] > 1e-12, sw/np.maximum(sn, 1e-15)[:, None], np.array([0, 1.0, 0]))
+        s0 = np.einsum('nmi,ni->nm', body[:-1], sw); s1 = np.einsum('nmi,ni->nm', body[1:], sw)
+        Eh = .5*((s0.max(1)-s0.min(1)+2*r)+(s1.max(1)-s1.min(1)+2*r))
+        worst = max(worst, float((arc/np.maximum(w, Eh)).max()))
+    return worst
+
 def pairwise_clearance(caps, adjacent=frozenset()):
     """Minimum gap (distance - radii) per non-adjacent pair, over all poses."""
     names = list(caps); out = {}

@@ -43,9 +43,11 @@ step of every build) samples the rig into `loam-motion/1`, written next to the
 score as `<asset>.motion.json` (header) and `<asset>.motion.bin` (float64
 times, float32 rows), and `harness/motion_bake.gd` (`MotionBake`) interpolates
 it. A time grid of 240 Hz plus every contact and every corner of the path as a
-row of its own, and, for mallets, a row at every declared knot and segment
-boundary (formlab/stroke.py) and wherever the tooth rate crosses an eighth of
-the pawl's ride band (`stroke.RIDE_ROWS`); the hinged hammer keeps rows packed
+row of its own, and, for every arm with a stroke, a row at every declared knot
+and segment boundary (a mallet's, formlab/stroke.py; since PLAYERS M2 a pick's
+and the rake's, formlab/servo.py and formlab/rake.py) and, on a mallet,
+wherever the tooth rate crosses an eighth of the pawl's ride band
+(`stroke.RIDE_ROWS`); the hinged hammer keeps rows packed
 through each ratchet click: contacts land to
 float32 (2.4e-7 m), and between rows no pin strays more than 3.4 mm from the
 rig mid-slew. The pawl's angle is a function of rail position, not time, so the
@@ -86,7 +88,7 @@ godot --path harness -- --film --size=960x540 --capture=/tmp/f --start=0 --secon
 - Carriages travel on separate rails spanning each arm's reach window. Links retain their lengths through analytic IK. Each rail's bars end in a rail head on a tapered steel mast (bracketed back or out where a neighbour is in the way); rails are obstacles to the other arms in the rail search. See [articulated arms](articulated-arms.md#rail-gantries).
 - A carriage rides its bars on two bushings tied by a cheek plate, and its pinion rolls on a rack (teeth phase-locked to travel) on one of four mounts — behind, above, below or in front of the carriage — chosen per arm by measuring the drive against the arm's own motion (`pinion` in the manifest). See [the carriage and its drive](articulated-arms.md#the-carriage-and-its-drive).
 - Travel, anticipation, contact, sweep and recovery are evaluated from exported intervals; a tool rests over its last actual contact, including its pick offset. There is no timer-dependent animation state to become stale after seeking.
-- Rakes linearly traverse their ordered contact positions and cross each string at `t + index * spread_s`, including reverse sweeps.
+- Rakes traverse their ordered contact positions and cross each string at its own time, `loam.motion_timing.string_times(ev)` (mirrored by `ScoreDoc.string_times`): `t + onsets[index]` for a roll that carries onsets (the chamber's, from PLAYERS M2), else `t + index * spread_s`, including reverse sweeps.
 - The tool's origin is its contact point. The wrist pin is at `tip + wrist_offset` from the manifest (picks/rakes 0.20 m above and 0.10 m behind the string, mallets 0.28 m above — the height the plectrum or felt, ferrule, shank, socket and boss need); the elbow bends per the manifest's `bend` ("back" for plucked/raked arms, "up" for mallets). Speaking lengths are scaled uniformly by three; the harp and rake string positions come from the score's own neck fan (`Mechanism.fan`); plucked elements are upright, struck elements lie horizontally.
 - Arms are double parallelograms posed from the same IK: every crosshead and tool stays upright, the parallel bars ride at the manifest's `o1`/`o2` offsets. See [articulated arms](articulated-arms.md).
 - Original string clips are superposed after all recent contacts, so overlapping ring-outs remain visible. Strings are shaded tubes bent by the clip in a vertex shader, with a translucent sheath for the recent peak excursion, strung by register as a harp is (wound wire below C4, translucent gut through the middle, nylon from C5; C red, F dark — see [articulated-arms.md](articulated-arms.md)). A sounding string glows with its energy (emission from the peak excursion of the last 1/30 s, tinted by the wire's own colour), and the bend and sheath carry a 35 % cross-axis component — a plucked wire precesses into an ellipse — so vibration reads from a camera in front of the string plane, not only edge-on. Displacement is exaggerated for inspection. A string never drops below 1.6 px on screen: the shader holds a sub-pixel wire at that width and tones it down by the coverage it lost, so the treble strings stay continuous lines in the wide shots. It remains the existing FD approximation, not a reconstruction of the audible Karplus–Strong waveform. Bars have a small illustrative spring response; the chamber indicator follows its stem envelope.

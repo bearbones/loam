@@ -132,8 +132,8 @@ def run(layout_path, score_path):
     worst = 0.0; nc = 0
     for e in rig.score['events']:
         aid = e['actuator']
-        for k, sid in enumerate(e['strings']):
-            t = float(e['t'])+k*float(e.get('spread_s', 0)); nc += 1
+        for sid, t in zip(e['strings'], ST.motion_timing.string_times(e)):  # a roll's at its onsets
+            nc += 1
             worst = max(worst, float(np.linalg.norm(bake.felt(aid, t)-rig.contact(sid, e.get('pick')))))
     check(worst < FLOAT32_M, f'every contact lands exactly: {nc} contacts, worst {worst:.1e} m')
     bad = {aid: a['unreachable'] for aid, a in h['arms'].items() if a['unreachable']}

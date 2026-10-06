@@ -951,8 +951,8 @@
       ],
       "o1": [
         0.0,
-        0.04649,
-        0.09969
+        0.03762,
+        0.10337
       ],
       "o2": [
         0.0,
@@ -961,16 +961,16 @@
       ],
       "pinion": "back",
       "margins": {
-        "self": 0.0243,
-        "pair": 0.046,
+        "self": 0.0215,
+        "pair": 0.0458,
         "behind": 1.5,
-        "scene": 0.3743,
+        "scene": 0.3509,
         "strings": 0.023,
         "mast": 0.095,
         "fine": 0.023,
         "cross": {
-          "harp_arm1": 0.1687,
-          "harp_arm2": 0.1543
+          "harp_arm1": 0.169,
+          "harp_arm2": 0.3427
         }
       },
       "layers": {
@@ -1001,14 +1001,14 @@
           "h": 0.031
         }
       ],
-      "upper_pair_separation_m": 0.10902998801973884,
-      "lower_pair_separation_m": 0.10797408409972732,
-      "self_clearance_m": 0.02433863380557126,
+      "upper_pair_separation_m": 0.10832999703602304,
+      "lower_pair_separation_m": 0.10777021666270789,
+      "self_clearance_m": 0.021506320707633975,
       "self_worst": [
         "lower",
         "upper2"
       ],
-      "self_worst_time_s": -1.0,
+      "self_worst_time_s": 32.25,
       "string_clearance_m": 0.023,
       "string_worst": [
         "harp00",
@@ -1046,7 +1046,7 @@
         "margin_m": 0.020999999999999908,
         "worst": "gantry harp_arm0 rack",
         "rack": {
-          "gap": 0.29789847602561204,
+          "gap": 0.24709572099143942,
           "worst": "arm harp_arm2 lower2",
           "mount": "back",
           "drive": "screw"
@@ -1100,15 +1100,15 @@
       ],
       "pinion": "back",
       "margins": {
-        "self": 0.0247,
-        "pair": 0.041,
+        "self": 0.0249,
+        "pair": 0.0413,
         "behind": 1.0677,
-        "scene": 0.9788,
+        "scene": 0.9527,
         "strings": 0.023,
         "mast": 0.095,
         "fine": 0.023,
         "cross": {
-          "harp_arm0": 0.1687,
+          "harp_arm0": 0.169,
           "harp_arm2": 0.1256
         }
       },
@@ -1140,14 +1140,14 @@
           "h": 0.031
         }
       ],
-      "upper_pair_separation_m": 0.10736079918495282,
-      "lower_pair_separation_m": 0.10278191128938652,
-      "self_clearance_m": 0.024426604940461435,
+      "upper_pair_separation_m": 0.10698111791385875,
+      "lower_pair_separation_m": 0.103283723200365,
+      "self_clearance_m": 0.02490151751044796,
       "self_worst": [
         "lower",
         "upper2"
       ],
-      "self_worst_time_s": 24.216666666666665,
+      "self_worst_time_s": 24.15,
       "string_clearance_m": 0.023,
       "string_worst": [
         "harp04",
@@ -1229,8 +1229,8 @@
       ],
       "o1": [
         0.0,
-        0.03762,
-        -0.10337
+        0.02847,
+        -0.10625
       ],
       "o2": [
         0.0,
@@ -1241,13 +1241,13 @@
       "margins": {
         "self": 0.053,
         "pair": 0.0446,
-        "behind": 1.5274,
-        "scene": 0.1104,
+        "behind": 1.5293,
+        "scene": 0.1109,
         "strings": 0.023,
         "mast": 0.0996,
         "fine": 0.023,
         "cross": {
-          "harp_arm0": 0.1543,
+          "harp_arm0": 0.3427,
           "harp_arm1": 0.1256
         }
       },
@@ -1279,14 +1279,14 @@
           "h": 0.031
         }
       ],
-      "upper_pair_separation_m": 0.10839474277864425,
+      "upper_pair_separation_m": 0.10811565500809509,
       "lower_pair_separation_m": 0.10658769758898076,
-      "self_clearance_m": 0.05304494727957029,
+      "self_clearance_m": 0.05304494727957022,
       "self_worst": [
         "lower",
         "tool"
       ],
-      "self_worst_time_s": 10.525,
+      "self_worst_time_s": 10.45,
       "string_clearance_m": 0.023,
       "string_worst": [
         "harp09",
@@ -1357,9 +1357,9 @@
         -3.675
       ],
       "root_y": 0.55,
-      "root_z": -0.4999999999999999,
-      "l1": 1.15,
-      "l2": 1.15,
+      "root_z": -1.35,
+      "l1": 1.6,
+      "l2": 1.6,
       "bend": "back",
       "wrist_offset": [
         0,
@@ -1373,17 +1373,17 @@
       ],
       "o2": [
         0.0,
-        0.10625,
-        -0.02847
+        0.10958,
+        0.00959
       ],
       "pinion": "down",
       "margins": {
-        "self": 0.0481,
-        "pair": 0.0313,
-        "behind": 0.9109,
+        "self": 0.053,
+        "pair": 0.0262,
+        "behind": 1.4322,
         "scene": 0.17,
         "strings": 0.023,
-        "mast": 0.0996,
+        "mast": 0.085,
         "others": 1.999,
         "fine": 0.023,
         "cross": {}
@@ -1398,13 +1398,13 @@
         "span": 0.1824,
         "pin_x": 0.1254
       },
-      "link_extent_y": 1.2865999999999997,
+      "link_extent_y": 1.7366,
       "oil_cups": [
         {
           "part": "upper",
           "centre": [
             0.045,
-            1.2049999999999998,
+            1.655,
             0.0
           ],
           "axis": [
@@ -1416,14 +1416,14 @@
           "h": 0.031
         }
       ],
-      "upper_pair_separation_m": 0.10696545298820202,
-      "lower_pair_separation_m": 0.09329736948044398,
-      "self_clearance_m": 0.04810097221964908,
+      "upper_pair_separation_m": 0.10371824602404191,
+      "lower_pair_separation_m": 0.08820199415352578,
+      "self_clearance_m": 0.053005120869997785,
       "self_worst": [
         "lower",
         "tool"
       ],
-      "self_worst_time_s": 34.35771428571429,
+      "self_worst_time_s": 35.075,
       "string_clearance_m": 0.02300000000000004,
       "string_worst": [
         "rake00",
@@ -1438,38 +1438,38 @@
             "bar_x": -5.077999999999999,
             "outreach": 0.0,
             "setback": 0.0,
-            "mast_z": -0.4999999999999999,
+            "mast_z": -1.35,
             "x_col": -5.015,
             "foot_y": -0.02,
             "height": 0.35000000000000003,
-            "gap": 0.03459999999999923,
-            "worst": "arm rake_arm0 carriage_cheek"
+            "gap": 0.020000999999999963,
+            "worst": "arm rake_arm0 carriage_bridge"
           },
           {
             "side": 1,
             "bar_x": -3.3219999999999996,
             "outreach": 0.0,
             "setback": 0.0,
-            "mast_z": -0.4999999999999999,
+            "mast_z": -1.35,
             "x_col": -3.385,
             "foot_y": -0.02,
             "height": 0.35000000000000003,
-            "gap": 0.03459999999999955,
+            "gap": 0.02000099999999952,
             "worst": "arm rake_arm0 carriage_bridge"
           }
         ],
-        "margin_m": 0.03459999999999923,
-        "worst": "arm rake_arm0 carriage_cheek",
+        "margin_m": 0.02000099999999952,
+        "worst": "arm rake_arm0 carriage_bridge",
         "rack": {
-          "gap": 1.0499999999999998,
-          "worst": "box obstacle2",
+          "gap": 1.6149999999999995,
+          "worst": "box obstacle0",
           "mount": "down",
           "drive": "screw"
         }
       },
       "screw": {
         "y": 0.38,
-        "z": -0.7349999999999999,
+        "z": -1.5850000000000002,
         "pitch": 0.008,
         "x_thread": [
           -4.84,
@@ -3058,12 +3058,12 @@
   "arm_checks": {
     "_cross_arm": {
       "harp_arm0/harp_arm1": {
-        "gap_m": 0.27207602176739465,
+        "gap_m": 0.23526068087092983,
         "parts": [
-          "wristhead_web",
-          "tool"
+          "upper2",
+          "lower2"
         ],
-        "time_s": 43.858333333333334
+        "time_s": 36.42857142857143
       },
       "harp_arm0/harp_arm2": {
         "gap_m": 0.45200000000000007,
@@ -3071,15 +3071,15 @@
           "upper2",
           "lower2"
         ],
-        "time_s": 44.2
+        "time_s": 44.041666666666664
       },
       "harp_arm0/rake_arm0": {
-        "gap_m": 2.6582,
+        "gap_m": 2.643601,
         "parts": [
           "lower2",
           "upper2"
         ],
-        "time_s": 21.541666666666668
+        "time_s": 22.016666666666666
       },
       "harp_arm0/bars_arm0": {
         "gap_m": 3.4208843601913723,
@@ -3090,36 +3090,36 @@
         "time_s": 47.85714285714286
       },
       "harp_arm0/bars_arm1": {
-        "gap_m": 4.601296583788555,
+        "gap_m": 4.605351725815314,
         "parts": [
-          "wristhead_web",
-          "carriage_bush-"
+          "upper2",
+          "pinion2"
         ],
-        "time_s": 47.916666666666664
+        "time_s": 62.166666666666664
       },
       "harp_arm1/harp_arm2": {
-        "gap_m": 0.1256,
+        "gap_m": 0.12560000000000004,
         "parts": [
           "upper2",
           "lower2"
         ],
-        "time_s": 45.275
+        "time_s": 27.966666666666665
       },
       "harp_arm1/rake_arm0": {
-        "gap_m": 3.094937620325809,
+        "gap_m": 3.0934,
         "parts": [
           "lower2",
           "upper2"
         ],
-        "time_s": 21.55
+        "time_s": 3.25
       },
       "harp_arm1/bars_arm0": {
-        "gap_m": 2.9445599697943354,
+        "gap_m": 2.942514950102138,
         "parts": [
           "wristhead_web",
           "pinion2"
         ],
-        "time_s": 45.375
+        "time_s": 45.3
       },
       "harp_arm1/bars_arm1": {
         "gap_m": 4.096198110431967,
@@ -3130,44 +3130,44 @@
         "time_s": 51.09166666666667
       },
       "harp_arm2/rake_arm0": {
-        "gap_m": 3.9017064184491455,
+        "gap_m": 3.841469337364133,
         "parts": [
           "lower2",
           "upper2"
         ],
-        "time_s": 37.85714285714286
+        "time_s": 66.75833333333334
       },
       "harp_arm2/bars_arm0": {
-        "gap_m": 2.4705883371990143,
+        "gap_m": 2.430223547397172,
         "parts": [
           "tool",
           "pinion2"
         ],
-        "time_s": 72.05
+        "time_s": 71.89166666666667
       },
       "harp_arm2/bars_arm1": {
-        "gap_m": 3.326329053977353,
+        "gap_m": 3.3479526179368726,
         "parts": [
           "lower",
           "pinion2"
         ],
-        "time_s": 15.8
+        "time_s": 15.758333333333333
       },
       "rake_arm0/bars_arm0": {
-        "gap_m": 6.660532299895818,
+        "gap_m": 6.733765388277547,
+        "parts": [
+          "lower",
+          "pinion2"
+        ],
+        "time_s": 3.0166666666666666
+      },
+      "rake_arm0/bars_arm1": {
+        "gap_m": 7.759344090352227,
         "parts": [
           "upper2",
           "pinion2"
         ],
-        "time_s": 65.78628571428573
-      },
-      "rake_arm0/bars_arm1": {
-        "gap_m": 7.789733690207463,
-        "parts": [
-          "upper2",
-          "carriage_bush-"
-        ],
-        "time_s": 55.358333333333334
+        "time_s": 54.95
       },
       "bars_arm0/bars_arm1": {
         "gap_m": 0.18105770082331707,

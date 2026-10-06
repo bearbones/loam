@@ -46,7 +46,14 @@ for bar in range(8,24):
         score.pluck('blocks',t,sid,amp=.2 if k!=1 else .28,voice='escapement')
 for k,b in enumerate((96,100,104,108)):
     score.pluck('bells',b*beat,bells.strings[(3-k)%4].id,amp=.2,voice='glass coda')
-newdoc=score.export(str(output))
+# the stems' one gain is pinned (docs/goals/the-players.md A17): normalising it
+# to the mix peak let the rake's roll rescale every stem; this is the value it
+# normalised to before the roll changed, and int16 stems must not clip
+STEM_GAIN=0.6702252656068395
+peak=float(np.max(np.abs(score.mixdown())))*STEM_GAIN
+print(f'pinned stem gain {STEM_GAIN!r}: mix peak {peak:.4f}')
+assert peak<1.0,f'the pinned stem gain clips the mix (peak {peak:.4f})'
+newdoc=score.export(str(output),stem_gain=STEM_GAIN)
 newdoc['shapes']=original['shapes']
 shutil.copyfile(source/original['shapes']['file'],output/original['shapes']['file'])
 (output/'score.json').write_text(json.dumps(newdoc,indent=1))
@@ -59,14 +66,16 @@ assert check['ok'] and not check['unassigned'] and not score.conflicts
 old_by_id={e['i']:e for e in original['events']}
 for e in score.events[:len(original['events'])]:
     old=old_by_id[e['i']]
-    for key in ('t','strings','actuator','t_move','t_free','t_head_free','pick','shape'):
+    for key in ('t','strings','onsets','actuator','t_move','t_free','t_head_free','pick','shape'):
         assert e.get(key)==old.get(key),(e['i'],key)
-# every contact-to-contact arm warms up with its homing sweep (ruler 22)
+# every arm whose kind homes warms up with its homing sweep (ruler 22): the
+# contact-to-contact arms and, from PLAYERS M2, the rake (motion_timing.homes);
+# the harps' pick arms get theirs at M7 (A15), so none is asked of them yet
 homed={c['actuator'] for c in score.cues if c.get('kind')=='home'}
 from loam import motion_timing
 for m in score.instrument.mechanisms:
     for a in m.actuators:
-        assert not motion_timing.contact_to_contact(a.kind) or a.id in homed,('no homing sweep',a.id)
+        assert not motion_timing.homes(a.kind) or a.id in homed,('no homing sweep',a.id)
 for mid in ('bells','blocks'):
     rec=ruler.score_recall(score.bus(mid),[e['t'] for e in score.events if e['mech']==mid],tol_s=.03,min_sep=.15)
     print(mid,'onset recall',rec['recall']); assert rec['recall']>=.9

@@ -21,7 +21,8 @@ into what renders and what the rulers read. This holds the Rig to it:
   - the bus, the clicks (one a tooth), the pawl ride and the schedule's new
     fields;
   - Rig.declared: the mallet's own contract (channels, tags, laws, extras,
-    knots, rings, prep, native), and every other arm's unchanged reading;
+    knots, rings, prep, native), and every other arm's unchanged reading
+    (a servo with a stroke, PLAYERS M2, is tools/test_servo.py's);
   - every float that hands over to a driven rise ('wind-up', 'raise') is
     carried to its park (the next 'stroke''s apex, or the coda's last hold) without stopping more
     than LOW_REV below it; a float that comes to rest short of its park is
@@ -313,6 +314,8 @@ def run(layout_path, score_path):
         if not rig.plans[aid]: continue
         if rig.mallet(aid):
             mirrors(rig, S, aid); homing(rig, S, aid); rings_and_path(rig, aid); contract(rig, aid); handovers(rig, aid); issues(rig, aid)
+        elif rig.acts[aid]['kind'] in ('pick', 'rake') and rig.stroke(aid) is not None:
+            pass        # a servo stroke (PLAYERS M2, formlab/servo.py) declares itself: tools/test_servo.py holds it
         else:
             others(rig, aid)
     unplaced(score, layout, rig)

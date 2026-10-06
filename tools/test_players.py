@@ -41,12 +41,23 @@ GOAL = ROOT/'docs/goals/the-players.md'
 # ("gate" column); the table is the spec, this is its executable form, and the
 # two change together. M1's '1 brisk' is the ceiling on the travels its '1 tool'
 # p95 leaves out while r_motion.BRISK_UNTIL_M8 (no such row when it is False).
+# M2's ruler 3 is the row '3 lead (IOI >= 0.25 s)' (A14: the contacts with IOI
+# >= 0.25 s; M7 gates the full '3 preparation'), and its 22 on the harps is
+# sync and repeat (A15: harp homing moves to M7) while the rake's 22 is whole
+# (it homes in M2). M2 also gates the rake's '15 tip accel' (A20 D3: the
+# comb's tool point <= 10 g; the rest of ruler 15 stays M9) and the harps'
+# '3 poise still' (A26 D7: every declared poise holds the tool point still;
+# the rake's announce holds are 14's, gated whole). Names match by prefix, so
+# no gated name may be the prefix of a row it must not take ('3 lead', '3
+# preparation', '3 hand-off' and '3 poise still' are not; '15 tip accel' is
+# ruler 15's only row so named).
 MALLETS = ('mallet',); SERVO = ('pick', 'rake'); HARP = ('pick',); RAKE = ('rake',)
 MILESTONE_GATES = {
     'M0': [(26, 'all')],
     'M1': [(n, MALLETS) for n in (3, 4, 5, 6, 7, 8, 9, 11, 19, 21, 22)]
           +[(10, MALLETS, ('10b', '10c', '10d')), (1, MALLETS, ('1 tool', '1 brisk')), (25, 'all'), (26, 'all')],
-    'M2': [(3, SERVO), (5, SERVO), (6, SERVO), (14, RAKE), (22, SERVO), (25, 'all'), (26, 'all')],
+    'M2': [(3, SERVO, ('3 lead',)), (3, HARP, ('3 poise still',)), (5, SERVO), (6, SERVO), (14, RAKE), (15, RAKE, ('15 tip accel',)),
+           (22, HARP, ('sync', 'repeat')), (22, RAKE), (25, 'all'), (26, 'all')],
     'M3': [(26, 'all')],
     'M4': [(16, 'all', ('16 limits',)), (17, 'all'), (18, 'all'), (26, 'all')],
     'M5': [(n, ('mallet', 'hammer')) for n in (1, 7, 8, 10, 15, 16, 17, 22, 23)]+[(25, 'all'), (26, 'all')],
