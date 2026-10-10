@@ -83,6 +83,7 @@ GODOT = [   # (name, script, {asset: user args})
     ('test_clockwork', 'dev/test_clockwork.gd', dict(chamber=[], expanded=['--asset=clockwork_expanded', '--score='+EXPANDED_SCORE])),
     ('test_performance', 'dev/test_performance.gd', dict(chamber=[], expanded=['--expanded'])),
     ('test_load', 'dev/test_load.gd', dict(chamber=[], expanded=['--score='+EXPANDED_SCORE])),
+    ('test_pose_parity', 'dev/test_pose_parity.gd', dict(chamber=[], expanded=['--expanded'])),
 ]
 TIMEOUT = 1800
 _suite = {}             # the Python suite's results, once per process

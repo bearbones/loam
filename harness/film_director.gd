@@ -101,13 +101,15 @@ static func _dir(az_deg: float, el_deg: float) -> Vector3:
 
 
 ## An arm's tool, smoothed: a triangular window FOLLOW_S either side of t.
+## The tool and the carriage are read as joints of the bake's table
+## (MotionBake.joint_origin: a pinned joint is its channel, the .tip and .root).
 func follow(aids: Array, t: float) -> Vector3:
 	var sum := Vector3.ZERO; var wsum := 0.0
 	for k in FOLLOW_TAPS:
 		var f := float(k)/float(FOLLOW_TAPS-1)*2.0-1.0
 		var w := 1.0-absf(f)*.8
 		for aid in aids:
-			sum += bake.tip_at(aid, t+f*FOLLOW_S)*w; wsum += w
+			sum += bake.joint_origin(aid+"/tool", t+f*FOLLOW_S)*w; wsum += w
 	return sum/wsum
 
 
@@ -139,7 +141,7 @@ func _arm0_close(u: float, t: float) -> Dictionary:
 
 ## Halfway along an arm, carriage to tool, its tool smoothed (see follow).
 func _arm_mid(aid: String, t: float) -> Vector3:
-	return (bake.vec(aid+".root", t)).lerp(follow([aid], t), .55)
+	return (bake.joint_origin(aid+"/carriage", t)).lerp(follow([aid], t), .55)
 
 
 ## The low arm's run: high behind the machine's right side, orbiting round
@@ -183,8 +185,8 @@ func _bars_low(u: float, t: float) -> Dictionary:
 func _bars_ratchet(u: float, t: float) -> Dictionary:
 	var aid: String = "bars_arm0" if _has("bars_arm0") else str(bake.arms.keys()[0])
 	var tip := follow([aid], t)
-	var p := bake.pose(aid, t)
-	var root := Vector3(tip.x, (p["root"] as Vector3).y, (p["root"] as Vector3).z)
+	var r := bake.joint_origin(aid+"/carriage", t)
+	var root := Vector3(tip.x, r.y, r.z)
 	var target := root.lerp(tip, .35)
 	var az := lerpf(208.0, 238.0, _ease(u))
 	return {"pos": target+_dir(az, 12.0)*2.25, "target": target, "fov": 42.0}

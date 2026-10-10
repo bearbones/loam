@@ -617,8 +617,9 @@ per-note records (t_apex, T_down, v_in, e, a_f, h, the regime and the travel
 window) and the travels; the schedule rows gain `t_head_free`, `t_apex` and
 `arrive`.
 
-**What the bake carries.** The motion bake is still `loam-motion/1`, and M1
-only adds to it. A mallet is sampled at the 240 Hz grid plus every declared
+**What the bake carries.** M1 only added to the motion bake (then
+`loam-motion/1`; from PLAYERS M3 `loam-motion/2`, which keeps every /1 column
+and carries each arm's declared segments, knots and rings in the header). A mallet is sampled at the 240 Hz grid plus every declared
 knot and segment boundary and every hit, plus the instants a freewheel's
 tooth rate crosses each eighth of the ride band (`stroke.RIDE_ROWS`,
 `ArmStroke.ride_times()`), so the straight lines between rows follow the
@@ -1457,7 +1458,8 @@ default) is therefore a *minimum* width: narrowing it centres the shot tighter
 but cannot crop the tool out, and widening it past the rail's length frames the
 whole span.
 
-**`--focus_at=tip`** (or `root`, or `head` — a hinged hammer's pin, `HEAD_L`
+**`--focus_at=tip`** (or `root`, or `head` — a hinged hammer's pin, the
+arm's `head_l` (`MotionBake.head_length`, the bake's `<aid>/head` joint)
 above the tool frame's origin) throws that box away and frames one *end* of
 the arm, and then `--focus_span` is the frame's true width rather than a
 minimum. The hinged hammer is what forced it: the flange, the pin, the head

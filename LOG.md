@@ -1,3 +1,93 @@
+## 2026-10-10 — PLAYERS M3: the bake carries the joints (loam-motion/2)
+
+The motion bake is now `loam-motion/2`, and the harness poses the machine
+from it as data. Nothing on screen changed: three gate moments and two more
+render pixel-identical before and after.
+
+**What changed.**
+
+- **The joints table.** The bake header carries one kinematic tree per
+  asset (`formlab/kinematics.py` builds it; the `formlab/bake.py` docstring
+  is the spec). Each row has a parent, a type, an axis and an origin, and a
+  value: a channel, a component of one, another joint, the time or a
+  constant, then ops. `bodies` binds the GLB's nodes to joints in four modes
+  (frame, rest, spin, world). Every arm also carries `head_l` and its
+  declared segments, knots, rings and prep (`arms[aid].declared`).
+- **Appended columns.** `<aid>.q.lean` (mallets), `<aid>.q.shoulder` and
+  `<aid>.q.elbow` follow every /1 column, whose names, offsets and float32
+  bits are unchanged.
+- **The live generic poser.** `harness/motion_rig.gd` (`MotionRig`) binds
+  the bodies once; `performance.gd`'s evaluate() is `rig.apply(t)` and names
+  no part. The film director, the `--focus_at=head` camera and
+  `export_motion.gd` read joints (`MotionBake.joint_origin`, `joint_value`).
+  A new joint with a body is a row in `formlab/kinematics.py`, with no
+  harness code unless it needs a new op, source, type or mode.
+- **Refusals.** A `/1` bake is refused by both readers with the command that
+  remakes it; an unknown op, source, type, symbol or mode, and a joint axis
+  that is not a unit vector, are refused naming the joint.
+- **Rulers 17 and 18 read the harness's laws off the table's rows** (the
+  pinion's, screws', rollers', flywheel's and belt's ops and the bodies they
+  move), guarded by a live `rig.apply(t)` in performance.gd's code, so a row
+  edit moves the rulers.
+- **Score defaults are ROOT-relative.** `tools/bake_motion.py` bakes this
+  tree's `render/chamber/score.json` and `render/clockwork/score.json` (or
+  `--score`), never the absolute path a manifest was built from.
+
+**What M3 measures** (`--gate=M3`, both assets, invariants on):
+
+| | chamber | expanded |
+|---|---|---|
+| columns | 95 → 109 | 145 → 167 |
+| `.bin` | 9,433,444 → 10,794,972 B | 19,089,420 → 21,946,340 B |
+| header | 93 → 1141 kB | 176 → 1640 kB |
+| joints / bodies / bound nodes | 75 / 97 / 95 | 122 / 157 / 155 |
+| load (LOADMS, Godot) | 16 ms | 32 ms |
+| test_pose_parity | 5122 times, 486,590 transforms | 6986 times, 1,082,830 transforms |
+| `rig.apply` a frame | 140 µs | 237 µs |
+
+- **test_pose_parity**: 0 mismatches, bitwise (`Transform3D ==`), against
+  the M2 evaluate() block embedded verbatim but for three substitutions,
+  which the gate re-derives from the M2 tree and diffs.
+- **Data identity**: the /1 columns are bitwise the M2 bake's, the times'
+  bytes are equal, and every /1 header key is equal.
+- **Dumps**: POSE, SHUD, RIDE, CLICK, PAWL and PAWLR text-identical (126,994
+  and 204,039 lines); the clicks and both click WAVs identical;
+  `motion.json` identical; `camera.json` equal value for value (2581 frames)
+  but for its two shas.
+- **Renders**: 288 PNG frames sha-identical at m2, m7, m10 (the gate's three
+  moments), m2q and m5, after an A/A control.
+- **Rulers**: the whole `--report` (996 results) is equal before and after;
+  `--gate` (M0–M3) passes in the repo; geometry_digest and
+  `motion_constants()` are unchanged, so nothing replans.
+
+**Found on the way.** The plan named the new module `formlab/joints.py`, a
+name the seamless frame joints already hold (`rounded_loop`,
+`section_field`). Ruler 26's test_formlab and test_form_joints caught the
+overwrite. The joints table lives in `formlab/kinematics.py`, and the frame
+joints are untouched.
+
+**Found after the gate.** Review of the passed gate turned up one real gap
+and six small ones, all fixed before landing. test_pose_parity refused a
+body added as data, the very thing M3 is for: it now compares only the M2
+nodes with the M2 code and holds a table-only body to shipped == table
+(checked with six synthetic bodies on the expanded asset). Rulers 17 and 18
+read the laws off the rows instead of constants, and a commented-out
+`rig.apply(t)` no longer satisfies their guard. performance.gd and
+test_pose_parity preload `motion_rig.gd`, so a class cache made before
+MotionRig existed cannot break them. Both readers refuse a non-unit joint
+axis. test_bake's synthetic joints are `t10_`-prefixed, and the dev tools'
+`--asset=clockwork_expanded` defaults to the expanded score. The whole gate
+was then re-run from fresh copies and passed with the same numbers.
+
+**Left for later milestones.**
+
+- The servo.py `yz_s` docstring ("M9" → "M7") and rig.py's `loam-motion/1`
+  mention wait for the next replanning milestone.
+- The lean frames: FK yaws a mallet's wrist and tool by ψ ≤ 3.1 mrad, and
+  pose mode keeps the M2 frames. M4/M5 choose which renders.
+- test_pose_parity's oracle is rewritten in M5, in the commit that changes
+  the wrist and the hammer.
+
 ## 2026-10-06 — PLAYERS M2: the picks wind up, the rake announces
 
 The harp picks and the rake no longer dart and stab. A harp pick now:

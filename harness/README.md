@@ -14,6 +14,7 @@ godot --path harness res://main.tscn
 godot --headless --path harness -s dev/test_load.gd
 godot --headless --path harness -s dev/test_clockwork.gd
 godot --headless --path harness -s dev/test_performance.gd
+godot --headless --path harness -s dev/test_pose_parity.gd [-- --expanded]
 ```
 
 Render the original score first with `python3 songs/chamber.py` if
@@ -22,7 +23,14 @@ Render the original score first with `python3 songs/chamber.py` if
 editable Blender sources are in `../models/` (built, not tracked). The
 performance plays back a motion bake beside the score — `python3
 tools/bake_motion.py` makes it (the build does too), and the harness refuses
-a stale one with that command.
+a stale one, or an older format, with that command. `MotionBake`
+(`motion_bake.gd`) reads the bake (`loam-motion/2`: the channels and the
+joints table, `frames_at(t)` the joints' frames); `MotionRig`
+(`motion_rig.gd`) binds the table's bodies to the GLB's nodes and poses them
+(`apply(t)`). The scenes and tests preload `motion_rig.gd` by path, so they
+run on a class cache from before it existed; run `godot --headless --path
+harness --import` after a fresh checkout and after pulling or merging a new
+`class_name` script, so the cache (and the editor) knows it.
 
 Performance keys: Space play/pause; Home restart with pre-roll; arrows seek;
 C cycle camera; F cycle frame form; A cue cameras; T score overlay; M master/dry stems; 1–9 mute

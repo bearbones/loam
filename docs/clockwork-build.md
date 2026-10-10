@@ -39,10 +39,12 @@ original working copy keeps them.
 `formlab/rig.py` is the one implementation of the motion — the planner's
 travel costs, the stepped and servo vocabularies, the recoil bus, the IK. The
 harness does not re-implement any of it: `tools/bake_motion.py` (and the last
-step of every build) samples the rig into `loam-motion/1`, written next to the
+step of every build) samples the rig into `loam-motion/2`, written next to the
 score as `<asset>.motion.json` (header) and `<asset>.motion.bin` (float64
 times, float32 rows), and `harness/motion_bake.gd` (`MotionBake`) interpolates
-it. A time grid of 240 Hz plus every contact and every corner of the path as a
+it. The score defaults to the tree's own (`render/chamber/score.json`,
+`render/clockwork/score.json`; `--score=PATH` overrides), never the absolute
+path a manifest was built from. A time grid of 240 Hz plus every contact and every corner of the path as a
 row of its own, and, for every arm with a stroke, a row at every declared knot
 and segment boundary (a mallet's, formlab/stroke.py; since PLAYERS M2 a pick's
 and the rake's, formlab/servo.py and formlab/rake.py) and, on a mallet,
@@ -55,9 +57,61 @@ header carries one tooth of it and the harness looks it up at the baked x. A
 hinged head's felt face is derived from the tip and the baked flip angle, so
 the rendered head and the face it strikes with cannot drift apart. The header
 fingerprints the score and the manifest; the harness refuses a stale bake and
-prints the command that remakes it. `tools/test_bake.py` holds the bake to the
-rig and the GDScript reader to `formlab.bake.Bake`. About 10 MB for The
-Chamber, 20 MB for the expanded piece; like every export it lives in `render/`.
+prints the command that remakes it; a `loam-motion/1` bake is refused the
+same way. `tools/test_bake.py` holds the bake to the rig and the GDScript
+reader to `formlab.bake.Bake`. About 10 MB for The Chamber, 20 MB for the
+expanded piece; like every export it lives in `render/`.
+
+**The joints table (`loam-motion/2`, PLAYERS M3).** The `formlab/bake.py`
+docstring is the format's normative spec; in short:
+
+- Every /1 column keeps its name, offset and float32 bits. Appended after
+  them, per arm in `rig.plans` order: `<aid>.q.lean` (mallets only),
+  `<aid>.q.shoulder`, `<aid>.q.elbow` (ruler 16's joint series), each naming
+  the joint that reads it. Chamber 95 → 109 columns, expanded 145 → 167.
+- The header's `joints` is one kinematic tree in evaluation order
+  (`formlab/kinematics.py` builds it): per row a parent, a type (revolute,
+  prismatic, fixed), an axis and origin in the parent frame, and a value (a
+  channel, a component of one, another joint, the time or a constant, then
+  ops: add, mul, div, neg, wrap, pawl, table). `bodies` binds GLB nodes to
+  joints in four modes (frame, rest, spin, world). Each arm also carries
+  `head_l` and its `declared` segments, knots, rings and prep.
+- **Pose mode** (pins, aims and orients: the M2 harness's poser as data) is
+  what renders; `harness/dev/test_pose_parity.gd` holds it bitwise to the M2
+  code. **FK mode** is the chain rule from the q values; the writer refuses a
+  table whose FK misses a pin by more than `kinematics.FK_TOL`.
+- `harness/motion_rig.gd` (`MotionRig`) binds the bodies once and `apply(t)`
+  poses every moving part: `performance.gd`'s `evaluate()` is that call (and
+  the strings', bars' and lamp's score-driven motion), and every pose comes
+  from the table. Its hand lookups (`PART_NAMES`, each arm's gear, screw,
+  head, pawl and roller, the wheels, stands and shudder nodes) remain, as
+  views of the same nodes that own the click players and that
+  `test_performance` reads. The camera and the film director read joints
+  (`MotionBake.joint_origin`, `joint_value`).
+- A reader refuses a `kinematics.version` above its own, any row with a type,
+  source, op, symbol or mode it does not know, and a revolute or prismatic
+  axis that is not a unit vector, naming the joint.
+
+**Adding a joint.**
+
+1. Add its rows (and bodies) in `formlab/kinematics.py`.
+2. Add a `<aid>.q.<name>` column in `formlab/bake.py` only for an angle with
+   a law of its own per row; otherwise derive it from a channel or a joint.
+3. No harness code, unless the row needs a new op, source, type or mode:
+   then bump `kinematics.version`, implement it in both readers
+   (`formlab/kinematics.py`, `harness/motion_bake.gd`) and extend
+   `tools/test_bake.py`'s T10. `MotionRig` binds and poses a new body as it
+   is; `harness/dev/test_pose_parity.gd` holds the M2 nodes to the M2 oracle
+   and a node only the table binds to shipped == table, so it needs no change
+   either (until M5 rewrites its oracle).
+4. Tell `tools/test_bake.py` what the new row must be, since it holds the
+   table to the rig row by row: its parent, type, axis and pin in T4
+   (`expected_rows`), a new body's node name in T4's vocabulary (PART_NAMES +
+   gear/head/pawl/roller, `form_*`, the chamber's labels), its law in T6, and
+   a new `q` column in T2's per-arm list. Rulers 17 and 18 read their laws off
+   the rows (`r_machine.harness_laws`): a row that changes a driven part's ops
+   (the pinion, screw, roller, flywheel or belt pulley) must change the ruler
+   with it.
 
 ## Playback and inspection
 

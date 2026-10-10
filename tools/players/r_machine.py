@@ -3,9 +3,14 @@ docs/goals/the-players.md ("Acceptance"; "Rules of the machine" 1, 3, 5, 7, 8).
 
 They read the rig and the manifest, never the bake (a bake can be stale while
 a milestone works). Where the HARNESS is what turns a part — the pinion, the
-leadscrew, the pawl's roller, the flywheel and its belt pulley
-(harness/performance.gd) — its law is parsed out of that source, so a change
-there is seen here instead of being re-implemented and drifting.
+leadscrew, the pawl's roller, the flywheel and its belt pulley — its law is
+read off the joints table's rows (formlab/kinematics.py builds them from this
+rig and manifest, the bake writes them, harness/performance.gd poses through
+them with MotionRig.apply): each row's source and ops are matched against its
+law and its part's body must be bound to it, so a changed row is seen here
+instead of being re-implemented and drifting. A row that no longer has its
+law's ops reads as not found, and so does every law if the harness stops
+posing through the table (harness_laws).
 
 17 drives. The moving DOFs per arm today: carriage x, shoulder and elbow (the
 upper link's angle from +z and the forearm's relative to it, in the arm's yz
@@ -118,21 +123,110 @@ SYNC_DT = 5e-4            # sync sampling step (s): well inside the 240 Hz skew 
 HOME_REST = 2.0
 
 # ---- shared ---------------------------------------------------------------
+def _gd_code(src):
+    """GDScript source with its comments dropped: a `#` outside a string, to
+    the end of its line (a commented-out call is not a call)."""
+    out = []
+    for line in src.splitlines():
+        q = None; i = 0; cut = len(line)
+        while i < len(line):
+            c = line[i]
+            if q:
+                if c == '\\': i += 2; continue
+                if c == q: q = None
+            elif c in '"\'': q = c
+            elif c == '#': cut = i; break
+            i += 1
+        out.append(line[:cut])
+    return '\n'.join(out)
+
 @functools.lru_cache(maxsize=None)
-def harness_laws():
-    """The laws harness/performance.gd turns parts by, read from its source.
-    None (or False) where the expected expression is not found: the ruler
-    then fails loudly instead of measuring a law nobody renders."""
+def table_rows(S):
+    """The joints table the bake writes for this rig and manifest
+    (formlab.kinematics.build, called as formlab.bake.bake calls it): the
+    joints {id: row} and the bodies {node: (joint id, mode)}."""
+    from formlab import kinematics as K
+    rig = S.rig
+    hdr = {aid: dict(stepped=rig.stepped(aid), flip_sign=rig.flip_sign(aid), head_l=float(RIG.HAMMER['head_l']))
+           for aid in rig.plans}
+    names = [f'{aid}.ride' for aid in rig.plans if rig.stepped(aid)]
+    names += [f'{m["id"]}.stand' for m in rig.score['instrument']['mechanisms']]
+    tab = K.build(rig, hdr, names, float(S.score.get('bpm', K.BPM_DEFAULT)))
+    return {jt['id']: jt for jt in tab['joints']}, {b['node']: (b['joint'], b['mode']) for b in tab['bodies']}
+
+def _operand(x):
+    """A row operand's value as a reader computes it (a number, a symbol, a
+    ratio [num, den]); None for anything else."""
+    from formlab.kinematics import SYMBOLS
+    if isinstance(x, bool): return None
+    if isinstance(x, (int, float)): return float(x)
+    if isinstance(x, str): return SYMBOLS.get(x)
+    if isinstance(x, list) and len(x) == 2 and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in x):
+        return float(x[0])/float(x[1])
+    return None
+
+def _ops_are(row, src, pattern):
+    """The row reads `src` through exactly the ops `pattern`: [(op, operand
+    value, ...), ...], each operand compared by value."""
+    val = (row or {}).get('value') or {}
+    ops = val.get('ops') or []
+    if val.get('src') != src or len(ops) != len(pattern): return False
+    for op, want in zip(ops, pattern):
+        if not isinstance(op, list) or not op or op[0] != want[0] or len(op) != len(want): return False
+        if any(_operand(a) is None or _operand(a) != b for a, b in zip(op[1:], want[1:])): return False
+    return True
+
+@functools.lru_cache(maxsize=None)
+def harness_laws(S):
+    """The laws the harness turns parts by, read off the joints table's rows
+    (table_rows) — the ops harness/performance.gd poses through MotionRig.apply.
+    A law holds where its row reads its source through exactly its ops and the
+    part's body is bound to that row:
+      pinion_r {aid: r}   <aid>/pinion: root.x [add phase] [div r]       θ = (x + phase)/r, the manifest's phase
+      screw {aid: bool}   <aid>/screw: root.x [mul -TAU] [div pitch] [wrap -PI PI], the manifest's pitch
+      roller {aid: bool}  <aid>/roller: root.x [mul roller_spin], the manifest's spin
+      flywheel (bpm, D)   chamber/flywheel: t [mul -TAU] [mul bpm] [div D], bpm the score's (84 when it has none)
+      belt bool           chamber/belt_pulley: the flywheel's angle [mul [r_drive, r_belt]], the manifest's pulleys
+    A row that no longer has its law's ops reads None (or False), and so does
+    every law when performance.gd no longer poses through the table
+    (`rig.apply(t)` outside a comment): the ruler then fails loudly instead of
+    measuring a law nobody renders."""
+    from formlab.kinematics import BPM_DEFAULT
+    laws = dict(pinion_r={}, screw={}, roller={}, flywheel=None, belt=False)
     src = PERF.read_text() if PERF.exists() else ''
-    m = re.search(r'p\["gear"\]\.basis=Basis\(.*?,\(root\.x\+phase\)/(\d*\.\d+)\)', src)
-    fw = re.search(r'return -TAU\*t\*float\(score\.doc\.get\("bpm",([\d.]+)\)\)/(\d+\.?\d*)', src)
-    return dict(
-        pinion_r=float(m.group(1)) if m else None,             # θ = (x + phase) / r
-        screw=bool(re.search(r'wrapf\(-TAU\*root\.x/float\(sc\["pitch"\]\),-PI,PI\)', src)),   # θ = −2π x / pitch
-        roller=bool(re.search(r'float\(cfg\["pawl"\]\.get\("roller_spin",0\.0\)\)\*root\.x', src)),  # θ = roller_spin · x
-        flywheel=(float(fw.group(1)), float(fw.group(2))) if fw else None,   # θ = −2π t bpm / 240 (default bpm, 240)
-        belt=bool(re.search(r'k=float\(f\["cyls"\]\["drive pulley"\]\[2\]\)/float\(f\["cyls"\]\["belt pulley"\]\[2\]\)', src)),
-    )
+    if not re.search(r'\brig\.apply\(t\)', _gd_code(src)):        # the harness no longer poses through the joints table
+        return laws
+    rows, bodies = table_rows(S)
+    def turns(node, jid, mode): return bodies.get(node) == (jid, mode)
+    for aid in S.rig.plans:
+        cfg = S.cfg(aid); x = dict(channel=f'{aid}.root', index=0)
+        pn = rows.get(f'{aid}/pinion')
+        if pn is not None:
+            phase = float(cfg.get('pawl', {}).get('phase', 0.0)); ops = (pn.get('value') or {}).get('ops') or []
+            r = _operand(ops[-1][1]) if len(ops) == 2 and isinstance(ops[-1], list) and len(ops[-1]) == 2 else None
+            ok = r is not None and _ops_are(pn, x, [('add', phase), ('div', r)]) and turns(f'{aid}__gear', pn['id'], 'rest')
+            laws['pinion_r'][aid] = r if ok else None
+        sc = rows.get(f'{aid}/screw')
+        if sc is not None:
+            pitch = float(cfg.get('screw', {}).get('pitch', SCREW['pitch']))
+            laws['screw'][aid] = (_ops_are(sc, x, [('mul', -2*math.pi), ('div', pitch), ('wrap', -math.pi, math.pi)])
+                                  and turns(f'form_{aid}_screw', sc['id'], 'world'))
+        ro = rows.get(f'{aid}/roller')
+        if ro is not None:
+            spin = float(cfg.get('pawl', {}).get('roller_spin', 0.0))
+            laws['roller'][aid] = _ops_are(ro, x, [('mul', spin)]) and turns(f'{aid}__roller', ro['id'], 'rest')
+    fw = rows.get('chamber/flywheel'); bpm = float(S.score.get('bpm', BPM_DEFAULT))
+    ops = ((fw or {}).get('value') or {}).get('ops') or []
+    d = _operand(ops[-1][1]) if len(ops) == 3 and isinstance(ops[-1], list) and len(ops[-1]) == 2 else None
+    if (d is not None and _ops_are(fw, dict(time=True), [('mul', -2*math.pi), ('mul', bpm), ('div', d)])
+            and turns('Chamber flywheel', fw['id'], 'spin')):
+        laws['flywheel'] = (bpm, d)
+    g = S.layout.get('flywheel') or {}; cy = g.get('cyls', {})
+    if 'drive pulley' in cy and 'belt pulley' in cy:
+        k = float(cy['drive pulley'][2])/float(cy['belt pulley'][2]); bp = rows.get('chamber/belt_pulley')
+        laws['belt'] = bool(bp is not None and _ops_are(bp, dict(joint='chamber/flywheel'), [('mul', k)])
+                            and turns('Chamber belt pulley', bp['id'], 'spin'))
+    return laws
 
 def drive_of(S, aid):
     cfg = S.cfg(aid)
@@ -146,10 +240,10 @@ def joint_angles(P):
     return a1, a2-a1
 
 def _flywheel_theta(S, t):
-    laws = harness_laws()
+    laws = harness_laws(S)
     if not laws['flywheel']: return None
-    bpm = float(S.score.get('bpm', laws['flywheel'][0]))
-    return -2*np.pi*np.asarray(t, float)*bpm/laws['flywheel'][1]
+    bpm, div = laws['flywheel']               # the row's: the score's bpm (84 when it has none), 240
+    return -2*np.pi*np.asarray(t, float)*bpm/div
 
 def _merge(wins, lo, hi):
     out = []
@@ -316,12 +410,12 @@ def _mesh_separation(phase, n=25):
 
 def gear_law(S, aid):
     """The carriage's gear law as the harness renders it, on every frame."""
-    laws = harness_laws(); drv = drive_of(S, aid); cfg = S.cfg(aid)
+    laws = harness_laws(S); drv = drive_of(S, aid); cfg = S.cfg(aid)
     x = S.poses(aid, 'frames')['root'][:, 0]
     if drv == 'screw':
         pitch = float(cfg.get('screw', {}).get('pitch', SCREW['pitch'])); lead = SCREW['pitch']*SCREW_STARTS
-        if not laws['screw']:
-            return Result(17, 'gear', aid, dict(drive='leadscrew'), False, 'harness/performance.gd no longer turns the leadscrew by -TAU*root.x/pitch: update this ruler')
+        if not laws['screw'].get(aid):
+            return Result(17, 'gear', aid, dict(drive='leadscrew'), False, 'the joints table (formlab/kinematics.py) no longer turns the leadscrew by -TAU*root.x/pitch, or the harness no longer poses through it: update this ruler')
         wrap = lambda a: (a+np.pi) % (2*np.pi)-np.pi
         th_d = wrap(-2*np.pi*x/pitch).astype(np.float32).astype(float)      # wrapped in double, then a 32-bit Basis angle
         res = np.abs(wrap(th_d-(-2*np.pi*x/lead)))
@@ -331,9 +425,9 @@ def gear_law(S, aid):
                  within_f32=bool((res <= tol).all()), centre_off_mm=off, mate='nut', manifest_pitch_ok=bool(abs(pitch-lead) < 1e-12))
         ok = bool((res <= tol).all()) and abs(pitch-lead) < 1e-12
         return Result(17, 'gear', aid, v, ok, 'screw and nut: Godot angle against N*q; the nut rides coaxial (no sag on a servo rail)')
-    r_h = laws['pinion_r']
+    r_h = laws['pinion_r'].get(aid)
     if r_h is None:
-        return Result(17, 'gear', aid, dict(drive='pinion'), False, 'harness/performance.gd no longer turns the pinion by (root.x+phase)/r: update this ruler')
+        return Result(17, 'gear', aid, dict(drive='pinion'), False, 'the joints table (formlab/kinematics.py) no longer turns the pinion by (root.x+phase)/r, or the harness no longer poses through it: update this ruler')
     phase = float(cfg.get('pawl', {}).get('phase', 0.0)); r = PINION['r_pitch']; Pt = 2*np.pi/PINION['teeth']
     th_d = ((x+phase)/r_h).astype(np.float32).astype(float)
     # The law: N = 1/r_pitch (z·m/2 = r_pitch) and c = 0 mod one tooth — the
@@ -431,12 +525,12 @@ def flywheel_belt(S):
     """The flywheel's flat belt (a tendon): Σρθ on the belt's centreline, the
     radius the manifest draws its wraps at (pulley r + belt t/2), against the
     harness's ratio k = r_drive / r_belt."""
-    fw = S.layout.get('flywheel'); laws = harness_laws()
+    fw = S.layout.get('flywheel'); laws = harness_laws(S)
     if not fw or 'drive pulley' not in fw.get('cyls', {}): return None
     r1 = float(fw['cyls']['drive pulley'][2]); r2 = float(fw['cyls']['belt pulley'][2])
     rho1, rho2 = (float(w[1]) for w in fw['wraps']) if 'wraps' in fw else (r1+FLYWHEEL['belt_t']/2, r2+FLYWHEEL['belt_t']/2)
     if not laws['belt'] or laws['flywheel'] is None:
-        return Result(17, 'tendon', 'flywheel', dict(belt='flat'), False, 'harness/performance.gd belt law not found: update this ruler')
+        return Result(17, 'tendon', 'flywheel', dict(belt='flat'), False, 'the joints table (formlab/kinematics.py) no longer turns the belt pulley by the flywheel times r_drive/r_belt, or the harness no longer poses through it: update this ruler')
     k = r1/r2; th1 = float(np.abs(_flywheel_theta(S, S.total)))
     slip = abs(rho1-rho2*k)*th1; bare = abs(r1-r2*k)*th1
     v = dict(k_harness=k, k_centreline=rho1/rho2, residual_mm=slip*1e3, residual_bare_radii_mm=bare*1e3, turns=th1/(2*np.pi))
@@ -445,7 +539,7 @@ def flywheel_belt(S):
 
 def flywheel_rpm(S):
     fw = S.layout.get('flywheel')
-    if not fw or harness_laws()['flywheel'] is None: return None
+    if not fw or harness_laws(S)['flywheel'] is None: return None
     w = float(abs(_flywheel_theta(S, 1.0)))/(2*np.pi)*60
     v = dict(flywheel_rpm=w)
     if 'belt pulley' in fw.get('cyls', {}):
@@ -492,7 +586,7 @@ def alias(dth_deg, P):
                 worst_t=round((k+1)/FPS, 4))
 
 def aliasing(S):
-    out = []; laws = harness_laws()
+    out = []; laws = harness_laws(S)
     note = 'no blur sheath exists: every frame over 0.5*P fails'
     for aid in S.arms:
         if not S.rig.sched.get(aid):
@@ -503,12 +597,15 @@ def aliasing(S):
             v = alias(np.degrees(-2*np.pi*dx/pitch), 360.0/SCREW_STARTS)
             out.append(Result(18, 'leadscrew thread', aid, v, v['frames_over'] == 0, f'{SCREW_STARTS} start, period 360/starts; '+note))
         else:
-            r = laws['pinion_r'] or PINION['r_pitch']
+            r = laws['pinion_r'].get(aid) or PINION['r_pitch']
             v = alias(np.degrees(dx/r), 360.0/PINION['teeth'])
             out.append(Result(18, 'pinion teeth', aid, v, v['frames_over'] == 0, f'{PINION["teeth"]} teeth; '+note))
             spin = cfg.get('pawl', {}).get('roller_spin')
-            if spin is not None:
-                # the roller turns about z by roller_spin*x on the pawl, which itself swings by -pawl_angle (performance.gd)
+            if spin is not None and not laws['roller'].get(aid):
+                out.append(Result(18, 'pawl roller', aid, {}, False, 'the joints table (formlab/kinematics.py) no longer turns the '
+                                  'roller by roller_spin*root.x, or the harness no longer poses through it: update this ruler'))
+            elif spin is not None:
+                # the roller turns about z by roller_spin*x on the pawl, which itself swings by -pawl_angle (formlab/kinematics.py's pawl and roller rows)
                 th = float(spin)*x-pawl_angle_rendered(x+float(cfg['pawl'].get('phase', 0.0)), pawl_ride_fn(S, aid)(S.t_frames))
                 v = alias(np.degrees(np.diff(th)), 360.0)
                 out.append(Result(18, 'pawl roller', aid, v, v['frames_over'] == 0,

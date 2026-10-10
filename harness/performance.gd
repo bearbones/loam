@@ -8,6 +8,10 @@ var screw_nodes: Dictionary = {} # each servo arm's leadscrew shaft (form_<aid>_
 var screw_home: Dictionary = {}  # ...and its imported transform
 var score := ScoreDoc.new()
 var motion := MotionBake.new()
+# preloaded by path, not named by class: a .godot class cache from before
+# MotionRig existed (a checkout merged without --import) still parses this
+const MotionRigScript := preload("res://motion_rig.gd")
+var rig: MotionRigScript         # every moving part posed from the bake's joints table (MotionRig.apply)
 var look := ClockworkLook.new()
 var layout: Dictionary
 var model: Node3D
@@ -174,6 +178,11 @@ func _ready() -> void:
 		var node: Node3D=model.find_child(label,true,false)
 		if node!=null: wheel_home[node]=node.basis
 	_assembly_nodes()
+	# The joints table's body rows bound to the model: what evaluate() poses.
+	# The lookups above stay as views of the same nodes (test_performance reads
+	# them) and own the click players.
+	rig=MotionRigScript.new()
+	if not rig.bind(motion,model): push_error(str(rig.errors)); get_tree().quit(1); return
 	for sid in layout["strings"]:
 		hits[sid]=[]
 		if not layout["strings"][sid]["struck"]:
@@ -365,7 +374,7 @@ static func _tube_along(points: PackedVector3Array, radius: float, sides: int) -
 ## The flywheel's angle at time t: one turn per bar of the score's tempo,
 ## the wheel's +x face turning down toward the house (a negative turn about z).
 func flywheel_angle(t: float) -> float:
-	return -TAU*t*float(score.doc.get("bpm",84.0))/240.0
+	return motion.joint_value("chamber/flywheel",t)
 
 ## A harp is strung by register: wound wire below C4, gut through the middle,
 ## nylon from C5 up (the wire shader's `family`: 0 steel, 1 wound, 2 gut, 3 nylon).
@@ -564,99 +573,12 @@ func rod(node: Node3D, a: Vector3, b: Vector3) -> void:
 	node.transform=Transform3D(Basis(x,y*a.distance_to(b),x.cross(y).normalized()),(a+b)/2)
 
 func evaluate(t: float) -> void:
-	for aid in parts:
-		var pose := motion.pose(aid,t)
-		var p: Dictionary=parts[aid]
-		var cfg: Dictionary=layout["arms"][aid]
-		var o1 := MotionBake.v(cfg["o1"]); var o2 := MotionBake.v(cfg["o2"])
-		var root: Vector3=pose["root"]; var elbow: Vector3=pose["elbow"]; var wrist: Vector3=pose["wrist"]
-		# Crossheads and pins keep a fixed orientation: that is what the parallelograms guarantee.
-		p["carriage"].position=root; p["shoulder"].position=root
-		p["elbowhead"].position=elbow; p["elbow"].position=elbow
-		p["wristhead"].position=wrist; p["wrist"].position=wrist
-		p["tool"].position=pose["tip"]; p["shank"].position=pose["tip"]
-		# A hinged hammer's head turns on the flange's pin, HEAD_L above the tool
-		# frame's origin. The head's mesh is built at the blow (angle 0, the felt
-		# face straight down), and the flip is one rotation about the pin axis:
-		# -angle*sign, the same rotation formlab.rig.head_offset applies to
-		# the felt face — which is why the blow lands exactly on the scored point.
-		if p.has("head"):
-			p["head"].position=pose["tip"]+Vector3(0,motion.head_l,0)
-			p["head"].basis=Basis(Vector3.RIGHT,-float(pose["head"])*motion.flip_sign(aid))*head_home[aid]
-		var upper := MotionBake.link_basis(root,elbow)
-		var lower := MotionBake.link_basis(elbow,wrist)
-		p["upper"].transform=Transform3D(upper,root)
-		p["upper2"].transform=Transform3D(upper,root+o1)
-		p["lower"].transform=Transform3D(lower,elbow)
-		p["lower2"].transform=Transform3D(lower,elbow+o2)
-		# The pinion rides its axle on the carriage and rolls on the rack
-		# (formlab.clearance.PINION / MOUNTS, formlab.gantry.rack): in front of
-		# or behind the carriage it is upright under a rack above it; above or
-		# below the carriage it lies flat against a rack behind the rail. Either
-		# way +x travel turns it by x / pitch radius (.12) about its axle.
-		# The spin composes on the imported basis: setting one Euler component of
-		# a basis that is a quarter turn about X hits gimbal lock and tilted the disc.
-		var mount: String=str(cfg.get("pinion","back"))
-		var flat := mount=="up" or mount=="down"
-		# A servo arm's leadscrew turns instead: a right-hand thread, so +x travel
-		# of the nut is a negative turn about +x, 2π per pitch (formlab.gantry.
-		# screw_geometry); the shaft's mesh is in world space, so the spin is
-		# taken about the axis line through (0, y, z).
-		if screw_nodes.has(aid):
-			var sc: Dictionary=cfg["screw"]
-			var c := Vector3(0,float(sc["y"]),float(sc["z"]))
-			var turn := Basis(Vector3.RIGHT,wrapf(-TAU*root.x/float(sc["pitch"]),-PI,PI))  # wrapped in double first: a Basis takes a 32-bit angle, and a screw 4 m down its rail has turned ~3000 rad
-			screw_nodes[aid].transform=Transform3D(turn,c-turn*c)*screw_home[aid]
-			continue
-		p["gear"].position=root+(Vector3(0,(.17 if mount=="up" else -.17),-.10) if flat else Vector3(0,0,(.195 if mount=="front" else -.195)))
-		# A pinion with a pawl is spun with a phase (formlab.pawl.dip_offset) that
-		# seats the roller in a dip when the arm parks at its home.
-		var phase: float=float(cfg["pawl"].get("phase",0.0)) if cfg.has("pawl") else 0.0
-		p["gear"].basis=Basis(Vector3.UP if flat else Vector3(0,0,1),(root.x+phase)/.12)*gear_home[aid]
-		# The roller detent pawl (formlab.pawl) hangs on its pivot off the carriage
-		# and turns about z so its roller rides the spun teeth: lifted (positive
-		# angle) on a tip, dropped into the gap between. The mirror of pawl.angle.
-		# The roller sits on the pawl's axle and rolls on the tips: ROLLER_SPIN
-		# radians a metre of rail, the other way from the disc.
-		# Above PAWL_RIDE teeth a second the pawl rides the tips: the bake's .ride
-		# channel leans the table's angle toward pawl.ride_angle (formlab.bake.Bake.pawl).
-		if p.has("pawl"):
-			var swing := Basis(Vector3(0,0,1),-motion.pawl_angle(root.x+phase,motion.ride(aid,t)))
-			p["pawl"].position=root+MotionBake.v(cfg["pawl"]["pivot"])
-			p["pawl"].basis=swing*pawl_home[aid]
-			p["roller"].position=p["pawl"].position+swing*MotionBake.v(cfg["pawl"]["nose"])
-			p["roller"].basis=swing*Basis(Vector3(0,0,1),float(cfg["pawl"].get("roller_spin",0.0))*root.x)*roller_home[aid]
-	# The blow shakes the assembly, not only the arm: the stand thumps, the rail
-	# sags under the carriage and rings, and the gantry sways about its plinths.
-	# All three come off the same recoil bus the arm's own recoil does and are
-	# exactly zero at the blow they answer (formlab.rig.Rig._shudder, baked).
-	for mid in stand_nodes:
-		var st: Dictionary=stand_nodes[mid]
-		var sh: Transform3D=st["home"]
-		st["node"].transform=Transform3D(sh.basis,sh.origin+Vector3(0,motion.stand_thump(mid,t),0))
-	for aid in shudder_nodes:
-		var sh: Dictionary=shudder_nodes[aid]
-		# The guide bars are rigid meshes, so they carry the sag at mid-span; the
-		# deflection's SHAPE lives in the carriage, which follows the sag at its
-		# own x (formlab.rig.Rig.pose), so links and pawl move with the bar.
-		var sag := motion.rail_sag(aid,t)
-		for b in sh["bars"]:
-			var bh: Transform3D=b["home"]
-			b["node"].transform=Transform3D(bh.basis,bh.origin+Vector3(0,sag,0))
-		# A sway is a tilt ACROSS the rail (about world X, through both plinth
-		# feet): the braces stiffen the gantry along the rail, and a rotation on
-		# that axis gives no mast a lever arm down the span.
-		var tilt := Basis(Vector3.RIGHT,motion.mast_sway(aid,t))
-		var pivot: Vector3=sh["pivot"]
-		for f in sh["frame"]: f["node"].transform=Transform3D(tilt,pivot-tilt*pivot)*f["home"]
-	# The flywheel turns once a bar; the belt pulley turns with it, faster by the
-	# pulleys' radii, the same way round (an open belt).
-	var spin: float=flywheel_angle(t)
-	for node in wheel_home:
-		var k: float=1.0
-		if node.name=="Chamber belt pulley" and layout.has("flywheel"):
-			var f: Dictionary=layout["flywheel"]; k=float(f["cyls"]["drive pulley"][2])/float(f["cyls"]["belt pulley"][2])
-		node.basis=Basis(Vector3(0,0,1),spin*k)*wheel_home[node]
+	# Every moving part of the model (the arms' links, crossheads, pinions,
+	# pawls and rollers, the leadscrews, the hinged heads, the stands, the
+	# rails and gantries the blows shake, the flywheel and its pulleys) is
+	# posed from the bake's joints table: formlab/kinematics.py holds each row and
+	# its law, MotionRig.apply writes the bound nodes. Nothing here names a part.
+	rig.apply(t)
 	for sid in strings:
 		var displacement := PackedFloat32Array(); displacement.resize(STRING_NODES)
 		var envelope := PackedFloat32Array(); envelope.resize(STRING_NODES)
@@ -763,7 +685,7 @@ func _camera_at(t: float) -> void:
 		# catch the rebound.
 		if focus_at!="":
 			target=tip if focus_at=="tip" else root
-			if focus_at=="head": target=tip+Vector3(0,motion.head_l,0)   # a hinged head's pin
+			if focus_at=="head": target=motion.joint_origin(focus+"/head",t) if motion.has_joint(focus+"/head") else tip+Vector3(0,motion.head_length(focus),0)   # a hinged head's pin
 			half_w=focus_span/2.0; half_h=focus_span/2.0
 		# The floor of 0.8 m is what keeps a whole-arm --focus shot outside the
 		# mechanism; a --focus_at close-up asks to be inside it, so it gets the

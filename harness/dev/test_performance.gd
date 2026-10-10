@@ -32,7 +32,7 @@ func check_scene() -> void:
 				if scene.motion.hammer(e["actuator"]):
 					var head: Node3D=scene.parts[e["actuator"]].get("head")
 					if head==null: failures.append("hammer arm has no rendered head "+str(e["actuator"]))
-					elif felt_face(head,scene.motion.head_l).distance_to(target)>.00001: failures.append("rendered felt face misses contact")
+					elif felt_face(head,scene.motion.head_length(e["actuator"])).distance_to(target)>.00001: failures.append("rendered felt face misses contact")
 				contacts+=1
 		for aid in scene.parts:
 			var upper: MeshInstance3D=scene.parts[aid]["upper"]
@@ -52,8 +52,8 @@ func check_scene() -> void:
 					scene.evaluate(float(t))
 					var want: Vector3=scene.motion.pose(aid,float(t))["felt"]
 					if head2==null: break
-					if head2.global_position.distance_to(scene.motion.tip_at(aid,float(t))+Vector3(0,scene.motion.head_l,0))>.00001: failures.append("hammer hinge off the shank's end "+aid)
-					if felt_face(head2,scene.motion.head_l).distance_to(want)>.00001: failures.append("rendered felt face off its flip %s at %.2f s" % [aid,t])
+					if head2.global_position.distance_to(scene.motion.tip_at(aid,float(t))+Vector3(0,scene.motion.head_length(aid),0))>.00001: failures.append("hammer hinge off the shank's end "+aid)
+					if felt_face(head2,scene.motion.head_length(aid)).distance_to(want)>.00001: failures.append("rendered felt face off its flip %s at %.2f s" % [aid,t])
 			var pose: Dictionary=scene.motion.pose(aid,48.0); scene.evaluate(48.0)
 			var elbow_node: Node3D=scene.parts[aid]["elbow"]
 			if elbow_node.global_position.distance_to(pose["elbow"])>.00001: failures.append("elbow pin off its pose "+aid)
