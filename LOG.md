@@ -1,3 +1,49 @@
+## 2026-10-16 — Shader materials: lacquered grooved wood and brushed metallics
+
+Upgraded the craft surface shader (`harness/shaders/craft_surface.gdshader`),
+the palette (`harness/clockwork_look.gd`), and the deterministic texture
+generator (`tools/build_surface_textures.py`) so every timber and metal part
+carries pre-baked tangent-space normal maps and depth/relief maps alongside
+the screen-space surface gradient:
+
+- **Pre-baked 1024×1024 periodic normal & depth maps** (`harness/assets/textures/`):
+  - `wood_normal.png` and `wood_depth.png` (R: composite carved flute/groove +
+    cathedral ring ridge + sunken pore height; G: carved groove profile &
+    fiddleback chatoyancy curl wave; B: groove and pore cavity AO), generated
+    with exact periodic central differences on the 1024 torus.
+  - `metal_normal.png` and `metal_depth.png` (R: multi-scale directional brush
+    striations + $\pm 4^\circ$ cross-honing + score lines & micro-pits; G:
+    brush tangent flow perturbation; B: groove cavity AO).
+- **Parallax Occlusion Mapping (POM)** (`pom_wood`, `pom_metal` in
+  `craft_surface.gdshader`):
+  - View-space orthonormal TBN frame (`T`, `B`, `N`) aligned with `grain_axis`
+    or authored sweep `TANGENT` (`use_sweep_uv`).
+  - 6-step linear ray-march + secant contact refinement with $n \approx 1.49$
+    clearcoat refraction for wood (`pom_wood`) and 5-step linear search +
+    secant refinement for brushed metal (`pom_metal`), using `textureGrad` and
+    automatic mip-distance fade (`mip_fade`) so grazing and distant silhouettes
+    never shimmer.
+- **Dual-layer lacquered grooved wood** (`finish_kind == 0`: oiled/lacquered
+  walnut, high-gloss rosewood bars, satin spruce soundboard, polished horn):
+  - Normal-projected cross-grain coordinates (`cross_v`) so side and top faces
+    wrap cleanly without diagonal distortion, while `end_grain` fades out
+    longitudinal flutes and transitions smoothly into concentric growth rings.
+  - Beer–Lambert warm amber lacquer absorption (`exp(-k * lacquer_path)`)
+    deepening the carved grooves and vessel pores, subsurface chatoyancy along
+    the fibre tangent, and Schlick Fresnel dual-normal blending between the
+    grooved wood substrate (`N_sub`) and the smooth top coat (`N_coat`), plus
+    `CLEARCOAT`, `CLEARCOAT_ROUGHNESS`, and cavity `AO`.
+- **Anisotropic brushed metallics** (`finish_kind == 1, 2`: satin brass,
+  phosphor bronze bearings, blued steel):
+  - Pre-baked tangent-space normal mapping combined with anisotropic brush
+    sheen across the bitangent (`ANISOTROPY`, `ANISOTROPY_FLOW`), machined edge
+    wear polish (`fwidth(object_normal)`), and groove `AO`.
+- **Environment & offscreen capture**: `tools/offscreen.sh` now detects abstract
+  X11 sockets in `/proc/net/unix` when `/tmp/.X11-unix` is mounted read-only.
+  Verified with 4 close-up offscreen renders
+  (`render/material-review/view-{6,9,11,15}.png`) and `test_players.py --gate=M2`
+  (`GATE PASSED`, 39 shared material variants on chamber, 43 on expanded).
+
 ## 2026-10-10 — PLAYERS M3: the bake carries the joints (loam-motion/2)
 
 The motion bake is now `loam-motion/2`, and the harness poses the machine

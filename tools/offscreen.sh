@@ -14,9 +14,10 @@ xvfb=$(command -v Xvfb || echo "$HOME/.local/opt/xvfb/usr/bin/Xvfb")
 [[ -x $xvfb ]] || { echo "offscreen: no Xvfb — apt-get download xvfb && dpkg -x xvfb_*.deb ~/.local/opt/xvfb" >&2; exit 1; }
 disp=${OFFSCREEN_DISPLAY:-:97}
 sock=/tmp/.X11-unix/X${disp#:}
-if [[ ! -e $sock ]]; then
+up() { [[ -e $sock ]] || grep -q "@$sock$" /proc/net/unix 2>/dev/null; }
+if ! up; then
   setsid "$xvfb" "$disp" -screen 0 1920x1080x24 -nolisten tcp >/dev/null 2>&1 < /dev/null &
-  for _ in $(seq 100); do [[ -e $sock ]] && break; sleep .1; done
-  [[ -e $sock ]] || { echo "offscreen: Xvfb did not come up on $disp" >&2; exit 1; }
+  for _ in $(seq 100); do up && break; sleep .1; done
+  up || { echo "offscreen: Xvfb did not come up on $disp" >&2; exit 1; }
 fi
 exec env -u WAYLAND_DISPLAY DISPLAY="$disp" "$@"
