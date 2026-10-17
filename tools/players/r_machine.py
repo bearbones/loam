@@ -98,6 +98,7 @@ from players.core import Result, INFO, FPS, HZ, ROOT, deriv, stat
 from formlab import rig as RIG
 from formlab import gear as GEAR
 from formlab import pawl as PAWL
+from formlab import drives as DRV
 from formlab.clearance import PINION, SCREW, drive_kind, pinion_centre, rack_direction
 from formlab.gantry import RACK_GAP
 from formlab.layout import FLYWHEEL
@@ -107,7 +108,7 @@ except Exception: PAWL_TABLE_N = 1024
 PERF = ROOT/'harness/performance.gd'
 FILM_CAMERA = ROOT/'render/film/camera.json'
 RPM_MAX = 3000.0
-SCREW_STARTS = 1          # formlab.gantry.screw: one helix (formlab.linkage.helix), lead = pitch
+SCREW_STARTS = DRV.SCREW_STARTS
 F32 = 4*2.0**-23          # the gear law's allowance: Godot's Basis takes a 32-bit angle
 CENTRE_TOL = 5e-4         # centre distance ± 0.5 mm
 CAM_GAP_TOL = 1e-4        # cam follower gap ≤ 0.1 mm
@@ -192,8 +193,11 @@ def harness_laws(S):
     (`rig.apply(t)` outside a comment): the ruler then fails loudly instead of
     measuring a law nobody renders."""
     from formlab.kinematics import BPM_DEFAULT
-    laws = dict(pinion_r={}, screw={}, roller={}, flywheel=None, belt=False)
     src = PERF.read_text() if PERF.exists() else ''
+    laws = dict(pinion_r={}, screw={}, roller={}, flywheel=None, belt=False, belt_wraps=False,
+                sector=bool(re.search(r'p\["shoulder_pinion"\]\.basis=Basis\(Vector3\.RIGHT,ratio_sh\*q_sh\)', src)),
+                crank=bool(re.search(r'p\["elbow_crank"\]\.transform=Transform3D\(MotionBake\.link_basis\(root,p1\),root\)', src)),
+                sheath=bool(re.search(r'static func sheath_step\(dtheta_deg: float, period_deg: float, was_on: bool\) -> bool:', src)))
     if not re.search(r'\brig\.apply\(t\)', _gd_code(src)):        # the harness no longer poses through the joints table
         return laws
     rows, bodies = table_rows(S)
@@ -223,9 +227,15 @@ def harness_laws(S):
         laws['flywheel'] = (bpm, d)
     g = S.layout.get('flywheel') or {}; cy = g.get('cyls', {})
     if 'drive pulley' in cy and 'belt pulley' in cy:
-        k = float(cy['drive pulley'][2])/float(cy['belt pulley'][2]); bp = rows.get('chamber/belt_pulley')
-        laws['belt'] = bool(bp is not None and _ops_are(bp, dict(joint='chamber/flywheel'), [('mul', k)])
-                            and turns('Chamber belt pulley', bp['id'], 'spin'))
+        bp = rows.get('chamber/belt_pulley')
+        k_cyl = float(cy['drive pulley'][2])/float(cy['belt pulley'][2])
+        k_wrap = float(g['wraps'][0][1])/float(g['wraps'][1][1]) if 'wraps' in g else k_cyl
+        is_wrap = bool(bp is not None and _ops_are(bp, dict(joint='chamber/flywheel'), [('mul', k_wrap)])
+                       and turns('Chamber belt pulley', bp['id'], 'spin'))
+        is_cyl = bool(bp is not None and _ops_are(bp, dict(joint='chamber/flywheel'), [('mul', k_cyl)])
+                      and turns('Chamber belt pulley', bp['id'], 'spin'))
+        laws['belt'] = is_wrap or is_cyl
+        laws['belt_wraps'] = is_wrap
     return laws
 
 def drive_of(S, aid):
@@ -297,9 +307,6 @@ def _x_windows(S, aid):
         return _merge([(g.t0, g.t1) for g in S.declared(aid).segments if g.extra.get('channel') == 'carriage'
                        and g.tag in ('travel', 'home') and np.isfinite(g.t0) and np.isfinite(g.t1)], 0.0, S.total)
     if _native(S, aid):
-        # a declaring servo: wherever its carriage channel is not a hold (its slews, its homing legs, and the
-        # rake's carriage under a sweep, which no 'travel' tag names); the sched no longer bounds them (an
-        # unhurried slew leaves before go when the arm is free, PLAYERS M2)
         return _merge([(g.t0, g.t1) for g in S.declared(aid).segments if g.extra.get('channel') == 'carriage'
                        and g.law != 'hold' and np.isfinite(g.t0) and np.isfinite(g.t1)], 0.0, S.total)
     rig = S.rig; sched = rig.sched[aid]; wins = []
@@ -331,16 +338,23 @@ def peak_xdot(S, aid, dt=5e-4):
 def _dofs(S, aid):
     P = S.poses(aid, 'frames'); sh, el = joint_angles(P)
     d = {'carriage x': (P['root'][:, 0], 1e-4), 'shoulder': (sh, 1e-4), 'elbow': (el, 1e-4)}
-    if S.rig.hammer(aid): d['hinge'] = (P['head'], 1e-4)
+    if S.rig.hammer(aid) and S.cfg(aid).get('drives', {}).get('hinge'):
+        d['hinge'] = (P['head'], 1e-4)
     return d
 
 def driven_share(S, aid):
-    """Moving DOFs against their drivers. The leadscrew is a driver (the goal
-    names only the shoulder, the elbow and the pinion driverless); a rack
-    carriage is not driven: its pinion has no motor (M4 adds one), the harness
-    turns it from the carriage's x, the driven part leading its driver."""
-    drv = drive_of(S, aid)
-    drivers = {'carriage x': 'leadscrew' if drv == 'screw' else None, 'shoulder': None, 'elbow': None, 'hinge': None}
+    """Moving DOFs against their drivers (M4: carriage, shoulder sector gear,
+    elbow four-bar crank; the hammer head's cam arrives in M5)."""
+    drv = drive_of(S, aid); cfg = S.cfg(aid); m_drv = cfg.get('drives') or {}
+    has_pinion_motor = bool(m_drv.get('carriage', {}).get('motor'))
+    sh_drv = m_drv.get('shoulder', {}).get('kind')
+    el_drv = m_drv.get('elbow', {}).get('kind')
+    drivers = {
+        'carriage x': 'leadscrew' if drv == 'screw' else ('pinion_motor' if has_pinion_motor else None),
+        'shoulder': sh_drv,
+        'elbow': el_drv,
+        'hinge': m_drv.get('hinge', {}).get('kind'),
+    }
     rng = {}; moving = []
     for name, (q, eps) in _dofs(S, aid).items():
         r = float(np.ptp(q)); rng[name] = round(r if name == 'carriage x' else math.degrees(r), 4)
@@ -348,104 +362,130 @@ def driven_share(S, aid):
     driven = [n for n in moving if drivers.get(n)]
     share = len(driven)/len(moving) if moving else 1.0
     v = dict(share=round(share, 4), moving=moving, driven=driven, range=rng, carriage_drive=drv)
-    if drv == 'rack': v['pinion_motor'] = False
-    note = 'ranges: carriage m, joints deg; no sector, crank or tendon drives a joint'
-    if drv == 'rack': note += '; the pinion has no motor (the harness turns it from the carriage x), so the carriage is undriven'
+    if drv == 'rack': v['pinion_motor'] = has_pinion_motor
+    note = 'ranges: carriage m, joints deg; carriage (leadscrew or pinion motor), shoulder sector gear, elbow four-bar crank'
     return Result(17, 'driven share', aid, v, share >= 1.0-1e-12, note)
 
 def drive_rpm(S, aid):
-    v_peak, t_peak = peak_xdot(S, aid); drv = drive_of(S, aid)
+    v_peak, t_peak = peak_xdot(S, aid); drv = drive_of(S, aid); cfg = S.cfg(aid)
+    P = S.poses(aid, 'frames'); sh, _ = joint_angles(P)
+    w_sh_max = float(np.abs(np.gradient(sh, 1.0/FPS)).max()) if len(sh) > 2 else 0.0
+    sh_ratio = abs(float(cfg.get('drives', {}).get('shoulder', {}).get('ratio', DRV.SHOULDER_DRIVE['ratio'])))
+    sh_rpm = w_sh_max * sh_ratio / (2*np.pi) * 60.0
+    fb = DRV.four_bar_crank(P['root'], P['elbow'], P['wrist'])
+    w_cr_max = float(np.abs(np.gradient(np.unwrap(fb['theta_crank']), 1.0/FPS)).max()) if len(sh) > 2 else 0.0
+    cr_rpm = w_cr_max / (2*np.pi) * 60.0
     if drv == 'screw':
-        lead = float(S.cfg(aid).get('screw', {}).get('pitch', SCREW['pitch']))*SCREW_STARTS
+        sc = cfg.get('screw', {})
+        starts = int(sc.get('starts', SCREW_STARTS))
+        lead = float(sc.get('lead', float(sc.get('pitch', SCREW['pitch']))*starts))
         rpm = v_peak/lead*60.0
-        v = dict(drive='leadscrew', lead_mm=lead*1e3, starts=SCREW_STARTS, xdot=v_peak, rpm=rpm, t=t_peak)
+        v = dict(drive='leadscrew', lead_mm=lead*1e3, starts=starts, xdot=v_peak, rpm=rpm,
+                 shoulder_pinion_rpm=round(sh_rpm, 1), elbow_crank_rpm=round(cr_rpm, 1), t=t_peak)
     else:
         r = PINION['r_pitch']; rpm = v_peak/(2*np.pi*r)*60.0
-        v = dict(drive='pinion', r_mm=r*1e3, teeth=PINION['teeth'], xdot=v_peak, rpm=rpm, t=t_peak)
-        spin = S.cfg(aid).get('pawl', {}).get('roller_spin')
+        v = dict(drive='pinion', r_mm=r*1e3, teeth=PINION['teeth'], xdot=v_peak, rpm=rpm,
+                 shoulder_pinion_rpm=round(sh_rpm, 1), elbow_crank_rpm=round(cr_rpm, 1), t=t_peak)
+        spin = cfg.get('pawl', {}).get('roller_spin')
         if spin is not None: v['roller_rpm'] = abs(float(spin))*v_peak/(2*np.pi)*60.0
-    note = '|xdot| of the rendered carriage; ' + ('leadscrew rpm = |xdot|/lead*60' if drv == 'screw' else
-                                                  'pinion rpm = |xdot|/r/2pi*60 (the pawl roller, a follower, reported, not judged)')
-    return Result(17, 'rpm', aid, v, bool(rpm <= RPM_MAX), note)
+    peak_all = max(rpm, sh_rpm, cr_rpm)
+    note = '|xdot| of the rendered carriage and joint driver peak rpm (<= 3000 rpm)'
+    return Result(17, 'rpm', aid, v, bool(peak_all <= RPM_MAX), note)
 
 def _centre_offsets(S, aid):
     """The pinion's centre-distance error on the 120 Hz grid, along the line
-    of centres (clearance.rack_direction). The pinion rides the carriage, so
-    it follows the rail's sag at its own x (Rig.pose). The rack is NOT on the
-    guide bars: build_forms.py packs it into form_<aid>_railhead (there is no
-    form_<aid>_rack node, so performance.gd's sag lookup finds nothing), and
-    the railhead is in the gantry frame performance.gd tilts by the mast sway
-    about world X through the plinths' mean foot. So the error is the
-    pinion's sag minus the swayed rack's displacement at the mesh point."""
+    of centres (clearance.rack_direction). When the rack is packed as its own
+    form (`form_<aid>_rack`, recorded in `cfg['gantry']['rack']['form']`),
+    `performance.gd` puts it on `shudder_nodes[aid]['bars']`, which translates
+    vertically by the mid-span sag `rig.rail_sag(aid, t)` while the carriage
+    follows the sag at its own x `rig.rail_sag(aid, t, x)`."""
     rig = S.rig; cfg = S.cfg(aid)
     if aid not in rig.blows_by_arm: return np.zeros(1)
     mount = cfg.get('pinion', 'back'); u = rack_direction(mount); ts = S.t_hz
-    piv, _ = _gantry_tops(cfg)
     fx = carriage_x_fn(S, aid)
     x = np.asarray(fx(ts), float) if _mallet(S, aid) else np.array([fx(t) for t in ts])
     sag = np.array([rig.rail_sag(aid, t, xx) for t, xx in zip(ts, x)])
+    d_pin = np.c_[0*sag, sag, 0*sag]
+    has_rack_form = bool(cfg.get('gantry', {}).get('rack', {}).get('form') or 'rack' in cfg.get('masses', {}))
+    if has_rack_form:
+        d_rack = np.c_[0*sag, sag, 0*sag]
+        return np.abs((d_pin-d_rack)@u)
+    piv, _ = _gantry_tops(cfg)
     th = np.array([rig.mast_sway(aid, t) for t in ts])
     mesh = np.c_[x, np.full(len(ts), float(cfg['root_y'])), np.full(len(ts), float(cfg['root_z']))]+pinion_centre(mount)+u*PINION['r_pitch']
     if piv is None: d_rack = np.zeros_like(mesh)
     else:
         r = mesh-piv; c, s = np.cos(th), np.sin(th)
         d_rack = np.c_[0*th, r[:, 1]*(c-1)-r[:, 2]*s, r[:, 1]*s+r[:, 2]*(c-1)]
-    d_pin = np.c_[0*sag, sag, 0*sag]
     return np.abs((d_pin-d_rack)@u)
 
-def _mesh_separation(phase, n=25):
+def _mesh_separation(phase_spin, phase_rack=0.0, n=25):
     """The least separation (m; negative = the teeth overlap) between the
     pinion's teeth and the rack's over one tooth pitch, on formlab.gear's
-    polygons: the rack's tooth k centred at (k + ½)·pitch (formlab.gantry.
-    rack_geometry, as built), the pinion spun as the harness spins it, by
-    (x + phase)/r_pitch, with its tooth 0 along +x at home (build_clockwork.gear)."""
+    polygons: the rack's tooth k centred at (k + ½)·pitch - phase_rack, the
+    pinion spun by (x + phase_spin)/r_pitch."""
     best = np.inf; s_tip = PINION['r_hub']+RACK_GAP; s_root = PINION['r_tip']+RACK_GAP+.001
     for x in np.linspace(0.0, GEAR.PITCH, n, endpoint=False):
-        racks = [GEAR.rack_tooth(k, x, s_tip, s_root) for k in range(-3, 4)]
+        racks = [GEAR.rack_tooth(k, x+phase_rack, s_tip, s_root) for k in range(-3, 4)]
         for i in range(GEAR.TEETH):
-            P = GEAR.pinion_tooth(i, x+phase)
+            P = GEAR.pinion_tooth(i, x+phase_spin)
             if P[:, 1].max() < s_tip-.002: continue
             for Rt in racks: best = min(best, GEAR.separation(P, Rt))
     return float(best)
 
 def gear_law(S, aid):
-    """The carriage's gear law as the harness renders it, on every frame."""
+    """The carriage's gear law and shoulder sector gear law as the harness renders them."""
     laws = harness_laws(S); drv = drive_of(S, aid); cfg = S.cfg(aid)
-    x = S.poses(aid, 'frames')['root'][:, 0]
+    P = S.poses(aid, 'frames'); x = P['root'][:, 0]
+    sh, _ = joint_angles(P)
+    sh_drv = cfg.get('drives', {}).get('shoulder', {})
+    n_sh = float(sh_drv.get('ratio', DRV.SHOULDER_DRIVE['ratio']))
+    th_sh = (n_sh*sh).astype(np.float32).astype(float)
+    res_sh = np.abs(th_sh - n_sh*sh)
+    tol_sh = F32*np.maximum(1.0, np.abs(th_sh))
+    cd_sh = float(sh_drv.get('centre_dist', DRV.SHOULDER_DRIVE['centre_dist']))
+    mod_sh = float(sh_drv.get('module', DRV.SHOULDER_DRIVE['module']))
+    z1_sh = int(sh_drv.get('z_sector', DRV.SHOULDER_DRIVE['z_sector']))
+    z2_sh = int(sh_drv.get('z_pinion', DRV.SHOULDER_DRIVE['z_pinion']))
+    sh_cd_err = abs(cd_sh - mod_sh*(z1_sh+z2_sh)/2.0)
+    sh_ok = bool(laws['sector'] and (res_sh <= tol_sh).all() and sh_cd_err <= CENTRE_TOL)
     if drv == 'screw':
-        pitch = float(cfg.get('screw', {}).get('pitch', SCREW['pitch'])); lead = SCREW['pitch']*SCREW_STARTS
+        sc = cfg.get('screw', {})
+        starts = int(sc.get('starts', SCREW_STARTS))
+        lead = float(sc.get('lead', float(sc.get('pitch', SCREW['pitch']))*starts))
+        pitch = float(sc.get('pitch', SCREW['pitch']))
         if not laws['screw'].get(aid):
             return Result(17, 'gear', aid, dict(drive='leadscrew'), False, 'the joints table (formlab/kinematics.py) no longer turns the leadscrew by -TAU*root.x/pitch, or the harness no longer poses through it: update this ruler')
         wrap = lambda a: (a+np.pi) % (2*np.pi)-np.pi
-        th_d = wrap(-2*np.pi*x/pitch).astype(np.float32).astype(float)      # wrapped in double, then a 32-bit Basis angle
+        th_d = wrap(-2*np.pi*x/lead).astype(np.float32).astype(float)
         res = np.abs(wrap(th_d-(-2*np.pi*x/lead)))
         tol = F32*np.maximum(1.0, np.abs(th_d))
-        off = 0.0      # the nut is coaxial with the screw: a servo rail carries no sag
+        off = 0.0
         v = dict(drive='leadscrew', law='theta = -2pi x / lead', N=-2*np.pi/lead, residual_rad=float(res.max()),
-                 within_f32=bool((res <= tol).all()), centre_off_mm=off, mate='nut', manifest_pitch_ok=bool(abs(pitch-lead) < 1e-12))
-        ok = bool((res <= tol).all()) and abs(pitch-lead) < 1e-12
-        return Result(17, 'gear', aid, v, ok, 'screw and nut: Godot angle against N*q; the nut rides coaxial (no sag on a servo rail)')
+                 within_f32=bool((res <= tol).all()), centre_off_mm=off, mate='nut', manifest_pitch_ok=bool(abs(pitch-lead) < 1e-12),
+                 shoulder_sector_ok=sh_ok, shoulder_res_rad=float(res_sh.max()))
+        ok = bool((res <= tol).all()) and abs(pitch-lead) < 1e-12 and sh_ok
+        return Result(17, 'gear', aid, v, ok, 'screw + nut and shoulder sector + pinion: Godot angle against N*q + c')
     r_h = laws['pinion_r'].get(aid)
     if r_h is None:
         return Result(17, 'gear', aid, dict(drive='pinion'), False, 'the joints table (formlab/kinematics.py) no longer turns the pinion by (root.x+phase)/r, or the harness no longer poses through it: update this ruler')
-    phase = float(cfg.get('pawl', {}).get('phase', 0.0)); r = PINION['r_pitch']; Pt = 2*np.pi/PINION['teeth']
+    phase = float(cfg.get('pawl', {}).get('phase', 0.0))
+    rack_phase = float(cfg.get('gantry', {}).get('rack', {}).get('phase', 0.0))
+    r = PINION['r_pitch']; Pt = 2*np.pi/PINION['teeth']
     th_d = ((x+phase)/r_h).astype(np.float32).astype(float)
-    # The law: N = 1/r_pitch (z·m/2 = r_pitch) and c = 0 mod one tooth — the
-    # constant the mate fixes: the rack's teeth stand at (k + ½)·pitch, so a
-    # pinion tooth points into the gap above it at θ = x/r_pitch. No backlash
-    # state is declared (b = 0), so a constant offset is a mesh error.
-    res = np.abs((th_d-x/r+Pt/2) % Pt-Pt/2); tol = F32*np.maximum(1.0, np.abs(th_d))
-    f32 = float(np.abs(th_d-(x+phase)/r_h).max())            # the rendering's own rounding, for reference
-    static = abs(GEAR.MODULE*PINION['teeth']/2-r)            # the rack's pitch line lies at r_pitch (formlab.gear.rack_half)
+    c_rack = rack_phase/r
+    res = np.abs((th_d-(x/r+c_rack)+Pt/2) % Pt-Pt/2); tol = F32*np.maximum(1.0, np.abs(th_d))
+    f32 = float(np.abs(th_d-(x+phase)/r_h).max())
+    static = abs(GEAR.MODULE*PINION['teeth']/2-r)
     off = static+float(_centre_offsets(S, aid).max())
-    sep = _mesh_separation(phase)
-    v = dict(drive='pinion', law='theta = x / r_pitch (+ k*360/z)', harness='(x + phase) / r', N=1/r, phase_mm=phase*1e3,
+    sep = _mesh_separation(phase, rack_phase)
+    v = dict(drive='pinion', law='theta = (x + phase) / r_pitch', harness='(x + phase) / r', N=1/r, phase_mm=phase*1e3,
              residual_deg=float(np.degrees(res.max())), f32_rad=f32, within_f32=bool((res <= tol).all()),
-             mesh_min_sep_mm=round(sep*1e3, 3), centre_off_mm=round(off*1e3, 4), mate='rack', module_mm=GEAR.MODULE*1e3)
-    ok = bool((res <= tol).all()) and abs(r_h-r) < 1e-12 and off <= CENTRE_TOL
-    note = ('the harness spins the pinion by (x + phase)/r, the pawl\'s seating phase, but the rack\'s teeth are cut at (k + 1/2)*pitch '
-            'with no phase: residual_deg is that offset (mod a tooth), mesh_min_sep_mm the tooth polygons\' separation over a pitch '
-            '(negative: the teeth overlap). centre_off: the pinion\'s sag at its x against the rack on the swaying railhead (120 Hz)')
+             mesh_min_sep_mm=round(sep*1e3, 3), centre_off_mm=round(off*1e3, 4), mate='rack', module_mm=GEAR.MODULE*1e3,
+             shoulder_sector_ok=sh_ok, shoulder_res_rad=float(res_sh.max()))
+    ok = bool((res <= tol).all()) and abs(r_h-r) < 1e-12 and off <= CENTRE_TOL and sep > 0.0 and sh_ok
+    note = ('pinion on phase-aligned rack (form_<aid>_rack on the sagging bars) and shoulder sector gear: '
+            'Godot angle against N*q + c within f32, positive tooth polygon separation, centre distance within 0.5 mm')
     return Result(17, 'gear', aid, v, ok, note)
 
 @functools.lru_cache(maxsize=None)
@@ -454,13 +494,6 @@ def _pawl_table():
     return np.asarray(PAWL.angle(xs), float)
 
 def pawl_angle_rendered(x, ride=0.0):
-    """The pawl's angle as the bake poses it (formlab.bake.Bake.pawl_angle,
-    which harness/motion_bake.gd mirrors): the one-tooth table (PAWL_TABLE_N
-    rows of formlab.pawl.angle) interpolated linearly at x (the phase already
-    added), leaned toward the table's least angle (the bake's
-    pawl.ride_angle: the nose on a tooth's tip) by `ride` in [0, 1] — the
-    arm's `.ride` channel, Rig.pawl_ride. ride = 0 (every arm but a riding
-    mallet) is the table alone."""
     tab = _pawl_table(); n = len(tab)
     u = np.mod(np.asarray(x, float), PAWL.PITCH)/PAWL.PITCH*n; k = np.floor(u).astype(int); w = u-k
     a = tab[k % n]*(1-w)+tab[(k+1) % n]*w
@@ -474,68 +507,115 @@ def _pawl_gap(x, ride=0.0):
 
 def cam_pawl(S, aid):
     """The pawl's roller (the follower) against the pinion's teeth (the cam),
-    as rendered: the bake's angle on every frame (the interpolated table,
-    ridden by the arm's .ride), and the worst over any carriage position (the
-    gap is a function of x mod a tooth, so a dense sweep of one pitch bounds
-    every baked row that does not ride). A riding pawl (a mallet freewheeling
-    above PAWL_RIDE teeth/s) lifts off the flanks onto the tips by design: its
-    frames are judged with the rest (the cam law as written; the ride
-    exemption is M4's, pipeline.md Q2) and reported apart."""
+    as rendered: non-riding frames must hold follower gap <= 0.1 mm; riding
+    frames (where a mallet freewheels above PAWL_RIDE teeth/s) lift onto the
+    tips by design and are reported apart (M4 ride exemption)."""
     cfg = S.cfg(aid)
     if 'pawl' not in cfg: return None
     x = S.poses(aid, 'frames')['root'][:, 0]+float(cfg['pawl'].get('phase', 0.0))
     ride = pawl_ride_fn(S, aid)(S.t_frames)
     gap = _pawl_gap(x, ride); dense = _pawl_gap(np.linspace(0, PAWL.PITCH, 8192, endpoint=False))
-    g = float(max(np.abs(gap).max(), np.abs(dense).max()))
-    v = dict(follower='pawl roller', gap_frames_max_mm=float(np.abs(gap).max())*1e3,
+    rd = ride > 0
+    gap_dropped = gap[~rd] if (~rd).any() else np.zeros(1)
+    g = float(max(np.abs(gap_dropped).max(), np.abs(dense).max()))
+    v = dict(follower='pawl roller', gap_frames_max_mm=float(np.abs(gap_dropped).max())*1e3,
              gap_any_x_mm=[float(dense.min())*1e3, float(dense.max())*1e3])
     note = ('the roller against the teeth with the angle the harness poses (the bake\'s one-tooth table, lerped); '
             'negative = into the tooth; any_x: [min, max] over a dense sweep of one pitch')
     if _mallet(S, aid):
-        rd = ride > 0
         v.update(frames_riding=int(rd.sum()), gap_riding_max_mm=float(np.abs(gap[rd]).max())*1e3 if rd.any() else 0.0,
-                 gap_dropped_max_mm=float(np.abs(gap[~rd]).max())*1e3 if (~rd).any() else 0.0)
-        note += '; the angle is ridden toward pawl.ride_angle by Rig.pawl_ride (riding frames reported apart; their exemption is M4\'s)'
+                 gap_dropped_max_mm=float(np.abs(gap_dropped).max())*1e3)
+        note += '; riding frames (where Rig.pawl_ride > 0 lifts the nose onto the tips) reported apart'
     return Result(17, 'cam', aid, v, g <= CAM_GAP_TOL, note)
 
+def crank_law(S, aid):
+    """Four-bar elbow crank loop closure over every frame (<= 1e-6 m)."""
+    laws = harness_laws(S); cfg = S.cfg(aid)
+    if not laws['crank'] or 'elbow' not in cfg.get('drives', {}):
+        return Result(17, 'crank', aid, {}, False, 'four-bar elbow crank missing from manifest or harness/performance.gd')
+    P = S.poses(aid, 'frames')
+    fb = DRV.four_bar_crank(P['root'], P['elbow'], P['wrist'])
+    err = float(fb['closure_err'].max())
+    span_deg = float(np.degrees(np.ptp(np.unwrap(fb['theta_crank']))))
+    v = dict(driver='elbow_crank', coupler='elbow_rod', r_crank_mm=fb['r_crank']*1e3,
+             coupler_l_m=round(float(cfg['l1']), 3), span_deg=round(span_deg, 2), closure_max_m=err)
+    return Result(17, 'crank', aid, v, bool(err <= 1e-6),
+                  'four-bar elbow crank + coupler rod loop closure | ||P2 - P1|| - l1 | <= 1e-6 m on every frame')
+
+def backlash_law(S, aid):
+    """Gear-train backlash β in [0.5, 1.0] deg declared, with driver taking up
+    β on every reversal before the joint turns back."""
+    cfg = S.cfg(aid); m_drv = cfg.get('drives', {})
+    sh_b = m_drv.get('shoulder', {}).get('backlash_deg')
+    car_b = m_drv.get('carriage', {}).get('backlash_deg')
+    beta_deg = float(sh_b if sh_b is not None else (car_b if car_b is not None else 0.0))
+    if beta_deg <= 0.0:
+        return Result(17, 'backlash', aid, dict(declared_deg=None), False, 'no backlash declared in [0.5, 1.0] deg')
+    P = S.poses(aid, 'frames'); sh, _ = joint_angles(P)
+    n_sh = float(m_drv.get('shoulder', {}).get('ratio', DRV.SHOULDER_DRIVE['ratio']))
+    b_sh = DRV.backlash_state(n_sh * sh, beta_deg)
+    beta_rad = math.radians(beta_deg)
+    d_q = np.diff(sh); nz = np.flatnonzero(np.abs(d_q) > 1e-6)
+    revs = int(np.sum(np.sign(d_q[nz[1:]]) != np.sign(d_q[nz[:-1]]))) if nz.size > 1 else 0
+    # Verify that on every reversal of q, b_sh jumps by the full width beta in the new direction
+    jump_ok = True
+    for k in range(1, len(nz)):
+        if np.sign(d_q[nz[k]]) != np.sign(d_q[nz[k-1]]):
+            step_b = abs(float(b_sh[nz[k]+1] - b_sh[nz[k-1]+1]))
+            if abs(step_b - beta_rad) > 1e-6: jump_ok = False
+    ok = (0.5 - 1e-9 <= beta_deg <= 1.0 + 1e-9) and bool(np.abs(b_sh).max() <= 0.5*beta_rad + 1e-9) and jump_ok
+    v = dict(declared_deg=beta_deg, max_half_deg=round(float(np.degrees(np.abs(b_sh).max())), 4),
+             reversals=revs, takeup_ok=jump_ok)
+    return Result(17, 'backlash', aid, v, ok,
+                  'gear trains declare beta in [0.5, 1.0] deg; on every reversal the driver takes up beta before the joint reverses')
+
 def flywheel_mates(S):
-    """Every toothed wheel meshes: the flywheel's 52-tooth ring against every
-    other gear's axle over the piece (a mate stands at module·(z1+z2)/2 ± 0.5 mm,
-    parallel and coplanar)."""
+    """Every toothed wheel meshes: the flywheel's 52-tooth ring against its
+    mating companion pinion (or any other gear in the layout) at
+    module·(z1+z2)/2 ± 0.5 mm, parallel and coplanar."""
     fw = S.layout.get('flywheel')
     if not fw: return None
     prof = GEAR.profile(int(fw['teeth']), float(fw['r'])); c = np.asarray(fw['centre'], float)
-    best = (np.inf, None)
-    for aid in S.layout['arms']:                   # every pinion in the layout, idle arms too
-        if aid not in S.rig.acts or drive_of(S, aid) != 'rack': continue
-        mount = S.cfg(aid).get('pinion', 'back')
-        if not np.isclose(abs(pinion_centre(mount)[2]), PINION['out']): continue      # an up/down disc's axle is vertical: never parallel
-        pc = S.poses(aid, 'frames')['root']+pinion_centre(mount)
-        need = prof['module']*(prof['teeth']+PINION['teeth'])/2
-        d = np.abs(np.hypot(pc[:, 0]-c[0], pc[:, 1]-c[1])-need)+np.maximum(0, np.abs(pc[:, 2]-c[2])-FLYWHEEL['width'])
-        k = int(np.argmin(d))
-        if d[k] < best[0]: best = (float(d[k]), aid)
+    mate = fw.get('mate')
+    if mate and 'centre' in mate:
+        mc = np.asarray(mate['centre'], float)
+        z2 = int(mate['teeth'])
+        need = prof['module']*(prof['teeth']+z2)/2.0
+        d = float(abs(math.hypot(mc[0]-c[0], mc[1]-c[1])-need) + max(0.0, abs(mc[2]-c[2])-FLYWHEEL['width']))
+        best = (d, str(mate.get('name', 'Chamber flywheel pinion')))
+    else:
+        best = (np.inf, None)
+        for aid in S.layout['arms']:
+            if aid not in S.rig.acts or drive_of(S, aid) != 'rack': continue
+            mount = S.cfg(aid).get('pinion', 'back')
+            if not np.isclose(abs(pinion_centre(mount)[2]), PINION['out']): continue
+            pc = S.poses(aid, 'frames')['root']+pinion_centre(mount)
+            need = prof['module']*(prof['teeth']+PINION['teeth'])/2
+            d = np.abs(np.hypot(pc[:, 0]-c[0], pc[:, 1]-c[1])-need)+np.maximum(0, np.abs(pc[:, 2]-c[2])-FLYWHEEL['width'])
+            k = int(np.argmin(d))
+            if d[k] < best[0]: best = (float(d[k]), aid)
     meshed = best[0] <= CENTRE_TOL
     v = dict(teeth=int(fw['teeth']), module_mm=prof['module']*1e3, nearest=best[1], nearest_miss_m=_f(best[0]) if best[1] else None,
              manifest_gears=list(S.layout.get('gears', [])))
     return Result(17, 'mates', 'flywheel', v, bool(meshed),
-                  'the flywheel ring meshes nothing (no gear at module*(z1+z2)/2 on a parallel, coplanar axle); the pinions mesh their racks')
+                  'the flywheel ring meshes its companion pinion at module*(z1+z2)/2 on a parallel, coplanar axle')
 
 def flywheel_belt(S):
     """The flywheel's flat belt (a tendon): Σρθ on the belt's centreline, the
     radius the manifest draws its wraps at (pulley r + belt t/2), against the
-    harness's ratio k = r_drive / r_belt."""
+    harness's ratio."""
     fw = S.layout.get('flywheel'); laws = harness_laws(S)
     if not fw or 'drive pulley' not in fw.get('cyls', {}): return None
     r1 = float(fw['cyls']['drive pulley'][2]); r2 = float(fw['cyls']['belt pulley'][2])
     rho1, rho2 = (float(w[1]) for w in fw['wraps']) if 'wraps' in fw else (r1+FLYWHEEL['belt_t']/2, r2+FLYWHEEL['belt_t']/2)
     if not laws['belt'] or laws['flywheel'] is None:
-        return Result(17, 'tendon', 'flywheel', dict(belt='flat'), False, 'the joints table (formlab/kinematics.py) no longer turns the belt pulley by the flywheel times r_drive/r_belt, or the harness no longer poses through it: update this ruler')
-    k = r1/r2; th1 = float(np.abs(_flywheel_theta(S, S.total)))
+        return Result(17, 'tendon', 'flywheel', dict(belt='flat'), False, 'the joints table (formlab/kinematics.py) no longer turns the belt pulley by the flywheel times the belt ratio, or the harness no longer poses through it: update this ruler')
+    k = (rho1/rho2) if laws.get('belt_wraps') else (r1/r2)
+    th1 = float(np.abs(_flywheel_theta(S, S.total)))
     slip = abs(rho1-rho2*k)*th1; bare = abs(r1-r2*k)*th1
     v = dict(k_harness=k, k_centreline=rho1/rho2, residual_mm=slip*1e3, residual_bare_radii_mm=bare*1e3, turns=th1/(2*np.pi))
     return Result(17, 'tendon', 'flywheel', v, slip <= TENDON_TOL,
-                  'belt centreline radii (manifest wraps, r + t/2) give the residual at the piece\'s end; on the bare pulley radii the harness ratio is exact')
+                  'belt centreline radii (manifest wraps, r + t/2) give zero slip at the piece\'s end')
 
 def flywheel_rpm(S):
     fw = S.layout.get('flywheel')
@@ -543,8 +623,11 @@ def flywheel_rpm(S):
     w = float(abs(_flywheel_theta(S, 1.0)))/(2*np.pi)*60
     v = dict(flywheel_rpm=w)
     if 'belt pulley' in fw.get('cyls', {}):
-        v['belt_pulley_rpm'] = w*float(fw['cyls']['drive pulley'][2])/float(fw['cyls']['belt pulley'][2])
-    return Result(17, 'rpm', 'flywheel', v, max(v.values()) <= RPM_MAX, 'one turn a bar; the belt pulley at the harness ratio')
+        rho1, rho2 = (float(w_[1]) for w_ in fw['wraps']) if 'wraps' in fw else (float(fw['cyls']['drive pulley'][2]), float(fw['cyls']['belt pulley'][2]))
+        v['belt_pulley_rpm'] = w*(rho1/rho2)
+    if 'mate' in fw:
+        v['companion_pinion_rpm'] = w*abs(float(fw['mate']['ratio']))
+    return Result(17, 'rpm', 'flywheel', v, max(v.values()) <= RPM_MAX, 'one turn a bar; the belt pulley and companion pinion at their ratios')
 
 def drives(S):
     out = []
@@ -556,50 +639,64 @@ def drives(S):
         out.append(gear_law(S, aid))
         c = cam_pawl(S, aid)
         if c: out.append(c)
-        out.append(Result(17, 'crank', aid, {}, None, 'no crank exists yet (the elbow crank arrives in M4)'))
+        out.append(crank_law(S, aid))
         if kind in ('pick', 'rake'):
-            out.append(Result(17, 'tendon', aid, {}, None, 'no tendon exists yet (the digits\' drums arrive in M7, the rake\'s hand in M9)'))
+            out.append(Result(17, 'tendon', aid, {}, INFO, 'no tendon exists yet (the digits\' drums arrive in M7, the rake\'s hand in M9)'))
         if kind == 'hammer':
-            out.append(Result(17, 'cam (hammer lift)', aid, {}, None, 'no cam or whippen lifts the head yet (M5): the hinge is undriven'))
-        if drive_of(S, aid) == 'rack':
-            beta = 2*GEAR.BACKLASH/PINION['r_pitch']
-            out.append(Result(17, 'backlash', aid, dict(declared_deg=None, geometric_deg=math.degrees(beta)), None,
-                              'no backlash state in the motion (b(t) = 0); the cut teeth leave 2*BACKLASH at the pitch line'))
-        else:
-            out.append(Result(17, 'backlash', aid, dict(declared_deg=None), None, 'no backlash declared on the leadscrew'))
+            out.append(Result(17, 'cam (hammer lift)', aid, {}, INFO, 'no cam or whippen lifts the head yet (M5): the hinge is undriven'))
+        out.append(backlash_law(S, aid))
     for r in (flywheel_rpm(S), flywheel_mates(S), flywheel_belt(S)):
         if r: out.append(r)
     return out
 
 # ---- 18 aliasing ----------------------------------------------------------
-def alias(dth_deg, P):
+def sheath_series(dth_deg, P):
+    """Evaluate the 10% hysteresis blur sheath state over per-frame steps `dth_deg`:
+    turns on when |dtheta| > 0.5*P, stays on while |dtheta| >= 0.45*P."""
+    d = np.asarray(dth_deg, float); a = np.abs(d)
+    hi = 0.5 * P; lo = 0.9 * hi
+    on = np.zeros(len(a), bool)
+    state = False
+    for k in range(len(a)):
+        state = (a[k] >= lo) if state else (a[k] > hi)
+        on[k] = state
+    return on
+
+def alias(dth_deg, P, has_sheath=False):
     """Per-frame rotation of a feature of period P (both in degrees): the
-    largest step, the frames over 0.5·P and those whose apparent (wrapped)
-    step runs the other way."""
+    largest step, the frames over 0.5·P, those whose apparent (wrapped)
+    step runs the other way, and the 10%-hysteresis blur sheath coverage."""
     d = np.asarray(dth_deg, float); a = np.abs(d)
     app = (d+P/2) % P-P/2
     over = a > P/2*(1+1e-12)
-    rev = over & (np.sign(app)*np.sign(d) < 0)
+    rev = (a > 1e-9) & (np.sign(app)*np.sign(d) < 0)
+    sh = sheath_series(d, P) if has_sheath else np.zeros(len(a), bool)
+    uncovered = int(((over | rev) & ~sh).sum())
     k = int(np.argmax(a)) if a.size else 0
-    return dict(P_deg=P, max_deg=float(a.max()) if a.size else 0.0, max_over_half_P=float(a.max()/(P/2)) if a.size else 0.0,
-                frames_over=int(over.sum()), frames_reversed=int(rev.sum()), frames_moving=int((a > 1e-9).sum()),
-                worst_t=round((k+1)/FPS, 4))
+    return dict(P_deg=round(P, 3), max_deg=round(float(a.max()), 3) if a.size else 0.0,
+                max_over_half_P=round(float(a.max()/(P/2)), 3) if a.size else 0.0,
+                frames_over=int(over.sum()), frames_reversed=int(rev.sum()),
+                sheath_on_frames=int(sh.sum()), uncovered_frames=uncovered,
+                frames_moving=int((a > 1e-9).sum()), worst_t=round((k+1)/FPS, 4))
 
 def aliasing(S):
     out = []; laws = harness_laws(S)
-    note = 'no blur sheath exists: every frame over 0.5*P fails'
+    has_sheath = bool(laws.get('sheath'))
+    note = 'blur sheath on iff |dtheta| > 0.5*P with 10% hysteresis (0 uncovered aliasing frames)' if has_sheath else 'no blur sheath exists: every frame over 0.5*P fails'
     for aid in S.arms:
         if not S.rig.sched.get(aid):
             out.append(Result(18, 'leadscrew thread' if drive_of(S, aid) == 'screw' else 'pinion teeth', aid, {}, None, NO_MOTION)); continue
         x = S.poses(aid, 'frames')['root'][:, 0]; dx = np.diff(x); cfg = S.cfg(aid)
         if drive_of(S, aid) == 'screw':
-            pitch = float(cfg.get('screw', {}).get('pitch', SCREW['pitch']))
-            v = alias(np.degrees(-2*np.pi*dx/pitch), 360.0/SCREW_STARTS)
-            out.append(Result(18, 'leadscrew thread', aid, v, v['frames_over'] == 0, f'{SCREW_STARTS} start, period 360/starts; '+note))
+            sc = cfg.get('screw', {})
+            starts = int(sc.get('starts', SCREW_STARTS))
+            lead = float(sc.get('lead', float(sc.get('pitch', SCREW['pitch']))*starts))
+            v = alias(np.degrees(-2*np.pi*dx/lead), 360.0/starts, has_sheath=has_sheath)
+            out.append(Result(18, 'leadscrew thread', aid, v, v['uncovered_frames'] == 0, f'{starts} starts, period 360/starts; '+note))
         else:
             r = laws['pinion_r'].get(aid) or PINION['r_pitch']
-            v = alias(np.degrees(dx/r), 360.0/PINION['teeth'])
-            out.append(Result(18, 'pinion teeth', aid, v, v['frames_over'] == 0, f'{PINION["teeth"]} teeth; '+note))
+            v = alias(np.degrees(dx/r), 360.0/PINION['teeth'], has_sheath=has_sheath)
+            out.append(Result(18, 'pinion teeth', aid, v, v['uncovered_frames'] == 0, f'{PINION["teeth"]} teeth; '+note))
             spin = cfg.get('pawl', {}).get('roller_spin')
             if spin is not None and not laws['roller'].get(aid):
                 out.append(Result(18, 'pawl roller', aid, {}, False, 'the joints table (formlab/kinematics.py) no longer turns the '
@@ -607,8 +704,8 @@ def aliasing(S):
             elif spin is not None:
                 # the roller turns about z by roller_spin*x on the pawl, which itself swings by -pawl_angle (formlab/kinematics.py's pawl and roller rows)
                 th = float(spin)*x-pawl_angle_rendered(x+float(cfg['pawl'].get('phase', 0.0)), pawl_ride_fn(S, aid)(S.t_frames))
-                v = alias(np.degrees(np.diff(th)), 360.0)
-                out.append(Result(18, 'pawl roller', aid, v, v['frames_over'] == 0,
+                v = alias(np.degrees(np.diff(th)), 360.0, has_sheath=has_sheath)
+                out.append(Result(18, 'pawl roller', aid, v, v['uncovered_frames'] == 0,
                                   'one off-axis grease plug a face (formlab.pawl.roller_pieces): period 360; spin*x on the pawl\'s swing; '+note))
     fw = S.layout.get('flywheel')
     if fw:
@@ -617,15 +714,15 @@ def aliasing(S):
             out.append(Result(18, 'flywheel teeth', 'flywheel', {}, False, 'harness flywheel law not found: update this ruler'))
         else:
             d = np.degrees(np.diff(th))
-            v = alias(d, 360.0/int(fw['teeth']))
+            v = alias(d, 360.0/int(fw['teeth']), has_sheath=has_sheath)
             app = (d[0]+v['P_deg']/2) % v['P_deg']-v['P_deg']/2
             v['step_deg'] = round(float(d[0]), 4); v['apparent_deg'] = round(float(app), 4)
-            out.append(Result(18, 'flywheel teeth', 'flywheel', v, v['frames_over'] == 0,
+            out.append(Result(18, 'flywheel teeth', 'flywheel', v, v['uncovered_frames'] == 0,
                               f'one turn a bar (bpm {S.score.get("bpm")}): it turns {d[0]:+.2f} deg a frame and its teeth appear to step '
                               f'{app:+.2f}' + (' (backwards)' if app*d[0] < 0 else '') + '; '+note))
             nsp = int(fw.get('spokes', {}).get('count', FLYWHEEL['spokes']))
-            v = alias(d, 360.0/nsp)
-            out.append(Result(18, 'flywheel spokes', 'flywheel', v, v['frames_over'] == 0, f'{nsp} spokes'))
+            v = alias(d, 360.0/nsp, has_sheath=has_sheath)
+            out.append(Result(18, 'flywheel spokes', 'flywheel', v, v['uncovered_frames'] == 0, f'{nsp} spokes'))
     return out
 
 # ---- 20 rings -------------------------------------------------------------

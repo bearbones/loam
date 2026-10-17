@@ -148,12 +148,14 @@ def pack(name,pieces,material,classification,materials=None):
     (optional, one name per piece) gives pieces their own — a horn plectrum in
     a brass ferrule — as material slots on the one mesh (blender_forms.make_form,
     profiled finish only)."""
+    from .drives import pack_masses
     reports=[validate_mesh(m) for m in pieces]
     if not all(r['ok'] for r in reports): raise ValueError((name,reports))
     if materials is not None and len(materials)!=len(pieces): raise ValueError((name,'one material per piece',len(materials),len(pieces)))
     entry=dict(name=name,material=material,classification=classification,
                pieces=[m.to_dict() for m in pieces],component_checks=reports)
     if materials is not None: entry['piece_materials']=list(materials)
+    pack_masses(entry)
     return entry
 
 def bench_frame(plan):

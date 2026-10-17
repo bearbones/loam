@@ -73,9 +73,10 @@ func check_scene() -> void:
 				if screw==null or not cfg.has("screw"): failures.append("servo arm has no leadscrew "+aid)
 				else:
 					var sc: Dictionary=cfg["screw"]; var c := Vector3(0,float(sc["y"]),float(sc["z"]))
-					var want: float=wrapf(-TAU*pose["root"].x/float(sc["pitch"]),-PI,PI)
+					var lead: float=float(sc.get("lead",sc["pitch"]))
+					var want: float=wrapf(-TAU*pose["root"].x/lead,-PI,PI)
 					if (screw.transform*c).distance_to(c)>.00001: failures.append("leadscrew turns off its axis "+aid)
-					if absf(angle_difference(screw.basis.get_euler().x,want))>.0001 or screw.basis.x.distance_to(Vector3.RIGHT)>.0001: failures.append("leadscrew not turned x/pitch "+aid)
+					if absf(angle_difference(screw.basis.get_euler().x,want))>.0001 or screw.basis.x.distance_to(Vector3.RIGHT)>.0001: failures.append("leadscrew not turned x/lead "+aid)
 			var gear: MeshInstance3D=gear_node as MeshInstance3D
 			var mount: String=str(cfg.get("pinion","back"))
 			var offsets := {"front": Vector3(0,0,.195), "back": Vector3(0,0,-.195), "up": Vector3(0,.17,-.10), "down": Vector3(0,-.17,-.10)}
@@ -153,7 +154,8 @@ func check_scene() -> void:
 					if pbox.position.x>-float(cfg["pawl"]["lever"])-.009 or pbox.end.x<.02 or pbox.end.y<float(cfg["pawl"]["finger"])+.003: failures.append("pawl mesh does not reach from its pivot to the roller's axle "+aid)
 			elif scene.layout["arms"][aid]["kind"]=="mallet" and str(cfg.get("pinion","back")) in ["front","back"]: failures.append("mallet arm without a pawl "+aid)
 			# Rail gantries, heads and racks are forms that are not frame variants: visible.
-			for suffix in ["_gantry","_railhead"]:
+			var suffixes := ["_gantry","_railhead"] if servo else ["_gantry","_railhead","_rack"]
+			for suffix in suffixes:
 				var node: Node3D=scene.model.find_child("form_"+aid+suffix,true,false)
 				if node==null or not node.visible: failures.append("rail "+suffix.substr(1)+" missing or hidden "+aid)
 		# The click has a sound (docs/motion-design.md): every pawl carries a player
@@ -373,7 +375,7 @@ func check_scene() -> void:
 		if wheel==null or pulley==null or not scene.layout.has("flywheel"): failures.append("flywheel assembly missing from the model")
 		else:
 			var f: Dictionary=scene.layout["flywheel"]
-			var ratio: float=float(f["cyls"]["drive pulley"][2])/float(f["cyls"]["belt pulley"][2])
+			var ratio: float=float(f["wraps"][0][1])/float(f["wraps"][1][1]) if f.has("wraps") else float(f["cyls"]["drive pulley"][2])/float(f["cyls"]["belt pulley"][2])
 			var bar: float=240.0/float(scene.score.doc.get("bpm",84.0))
 			# The imported mesh's own axes are whatever Blender baked in, so judge the
 			# motion by the rotation between the two poses, not by any one local axis.

@@ -296,7 +296,7 @@ def t4_table(bake, rig):
     bpm = float(rig.score.get('bpm', L['flywheel'][0]))
     ok &= JT['chamber/flywheel']['value'] == dict(src=dict(time=True), ops=[['mul', '-TAU'], ['mul', bpm], ['div', L['flywheel'][1]]])
     fw = rig.geometry.get('flywheel')
-    ratio = [] if fw is None else [['mul', [float(fw['cyls']['drive pulley'][2]), float(fw['cyls']['belt pulley'][2])]]]
+    ratio = [] if fw is None else ([['mul', [float(fw['wraps'][0][1]), float(fw['wraps'][1][1])]]] if 'wraps' in fw else [['mul', [float(fw['cyls']['drive pulley'][2]), float(fw['cyls']['belt pulley'][2])]]])
     ok &= JT['chamber/belt_pulley']['value'] == dict(src=dict(joint='chamber/flywheel'), ops=ratio)
     check(ok, f'T4 the ops are the harness\'s laws (formlab.kinematics.HARNESS_LAWS): the pinion over r_pitch {L["pinion_r"]}, '
               f'the flywheel -TAU t bpm/{L["flywheel"][1]:g} at {bpm:g} bpm, the belt at the manifest\'s pulley ratio {ratio[0][1] if ratio else None}')
@@ -359,7 +359,7 @@ def t6_laws(bake, rig, F, T):
         law[f'{mid}/stand'] = col(f'{mid}.stand') if f'{mid}.stand' in bake.index else np.zeros(len(T))
     bpm = float(rig.score.get('bpm', 84.0)); fw = -2*math.pi*T*bpm/240.0; law['chamber/flywheel'] = fw
     g = rig.geometry.get('flywheel')
-    law['chamber/belt_pulley'] = fw*(float(g['cyls']['drive pulley'][2])/float(g['cyls']['belt pulley'][2])) if g else fw
+    law['chamber/belt_pulley'] = fw*((float(g['wraps'][0][1])/float(g['wraps'][1][1])) if 'wraps' in g else (float(g['cyls']['drive pulley'][2])/float(g['cyls']['belt pulley'][2]))) if g else fw
     missing = sorted(set(C.ids)-set(law)); worst = 0.0; where = ''; inband = True
     for jid, v in law.items():
         q = (Q64 if jid in pawls else Q)[jid]

@@ -272,7 +272,9 @@ fw=flywheel_plan((-2.4,.53,-1.5),.4,cabinet_x=-1.8); manifest['flywheel']=fw
 # module (formlab.gear.profile), so it and they are visibly one family of gears —
 # on a cast rim, six bowed spokes between it and the hub boss (fw['spokes']).
 gear('Chamber flywheel',fw['centre'],fw['r'],fw['teeth'],fw['spokes'])
-fw_mat={'hub':brass,'axle':steel,'housing':steel,'nut':brass,'oil cup':brass,'stud':steel,'pulley':steel,'stub axle':steel}
+if 'mate' in fw:
+    mt=fw['mate']; gm=gear(mt['name'],mt['centre'],mt['r_tip'],mt['teeth']); manifest['gears'].append(gm.name)
+fw_mat={'hub':brass,'axle':steel,'housing':steel,'nut':brass,'oil cup':brass,'stud':steel,'pulley':steel,'stub axle':steel,'mate axle':steel}
 for label,(a,b,r) in fw['cyls'].items():
     beam('Chamber '+label,a,b,r,next((m for k,m in fw_mat.items() if k in label),steel),6 if 'nut' in label else 24)
 for label,(c,s) in fw['boxes'].items():
@@ -350,6 +352,7 @@ form_layout=recipe.parent/'layout.json'
 form_layout.write_text(json.dumps(manifest))
 subprocess.run([shutil.which('python3'),str(ROOT/'tools/build_forms.py'),str(form_layout),str(recipe),manifest['score']],check=True)
 forms=json.loads(recipe.read_text())
+if forms.get('masses'): manifest['masses']=forms['masses']
 for aid,extra in forms.get('arms',{}).items():
     if aid in manifest['arms']: manifest['arms'][aid].update(extra)
     else: manifest.setdefault('arm_checks',{})[aid]=extra
@@ -394,6 +397,8 @@ for aid,cfg in manifest['arms'].items():
     pinion=root+Vector(arm_clearance.pinion_centre(cfg.get('pinion','back')).tolist())    # on its axle, against the rack (formlab.gantry.rack)
     places=[('carriage',root),('shoulder',root),('elbowhead',elbow),('elbow',elbow),('wristhead',wrist),('wrist',wrist),('tool',tip),('shank',tip)]
     if arm_clearance.drive_kind(cfg)=='rack': places.append(('gear',pinion))
+    if cfg.get('drives'):
+        places.append(('shoulder_pinion',root+Vector(cfg['drives']['shoulder']['pinion_origin'])))
     # A hinged hammer's head hangs on the flange's pin, head_l above the tool
     # frame's origin (formlab.linkage.hammer_tool); Godot turns it about that
     # pin every frame. Without this it would sit at the file's origin.
@@ -403,7 +408,13 @@ for aid,cfg in manifest['arms'].items():
     if cfg.get('pawl'):    # the roller detent pawl on its pivot (formlab.pawl); Godot turns it to ride the teeth
         bpy.data.objects[aid+'__pawl'].location=vec(root+Vector(cfg['pawl']['pivot']))
         bpy.data.objects[aid+'__roller'].location=vec(root+Vector(cfg['pawl']['pivot'])+Vector(cfg['pawl']['nose']))
-    for part,a,b,o in [('upper',root,elbow,Vector((0,0,0))),('upper2',root,elbow,o1),('lower',elbow,wrist,Vector((0,0,0))),('lower2',elbow,wrist,o2)]:
+    link_list=[('upper',root,elbow,Vector((0,0,0))),('upper2',root,elbow,o1),('lower',elbow,wrist,Vector((0,0,0))),('lower2',elbow,wrist,o2)]
+    if cfg.get('drives'):
+        rc=float(cfg['drives']['elbow']['r_crank']); rf=float(cfg['drives']['elbow']['r_lug'])
+        f_hat=(wrist-elbow).normalized()
+        p1=root+f_hat*rc; p2=elbow+f_hat*rf
+        link_list+=[('shoulder_sector',root,elbow,Vector((0,0,0))),('elbow_crank',root,p1,Vector((0,0,0))),('elbow_rod',p1,p2,Vector((0,0,0)))]
+    for part,a,b,o in link_list:
         x,y,z=arm_clearance.link_basis(np.array([a]),np.array([b]))
         B=Matrix(((x[0][0],y[0][0],z[0][0]),(x[0][1],y[0][1],z[0][1]),(x[0][2],y[0][2],z[0][2])))
         ob=bpy.data.objects[aid+'__'+part]; ob.matrix_world=Matrix.Translation(vec(a+o))@(P@B@P.transposed()).to_4x4()
@@ -430,5 +441,8 @@ print('CLOCKWORK MODEL:',len(bpy.data.objects),'objects',out/name)
 # The performance baked for playback against THIS manifest (formlab/bake.py):
 # the harness plays it and refuses one made for another score or model.
 sys.path.insert(0,str(ROOT))
-from formlab import bake as motion_bake
-motion_bake.bake(manifest['score'],out/(name+'.json'),asset=name)
+try:
+    from formlab import bake as motion_bake
+    motion_bake.bake(manifest['score'],out/(name+'.json'),asset=name)
+except ModuleNotFoundError:
+    subprocess.run(['python3',str(ROOT/'tools/bake_motion.py'),f'--asset={name}'],check=True)

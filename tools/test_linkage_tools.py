@@ -475,5 +475,22 @@ for asset in ('clockwork', 'clockwork_expanded'):
               and rad(V[d < d.min()+.005]).max() > PINION['r_tip']-.01,
               f'{asset} {aid}: the built pinion carries its hub boss {PINION["boss_h"]*1000:.0f} mm proud of its outer ({cfg.get("pinion", "back")}) face')
 
+# ---- M4 drives & joint interference sweeps (formlab.drives) ----------------
+from formlab import drives as DRV
+sh_drv = DRV.shoulder_drive_pieces()
+for nm, pcs in sh_drv.items(): check_pieces(pcs)
+el_drv = DRV.elbow_drive_pieces(1.0)
+for nm, pcs in el_drv.items(): check_pieces(pcs)
+for mount in MOUNTS:
+    check_pieces(DRV.pinion_motor_pieces(mount))
+lo_el, hi_el = DRV.elbow_interference_angles(1.0, 1.0)
+check(15.0 <= lo_el <= 35.0 and 155.0 <= hi_el <= 170.0,
+      f'elbow interference sweep: folding at {lo_el:.1f} deg, coupler-collar at {hi_el:.1f} deg')
+fb = DRV.four_bar_crank(np.array([[0., 1.8, -0.8], [0., 1.8, -0.8]]),
+                        np.array([[0., 1.5, -0.3], [0., 1.4, -0.2]]),
+                        np.array([[0., 0.9, -0.1], [0., 0.85, -0.05]]))
+check(float(fb['closure_err'].max()) <= 1e-6,
+      f'four_bar_crank closure residual {float(fb["closure_err"].max()):.2e} m <= 1e-6 m')
+
 if failures: raise SystemExit('LINKAGE TOOLS FAIL: '+'; '.join(failures))
 print('LINKAGE TOOLS: PASS')

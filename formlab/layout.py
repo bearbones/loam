@@ -190,7 +190,15 @@ def flywheel_plan(centre,r,cabinet_x,floor=-.01):
         p1=[cx+r1*nx,cy+r1*ny]; p2=[qx+r2*nx,cy+r2*ny]
         plan['belt'].append(dict(a=[p1[0],p1[1],pz],b=[p2[0],p2[1],pz],angle=math.atan2(p2[1]-p1[1],p2[0]-p1[0]),
                                  length=math.hypot(p2[0]-p1[0],p2[1]-p1[1]),normal=[nx,ny]))
-    plan['wraps']=[([cx,cy,pz],r1+F['belt_t']/2),([qx,cy,pz],r2+F['belt_t']/2)]
+    plan['wraps']=[([cx,cy,pz],r1+F['belt_t']/2),([qx,cy,pz],r2+F['belt_pulley_r']*0+F['belt_t']/2)]
+    # A 16-tooth companion pinion in the flywheel's plane (z = cz) at exact
+    # centre distance module*(52+16)/2 = 0.510 m so the 52-tooth ring meshes
+    # (PLAYERS M4, Rule 1), carried on a stub axle inside the assembly's bounds.
+    d_mate=.015*(F['teeth']+16)/2; a_mate=-.45
+    mx=cx+d_mate*math.cos(a_mate); my=cy+d_mate*math.sin(a_mate)
+    C['mate axle']=([mx,my,cz-.055],[mx,my,cz+.055],F['stub_r'])
+    plan['mate']=dict(name='Chamber flywheel pinion',centre=[mx,my,cz],teeth=16,r_tip=.13,r_pitch=.12,
+                      ratio=-F['teeth']/16.0,angle=a_mate)
     plan['bounds']=_plan_bounds(plan)
     return plan
 def _plan_bounds(plan):
@@ -198,6 +206,9 @@ def _plan_bounds(plan):
     def take(p,e):
         for i in range(3): lo[i]=min(lo[i],p[i]-e[i]); hi[i]=max(hi[i],p[i]+e[i])
     c=plan['centre']; take(c,[plan['r'],plan['r'],FLYWHEEL['width']/2])
+    if 'mate' in plan:
+        mc=plan['mate']['centre']; mr=plan['mate']['r_tip']
+        take(mc,[mr,mr,FLYWHEEL['width']/2])
     for centre,size in plan['boxes'].values(): take(centre,[s/2 for s in size])
     for a,b,r in plan['cyls'].values():
         for p in (a,b): take(p,[r]*3)

@@ -1457,7 +1457,19 @@ def r15_proximal(S):
         out.append(Result(15, '15 phases', aid, dict(phases=len(mv), short=len(short), by_tag=tags,
                                                    min_frames=_r(min((sg.t1-sg.t0) for sg in mv)*FPS, 2) if mv else None),
                           (not short) if mv else None, 'declared segments other than holds >= 2.5 frames'))
-        out.append(Result(15, '15 weight', aid, {}, None, 'no part masses declared (manifest masses arrive in M4)'))
+        masses = S.cfg(aid).get('masses')
+        if masses:
+            m_up = float(masses.get('upper', 0.0)) + float(masses.get('upper2', 0.0))
+            m_lo = float(masses.get('lower', 0.0)) + float(masses.get('lower2', 0.0))
+            al_sh = float(np.degrees(np.abs(np.gradient(np.gradient(qh['shoulder'], Ph['t']), Ph['t'])).max())) if len(Ph['t']) > 4 else 0.0
+            al_fa = float(np.degrees(np.abs(np.gradient(np.gradient(qh['forearm'], Ph['t']), Ph['t'])).max())) if len(Ph['t']) > 4 else 0.0
+            out.append(Result(15, '15 weight', aid,
+                              dict(m_upper_kg=_r(m_up, 3), m_lower_kg=_r(m_lo, 3),
+                                   alpha_upper_dps2=_r(al_sh, 0), alpha_forearm_dps2=_r(al_fa, 0)),
+                              bool(m_up > 0 and m_lo > 0 and (m_up < m_lo or al_sh <= al_fa + 1e-6)),
+                              'part masses from manifest: heavier links have lower peak angular acceleration'))
+        else:
+            out.append(Result(15, '15 weight', aid, {}, None, 'no part masses declared (manifest masses arrive in M4)'))
         if kind == 'pick':
             out.append(Result(15, '15 digit closing', aid, {}, None, 'no digits yet (M7)'))
     return out
@@ -1573,7 +1585,23 @@ def r16_joints(S):
             if own is not None and n > own: excess += 1; worst = max(worst, n-own)
         out.append(Result(16, '16 reversals', aid, dict(reversals=nrev, segments_over=excess, worst_excess=worst),
                           excess == 0, "velocity reversals along the segment's principal axis <= the law's own (3-4-5, S-curve, linear 0; quintic+sine, quintic+cocked 1; ratchet: its own clicks)"))
-        out.append(Result(16, '16 limits', aid, {}, None, 'no joint limits declared (M4)'))
+        lims = cfg.get('limits')
+        if lims and 'shoulder' in lims and 'elbow' in lims:
+            l_val = {}; l_ok = True
+            for j in ('shoulder', 'elbow'):
+                lj = lims[j]
+                lim_lo, lim_hi = (float(v) for v in lj['limits_deg'])
+                int_lo, int_hi = (float(v) for v in lj['interference_deg'])
+                q_min, q_max = float(Q[j].min()), float(Q[j].max())
+                err_int = max(abs(lim_lo - int_lo), abs(lim_hi - int_hi))
+                margin = min(q_min - lim_lo, lim_hi - q_max)
+                l_val[j] = dict(limits=[_r(lim_lo, 1), _r(lim_hi, 1)], interference=[_r(int_lo, 1), _r(int_hi, 1)],
+                                motion=[_r(q_min, 1), _r(q_max, 1)], margin_deg=_r(margin, 2), int_err_deg=_r(err_int, 2))
+                if not (err_int <= 1.0 + 1e-6 and margin >= 2.0 - 1e-6): l_ok = False
+            out.append(Result(16, '16 limits', aid, l_val, l_ok,
+                              'limits = recipe interference angle +- 1 deg, and motion stays >= 2 deg inside them'))
+        else:
+            out.append(Result(16, '16 limits', aid, {}, None, 'no joint limits declared (M4)'))
     return out
 
 _OWN = {'quintic': 0, 'scurve': 0, 'linear': 0, 'quintic+sine': 1, 'quintic+cocked': 1}

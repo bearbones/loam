@@ -254,7 +254,8 @@ def chamber_rows(geometry, bpm=BPM_DEFAULT):
               driver=dict(kind='clock', per='bar'))
     ops = []
     if 'flywheel' in geometry:
-        cy = geometry['flywheel']['cyls']; ops = [['mul', [float(cy['drive pulley'][2]), float(cy['belt pulley'][2])]]]
+        fw_g = geometry['flywheel']; cy = fw_g['cyls']
+        ops = [['mul', [float(fw_g['wraps'][0][1]), float(fw_g['wraps'][1][1])]]] if 'wraps' in fw_g else [['mul', [float(cy['drive pulley'][2]), float(cy['belt pulley'][2])]]]
     bp = _row('chamber', 'belt_pulley', type='revolute', axis=Z, value=dict(src=dict(joint=fw['id']), ops=ops), spin=True,
               driver=dict(kind='belt', of=fw['id']))
     bodies = [_body(fw['id'], lab, 'spin', optional=True) for lab in ('Chamber flywheel', 'Chamber hub', 'Chamber drive pulley')]

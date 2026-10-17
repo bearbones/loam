@@ -130,7 +130,7 @@ func oracle_m2(s: PerformanceScript, t: float) -> void:
 	for node in s.wheel_home:
 		var k: float=1.0
 		if node.name=="Chamber belt pulley" and s.layout.has("flywheel"):
-			var f: Dictionary=s.layout["flywheel"]; k=float(f["cyls"]["drive pulley"][2])/float(f["cyls"]["belt pulley"][2])
+			var f: Dictionary=s.layout["flywheel"]; k=float(f["wraps"][0][1])/float(f["wraps"][1][1]) if f.has("wraps") else float(f["cyls"]["drive pulley"][2])/float(f["cyls"]["belt pulley"][2])
 		node.basis=Basis(Vector3(0,0,1),spin*k)*s.wheel_home[node]
 # --- M2 oracle end
 

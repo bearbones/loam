@@ -157,7 +157,7 @@ def run(layout_path, score_path):
     recipe = json.loads((ROOT/'render/form-study/recipe.json').read_text())
     # the recipe is the last build's (the expanded rig's, with its benches): keep the forms of this layout's mechanisms
     form_boxes = [(o['name'], (V.min(0), V.max(0))) for o in recipe['objects']
-                  if not o.get('local') and not o['name'].endswith(('_gantry', '_railhead', '_screw')) and o['name'].split('_')[1] in layout['mechanisms']
+                  if not o.get('local') and not o['name'].endswith(('_gantry', '_railhead', '_screw', '_rack')) and o['name'].split('_')[1] in layout['mechanisms']
                   for V in [np.concatenate([np.array(p['vertices']) for p in o['pieces']])]]
     plan = G.plan_gantries(layout, poses, form_boxes, verbose=lambda *a: None)
     for aid, g in plan.items():

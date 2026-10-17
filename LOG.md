@@ -1,3 +1,77 @@
+## 2026-10-17 — PLAYERS M4: The drives
+
+Every moving arm joint and carriage now has a visible, kinematic drive train
+that obeys the transmission rules (Rule 1: gear trains within float32, positive
+tooth separation, centre distance within $0.5\text{ mm}$, no unmeshed gears;
+Rule 2: four-bar loop closure $\le 10^{-6}\text{ m}$; Rule 3: follower gap
+$\le 0.1\text{ mm}$; Rule 4: zero belt slip; Rule 5: blur sheaths on all
+aliasing periodic features):
+
+- **Shoulder sector gear & driver pinion** (`formlab/drives.py` `SHOULDER_DRIVE`,
+  `shoulder_drive_pieces`):
+  - A $4\text{ mm}$-module, 28-tooth brass sector gear (`<aid>__shoulder_sector`,
+    $R_{\text{pitch}} = 56\text{ mm}$) keyed to `upper` at the shoulder pin on
+    the carriage's $-X$ side (`x = -0.074 m`), meshing at exact centre distance
+    $84\text{ mm}$ with a 14-tooth brass driver pinion (`<aid>__shoulder_pinion`,
+    $R_{\text{pitch}} = 28\text{ mm}$, ratio $N = -2.0$) carried on a steel
+    motor housing bolted to the carriage's $-X$ cheek.
+- **Palletiser four-bar elbow crank & coupler rod** (`formlab/drives.py`
+  `ELBOW_DRIVE`, `elbow_drive_pieces`, `four_bar_crank`):
+  - A steel crank arm (`<aid>__elbow_crank`, length $r_c = 80\text{ mm}$ at
+    `x = +0.068 m`) on a motor boss on the carriage's $+X$ cheek drives a brass
+    coupler rod (`<aid>__elbow_rod`, length $L_r = l_1$ at `x = +0.080 m`) to a
+    forearm lug at $r_f = 80\text{ mm}$ on `lower`.
+  - Exact 3D cosine-law solver (`l_yz2 = l1^2 - (p2.x - root.x)^2`) holds 3D
+    loop closure $|\|P_2 - P_1\| - l_1| \le 6.66 \times 10^{-16}\text{ m}$ across
+    every frame on both assets, including mallet recoil frames where `root.x`
+    sits on the detent while the wrist rings in $x$.
+- **Carriage drives (12-start leadscrews & phase-aligned rack + pinion motor)**:
+  - Servo arms (`harp_arm0..2`, `rake_arm0`) ride a 12-start leadscrew
+    (`SCREW_STARTS = 12`, `SCREW_LEAD = 0.096 m`, keeping the visual thread
+    crest spacing at $8\text{ mm}$ while bringing `harp_arm2`'s $4.03\text{ m/s}$
+    peak slew from $30{,}222\text{ rpm}$ down to $2519\text{ rpm} \le 3000\text{ rpm}$).
+  - Ratchet arms (`bars_arm0..1`, `bells_arm0..1`, `blocks_arm0`) carry a
+    finned steel pinion motor housing behind the pinion axle (`pinion_motor_pieces`),
+    and their toothed rack is packed as its own world-space form `form_<aid>_rack`
+    with teeth shifted by `-phase` (`rack_pieces(cfg, phase)`). `performance.gd`
+    translates `form_<aid>_rack` with the carriage's vertical guide-bar sag so
+    the pinion-rack tooth separation stays $2.803\text{–}2.804\text{ mm} > 0$
+    and the centre-distance error is $0.000\text{ mm} \le 0.5\text{ mm}$.
+- **Flywheel companion pinion & belt centreline ratio** (`formlab/layout.py`
+  `flywheel_plan`, `harness/performance.gd`):
+  - The 52-tooth chamber flywheel ring gear now meshes a 16-tooth companion
+    pinion (`Chamber flywheel pinion`, ratio $-52/16 = -3.25$, $68.25\text{ rpm}$)
+    at exact centre distance $0.015 \times (52 + 16)/2 = 0.510\text{ m}$ on a
+    stub axle in the wheel's plane.
+  - `performance.gd` turns the driven belt pulley by the belt wrap centreline
+    radii `wraps[0][1] / wraps[1][1]` ($r + t/2 = 0.1645 / 0.13775 = 1.1942$),
+    reducing end-of-piece belt slip from $110.2\text{ mm}$ to $0.0\text{ mm}$.
+- **Motion-blur sheaths for aliasing periodic features** (`harness/performance.gd`
+  `_build_blur_sheaths`, `_step_sheaths`, `sheath_step`):
+  - Semi-transparent satin-brass/steel cylindrical sheaths wrap every periodic
+    spinning feature (leadscrew threads $P = 30^\circ$, pinion teeth $P = 22.5^\circ$,
+    pawl rollers $P = 360^\circ$, and flywheel teeth $P = 6.923^\circ$) and turn
+    on whenever $|\Delta\theta| > 0.5 P$ at 30 fps with $10\%$ hysteresis
+    (`0` uncovered aliasing frames across all 10 chamber / 16 expanded features).
+- **Joint limits from interference sweeps, backlash state & part masses**:
+  - `joint_limits(cfg, poses)` (`formlab/drives.py`) sweeps `shoulder` and
+    `elbow` (`test_linkage_tools.py` `limits_match_interference_and_contain_motion`),
+    setting limits $0.5^\circ$ inside the recipe's self-interference angles
+    (within $\pm 1^\circ$), with all arm motions staying $\ge 6.19^\circ$
+    ($\ge 2^\circ$) inside the limits.
+  - Gear trains declare `backlash_deg = 0.75` ($\beta \in [0.5^\circ, 1.0^\circ]$)
+    with deterministic reversal take-up verified by `backlash_state`.
+  - Every packed mesh assembly records `volume_m3` and `mass_kg` (`pack_masses`),
+    summarized in `manifest['masses']` and `manifest['arms'][aid]['masses']`.
+- **Rebuilt assets & verification**:
+  - `harness/assets/clockwork.glb` sha256:
+    `fb9279c6a66145017347078eefdafe77268e4be4b278b75955eca633cfe6cb9b`
+  - `harness/assets/clockwork_expanded.glb` sha256:
+    `0a973afbb71b9fdbe00617a49ab1c192c5c8e08197c6882cd00e940cfe5b9fbc`
+  - `python3 tools/test_gantry.py`, `python3 tools/test_linkage_tools.py`,
+    `python3 tools/test_bake.py`, `test_clockwork.gd`, `test_performance.gd`,
+    and `python3 tools/test_players.py --gate=M0,M1,M2,M3,M4` (`GATE PASSED`).
+
 ## 2026-10-16 — Shader materials: lacquered grooved wood and brushed metallics
 
 Upgraded the craft surface shader (`harness/shaders/craft_surface.gdshader`),

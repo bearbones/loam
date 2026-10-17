@@ -20,7 +20,12 @@ var gear_home: Dictionary = {}   # each pinion's imported basis: the disc in its
 var pawl_home: Dictionary = {}   # each mallet arm's roller detent pawl (formlab.pawl), imported basis
 var roller_home: Dictionary = {} # the pawl's roller, imported basis
 var wheel_home: Dictionary = {}  # the flywheel, hub and pulleys: node -> imported basis, unspun
+var flywheel_pinion: Node3D = null # the flywheel's 16-tooth companion pinion
+var flywheel_pinion_home := Basis.IDENTITY
 var head_home: Dictionary = {}   # each hinged hammer's head (formlab.linkage.hammer_tool), imported basis
+var drive_parts: Dictionary = {} # aid -> extra M4/M5 drive parts (shoulder_sector, shoulder_pinion, elbow_crank, elbow_rod, ...)
+var spinion_home: Dictionary = {} # each arm's shoulder driver pinion imported basis
+var sheath_active: Dictionary = {} # periodic-feature blur sheath hysteresis state (key -> bool)
 var stand_nodes: Dictionary = {}    # mid -> the instrument's stand and its imported home
 var shudder_nodes: Dictionary = {}  # aid -> the rail's bars and the gantry it stands on, and the sway pivot
 var strings: Dictionary = {}
@@ -172,11 +177,20 @@ func _ready() -> void:
 				wp.name="freewheel"; wp.stream=poly; wp.volume_db=CLICK_DB
 				wp.attenuation_model=AudioStreamPlayer3D.ATTENUATION_DISABLED
 				parts[aid]["roller"].add_child(wp); wheel_players[aid]=wp
-	# The chamber's flywheel, its axle pulley and the belt pulley turn about z
+		# Carriage-mounted shoulder sector gear + driver pinion and four-bar elbow crank + coupler rod (formlab.drives, M4).
+		drive_parts[aid]={}
+		for dpart in ["shoulder_sector","shoulder_pinion","elbow_crank","elbow_rod"]:
+			var dnode: Node3D=model.find_child(aid+"__"+dpart,true,false)
+			if dnode!=null:
+				drive_parts[aid][dpart]=dnode
+				if dpart=="shoulder_pinion": spinion_home[aid]=dnode.basis
+	# The chamber's flywheel, its axle pulley, companion pinion and the belt pulley turn about z
 	# (formlab.layout.flywheel_plan); their imported bases are the unspun home.
 	for label in ["Chamber flywheel","Chamber hub","Chamber drive pulley","Chamber belt pulley"]:
 		var node: Node3D=model.find_child(label,true,false)
 		if node!=null: wheel_home[node]=node.basis
+	flywheel_pinion=model.find_child("Chamber flywheel pinion",true,false)
+	if flywheel_pinion!=null: flywheel_pinion_home=flywheel_pinion.basis
 	_assembly_nodes()
 	# The joints table's body rows bound to the model: what evaluate() poses.
 	# The lookups above stay as views of the same nodes (test_performance reads
@@ -436,7 +450,7 @@ func _set_form(style: String) -> void:
 	# variant and stays visible.
 	for node in model.find_children("form_*","Node3D",true,false):
 		var n := String(node.name)
-		node.visible=n.ends_with("_"+style) or n.ends_with("_stand") or n.ends_with("_soundboard") or n.ends_with("_actionplate") or n.ends_with("_gantry") or n.ends_with("_railhead") or n.ends_with("_screw")
+		node.visible=n.ends_with("_"+style) or n.ends_with("_stand") or n.ends_with("_soundboard") or n.ends_with("_actionplate") or n.ends_with("_gantry") or n.ends_with("_railhead") or n.ends_with("_screw") or n.ends_with("_rack")
 
 func _environment() -> void:
 	look.light_rig(self)
@@ -572,13 +586,56 @@ func rod(node: Node3D, a: Vector3, b: Vector3) -> void:
 	if x.length_squared()<.01: x=Vector3.RIGHT
 	node.transform=Transform3D(Basis(x,y*a.distance_to(b),x.cross(y).normalized()),(a+b)/2)
 
+## Periodic-feature blur sheath hysteresis (Rule 18): turns on when |dtheta| > 0.5*P
+## and stays on until |dtheta| < 0.45*P (10% hysteresis).
+static func sheath_step(dtheta_deg: float, period_deg: float, was_on: bool) -> bool:
+	var a := absf(dtheta_deg)
+	var hi := 0.5*period_deg
+	return a>=0.9*hi if was_on else a>hi
+
 func evaluate(t: float) -> void:
 	# Every moving part of the model (the arms' links, crossheads, pinions,
 	# pawls and rollers, the leadscrews, the hinged heads, the stands, the
 	# rails and gantries the blows shake, the flywheel and its pulleys) is
 	# posed from the bake's joints table: formlab/kinematics.py holds each row and
-	# its law, MotionRig.apply writes the bound nodes. Nothing here names a part.
+	# its law, MotionRig.apply writes the bound nodes.
 	rig.apply(t)
+	for aid in drive_parts:
+		var pose := motion.pose(aid,t)
+		var p: Dictionary=drive_parts[aid]
+		var cfg: Dictionary=layout["arms"][aid]
+		var root: Vector3=pose["root"]; var elbow: Vector3=pose["elbow"]; var wrist: Vector3=pose["wrist"]
+		var upper := MotionBake.link_basis(root,elbow)
+		# Shoulder sector gear & driver pinion (formlab.drives.SHOULDER_DRIVE, M4):
+		if p.has("shoulder_sector"):
+			p["shoulder_sector"].transform=Transform3D(upper,root)
+		if p.has("shoulder_pinion"):
+			var sh_drv: Dictionary=cfg.get("drives",{}).get("shoulder",{})
+			var pin_o := MotionBake.v(sh_drv.get("pinion_origin",[0.0,0.0,-0.084]))
+			var q_sh := atan2(elbow.y-root.y,elbow.z-root.z)
+			var ratio_sh := float(sh_drv.get("ratio",-2.0))
+			p["shoulder_pinion"].position=root+pin_o
+			p["shoulder_pinion"].basis=Basis(Vector3.RIGHT,ratio_sh*q_sh)*spinion_home[aid]
+		# Four-bar elbow crank & coupler rod (formlab.drives.four_bar_crank, M4):
+		if p.has("elbow_crank") and p.has("elbow_rod"):
+			var el_drv: Dictionary=cfg.get("drives",{}).get("elbow",{})
+			var rc := float(el_drv.get("r_crank",0.080)); var rf := float(el_drv.get("r_lug",0.080))
+			var u_vec := elbow-root; var f_vec := wrist-elbow
+			var l1_len := u_vec.length(); var v_hat := f_vec.normalized()
+			var p2 := elbow+rf*v_hat; var d_vec := p2-root
+			var d_yz := Vector2(d_vec.y,d_vec.z).length()
+			var l_yz2 := l1_len*l1_len-d_vec.x*d_vec.x
+			var cos_a := clampf((rc*rc+d_yz*d_yz-l_yz2)/maxf(2.0*rc*d_yz,1e-9),-1.0,1.0)
+			var alpha := acos(cos_a); var phi := atan2(d_vec.y,d_vec.z)
+			var sgn := -1.0 if (u_vec.y*v_hat.z-u_vec.z*v_hat.y)>=0.0 else 1.0
+			var th_c := phi+sgn*alpha
+			var p1 := Vector3(root.x,root.y+rc*sin(th_c),root.z+rc*cos(th_c))
+			p["elbow_crank"].transform=Transform3D(MotionBake.link_basis(root,p1),root)
+			p["elbow_rod"].transform=Transform3D(MotionBake.link_basis(p1,p2),p1)
+	if flywheel_pinion!=null and layout.has("flywheel") and layout["flywheel"].has("mate"):
+		var spin: float=flywheel_angle(t)
+		var k: float=float(layout["flywheel"]["mate"]["ratio"])
+		flywheel_pinion.basis=Basis(Vector3(0,0,1),spin*k)*flywheel_pinion_home
 	for sid in strings:
 		var displacement := PackedFloat32Array(); displacement.resize(STRING_NODES)
 		var envelope := PackedFloat32Array(); envelope.resize(STRING_NODES)

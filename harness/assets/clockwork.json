@@ -11,7 +11,7 @@
       ],
       "b": [
         -0.8160000000000001,
-        3.71437335856264,
+        3.714373358562639,
         0.0
       ],
       "mid": "harp",
@@ -21,18 +21,18 @@
       "neck": {
         "bridge": [
           -0.8160000000000001,
-          3.88937335856264,
+          3.8893733585626387,
           0.0
         ],
         "pin": [
           -0.8510000000000001,
-          3.9393733585626403,
+          3.939373358562639,
           0.0
         ],
         "wrap": {
           "centre": [
             -0.8660000000000001,
-            3.9393733585626403,
+            3.939373358562639,
             0.0
           ],
           "r": 0.015,
@@ -49,7 +49,7 @@
       ],
       "b": [
         -0.7072,
-        3.538662519311182,
+        3.5386625193111816,
         0.0
       ],
       "mid": "harp",
@@ -59,18 +59,18 @@
       "neck": {
         "bridge": [
           -0.7072,
-          3.713662519311182,
+          3.7136625193111814,
           0.0
         ],
         "pin": [
           -0.7422000000000001,
-          3.763662519311182,
+          3.7636625193111817,
           0.0
         ],
         "wrap": {
           "centre": [
             -0.7572000000000001,
-            3.763662519311182,
+            3.7636625193111817,
             0.0
           ],
           "r": 0.015,
@@ -87,7 +87,7 @@
       ],
       "b": [
         -0.5984000000000002,
-        3.389045167761561,
+        3.38904516776156,
         0.0
       ],
       "mid": "harp",
@@ -97,18 +97,18 @@
       "neck": {
         "bridge": [
           -0.5984000000000002,
-          3.5640451677615608,
+          3.56404516776156,
           0.0
         ],
         "pin": [
           -0.6334000000000002,
-          3.614045167761561,
+          3.61404516776156,
           0.0
         ],
         "wrap": {
           "centre": [
             -0.6484000000000002,
-            3.614045167761561,
+            3.61404516776156,
             0.0
           ],
           "r": 0.015,
@@ -125,7 +125,7 @@
       ],
       "b": [
         -0.48960000000000004,
-        3.26318122706063,
+        3.2631812270606293,
         0.0
       ],
       "mid": "harp",
@@ -135,18 +135,18 @@
       "neck": {
         "bridge": [
           -0.48960000000000004,
-          3.43818122706063,
+          3.438181227060629,
           0.0
         ],
         "pin": [
           -0.5246000000000001,
-          3.4881812270606303,
+          3.4881812270606294,
           0.0
         ],
         "wrap": {
           "centre": [
             -0.5396000000000001,
-            3.4881812270606303,
+            3.4881812270606294,
             0.0
           ],
           "r": 0.015,
@@ -201,7 +201,7 @@
       ],
       "b": [
         -0.2720000000000001,
-        3.0743621404190824,
+        3.074362140419082,
         0.0
       ],
       "mid": "harp",
@@ -211,18 +211,18 @@
       "neck": {
         "bridge": [
           -0.2720000000000001,
-          3.2493621404190822,
+          3.249362140419082,
           0.0
         ],
         "pin": [
           -0.30700000000000005,
-          3.2993621404190825,
+          3.299362140419082,
           0.0
         ],
         "wrap": {
           "centre": [
             -0.32200000000000006,
-            3.2993621404190825,
+            3.299362140419082,
             0.0
           ],
           "r": 0.015,
@@ -239,7 +239,7 @@
       ],
       "b": [
         -0.16319999999999998,
-        3.0076844150700026,
+        3.007684415070002,
         0.0
       ],
       "mid": "harp",
@@ -249,18 +249,18 @@
       "neck": {
         "bridge": [
           -0.16319999999999998,
-          3.1826844150700024,
+          3.182684415070002,
           0.0
         ],
         "pin": [
           -0.1982,
-          3.2326844150700027,
+          3.2326844150700023,
           0.0
         ],
         "wrap": {
           "centre": [
             -0.2132,
-            3.2326844150700027,
+            3.2326844150700023,
             0.0
           ],
           "r": 0.015,
@@ -379,7 +379,7 @@
           ],
           "r": 0.015,
           "turns": 2.5,
-          "room": 0.05172366500848103
+          "room": 0.051723665008481
         }
       }
     },
@@ -391,7 +391,7 @@
       ],
       "b": [
         0.27199999999999996,
-        2.889636248563102,
+        2.8896362485631015,
         0.0
       ],
       "mid": "harp",
@@ -401,18 +401,18 @@
       "neck": {
         "bridge": [
           0.27199999999999996,
-          3.064636248563102,
+          3.0646362485631014,
           0.0
         ],
         "pin": [
           0.23699999999999996,
-          3.114636248563102,
+          3.1146362485631016,
           0.0
         ],
         "wrap": {
           "centre": [
             0.22199999999999998,
-            3.114636248563102,
+            3.1146362485631016,
             0.0
           ],
           "r": 0.015,
@@ -429,7 +429,7 @@
       ],
       "b": [
         0.3808,
-        2.8908444728805076,
+        2.890844472880507,
         0.0
       ],
       "mid": "harp",
@@ -439,23 +439,23 @@
       "neck": {
         "bridge": [
           0.3808,
-          3.0658444728805074,
+          3.065844472880507,
           0.0
         ],
         "pin": [
           0.3458,
-          3.1158444728805077,
+          3.1158444728805073,
           0.0
         ],
         "wrap": {
           "centre": [
             0.3308,
-            3.1158444728805077,
+            3.1158444728805073,
             0.0
           ],
           "r": 0.015,
           "turns": 2.5,
-          "room": 0.0566122330303045
+          "room": 0.05661223303030447
         }
       }
     },
@@ -467,7 +467,7 @@
       ],
       "b": [
         0.48960000000000015,
-        2.9021532200413778,
+        2.9021532200413773,
         0.0
       ],
       "mid": "harp",
@@ -477,23 +477,23 @@
       "neck": {
         "bridge": [
           0.48960000000000015,
-          3.0771532200413776,
+          3.077153220041377,
           0.0
         ],
         "pin": [
           0.4546000000000001,
-          3.127153220041378,
+          3.1271532200413774,
           0.0
         ],
         "wrap": {
           "centre": [
             0.4396000000000001,
-            3.127153220041378,
+            3.1271532200413774,
             0.0
           ],
           "r": 0.015,
           "turns": 2.5,
-          "room": 0.05952582225726538
+          "room": 0.059525822257265326
         }
       }
     },
@@ -505,7 +505,7 @@
       ],
       "b": [
         0.5984000000000002,
-        2.9226372815077686,
+        2.922637281507768,
         0.0
       ],
       "mid": "harp",
@@ -515,23 +515,23 @@
       "neck": {
         "bridge": [
           0.5984000000000002,
-          3.0976372815077684,
+          3.097637281507768,
           0.0
         ],
         "pin": [
           0.5634000000000001,
-          3.1476372815077687,
+          3.1476372815077682,
           0.0
         ],
         "wrap": {
           "centre": [
             0.5484000000000001,
-            3.1476372815077687,
+            3.1476372815077682,
             0.0
           ],
           "r": 0.015,
           "turns": 2.5,
-          "room": 0.06238833069759378
+          "room": 0.0623883306975937
         }
       }
     },
@@ -569,7 +569,7 @@
           ],
           "r": 0.015,
           "turns": 2.5,
-          "room": 0.06492568658721676
+          "room": 0.0649256865872167
         }
       }
     },
@@ -581,7 +581,7 @@
       ],
       "b": [
         0.8160000000000001,
-        2.9878381927870863,
+        2.987838192787086,
         0.0
       ],
       "mid": "harp",
@@ -591,23 +591,23 @@
       "neck": {
         "bridge": [
           0.8160000000000001,
-          3.162838192787086,
+          3.1628381927870857,
           0.0
         ],
         "pin": [
           0.781,
-          3.2128381927870864,
+          3.212838192787086,
           0.0
         ],
         "wrap": {
           "centre": [
             0.766,
-            3.2128381927870864,
+            3.212838192787086,
             0.0
           ],
           "r": 0.015,
           "turns": 2.5,
-          "room": 0.06709434820038343
+          "room": 0.06709434820038335
         }
       }
     },
@@ -1016,6 +1016,99 @@
         0.0
       ],
       "drive": "screw",
+      "limits": {
+        "shoulder": {
+          "limits_deg": [
+            -146.48,
+            6.52
+          ],
+          "interference_deg": [
+            -146.98,
+            7.02
+          ],
+          "motion_deg": [
+            -74.77,
+            -60.0
+          ],
+          "margin_deg": [
+            71.71,
+            66.52
+          ]
+        },
+        "elbow": {
+          "limits_deg": [
+            24.5,
+            163.54
+          ],
+          "interference_deg": [
+            24.0,
+            164.04
+          ],
+          "motion_deg": [
+            94.84,
+            130.64
+          ],
+          "margin_deg": [
+            70.34,
+            32.9
+          ]
+        }
+      },
+      "drives": {
+        "carriage": {
+          "kind": "leadscrew",
+          "starts": 12,
+          "pitch": 0.008,
+          "lead": 0.096,
+          "backlash_deg": 0.75
+        },
+        "shoulder": {
+          "kind": "sector_gear",
+          "module": 0.004,
+          "z_sector": 28,
+          "z_pinion": 14,
+          "r_sector": 0.056,
+          "r_pinion": 0.028,
+          "centre_dist": 0.084,
+          "ratio": -2.0,
+          "pinion_origin": [
+            0.0,
+            0.0,
+            -0.084
+          ],
+          "x_layer": -0.074,
+          "backlash_deg": 0.75
+        },
+        "elbow": {
+          "kind": "four_bar_crank",
+          "r_crank": 0.08,
+          "r_lug": 0.08,
+          "coupler_l": 1.45,
+          "x_crank": 0.068,
+          "x_rod": 0.08
+        }
+      },
+      "masses": {
+        "carriage": 23.9106,
+        "upper": 31.4336,
+        "upper2": 18.2493,
+        "elbowhead": 12.8121,
+        "lower": 31.6563,
+        "lower2": 18.2493,
+        "wristhead": 8.8383,
+        "shoulder": 2.3127,
+        "elbow": 2.3127,
+        "wrist": 2.3127,
+        "shoulder_sector": 0.7985,
+        "shoulder_pinion": 0.2113,
+        "elbow_crank": 0.3172,
+        "elbow_rod": 2.3889,
+        "tool": 0.1496,
+        "shank": 0.8286,
+        "railhead": 182.4572,
+        "gantry": 760.005,
+        "screw": 3.3407
+      },
       "gantry": {
         "ends": [
           {
@@ -1067,7 +1160,9 @@
         "x_house": [
           -1.016,
           -0.946
-        ]
+        ],
+        "starts": 12,
+        "lead": 0.096
       }
     },
     "harp_arm1": {
@@ -1155,6 +1250,99 @@
         1.4285714285714286
       ],
       "drive": "screw",
+      "limits": {
+        "shoulder": {
+          "limits_deg": [
+            -141.54,
+            11.56
+          ],
+          "interference_deg": [
+            -142.04,
+            12.06
+          ],
+          "motion_deg": [
+            -78.45,
+            -52.42
+          ],
+          "margin_deg": [
+            63.09,
+            63.98
+          ]
+        },
+        "elbow": {
+          "limits_deg": [
+            24.75,
+            163.54
+          ],
+          "interference_deg": [
+            24.25,
+            164.04
+          ],
+          "motion_deg": [
+            97.51,
+            157.3
+          ],
+          "margin_deg": [
+            72.76,
+            6.24
+          ]
+        }
+      },
+      "drives": {
+        "carriage": {
+          "kind": "leadscrew",
+          "starts": 12,
+          "pitch": 0.008,
+          "lead": 0.096,
+          "backlash_deg": 0.75
+        },
+        "shoulder": {
+          "kind": "sector_gear",
+          "module": 0.004,
+          "z_sector": 28,
+          "z_pinion": 14,
+          "r_sector": 0.056,
+          "r_pinion": 0.028,
+          "centre_dist": 0.084,
+          "ratio": -2.0,
+          "pinion_origin": [
+            0.0,
+            0.0,
+            -0.084
+          ],
+          "x_layer": -0.074,
+          "backlash_deg": 0.75
+        },
+        "elbow": {
+          "kind": "four_bar_crank",
+          "r_crank": 0.08,
+          "r_lug": 0.08,
+          "coupler_l": 1.15,
+          "x_crank": 0.068,
+          "x_rod": 0.08
+        }
+      },
+      "masses": {
+        "carriage": 23.9106,
+        "upper": 25.5802,
+        "upper2": 14.7508,
+        "elbowhead": 12.5934,
+        "lower": 25.803,
+        "lower2": 14.7508,
+        "wristhead": 8.8383,
+        "shoulder": 2.3127,
+        "elbow": 2.3127,
+        "wrist": 2.3127,
+        "shoulder_sector": 0.7985,
+        "shoulder_pinion": 0.2113,
+        "elbow_crank": 0.3172,
+        "elbow_rod": 1.9073,
+        "tool": 0.1496,
+        "shank": 0.8286,
+        "railhead": 358.4595,
+        "gantry": 900.462,
+        "screw": 3.3407
+      },
       "gantry": {
         "ends": [
           {
@@ -1206,7 +1394,9 @@
         "x_house": [
           -0.5808,
           -0.5107999999999999
-        ]
+        ],
+        "starts": 12,
+        "lead": 0.096
       }
     },
     "harp_arm2": {
@@ -1294,6 +1484,99 @@
         10.714285714285715
       ],
       "drive": "screw",
+      "limits": {
+        "shoulder": {
+          "limits_deg": [
+            -1.56,
+            151.54
+          ],
+          "interference_deg": [
+            -2.06,
+            152.04
+          ],
+          "motion_deg": [
+            64.38,
+            81.71
+          ],
+          "margin_deg": [
+            65.94,
+            69.83
+          ]
+        },
+        "elbow": {
+          "limits_deg": [
+            24.75,
+            163.54
+          ],
+          "interference_deg": [
+            24.25,
+            164.04
+          ],
+          "motion_deg": [
+            95.87,
+            139.93
+          ],
+          "margin_deg": [
+            71.12,
+            23.61
+          ]
+        }
+      },
+      "drives": {
+        "carriage": {
+          "kind": "leadscrew",
+          "starts": 12,
+          "pitch": 0.008,
+          "lead": 0.096,
+          "backlash_deg": 0.75
+        },
+        "shoulder": {
+          "kind": "sector_gear",
+          "module": 0.004,
+          "z_sector": 28,
+          "z_pinion": 14,
+          "r_sector": 0.056,
+          "r_pinion": 0.028,
+          "centre_dist": 0.084,
+          "ratio": -2.0,
+          "pinion_origin": [
+            0.0,
+            0.0,
+            -0.084
+          ],
+          "x_layer": -0.074,
+          "backlash_deg": 0.75
+        },
+        "elbow": {
+          "kind": "four_bar_crank",
+          "r_crank": 0.08,
+          "r_lug": 0.08,
+          "coupler_l": 1.6,
+          "x_crank": 0.068,
+          "x_rod": 0.08
+        }
+      },
+      "masses": {
+        "carriage": 25.2015,
+        "upper": 34.3601,
+        "upper2": 19.9986,
+        "elbowhead": 12.7412,
+        "lower": 34.5828,
+        "lower2": 19.9986,
+        "wristhead": 8.8383,
+        "shoulder": 2.3127,
+        "elbow": 2.3127,
+        "wrist": 2.3127,
+        "shoulder_sector": 0.7985,
+        "shoulder_pinion": 0.2113,
+        "elbow_crank": 0.3172,
+        "elbow_rod": 2.6297,
+        "tool": 0.1496,
+        "shank": 0.8286,
+        "railhead": 132.58,
+        "gantry": 168.3,
+        "screw": 3.3407
+      },
       "gantry": {
         "ends": [
           {
@@ -1345,7 +1628,9 @@
         "x_house": [
           -0.1456,
           -0.0756
-        ]
+        ],
+        "starts": 12,
+        "lead": 0.096
       }
     },
     "rake_arm0": {
@@ -1431,6 +1716,99 @@
         21.42857142857143
       ],
       "drive": "screw",
+      "limits": {
+        "shoulder": {
+          "limits_deg": [
+            3.46,
+            156.56
+          ],
+          "interference_deg": [
+            2.96,
+            157.06
+          ],
+          "motion_deg": [
+            60.54,
+            96.17
+          ],
+          "margin_deg": [
+            57.08,
+            60.39
+          ]
+        },
+        "elbow": {
+          "limits_deg": [
+            24.75,
+            163.54
+          ],
+          "interference_deg": [
+            24.25,
+            164.04
+          ],
+          "motion_deg": [
+            67.23,
+            138.81
+          ],
+          "margin_deg": [
+            42.48,
+            24.73
+          ]
+        }
+      },
+      "drives": {
+        "carriage": {
+          "kind": "leadscrew",
+          "starts": 12,
+          "pitch": 0.008,
+          "lead": 0.096,
+          "backlash_deg": 0.75
+        },
+        "shoulder": {
+          "kind": "sector_gear",
+          "module": 0.004,
+          "z_sector": 28,
+          "z_pinion": 14,
+          "r_sector": 0.056,
+          "r_pinion": 0.028,
+          "centre_dist": 0.084,
+          "ratio": -2.0,
+          "pinion_origin": [
+            0.0,
+            0.0,
+            -0.084
+          ],
+          "x_layer": -0.074,
+          "backlash_deg": 0.75
+        },
+        "elbow": {
+          "kind": "four_bar_crank",
+          "r_crank": 0.08,
+          "r_lug": 0.08,
+          "coupler_l": 1.6,
+          "x_crank": 0.068,
+          "x_rod": 0.08
+        }
+      },
+      "masses": {
+        "carriage": 25.2015,
+        "upper": 34.3601,
+        "upper2": 19.9986,
+        "elbowhead": 13.0116,
+        "lower": 34.5828,
+        "lower2": 19.9986,
+        "wristhead": 8.8383,
+        "shoulder": 2.3127,
+        "elbow": 2.3127,
+        "wrist": 2.3127,
+        "shoulder_sector": 0.7985,
+        "shoulder_pinion": 0.2113,
+        "elbow_crank": 0.3172,
+        "elbow_rod": 2.6297,
+        "tool": 0.1496,
+        "shank": 0.8286,
+        "railhead": 132.58,
+        "gantry": 168.3,
+        "screw": 4.1026
+      },
       "gantry": {
         "ends": [
           {
@@ -1482,7 +1860,9 @@
         "x_house": [
           -4.925,
           -4.8549999999999995
-        ]
+        ],
+        "starts": 12,
+        "lead": 0.096
       }
     },
     "bars_arm0": {
@@ -1555,7 +1935,7 @@
         }
       ],
       "upper_pair_separation_m": 0.10616989336835081,
-      "lower_pair_separation_m": 0.1062048937477905,
+      "lower_pair_separation_m": 0.10620489374779049,
       "self_clearance_m": 0.0507373658754042,
       "self_worst": [
         "carriage_web",
@@ -1588,6 +1968,102 @@
         "phase": 0.0161,
         "home_x": 3.921429,
         "roller_spin": -60.185185
+      },
+      "limits": {
+        "shoulder": {
+          "limits_deg": [
+            -26.49,
+            126.51
+          ],
+          "interference_deg": [
+            -26.99,
+            127.01
+          ],
+          "motion_deg": [
+            34.86,
+            65.16
+          ],
+          "margin_deg": [
+            61.35,
+            61.35
+          ]
+        },
+        "elbow": {
+          "limits_deg": [
+            24.5,
+            163.54
+          ],
+          "interference_deg": [
+            24.0,
+            164.04
+          ],
+          "motion_deg": [
+            30.69,
+            58.71
+          ],
+          "margin_deg": [
+            6.19,
+            104.83
+          ]
+        }
+      },
+      "drives": {
+        "carriage": {
+          "kind": "pinion",
+          "motor": true,
+          "r_pitch": 0.12,
+          "teeth": 16,
+          "phase": 0.0161,
+          "backlash_deg": 0.75
+        },
+        "shoulder": {
+          "kind": "sector_gear",
+          "module": 0.004,
+          "z_sector": 28,
+          "z_pinion": 14,
+          "r_sector": 0.056,
+          "r_pinion": 0.028,
+          "centre_dist": 0.084,
+          "ratio": -2.0,
+          "pinion_origin": [
+            0.0,
+            0.0,
+            -0.084
+          ],
+          "x_layer": -0.074,
+          "backlash_deg": 0.75
+        },
+        "elbow": {
+          "kind": "four_bar_crank",
+          "r_crank": 0.08,
+          "r_lug": 0.08,
+          "coupler_l": 1.45,
+          "x_crank": 0.068,
+          "x_rod": 0.08
+        }
+      },
+      "masses": {
+        "carriage": 25.3811,
+        "upper": 31.4336,
+        "upper2": 18.2493,
+        "elbowhead": 13.5281,
+        "lower": 31.6563,
+        "lower2": 18.2493,
+        "wristhead": 8.8383,
+        "shoulder": 2.3127,
+        "elbow": 2.3127,
+        "wrist": 2.3127,
+        "shoulder_sector": 0.7985,
+        "shoulder_pinion": 0.2113,
+        "elbow_crank": 0.3172,
+        "elbow_rod": 2.3889,
+        "tool": 0.2794,
+        "shank": 0.9767,
+        "pawl": 0.9786,
+        "roller": 0.2366,
+        "railhead": 121.3961,
+        "rack": 55.7933,
+        "gantry": 579.8316
       },
       "gantry": {
         "ends": [
@@ -1622,7 +2098,8 @@
           "gap": 0.18926437109133956,
           "worst": "arm bars_arm1 upper",
           "mount": "back",
-          "drive": "rack"
+          "drive": "rack",
+          "phase": 0.0161
         }
       }
     },
@@ -1695,7 +2172,7 @@
           "h": 0.031
         }
       ],
-      "upper_pair_separation_m": 0.1007794818161555,
+      "upper_pair_separation_m": 0.10077948181615548,
       "lower_pair_separation_m": 0.10777956783098534,
       "self_clearance_m": 0.05073736587540428,
       "self_worst": [
@@ -1730,6 +2207,102 @@
         "home_x": 5.078571,
         "roller_spin": -60.185185
       },
+      "limits": {
+        "shoulder": {
+          "limits_deg": [
+            -26.57,
+            126.53
+          ],
+          "interference_deg": [
+            -27.07,
+            127.03
+          ],
+          "motion_deg": [
+            26.37,
+            44.88
+          ],
+          "margin_deg": [
+            52.94,
+            81.65
+          ]
+        },
+        "elbow": {
+          "limits_deg": [
+            24.75,
+            163.54
+          ],
+          "interference_deg": [
+            24.25,
+            164.04
+          ],
+          "motion_deg": [
+            53.08,
+            75.81
+          ],
+          "margin_deg": [
+            28.33,
+            87.73
+          ]
+        }
+      },
+      "drives": {
+        "carriage": {
+          "kind": "pinion",
+          "motor": true,
+          "r_pitch": 0.12,
+          "teeth": 16,
+          "phase": -0.01007,
+          "backlash_deg": 0.75
+        },
+        "shoulder": {
+          "kind": "sector_gear",
+          "module": 0.004,
+          "z_sector": 28,
+          "z_pinion": 14,
+          "r_sector": 0.056,
+          "r_pinion": 0.028,
+          "centre_dist": 0.084,
+          "ratio": -2.0,
+          "pinion_origin": [
+            0.0,
+            0.0,
+            -0.084
+          ],
+          "x_layer": -0.074,
+          "backlash_deg": 0.75
+        },
+        "elbow": {
+          "kind": "four_bar_crank",
+          "r_crank": 0.08,
+          "r_lug": 0.08,
+          "coupler_l": 1.6,
+          "x_crank": 0.068,
+          "x_rod": 0.08
+        }
+      },
+      "masses": {
+        "carriage": 25.3811,
+        "upper": 34.3601,
+        "upper2": 19.9986,
+        "elbowhead": 13.4628,
+        "lower": 34.5828,
+        "lower2": 19.9986,
+        "wristhead": 8.8383,
+        "shoulder": 2.3127,
+        "elbow": 2.3127,
+        "wrist": 2.3127,
+        "shoulder_sector": 0.7985,
+        "shoulder_pinion": 0.2113,
+        "elbow_crank": 0.3172,
+        "elbow_rod": 2.6297,
+        "tool": 0.2794,
+        "shank": 0.9767,
+        "pawl": 0.9786,
+        "roller": 0.2366,
+        "railhead": 121.3961,
+        "rack": 55.7933,
+        "gantry": 657.2005
+      },
       "gantry": {
         "ends": [
           {
@@ -1763,7 +2336,8 @@
           "gap": 0.41875456971462577,
           "worst": "arm bars_arm0 pinion_boss",
           "mount": "back",
-          "drive": "rack"
+          "drive": "rack",
+          "phase": -0.01007
         }
       }
     }
@@ -1801,6 +2375,7 @@
     }
   },
   "gears": [
+    "Chamber flywheel pinion",
     "bars_arm0__gear",
     "bars_arm1__gear"
   ],
@@ -2882,6 +3457,19 @@
           -1.74
         ],
         0.1
+      ],
+      "mate axle": [
+        [
+          -1.9407719778001347,
+          0.3081675776032726,
+          -1.555
+        ],
+        [
+          -1.9407719778001347,
+          0.3081675776032726,
+          -1.445
+        ],
+        0.022
       ]
     },
     "floor": -0.01,
@@ -2991,6 +3579,19 @@
         0.10300000000000001
       ]
     ],
+    "mate": {
+      "name": "Chamber flywheel pinion",
+      "centre": [
+        -1.9407719778001347,
+        0.3081675776032726,
+        -1.5
+      ],
+      "teeth": 16,
+      "r_tip": 0.13,
+      "r_pitch": 0.12,
+      "ratio": -3.25,
+      "angle": -0.45
+    },
     "bounds": [
       [
         -2.8,
@@ -3054,7 +3655,19 @@
       ]
     ]
   ],
-  "score": "/home/stinky/git/loam/render/chamber/score.json",
+  "score": "/home/scant/git/loam/render/chamber/score.json",
+  "masses": {
+    "form_harp_carved": 546.352,
+    "form_harp_ribbed": 7256.2378,
+    "form_harp_shell": 526.6033,
+    "form_harp_soundboard": 0.7393,
+    "form_harp_actionplate": 74.4582,
+    "form_rake_carved": 414.269,
+    "form_rake_ribbed": 5502.0095,
+    "form_rake_shell": 399.9456,
+    "form_rake_soundboard": 0.5748,
+    "form_bars_stand": 93.43
+  },
   "arm_checks": {
     "_cross_arm": {
       "harp_arm0/harp_arm1": {
@@ -3205,6 +3818,10 @@
     "harp_arm0__shoulder",
     "harp_arm0__elbow",
     "harp_arm0__wrist",
+    "harp_arm0__shoulder_sector",
+    "harp_arm0__shoulder_pinion",
+    "harp_arm0__elbow_crank",
+    "harp_arm0__elbow_rod",
     "harp_arm0__tool",
     "harp_arm0__shank",
     "harp_arm1__carriage",
@@ -3217,6 +3834,10 @@
     "harp_arm1__shoulder",
     "harp_arm1__elbow",
     "harp_arm1__wrist",
+    "harp_arm1__shoulder_sector",
+    "harp_arm1__shoulder_pinion",
+    "harp_arm1__elbow_crank",
+    "harp_arm1__elbow_rod",
     "harp_arm1__tool",
     "harp_arm1__shank",
     "harp_arm2__carriage",
@@ -3229,6 +3850,10 @@
     "harp_arm2__shoulder",
     "harp_arm2__elbow",
     "harp_arm2__wrist",
+    "harp_arm2__shoulder_sector",
+    "harp_arm2__shoulder_pinion",
+    "harp_arm2__elbow_crank",
+    "harp_arm2__elbow_rod",
     "harp_arm2__tool",
     "harp_arm2__shank",
     "rake_arm0__carriage",
@@ -3241,6 +3866,10 @@
     "rake_arm0__shoulder",
     "rake_arm0__elbow",
     "rake_arm0__wrist",
+    "rake_arm0__shoulder_sector",
+    "rake_arm0__shoulder_pinion",
+    "rake_arm0__elbow_crank",
+    "rake_arm0__elbow_rod",
     "rake_arm0__tool",
     "rake_arm0__shank",
     "bars_arm0__carriage",
@@ -3253,6 +3882,10 @@
     "bars_arm0__shoulder",
     "bars_arm0__elbow",
     "bars_arm0__wrist",
+    "bars_arm0__shoulder_sector",
+    "bars_arm0__shoulder_pinion",
+    "bars_arm0__elbow_crank",
+    "bars_arm0__elbow_rod",
     "bars_arm0__tool",
     "bars_arm0__shank",
     "bars_arm0__pawl",
@@ -3267,6 +3900,10 @@
     "bars_arm1__shoulder",
     "bars_arm1__elbow",
     "bars_arm1__wrist",
+    "bars_arm1__shoulder_sector",
+    "bars_arm1__shoulder_pinion",
+    "bars_arm1__elbow_crank",
+    "bars_arm1__elbow_rod",
     "bars_arm1__tool",
     "bars_arm1__shank",
     "bars_arm1__pawl",
@@ -3284,8 +3921,10 @@
     "form_rake_arm0_gantry",
     "form_rake_arm0_screw",
     "form_bars_arm0_railhead",
+    "form_bars_arm0_rack",
     "form_bars_arm0_gantry",
     "form_bars_arm1_railhead",
+    "form_bars_arm1_rack",
     "form_bars_arm1_gantry"
   ]
 }
