@@ -214,20 +214,20 @@ def t2_prefix(bake, rig):
           f'T2 /1\'s {n1} channels are the prefix: columns [0, {w1}) by name, offset and width, in /1\'s order')
     q = []
     for aid in rig.plans:
-        for key in (['lean'] if rig.mallet(aid) else [])+['shoulder', 'elbow']:
+        for key in (['lean'] if rig.stepped(aid) else [])+['shoulder', 'elbow']:
             q.append(dict(name=f'{aid}.q.{key}', offset=off, width=1, joint=f'{aid}/{key}')); off += 1
-    nm = sum(bool(rig.mallet(a)) for a in rig.plans)
+    nm = sum(bool(rig.stepped(a)) for a in rig.plans)
     check(ch[n1:] == q and h['width'] == w1+2*len(rig.plans)+nm == off == bake.frames.shape[1],
           f'T2 ...then the q columns, contiguous from {w1}, per arm in rig.plans order, each naming its joint, q.lean on '
-          f'the {nm} mallets only: width {h["width"]} = {w1} + 2 x {len(rig.plans)} + {nm}')
+          f'the {nm} stepped arms only: width {h["width"]} = {w1} + 2 x {len(rig.plans)} + {nm}')
 
 def t3_q(bake, rig, poses):
     """T3: the q columns are the rig's joint angles (float64) at the sampled
-    rows: ruler 16's joint_series, a mallet's read in its leaned plane."""
+    rows: ruler 16's joint_series, a stepped arm's read in its leaned plane."""
     worst = 0.0; where = ''
     for aid in rig.plans:
         idx, root, elbow, wrist = poses[aid]
-        if rig.mallet(aid):
+        if rig.stepped(aid):
             d = wrist-root; psi = np.arctan(d[:, 0]/d[:, 2]); c, s = np.cos(psi), np.sin(psi)
             Ry = np.zeros((len(psi), 3, 3)); Ry[:, 0, 0] = c; Ry[:, 0, 2] = s; Ry[:, 1, 1] = 1.0; Ry[:, 2, 0] = -s; Ry[:, 2, 2] = c
             u = np.einsum('nji,nj->ni', Ry, elbow-root); f = np.einsum('nji,nj->ni', Ry, wrist-elbow)   # Ry(psi)^T v
@@ -243,9 +243,9 @@ def t3_q(bake, rig, poses):
 def expected_rows(rig, aid, hdr):
     """§3's rows for one arm: name -> (parent name, type, axis, pin)."""
     cfg = rig.geometry['arms'][aid]; X, Y, Z = [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]
-    base = 'lean' if rig.mallet(aid) else 'carriage'
+    base = 'lean' if rig.stepped(aid) else 'carriage'
     rows = dict(carriage_y=(None, 'prismatic', Y, None), carriage=('carriage_y', 'prismatic', X, '.root'))
-    if rig.mallet(aid): rows['lean'] = ('carriage', 'revolute', Y, None)
+    if rig.stepped(aid): rows['lean'] = ('carriage', 'revolute', Y, None)
     rows.update(shoulder=(base, 'revolute', X, None), shoulder_pair=(base, 'revolute', X, None),
                 elbowhead=('shoulder', 'revolute', X, '.elbow'), elbow=('elbowhead', 'revolute', X, None),
                 elbow_pair=('elbowhead', 'revolute', X, None), wristhead=('elbow', 'revolute', X, '.wrist'),
@@ -341,7 +341,7 @@ def t6_laws(bake, rig, F, T):
     for aid, hdr in h['arms'].items():
         cfg = rig.geometry['arms'][aid]; x = col(f'{aid}.root')
         law[f'{aid}/carriage_y'] = col(f'{aid}.root', 1)-float(cfg['root_y']); law[f'{aid}/carriage'] = x
-        if rig.mallet(aid): law[f'{aid}/lean'] = col(f'{aid}.q.lean')
+        if rig.stepped(aid): law[f'{aid}/lean'] = col(f'{aid}.q.lean')
         th = math.pi/2-col(f'{aid}.q.shoulder'); el = th-col(f'{aid}.q.elbow')
         law.update({f'{aid}/shoulder': th, f'{aid}/shoulder_pair': th, f'{aid}/elbowhead': -th,
                     f'{aid}/elbow': el, f'{aid}/elbow_pair': el, f'{aid}/wristhead': -el, f'{aid}/tool': np.zeros(len(T))})
@@ -353,7 +353,7 @@ def t6_laws(bake, rig, F, T):
                 law[f'{aid}/pawl'] = -np.array([bake.pawl(aid, float(t)) for t in T]); pawls.append(f'{aid}/pawl')
                 law[f'{aid}/roller'] = x*float(cfg['pawl'].get('roller_spin', 0.0))
         else:
-            law[f'{aid}/screw'] = -2*math.pi*x/float(cfg['screw']['pitch']); wrapped.add(f'{aid}/screw')
+            law[f'{aid}/screw'] = -2*math.pi*x/float(cfg['screw'].get('lead', cfg['screw']['pitch'])); wrapped.add(f'{aid}/screw')
         if hdr['stepped']: law[f'{aid}/rail'] = col(f'{aid}.sag'); law[f'{aid}/sway'] = col(f'{aid}.sway')
     for mid in h['mechanisms']:
         law[f'{mid}/stand'] = col(f'{mid}.stand') if f'{mid}.stand' in bake.index else np.zeros(len(T))
@@ -364,7 +364,7 @@ def t6_laws(bake, rig, F, T):
     for jid, v in law.items():
         q = (Q64 if jid in pawls else Q)[jid]
         if jid in wrapped:
-            w = np.mod(v+math.pi, 2*math.pi)-math.pi; e = np.abs(np.remainder(q-w+math.pi, 2*math.pi)-math.pi)
+            w = J._vwrapf(v, -math.pi, math.pi); e = np.abs(np.remainder(q-w+math.pi, 2*math.pi)-math.pi)
             inband &= bool(np.all((q >= -math.pi) & (q <= math.pi)))
         else: e = np.abs(q-v)
         k = int(np.argmax(e))
@@ -684,13 +684,13 @@ def run(layout_path, score_path):
         check(worst < 1e-6 and col.min() >= 0.0 and col.max() <= 1.0 and at_hit < 1e-9,
               f'{aid}: .ride is Rig.pawl_ride at the rows (worst {worst:.1e} over {len(idx)} rows), in [0, 1] '
               f'(max {col.max():.3f}), 0 at every contact (worst {at_hit:.1e})')
-        if rig.hammer(aid): check(np.abs(col).max() == 0.0, f'{aid}: the hammer\'s pawl never rides')
-        else:
+        st = rig.stroke(aid)
+        if st is not None:
             # rows sit where the tooth rate crosses each RIDE_ROWS fraction of the band, so between two rows the
             # rate stays in one cell [k/8, (k+1)/8] of it and the smoothstep ride in [s(k/8), s((k+1)/8)]: a straight
             # line between the rows strays from Rig.pawl_ride by at most that cell's width (judged per interval,
             # on every interval that touches a freewheel travel)
-            st = rig.stroke(aid); rt = st.ride_times()
+            rt = st.ride_times()
             gap = np.array([float(np.min(np.abs(bake.times-t))) for t in rt]) if len(rt) else np.zeros(0)
             check(not gap.size or gap.max() <= B.MERGE_S,
                   f'{aid}: a row at every RIDE_ROWS crossing of the tooth rate ({len(rt)}, worst {gap.max() if gap.size else 0:.1e} s)')
@@ -707,12 +707,12 @@ def run(layout_path, score_path):
                 check(np.all(err <= bound), f'{aid}: between rows the linear ride stays within its RIDE_ROWS cell of '
                       f'Rig.pawl_ride ({len(sel)} freewheel intervals; worst {err.max():.4f}, at most {(err/bound).max():.2f} of its cell)')
                 ride_info.append(f'{aid} {err.max():.3f}')
-    # each click's pawl and step: a mallet's are its stroke's click knots, the hammer's all drop and stepped
+    # each click's pawl and step: a stepped arm's are its stroke's click knots
     for aid, arm in h['arms'].items():
         cs, cp, cs_step = arm['clicks'], arm.get('click_pawl'), arm.get('click_step')
         if cp is None or cs_step is None or not (len(cs) == len(cp) == len(cs_step)):
             check(False, f'{aid}: click_pawl / click_step missing or not parallel to clicks'); continue
-        st = rig.stroke(aid) if rig.mallet(aid) else None
+        st = rig.stroke(aid) if rig.stepped(aid) else None
         if st is not None:
             kn = sorted([k for k in st.knots if k.kind == 'click'], key=lambda k: float(k.extra.get('t_end', k.t)))
             lab = [int(k.extra['pawl'] == 'ride') for k in kn]; stp = [int('t_end' in k.extra) for k in kn]
@@ -723,7 +723,7 @@ def run(layout_path, score_path):
                   f'{len(cs)-sum(cs_step)} freewheel; {bad} pawl labels off |x\'|/PITCH vs PAWL_RIDE)')
         else:
             check(cp == [0]*len(cs) and cs_step == [1]*len(cs), f'{aid}: every {arm["kind"]} click drops and is stepped ({len(cs)})')
-    # the blows are the rig's recoil bus; a mallet's carry its stroke's v_in and e, gated by the next apex
+    # the blows are the rig's recoil bus; a stepped arm's carry its stroke's v_in and e, gated by the next apex
     for aid, arm in h['arms'].items():
         bus = rig.blows_by_arm.get(aid, [])
         ok = len(arm['blows']) == len(bus)
@@ -731,7 +731,7 @@ def run(layout_path, score_path):
             ok &= b['t'] == r['t'] and b['x'] == r['x'] and b['energy'] == r['energy']
             ok &= (b['gate_end'] is None) if not np.isfinite(r['gate_end']) else b['gate_end'] == r['gate_end']
             ok &= all((k in b) == (k in r) and (k not in r or b[k] == r[k]) for k in ('v_in', 'e'))
-        st = rig.stroke(aid) if rig.mallet(aid) else None
+        st = rig.stroke(aid) if rig.stepped(aid) else None
         if st is not None:
             N = sorted(st.notes, key=lambda n: n.t)
             ok &= len(N) == len(arm['blows']) and all(

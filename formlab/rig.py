@@ -66,7 +66,7 @@ PAD = motion_timing.OCC_PAD   # m: kept over arm_clearance_m (loam.score carries
 # raise its felt face by head_l*(1 - cos(theta)), so the rise it must cover can
 # never exceed 2*head_l. The angle runs 0 at the blow (felt on the bar) and
 # positive lying back.
-HAMMER = dict(head_l=.12, head_r=.045, arm_share=.30, cock=.02, check=[.10, 12.5, .045])
+HAMMER = dict(head_l=.31, head_r=.068, arm_share=.30, cock=.02, check=[.10, 12.5, .045])
 # `cock` is small because the check is what it presses into: at rest the
 # head's tail lies on a felt-faced stop, and the cock sinks it a couple of
 # millimetres further in before the head flies. The ARM still cocks its own
@@ -210,21 +210,17 @@ class Rig:
     def hammer(self, aid): return self.acts[aid]['kind'] == 'hammer'
 
     def mallet(self, aid):
-        """A rigid mallet: its stroke is formlab/stroke.py's (PLAYERS M1). Every
-        M1 branch keys on this, never on stepped(): the hinged hammer keeps the
-        older vocabulary until M5."""
+        """A mallet arm (`kind == 'mallet'`). In PLAYERS M5, both `mallet` and
+        `hammer` (`stepped()`) plan their strokes in `formlab/stroke.py`."""
         return self.acts[aid]['kind'] == 'mallet'
 
     def hover(self, aid):
-        """What the TOOL FRAME's origin clears the contact by. For a rigid tool
-        that is the contact's own clearance; a hinged hammer's arm hovers only
-        `arm_share` of it, because the head lying back on its check holds the
-        felt face the rest of the way up. A mallet rests on its stroke's arc
-        (formlab.stroke: the head at height h sits sigma*Z(h) toward its own
-        root side), so its hover leans by Z(clearance)."""
+        """What the contact face clears the contact by at rest. A stepped arm
+        (mallet or hammer, PLAYERS M5) rests on its stroke's arc (formlab.stroke:
+        the face at height h sits sigma*Z(h) toward its own root side), so its
+        hover leans by Z(clearance)."""
         lift = self.clearance(aid)
-        if self.hammer(aid): return lift*HAMMER['arm_share']
-        if self.mallet(aid):
+        if self.stepped(aid):
             rho, k = stroke.arc(self.acts[aid]['kind'])
             return _v([lift[0], lift[1], lift[2]+self._sigma(aid)*float(stroke.arc_Z(lift[1], rho, k))])
         return lift
@@ -240,12 +236,17 @@ class Rig:
         if 'root_z' not in self.geometry['arms'].get(aid, {}): return -1.0
         return self.flip_sign(aid)
 
+    def head_l(self, aid):
+        cfg = self.geometry['arms'].get(aid, {})
+        hl = float(cfg.get('head', {}).get('length', cfg.get('head_l', HAMMER['head_l'] if self.hammer(aid) else 0.50)))
+        return max(hl, HAMMER['head_l']) if self.hammer(aid) else hl
+
     def rest_angle(self, aid):
         """The flip angle at which the head's felt face clears by the whole
-        lift while the arm hovers at `hover`: head_l*(1-cos) = the remainder."""
+        lift while the arm dips `arm_share`: head_l*sin(theta) = the remainder."""
         if not self.hammer(aid): return 0.0
-        rise = float(np.linalg.norm(self.clearance(aid)-self.hover(aid)))
-        return float(np.arccos(np.clip(1.0-rise/HAMMER['head_l'], -1.0, 1.0)))
+        rise = float(np.linalg.norm(self.clearance(aid))*(1.0-HAMMER['arm_share']))
+        return float(np.arcsin(np.clip(rise/self.head_l(aid), -1.0, 1.0)))
 
     def flip_sign(self, aid):
         """Which way the head swings back: toward its own rail, never across
@@ -255,9 +256,16 @@ class Rig:
         return 1.0 if float(cfg['root_z']) >= self.contact(self.acts[aid]['home'])[2] else -1.0
 
     def head_angle(self, aid, t):
-        """The hinged head's flip angle at t: `rest_angle` lying back on its
-        check, cocked a touch further over the strike, exactly 0 at the blow,
-        then the rebound the check catches, and back to rest."""
+        """The hinged head's or mallet shaft's angle at t: 0 at the blow,
+        scaling with the head's lift h(t) along its arc."""
+        if not self.stepped(aid): return 0.0
+        st = self.stroke(aid)
+        if st is not None:
+            h = max(0.0, float(st.h(t)))
+            if self.hammer(aid):
+                u = min(max(h/.22, 0.0), 1.0)
+                return float(self.rest_angle(aid)*u*(1.875-1.25*u*u+.375*u**4))
+            return float(2.65*h/np.sqrt(1.0+(1.5*h)**2))
         if not self.hammer(aid): return 0.0
         rest = self.rest_angle(aid); c = HAMMER['cock']; chk = HAMMER['check']
         for s in self.sched[aid]:
@@ -281,7 +289,7 @@ class Rig:
     def head_pose(self, aid, t):
         """(angle, felt-face offset from the tool frame's origin) at t."""
         theta = self.head_angle(aid, t)
-        return theta, head_offset(theta, self.flip_sign(aid)) if self.hammer(aid) else np.zeros(3)
+        return theta, head_offset(theta, self.flip_sign(aid), self.head_l(aid)) if self.hammer(aid) else np.zeros(3)
 
     def homes(self, aid, x_joint=None):
         """The arm's homing sweeps, as the score's `home` cues name them
@@ -503,18 +511,18 @@ class Rig:
                             recover=float(act.get('recover_s', 0.0)), kind=act['kind'], name=aid)
 
     def stroke(self, aid):
-        """An arm's planned stroke, or None for an arm that plans none (the
-        hinged hammer, a pick with a multi-string event): a mallet's
-        formlab.stroke.ArmStroke (the two channels, knots, per-note records
-        with t_apex, T_down, v_in, e, a_f, h, regime and travel windows, the
-        travels), a pick's formlab.servo ServoStroke and a rake's
-        formlab.rake RakeStroke (the same surface, PLAYERS M2). The plan reads only the
-        score and the contacts (and, for a mallet, which side the root is on),
-        so it is made once; what depends on the arm's cfg (a mallet's homing
-        joint sweeps) is computed from the cfg at pose time."""
+        """An arm's planned stroke, or None for an arm that plans none (a pick
+        with a multi-string event): a stepped arm's formlab.stroke.ArmStroke
+        (the two channels, knots, per-note records with t_apex, T_down, v_in, e,
+        a_f, h, regime and travel windows, the travels), a pick's formlab.servo
+        ServoStroke and a rake's formlab.rake RakeStroke (the same surface,
+        PLAYERS M2). The plan reads only the score and the contacts (and, for a
+        stepped arm, which side the root is on), so it is made once; what
+        depends on the arm's cfg (the homing joint sweeps) is computed from the
+        cfg at pose time."""
         if not self.sched.get(aid): return None
         kind = self.acts[aid]['kind']
-        if kind == 'mallet':
+        if self.stepped(aid):
             sig = self._sigma(aid); c = self._strokes.get(aid)
             if c is None or c[0] != sig:
                 c = (sig, stroke.plan(self._arm_input(aid), jerk=False)); self._strokes[aid] = c
@@ -560,8 +568,8 @@ class Rig:
         conventions. Cached per cfg tuple."""
         st = self.stroke(aid)
         if st is None: return None
-        key = (aid,)+self._cfg_key(aid)
-        if key in self._hj: return self._hj[key]
+        ckey = (aid,)+self._cfg_key(aid)
+        if ckey in self._hj: return self._hj[ckey]
         wins = [(float(a), float(b), what) for a, b, what, _, _ in st.arm.homing if what != 'x']
         out = None
         if wins:
@@ -600,7 +608,7 @@ class Rig:
                         legs.append(dict(g, joint=key[2], frame=frames[key], span=spans[key[2]], span_assumed=sp is None))
                     t = tb
             out = dict(t0=legs[0]['t0'], t1=legs[-1]['t1'], legs=legs, starts=np.array([g['t0'] for g in legs]))
-        _bounded(self._hj)[key] = out
+        _bounded(self._hj)[ckey] = out
         return out
 
     @staticmethod
@@ -716,19 +724,13 @@ class Rig:
     def schedule(self, aid): return self.sched[aid]
 
     def click_times(self, aid):
-        """When a stepped arm clicks. A mallet: (t, 1.0) a tooth (formlab.stroke
-        ArmStroke.click_times) — a freewheel's where x crosses mid-tooth, a stepped
-        or homing travel's at each landing. The hinged hammer: one (t, teeth) a
-        ratchet click, at the moment the click's move lands on its detent and the
-        pawl drops (go + (k+CLICK_MOVE)*T/n for the k-th of n clicks in a travel of
-        T seconds — the same division `ratchet` makes), with the teeth that click
-        spanned. A servo arm never clicks."""
+        """When a stepped arm clicks. A stepped arm with a planned stroke:
+        (t, 1.0) a tooth (formlab.stroke ArmStroke.click_times) — a freewheel's
+        where x crosses mid-tooth, a stepped or homing travel's at each landing.
+        A servo arm never clicks."""
         if not self.stepped(aid): return []
-        if self.mallet(aid):
-            # a mallet clicks a tooth, (t, 1.0) each: a freewheel's where x
-            # crosses mid-tooth, a stepped (or homing) travel's at each landing
-            st = self.stroke(aid)
-            return st.click_times() if st is not None else []
+        st = self.stroke(aid)
+        if st is not None: return st.click_times()
         out = []
         for s in self.sched[aid]:
             if not s['moving']: continue
@@ -738,13 +740,10 @@ class Rig:
         return out
 
     def recoil(self, aid, t):
-        """The assembly's shudder after a mallet blow: zero at the blow, rung
+        """The assembly's shudder after a stepped blow: zero at the blow, rung
         out and gated to nothing by the time the next strike begins."""
         if not self.stepped(aid): return np.zeros(3)
-        # A hinged hammer recoils in its HEAD and its check, not in the whole
-        # arm (Rig.head_angle): the arm holds the contact while the head bounces.
-        if self.hammer(aid): return np.zeros(3)
-        if self.mallet(aid):
+        if self.stroke(aid) is not None:
             # the x and z rings only (the head's rebound is the scored float
             # now), gated by the next stroke's apex; exactly zero at each contact
             ts, gates = self._recoil_at.get(aid, (np.zeros(0), []))
@@ -752,6 +751,7 @@ class Rig:
             if i < 0: return np.zeros(3)
             tau = t-ts[i]; gate = 1.0-smooth((t-(gates[i]-RECOIL_GATE))/RECOIL_GATE)
             return _v([_ring(RECOIL['x'], tau), 0.0, _ring(RECOIL['z'], tau)])*gate
+        if self.hammer(aid): return np.zeros(3)
         hit = -np.inf; gate_end = np.inf
         for s in self.sched[aid]:
             if s['hit'] <= t: hit = s['hit']
@@ -763,21 +763,21 @@ class Rig:
         return _v([_ring(RECOIL['x'], tau), lift[1]*abs(_ring(RECOIL['bounce'], tau)), _ring(RECOIL['z'], tau)])*gate
 
     def tip_at(self, aid, t):
-        """What renders: the scored path plus its rings (a mallet's carriage
-        also carries its detent ring along x)."""
+        """What renders: the scored path plus its rings (a stepped arm's
+        carriage also carries its detent ring along x)."""
         p = self.path_at(aid, t)+self.recoil(aid, t)
-        st = self.stroke(aid) if self.mallet(aid) else None
+        st = self.stroke(aid) if self.stepped(aid) else None
         if st is not None: p[0] += st.detent(t)
         return p
 
     def path_at(self, aid, t):
         """The scored path alone: rest, travel, strike, sweep, release, rest.
-        A mallet's is its stroke's ring-free closed form (formlab/stroke.py),
+        A stepped arm's is its stroke's ring-free closed form (formlab/stroke.py),
         with the homing joint sweeps turned in joint space for the cfg as it is;
         a pick's is its servo stroke's (formlab/servo.py, PLAYERS M2)."""
         st = self.stroke(aid)
         if st is not None:
-            if self.mallet(aid):
+            if self.stepped(aid):
                 hj = self._home_joints(aid)
                 if hj is not None:
                     gq = self._home_q(hj, t)
@@ -824,16 +824,42 @@ class Rig:
         rising up-back when reaching above it."""
         return _v([0, 0, -1]) if cfg.get('bend', 'up') == 'back' else _v([0, 1, 0])
 
+    def _wrist_at(self, aid, t, felt, cfg):
+        wo = self.wrist_offset(cfg)
+        if not self.stepped(aid): return felt+wo
+        st = self.stroke(aid)
+        if st is None: return felt+wo
+        hj = self._home_joints(aid)
+        home_end = float(hj['t1']) if hj is not None else 0.0
+        if t <= home_end or (hj is not None and hj['t0'] <= t <= hj['t1']):
+            return felt+wo
+        gate = quintic((t-home_end)/.25)
+        sigma = self.flip_sign(aid); c_y = .38; c_z = .72
+        yc = float(st.yc.ev(t)); zc = float(st.zc.ev(t))
+        rec = self.recoil(aid, t)
+        for n in st.notes:
+            if n.t_apex <= t <= n.t and n.t > n.t_apex+1e-9:
+                u = (t-n.t_apex)/(n.t-n.t_apex); h_a = float(n.h)
+                f_sh = 1.0-float(stroke.s345(u+.65*u*(1.0-u)))
+                f_el = 1.0-float(stroke.s345(u-.65*u*(1.0-u)))
+                kc = 0.0 if self.hammer(aid) else .55
+                w_pd = _v([felt[0], yc+wo[1]+c_y*h_a*f_sh+rec[1],
+                           zc+wo[2]+sigma*c_z*h_a*f_el+kc*sigma*c_y*h_a*(f_sh-f_el)+rec[2]])
+                return (1.0-gate)*(felt+wo)+gate*w_pd
+        h = max(0.0, float(st.h(t)))
+        w_pd = _v([felt[0], yc+wo[1]+c_y*h+rec[1], zc+wo[2]+sigma*c_z*h+rec[2]])
+        return (1.0-gate)*(felt+wo)+gate*w_pd
+
     def pose(self, aid, t):
-        cfg = self.geometry['arms'][aid]; tip = self.tip_at(aid, t)
+        cfg = self.geometry['arms'][aid]; felt = self.tip_at(aid, t)
         # The carriage rides the rail, so it follows the rail's sag at its own x:
         # the links and the pawl move with the bar. The tip is the scored path
-        # and its own recoil, untouched — every contact stays exact. A mallet's
-        # carriage stands at carriage_x: its scored x and detent ring, without
-        # the tip's recoil ring.
-        rx = self.carriage_x(aid, t) if self.mallet(aid) else tip[0]
+        # and its own recoil, untouched — every contact stays exact. A stepped
+        # arm's carriage stands at carriage_x: its scored x and detent ring,
+        # without the tip's recoil ring.
+        rx = self.carriage_x(aid, t) if self.stepped(aid) else felt[0]
         root = _v([rx, cfg['root_y']+self.rail_sag(aid, t, rx), cfg['root_z']])
-        wrist = tip+self.wrist_offset(cfg)
+        wrist = self._wrist_at(aid, t, felt, cfg)
         delta = wrist-root; distance = np.linalg.norm(delta)
         l1 = float(cfg['l1']); l2 = float(cfg['l2'])
         d = min(max(distance, abs(l1-l2)+1e-5), l1+l2-1e-5)
@@ -847,6 +873,7 @@ class Rig:
         # on the hinge head_l above it and swings. `tip` stays the tool frame
         # (the shank, the fork and the check ride it); `felt` is the contact.
         theta, off = self.head_pose(aid, t)
+        tip = felt-off if (self.hammer(aid) and self.stroke(aid) is not None) else felt
         return dict(root=root, elbow=elbow, wrist=wrist, tip=tip, head=theta, felt=tip+off,
                     reachable=abs(l1-l2) <= distance <= l1+l2)
 
@@ -862,11 +889,10 @@ class Rig:
     def declared(self, aid):
         """The arm's declared structure (formlab.segments.Declared). An arm
         with a stroke declares its own (a mallet from PLAYERS M1, a pick from
-        M2): its stroke's segments on the 'head' and 'carriage' channels with
-        their extras, the knots ('contact' with the declared impulse, 'click' a
-        tooth, 'detent' at each stepped landing, 'smooth' at every other join),
-        its rings (a servo: none) and the prep function. Every other arm keeps
-        today's reading of its schedule (segments._today)."""
+        M2, a hammer from M5): its stroke's segments on the 'head' and 'carriage'
+        channels with their extras, the knots ('contact' with the declared
+        impulse, 'click' a tooth, 'detent' at each stepped landing, 'smooth' at
+        every other join), its rings (a servo: none) and the prep function."""
         try:
             from . import segments as SEG
         except ImportError:
@@ -875,11 +901,11 @@ class Rig:
         if st is None: return SEG._today(self, aid)
         stroke.declare_jerk(st)
         def ext(d): return {k: (list(v) if isinstance(v, (list, tuple, np.ndarray)) else v) for k, v in d.items()}
-        # a mallet's head 'home' pieces are replaced by its joint legs below; a rake's head homing
+        # a stepped arm's head 'home' pieces are replaced by its joint legs below; a rake's head homing
         # legs (straight 3-4-5 chords through its homing poses) are declared as they are
         segs = [SEG.Segment(g.t0, g.t1, g.law, g.tag, g.event, ext(g.extra))
-                for g in st.head.segs+st.carriage.segs if not (self.mallet(aid) and g.channel == 'head' and g.tag == 'home')]
-        hj = self._home_joints(aid) if self.mallet(aid) else None
+                for g in st.head.segs+st.carriage.segs if not (self.stepped(aid) and g.channel == 'head' and g.tag == 'home')]
+        hj = self._home_joints(aid) if self.stepped(aid) else None
         if hj is not None:
             # the homing joint legs for this cfg: the head holds the hover while
             # one joint turns (stroke.joint_legs), each leg a 3-4-5 in the angle
@@ -901,7 +927,7 @@ class Rig:
             if imp.size and np.min(np.abs(imp-t)) <= 1e-9: continue
             knots.append(SEG.Knot(t, 'smooth'))
         knots.sort(key=lambda k: (k.t, k.kind))
-        if not self.mallet(aid):
+        if not self.stepped(aid):
             # a servo: nothing rings (no recoil, no shudder bus, no detent: segments._rings_today's servo)
             return SEG.Declared(segs, knots, [], st.prep, native=True)
         rings = [dict(name=f'recoil.{a}', channel='tip', amp=RECOIL[a][0], f=RECOIL[a][1], tau=RECOIL[a][2]) for a in ('x', 'z')]
@@ -909,7 +935,8 @@ class Rig:
                   dict(name='rail_sag', channel='root', amp=RAIL_SAG[0], f=RAIL_SAG[1], tau=RAIL_SAG[2]),
                   dict(name='mast_sway', channel='mast', amp=MAST_SWAY[0], f=MAST_SWAY[1], tau=MAST_SWAY[2]),
                   dict(name='detent', channel='root.x', amp=OVERSHOOT*PITCH, f=RING_HZ, tau=RING_TAU, fade='3-4-5')]
-        return SEG.Declared(segs, knots, rings, stroke.prep, native=True)
+        prep = stroke.prep if self.mallet(aid) else (lambda a, ioi, k=self.acts[aid]['kind']: stroke.prep(a, ioi, k))
+        return SEG.Declared(segs, knots, rings, prep, native=True)
 
     def sample_times(self, hz=120):
         total = float(self.score['total_s'])

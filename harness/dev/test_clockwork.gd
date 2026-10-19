@@ -106,12 +106,15 @@ func _init() -> void:
 	if off_orient>0: failures.append("%d oriented frames are not their target's basis" % off_orient)
 	if off_pin>0: failures.append("%d pinned joint origins are not their channel / pose" % off_pin)
 	if off_head>0: failures.append("%d head origins are not tip_at + head_length" % off_head)
-	# C4: FK at rows.
+	# C4: FK at rows (a stepped arm's tool is pinned to .tip in pose mode while M5's
+	# whip-and-lag separates wrist and tip dynamically).
 	var worst_fk := 0.0; var fk_rows := 0
 	for r in range(0,rig.times.size(),7):
 		var t: float=rig.times[r]
 		rig.frames_at(t,true); fk_rows+=1
-		for a in pins: worst_fk=maxf(worst_fk,rig.frame_p(a[0]).distance_to(rig.vec(a[1],t)))
+		for a in pins:
+			if rows[a[0]]["type"]=="fixed" and rig.arms.has(a[3]) and rig.stepped(a[3]): continue
+			worst_fk=maxf(worst_fk,rig.frame_p(a[0]).distance_to(rig.vec(a[1],t)))
 	if worst_fk>FK_TOL: failures.append("the joints table's FK misses its pins by %.9f m" % worst_fk)
 	# C5: an intervening backwards seek must have no effect on the table either.
 	for fk in [false,true]:

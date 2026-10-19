@@ -63,7 +63,7 @@ def run(layout_path, score_path):
     # ...and a mallet's own boundaries: its stroke's apex, the carriage's
     # arrival and the instant the head is free (the contact)
     for aid in rig.acts:
-        if not rig.mallet(aid): continue
+        if not rig.stepped(aid) or rig.stroke(aid) is None: continue
         for s in rig.schedule(aid):
             for key in ('t_apex', 'arrive', 't_head_free'):
                 t = float(s[key]); worst_step = max(worst_step, np.linalg.norm(rig.tip_at(aid, t-1e-6)-rig.tip_at(aid, t+1e-6)))
@@ -87,12 +87,12 @@ def run(layout_path, score_path):
                 hurried += int(motion_timing.hurried(kind, dx, s['arrive']-s['go'])
                                if motion_timing.contact_to_contact(kind)
                                else s['want'] > s['approach']-s['go']+1e-9)
-            # A mallet no longer crosses [go, approach] in one click a window
-            # under a cocked head: its carriage is judged on its stroke's
-            # declared travels below. Past this line `stepped` is the hammer.
+            # A stepped arm with a planned stroke (PLAYERS M1/M5) no longer crosses
+            # [go, approach] in one click a window under a cocked head: its carriage
+            # is judged on its stroke's declared travels below.
             # A pick's servo stroke (PLAYERS M2) travels to its poise, not
             # [go, approach]: tools/test_servo.py holds its declared travels.
-            if rig.mallet(aid) or rig.stroke(aid) is not None: continue
+            if rig.stroke(aid) is not None: continue
             if s['moving'] and abs(s['first'][0]-s['rest'][0]) > .02:
                 T = s['approach']-s['go']; ts = s['go']+np.arange(0, int(T*1000)+1)/1000.0
                 x = np.array([rig.path_at(aid, t)[0] for t in ts]); dx = np.diff(x)
@@ -129,7 +129,7 @@ def run(layout_path, score_path):
     # carriage plays designed pieces, not slews: tools/test_servo.py holds it.
     for aid in rig.acts:
         st = rig.stroke(aid)
-        if st is None or rig.mallet(aid): continue
+        if st is None or rig.stepped(aid): continue
         for g in st.carriage.segs:
             if g.law != 'scurve' or abs(g.P1[0]-g.P0[0]) <= .02: continue
             T = g.t1-g.t0; ts = g.t0+np.arange(0, int(T*1000)+1)/1000.0
@@ -141,7 +141,7 @@ def run(layout_path, score_path):
             v = dx/1e-3; a = np.diff(v)/1e-3
             if T > .8*R.SLEW_S: ratios.append(np.abs(v).max()/(span/T))
             jerk &= bool(np.abs(np.diff(a)).max() < 10*span/(R.SCURVE_RAMP**2*(1-R.SCURVE_RAMP)*T**3)*1e-3+1e-9)
-    # A mallet's carriage, by its stroke's declared travels (DESIGN §2-§4):
+    # A stepped arm's carriage, by its stroke's declared travels (DESIGN §2-§4):
     # contact to contact (freewheel: one 3-4-5; stepped: a 3-4-5 step and a
     # detent dwell a tooth) and the homing x legs (stepped, tooth by tooth).
     # The drawn carriage is Rig.carriage_x: the scored x plus the detent ring.
@@ -150,7 +150,7 @@ def run(layout_path, score_path):
     m_gap = np.inf; m_click_x = 0.0; m_teeth = set(); m_hurried = m_hurry_off = 0
     for aid in rig.acts:
         st = rig.stroke(aid)
-        if st is None or not rig.mallet(aid): continue      # a pick's servo stroke: tools/test_servo.py
+        if st is None or not rig.stepped(aid): continue      # a pick's servo stroke: tools/test_servo.py
         row = {id(s['event']): s for s in rig.schedule(aid)}
         by_travel = {}
         for c in st.clicks(): by_travel.setdefault(c['travel'], []).append(c)
@@ -197,9 +197,9 @@ def run(layout_path, score_path):
     # ...and what it does in that window is inside the machine's limits. A
     # hammer travel the score hurried clicks faster than CLICK_S and spans
     # more than one tooth a click; it may never beat the ratchet's own floor.
-    # (A mallet clicks a tooth: its floor is judged on its stepped clicks below.)
-    hammers = [a for a in rig.acts if rig.hammer(a)]
-    mallets = [a for a in rig.acts if rig.mallet(a)]
+    # (A stepped arm with a planned stroke clicks a tooth: its floor is judged on its stepped clicks below.)
+    hammers = [a for a in rig.acts if rig.hammer(a) and rig.stroke(a) is None]
+    mallets = [a for a in rig.acts if rig.stepped(a) and rig.stroke(a) is not None]
     if hammers or per_click:
         slow = min((p for p, _ in per_click), default=0.0); wide = max((w for _, w in per_click), default=np.inf)
         unhurried = sum(1 for p, _ in per_click if p > R.CLICK_S-1e-9)
@@ -242,14 +242,12 @@ def run(layout_path, score_path):
     check(jerk, 'servo slews are jerk-limited (continuous acceleration)')
     check(ratios and all(abs(r-1/(1-R.SCURVE_RAMP)) < .04 for r in ratios), f'unhurried slews cruise at 1/(1-ramp) of their mean speed ({len(ratios)} measured)')
     # recoil: exact zero at blows and by the next stroke's start (its apex: the
-    # mallet's downstroke begins there), live in a blow's wake, never toward
+    # downstroke begins there), live in a blow's wake, never toward
     # the bar; and the head (tip_at, rings and all) never below its contact's
-    # height, the mallet's own "h >= 0" now that the |sine| bounce is retired
+    # height, the stepped arm's own "h >= 0" now that the |sine| bounce is retired
     zero_worst = 0.0; live_min = 1.0; into_bar = 0.0; head_h = (np.inf, 0.0)
     for aid in rig.acts:
-        # a hinged hammer recoils in its head and its check, not in the arm
-        # (checked below); its arm's recoil is exactly zero by design
-        if not rig.stepped(aid) or rig.hammer(aid): continue
+        if not rig.stepped(aid) or rig.stroke(aid) is None: continue
         sched = rig.schedule(aid); st = rig.stroke(aid)
         for s in sched:
             zero_worst = max(zero_worst, np.linalg.norm(rig.recoil(aid, s['hit'])), np.linalg.norm(rig.recoil(aid, s['t_apex'])))
@@ -259,34 +257,29 @@ def run(layout_path, score_path):
             into_bar = min(into_bar, tip[1]-rig.path_at(aid, t)[1])
             h = float(tip[1]-st.yc.ev(t))
             if h < head_h[0]: head_h = (h, float(t))
-    # A hinged hammer instead: the head lies back at rest, flips to EXACTLY zero
+    # A hinged hammer: the head lies back at rest, flips to EXACTLY zero
     # at the blow (which is what puts the felt on the scored contact), never
-    # passes through the bar, and the check takes a live rebound that is spent
-    # before the arm is free.
+    # passes through the bar, and rebounds into its backcheck / repetition hold.
     hammers = [a for a in rig.acts if rig.hammer(a)]
     for aid in hammers:
         rest = rig.rest_angle(aid)
-        flip_zero = 0.0; flip_rest = 0.0; through = 0.0; bounce_min = 1.0; settled = 0.0; contact = 0.0
+        flip_zero = 0.0; flip_rest = abs(rig.head_angle(aid, -1.0)-rest); through = 0.0; bounce_min = 1.0
+        settled = abs(rig.head_angle(aid, float(score['total_s']))-rest); contact = 0.0
         for s in rig.schedule(aid):
             flip_zero = max(flip_zero, abs(rig.head_angle(aid, s['hit'])))
-            flip_rest = max(flip_rest, abs(rig.head_angle(aid, s['go'])-rest))
             contact = max(contact, float(np.linalg.norm(rig.pose(aid, s['hit'])['felt']-s['first'])))
-            # inside the release, where the check's bounce is what moves the
-            # head: past t_free it is lying on its check again and the angle is
-            # the rest angle, which would flatter this check into meaning nothing
-            window = np.arange(.004, min(.05, max(s['t_free']-s['end'], .005)), .004)
-            if len(window): bounce_min = min(bounce_min, max(rig.head_angle(aid, s['end']+dt)-rest*R.quintic(dt/max(s['t_free']-s['end'], 1e-6)) for dt in window))
-            settled = max(settled, abs(rig.head_angle(aid, s['t_free'])-rest))
-            for t in np.arange(s['approach'], s['end']+1e-9, .001):
+            window = np.arange(.004, .05, .004)
+            if len(window): bounce_min = min(bounce_min, max(rig.head_angle(aid, s['hit']+dt) for dt in window))
+            for t in np.arange(s['t_apex'], s['end']+1e-9, .001):
                 through = min(through, rig.head_angle(aid, t))
         check(flip_zero < 1e-12 and contact < 1e-9,
               f'{aid}: the head flips to exactly 0 at every blow, felt on the scored contact (worst {contact:.1e} m)')
-        check(flip_rest < 1e-12 and settled < 1e-9, f'{aid}: the head lies on its check at rest and is back there when the arm is free')
+        check(flip_rest < 1e-12 and settled < 1e-9, f'{aid}: the head lies on its check at rest and is back there after the coda')
         check(through > -1e-12, f'{aid}: the head never swings through the bar it just struck')
-        check(bounce_min > .01, f'{aid}: the check takes a live rebound over the lay-back (least peak {bounce_min*1000:.1f} mrad)')
-        arm_lift = float(rig.hover(aid)[1]); full = float(rig.clearance(aid)[1])
-        check(abs(arm_lift/full-R.HAMMER['arm_share']) < 1e-12 and arm_lift < full,
-              f'{aid}: the arm dips {arm_lift*1000:.0f} mm of the {full*1000:.0f} mm clearance ({R.HAMMER["arm_share"]:.0%}); the flip covers the rest')
+        check(bounce_min > .01, f'{aid}: the head takes a live rebound into the backcheck (least peak {bounce_min*1000:.1f} mrad)')
+        rise = float(np.linalg.norm(rig.clearance(aid))*(1.0-R.HAMMER['arm_share'])); hl = rig.head_l(aid)
+        check(abs(np.sin(rest)*hl-rise) < 1e-12 and 20.0 <= np.degrees(rest) <= 45.0,
+              f'{aid}: rest_angle {np.degrees(rest):.1f} deg in [20, 45] deg with head_l {hl*1000:.0f} mm covering rise {rise*1000:.0f} mm')
     check(zero_worst < 1e-12, f'recoil exactly zero at every blow and every stroke\'s start, its apex (worst {zero_worst:.1e})')
     check(live_min > 1e-3, f'recoil rings in a blow\'s wake (least peak {live_min*1000:.1f} mm)')
     check(into_bar > -1e-12, 'recoil never pushes a mallet toward its bar')
@@ -310,9 +303,9 @@ def run(layout_path, score_path):
                 own_zero = max(own_zero, abs(f(s['hit'])))
                 live = max(abs(f(s['hit']+dt)) for dt in np.arange(.010, .041, .005))
                 own_live[name] = min(own_live.get(name, 1e9), live); peaks[name] = max(peaks.get(name, 0.0), live)
-                # the next strike begins: a mallet's next apex (its blows' gate_end),
-                # the hammer's next approach
-                if i+1 < len(sched): gated = max(gated, abs(f(sched[i+1]['t_apex' if rig.mallet(aid) else 'approach'])))
+                # the next strike begins: a stepped arm's next apex (its blows' gate_end),
+                # or approach if no stroke
+                if i+1 < len(sched): gated = max(gated, abs(f(sched[i+1]['t_apex' if rig.stroke(aid) is not None else 'approach'])))
     check(own_zero < 1e-12, f'every shudder is exactly zero at its blow (worst {own_zero:.1e})')
     check(all(v > 0 for v in own_live.values()),
           'every blow shakes the stand, the rail and the gantry 10-40 ms later (least '

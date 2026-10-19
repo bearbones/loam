@@ -809,7 +809,7 @@ def _struck_elements(S, mid):
 def _head_centres(S, aid, tip, felt):
     if S.kind(aid) == 'hammer':
         head = S.cfg(aid).get('head') or {}
-        L = float(head.get('length', R.HAMMER['head_l'])); hr = R.HAMMER['head_r']
+        L = float(head.get('length', R.HAMMER['head_l'])); hr = float(head.get('radius', R.HAMMER['head_r']))
         hinge = tip+[0, L, 0]; dirs = (felt-hinge)/L
         return felt-dirs*hr, hr
     return tip+[0, HEAD_R, 0], HEAD_R

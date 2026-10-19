@@ -198,9 +198,9 @@ check("...then the elbow and shoulder windows at home, HOME_SERVO_JOINT_S each, 
       and [round(g[1]-g[0], 9) for g in sl[3:]] == [mt.HOME_SERVO_JOINT_S[j] for j in ("elbow", "shoulder")]
       and np.isclose(sl[0][0], 0.0) and all(np.isclose(u[1], v[0]) for u, v in zip(sl, sl[1:])),
       str([(g[2], round(g[0], 3), round(g[1], 3)) for g in sl]))
-check("only the rake homes among the servo kinds (harps are M7's, A15); mallets still do",
-      mt.homes("rake") and mt.servo_homes("rake") and mt.homes("mallet")
-      and not any(mt.homes(k) for k in ("pick", "hammer")),
+check("only the rake homes among the servo kinds (harps are M7's, A15); stepped kinds (mallet, hammer) home on the rack",
+      mt.homes("rake") and mt.servo_homes("rake") and mt.homes("mallet") and mt.homes("hammer")
+      and not mt.homes("pick") and not mt.servo_homes("mallet") and not mt.servo_homes("hammer"),
       str({k: mt.homes(k) for k in ("rake", "mallet", "pick", "hammer")}))
 # A servo arm has no ratchet to coarsen: its floor is the carriage's top rate.
 ss = Mechanism.build("s", "plucked", "steel", [60, 62], arms=1, span=mt.SERVO_V_MAX/mt.WORLD_SCALE,

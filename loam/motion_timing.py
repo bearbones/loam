@@ -104,12 +104,12 @@ STEPPED_KINDS = ('mallet', 'hammer')
 # 3 and 4; rulers 1 and 19). E is the head's extent along the rail: the wound
 # head is a ball of r 0.06 (formlab/linkage.py mallet_tool), and the M5 hinge
 # pins along the rail, so its arc never widens it.
-CONTACT_KINDS = ('mallet',)
+CONTACT_KINDS = ('mallet', 'hammer')
 G = 9.80665
 FPS = 30
 A345 = 10/math.sqrt(3)              # 5.7735
 V345 = 15/8                         # 1.875
-HEAD_E = dict(mallet=.12, hammer=2*.045*1.02)
+HEAD_E = dict(mallet=.12, hammer=2*.068*1.02)
 FREE_G, FREE_RHO = 3.0, 1.0         # unhurried freewheel ceilings
 HURRIED_G, HURRIED_RHO = 5.0, 1.5   # a counted hurried travel's ceilings
 # A stepped tooth: a 3-4-5 over STEP_MOVE of its period at <= FREE_G, then a

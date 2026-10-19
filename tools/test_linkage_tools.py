@@ -62,8 +62,9 @@ for name, wrist, o2, recipe in cases:
 # is what makes the blow exact), and nothing on the head touches anything on
 # the flange anywhere in the arc it sweeps — except the check, which is
 # supposed to.
-REST = 1.858085; SIGN = -1.0
-parts, hmats, head_mats = hammer_tool(MALLET, REST, SIGN)
+HAMMER_MOUNT = [0, .50, 0]
+REST = float(np.arcsin(.22*(1.0-HAMMER['arm_share'])/HAMMER['head_l'])); SIGN = -1.0
+parts, hmats, head_mats = hammer_tool(HAMMER_MOUNT, REST, SIGN)
 flange, hshank, hhead = parts
 for nm, pcs in (('flange', flange), ('shank', hshank), ('head', hhead)): check_pieces(pcs)
 check(len(hmats) == len(flange) and len(head_mats) == len(hhead),
@@ -114,7 +115,7 @@ check(press < HF['felt'], f'hammer: the cock sinks {press*1000:.1f} mm into a {H
 S2 = np.concatenate([p.vertices for p in hshank])
 check(S2[:, 1].min() > HAMMER['head_l']+HF['post']-1e-9,
       "hammer: the swan neck starts above the flange's bridge")
-check(S2[:, 1].max() <= MALLET[1]-.05+.011 and S2[:, 1].max() >= MALLET[1]-.05-1e-9,
+check(S2[:, 1].max() <= HAMMER_MOUNT[1]-.05+.011 and S2[:, 1].max() >= HAMMER_MOUNT[1]-.05-1e-9,
       'hammer: the socket tenon buries in the wrist boss like every other tool')
 
 # the clearance ruler knows the new tool shape
@@ -491,6 +492,18 @@ fb = DRV.four_bar_crank(np.array([[0., 1.8, -0.8], [0., 1.8, -0.8]]),
                         np.array([[0., 0.9, -0.1], [0., 0.85, -0.05]]))
 check(float(fb['closure_err'].max()) <= 1e-6,
       f'four_bar_crank closure residual {float(fb["closure_err"].max()):.2e} m <= 1e-6 m')
+for sgn in (-1.0, 1.0):
+    wr_drv = DRV.wrist_drive_pieces(sgn)
+    for nm, pcs in wr_drv.items(): check_pieces(pcs)
+    check_pieces(DRV.hammer_cam_pieces(np.radians(29.8), sgn))
+fb_w = DRV.four_bar_wrist(np.array([[0., 1.0, 0.0], [0., 1.25, -0.10]]),
+                          np.array([[0., 0.85, 0.0], [0., 1.05, -0.05]]),
+                          np.array([0.0, 0.55]), sign=-1.0)
+check(float(fb_w['closure_err'].max()) <= 1e-6,
+      f'four_bar_wrist closure residual {float(fb_w["closure_err"].max()):.2e} m <= 1e-6 m')
+cam_g = float(np.abs(DRV.hammer_cam_gap(np.linspace(0.0, np.radians(30.0), 65))).max())
+check(cam_g <= 1e-4, f'hammer_cam_gap max {cam_g*1e3:.4f} mm <= 0.1 mm')
 
 if failures: raise SystemExit('LINKAGE TOOLS FAIL: '+'; '.join(failures))
 print('LINKAGE TOOLS: PASS')
+

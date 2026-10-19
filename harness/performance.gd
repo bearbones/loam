@@ -25,6 +25,8 @@ var flywheel_pinion_home := Basis.IDENTITY
 var head_home: Dictionary = {}   # each hinged hammer's head (formlab.linkage.hammer_tool), imported basis
 var drive_parts: Dictionary = {} # aid -> extra M4/M5 drive parts (shoulder_sector, shoulder_pinion, elbow_crank, elbow_rod, ...)
 var spinion_home: Dictionary = {} # each arm's shoulder driver pinion imported basis
+var wshaft_home: Dictionary = {}  # each mallet arm's hinged wrist shaft imported basis
+var hcam_home: Dictionary = {}    # each hammer arm's lift cam imported basis
 var sheath_active: Dictionary = {} # periodic-feature blur sheath hysteresis state (key -> bool)
 var stand_nodes: Dictionary = {}    # mid -> the instrument's stand and its imported home
 var shudder_nodes: Dictionary = {}  # aid -> the rail's bars and the gantry it stands on, and the sway pivot
@@ -169,21 +171,24 @@ func _ready() -> void:
 			cp.name="click"; cp.stream=click_stream; cp.volume_db=CLICK_DB
 			cp.attenuation_model=AudioStreamPlayer3D.ATTENUATION_DISABLED; cp.max_polyphony=CLICK_VOICES
 			parts[aid]["roller"].add_child(cp); click_players[aid]=cp; click_next[aid]=0
-			# a mallet's freewheel: one voice a frame, each with its own sample and gain
-			if str(layout["arms"][aid].get("kind",""))=="mallet":
+			# a stepped arm's freewheel: one voice a frame, each with its own sample and gain
+			if motion.stepped(aid):
 				if ride_stream==null: ride_stream=ride_sample()
 				var poly := AudioStreamPolyphonic.new(); poly.polyphony=CLICK_VOICES
 				var wp := AudioStreamPlayer3D.new()
 				wp.name="freewheel"; wp.stream=poly; wp.volume_db=CLICK_DB
 				wp.attenuation_model=AudioStreamPlayer3D.ATTENUATION_DISABLED
 				parts[aid]["roller"].add_child(wp); wheel_players[aid]=wp
-		# Carriage-mounted shoulder sector gear + driver pinion and four-bar elbow crank + coupler rod (formlab.drives, M4).
+		# Carriage-mounted shoulder sector gear + driver pinion, four-bar elbow crank + coupler rod (M4),
+		# and M5 hinged mallet shaft + four-bar wrist crank and hammer lift cam (formlab.drives).
 		drive_parts[aid]={}
-		for dpart in ["shoulder_sector","shoulder_pinion","elbow_crank","elbow_rod"]:
+		for dpart in ["shoulder_sector","shoulder_pinion","elbow_crank","elbow_rod","wrist_shaft","wrist_crank","wrist_rod","hammer_cam"]:
 			var dnode: Node3D=model.find_child(aid+"__"+dpart,true,false)
 			if dnode!=null:
 				drive_parts[aid][dpart]=dnode
 				if dpart=="shoulder_pinion": spinion_home[aid]=dnode.basis
+				elif dpart=="wrist_shaft": wshaft_home[aid]=dnode.basis
+				elif dpart=="hammer_cam": hcam_home[aid]=dnode.basis
 	# The chamber's flywheel, its axle pulley, companion pinion and the belt pulley turn about z
 	# (formlab.layout.flywheel_plan); their imported bases are the unspun home.
 	for label in ["Chamber flywheel","Chamber hub","Chamber drive pulley","Chamber belt pulley"]:
@@ -632,6 +637,28 @@ func evaluate(t: float) -> void:
 			var p1 := Vector3(root.x,root.y+rc*sin(th_c),root.z+rc*cos(th_c))
 			p["elbow_crank"].transform=Transform3D(MotionBake.link_basis(root,p1),root)
 			p["elbow_rod"].transform=Transform3D(MotionBake.link_basis(p1,p2),p1)
+		# Hinged mallet shaft & four-bar wrist crank (formlab.drives.four_bar_wrist, M5):
+		if p.has("wrist_shaft") and p.has("wrist_crank") and p.has("wrist_rod"):
+			var wr_drv: Dictionary=cfg.get("drives",{}).get("hinge",{})
+			var rc_w := float(wr_drv.get("r_crank",0.180)); var rf_w := float(wr_drv.get("r_lug",0.140)); var lr_w := float(wr_drv.get("coupler_l",0.220))
+			var sgn_w := motion.flip_sign(aid); var th_w := float(pose["head"])
+			p["wrist_shaft"].position=pose["tip"]
+			p["wrist_shaft"].basis=Basis(Vector3.RIGHT,sgn_w*th_w)*wshaft_home[aid]
+			var p2_w := Vector3(pose["tip"].x,pose["tip"].y-rf_w*sin(th_w),pose["tip"].z+sgn_w*rf_w*cos(th_w))
+			var d_w := p2_w-wrist; var d_wyz := Vector2(d_w.y,d_w.z).length()
+			var l_wyz2 := lr_w*lr_w-d_w.x*d_w.x
+			var cos_aw := clampf((rc_w*rc_w+d_wyz*d_wyz-l_wyz2)/maxf(2.0*rc_w*d_wyz,1e-9),-1.0,1.0)
+			var th_cw := atan2(d_w.y,d_w.z)+sgn_w*acos(cos_aw)
+			var p1_w := Vector3(wrist.x,wrist.y+rc_w*sin(th_cw),wrist.z+rc_w*cos(th_cw))
+			p["wrist_crank"].transform=Transform3D(MotionBake.link_basis(wrist,p1_w),wrist)
+			p["wrist_rod"].transform=Transform3D(MotionBake.link_basis(p1_w,p2_w),p1_w)
+		# Hammer lift cam (formlab.drives.HAMMER_CAM, M5):
+		if p.has("hammer_cam"):
+			var hc_drv: Dictionary=cfg.get("drives",{}).get("hinge",{})
+			var cam_o := MotionBake.v(hc_drv.get("cam_origin",[0.0,0.31,0.036]))
+			var ratio_hc := float(hc_drv.get("ratio",2.0))
+			p["hammer_cam"].position=pose["tip"]+cam_o
+			p["hammer_cam"].basis=Basis(Vector3.RIGHT,-ratio_hc*float(pose["head"])*motion.flip_sign(aid))*hcam_home[aid]
 	if flywheel_pinion!=null and layout.has("flywheel") and layout["flywheel"].has("mate"):
 		var spin: float=flywheel_angle(t)
 		var k: float=float(layout["flywheel"]["mate"]["ratio"])

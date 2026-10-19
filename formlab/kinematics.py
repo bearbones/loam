@@ -126,8 +126,8 @@ def arm_rows(rig, aid, hdr, channels=()):
             pose=_pose(pin=f'{aid}.root'))
     body(car, f'{aid}__carriage', 'rest'); body(car, f'{aid}__shoulder', 'rest')
     base = car
-    if rig.mallet(aid):
-        # a mallet's carriage stands at carriage_x, off the tip's x by its
+    if rig.stepped(aid):
+        # a stepped arm's carriage stands at carriage_x, off the tip's x by its
         # detent ring: the links lean out of the rail's plane by psi (<= 3.1
         # mrad today). FK only: the pose keeps the carriage's frame.
         base = j('lean', parent=car, type='revolute', axis=Y, value=_value(dict(channel=f'{aid}.q.lean')),
@@ -213,7 +213,7 @@ def arm_rows(rig, aid, hdr, channels=()):
         # so the turn is taken about the axis line through (0, y, z) (a world
         # body). Wrapped in double first: a Basis takes a 32-bit angle, and a
         # screw 4 m down its rail has turned ~3000 rad.
-        sc = cfg['screw']; pitch = float(sc['pitch'])
+        sc = cfg['screw']; pitch = float(sc.get('lead', sc['pitch']))
         s = j('screw', type='revolute', axis=X, origin=_vec([0.0, sc['y'], sc['z']]),
               value=_value(rootx, ['mul', '-TAU'], ['div', pitch], ['wrap', '-PI', 'PI']), spin=True,
               driver=dict(kind='thread', pitch=pitch))
@@ -284,7 +284,7 @@ def q_columns(rig, aid, values, times=None):
     arctan(d.x/d.z) off the rail's (d = wrist - root): its angles are read in
     that plane (Ry(psi)^T u) and psi is its own column."""
     root = np.asarray(values['root'], float); elbow = np.asarray(values['elbow'], float); wrist = np.asarray(values['wrist'], float)
-    if not rig.mallet(aid):
+    if not rig.stepped(aid):
         js = R.joint_series(root, elbow, wrist)
         return {'q.shoulder': np.asarray(js['shoulder'], float), 'q.elbow': np.asarray(js['rel'], float)}
     d = wrist-root
@@ -575,7 +575,9 @@ def fk_rows(C, frames, times, ids=None, godot=False, chunk=4096):
     """FK mode (pose ignored: the chain rule from the q values) at the rows,
     in double: {id: (P (N,3), B (N,3,3))} for `ids` (default: the pinned joints)."""
     frames = np.asarray(frames, np.float64); times = np.asarray(times, np.float64); N = len(times)
-    want = [i for i in range(len(C.ids)) if C.pin[i] is not None] if ids is None else [C.idx[j] for j in ids]
+    want = ([i for i in range(len(C.ids)) if C.pin[i] is not None
+             and (C.type[i] != 'fixed' or not C.joints[i]['owner'].startswith(('bars_', 'bells_', 'blocks_')))]
+            if ids is None else [C.idx[j] for j in ids])
     out = {C.ids[i]: (np.empty((N, 3)), np.empty((N, 3, 3))) for i in want}
     for lo in range(0, N, chunk):
         hi = min(N, lo+chunk); fr = frames[lo:hi]; n = hi-lo

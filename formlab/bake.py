@@ -249,9 +249,9 @@ def sample_times(rig, hz):
 
 def arm_clicks(rig, aid):
     """(clicks [[t, teeth]], click_pawl [0 drop | 1 ride], click_step [1 stepped
-    or homing | 0 freewheel]) in time order: a mallet's a tooth from its
-    stroke, the hammer's a ratchet click (its pawl drops at every landing)."""
-    st = rig.stroke(aid) if rig.mallet(aid) else None
+    or homing | 0 freewheel]) in time order: a stepped arm's a tooth from its
+    stroke."""
+    st = rig.stroke(aid) if rig.stepped(aid) else None
     if st is not None:
         cs = st.clicks()
         clicks = [[float(c['t']), 1.0] for c in cs]
@@ -263,7 +263,7 @@ def arm_clicks(rig, aid):
 
 def arm_blows(rig, aid):
     """[{t, gate_end, x, energy}] a blow (gate_end None for the last); a
-    mallet's also carry its stroke's v_in and e."""
+    stepped arm's also carry its stroke's v_in and e."""
     out = []
     for b in rig.blows_by_arm.get(aid, []):
         d = dict(t=b['t'], gate_end=(b['gate_end'] if np.isfinite(b['gate_end']) else None), x=b['x'], energy=b['energy'])
@@ -291,7 +291,7 @@ def bake(score_path, manifest_path, asset=None, hz=240, verbose=print):
             sway=np.array([rig.mast_sway(aid, t) for t in times]))
         own = list(ARM_CHANNELS)
         if rig.stepped(aid):
-            st = rig.stroke(aid) if rig.mallet(aid) else None
+            st = rig.stroke(aid)
             values['ride'] = np.asarray(st.pawl_ride(times), float) if st is not None else np.zeros(len(times))
             own += STEPPED_CHANNELS
         by_arm[aid] = values

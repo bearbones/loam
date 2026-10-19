@@ -230,7 +230,7 @@ SOCKET_DEPTH = .075    # socket mouth this far below the boss centre (boss radiu
 # A hinged hammer's flange and head (linkage.hammer_tool builds it, arm_capsules
 # below measures it). It lives here rather than in linkage because both of those
 # need it and linkage already imports this module: the arrow only points one way.
-HAMMER_FORM = dict(ear_r=.020, pin_r=.008, cheek_x=.050, cheek_t=.010, cheek_z=.012,
+HAMMER_FORM = dict(ear_r=.020, pin_r=.008, cheek_x=.062, cheek_t=.010, cheek_z=.012,
                    boss_r=.013, post=.050, tail=.030, rod_r=.0085,
                    check_r=.009, felt=.007, coil_r=.014, wire_r=.0017, turns=3.5, coil_len=.016)
 
@@ -287,9 +287,9 @@ def arm_capsules(poses, o1, o2, layers, spec, mount='back', drive='rack'):
     r_bar = max(spec['width'], spec['depth'])/2; r_bar2 = r_bar*.8; outer = layers['outer']
     # The tool: contact point up to the swan neck's apex, then the shank into
     # its socket under the crosshead's lower boss (formlab.linkage.tool_mount).
-    tip = poses['tip']; socket = tool_mount(wrist[0]-tip[0], o2)
+    tip = poses['tip']; socket = tool_mount(wrist[0]-tip[0], o2); base = wrist-socket
     neck = shank_path([0, .07, 0], socket, count=25)
-    apex = tip+neck[12]; socket_end = tip+socket-[0, .03, 0]
+    apex = base+neck[12]; socket_end = base+socket-[0, .03, 0]
     caps = {
         'upper':  (root, elbow, r_bar),
         'lower':  (elbow, wrist, r_bar),
@@ -299,7 +299,7 @@ def arm_capsules(poses, o1, o2, layers, spec, mount='back', drive='rack'):
         'elbowhead_web2': (elbow, elbow+o2, spec['web']/2),
         'wristhead_web': (wrist, wrist+o2, spec['web']/2),
         'carriage_web': (root, root+o1, spec['web']/2),
-        'tool': (tip, apex, .03),
+        'tool': (base, apex, .03),
         # 25 mm, not the shank's own 13: the socket carries a clamp collar
         # (linkage.COLLAR, 1.6x the 13 mm shank = 20.8) and a set screw on a
         # 2 mm pad whose 12-gon corner reaches 24.0 mm off the axis. The
@@ -315,16 +315,16 @@ def arm_capsules(poses, o1, o2, layers, spec, mount='back', drive='rack'):
     # rides the tool frame is the FLANGE that carries the pin, not the air the
     # head swings in. The flange's radius is its half-width across the pin —
     # the cheeks have to stand outboard of the felt head's own radius, which is
-    # why it is 60 mm and not 30.
-    # `head` is the flip angle per sample and is all zeros for a rigid tool;
-    # callers that build a poses dict by hand (the rulers) may omit it.
-    if np.any(poses.get('head', 0.0)):
+    # why it is 72 mm and not 30.
+    # `head` is the flip angle per sample and `felt` is offset from `tip` for a
+    # hinged hammer; callers that build a poses dict by hand (the rulers) may omit it.
+    if np.any(poses.get('head', 0.0)) and not np.allclose(poses.get('felt', tip), tip):
         # rig is a leaf (numpy only) so this cannot cycle; the fallback is for
         # Blender, which puts formlab/ on sys.path and imports the modules bare.
         try: from .rig import HAMMER
         except ImportError: from rig import HAMMER
         HF = HAMMER_FORM
-        hinge = tip+[0, HAMMER['head_l'], 0]
+        hinge = base+[0, HAMMER['head_l'], 0]
         top = hinge+[0, HF['post']+HF['cheek_z'], 0]
         caps['tool'] = (hinge-[0, HF['ear_r']*1.1, 0], top, HF['cheek_x']+HF['cheek_t'])
         # ...and the shank starts its own radius ABOVE the flange's bridge, not
@@ -338,8 +338,8 @@ def arm_capsules(poses, o1, o2, layers, spec, mount='back', drive='rack'):
         # the pin to the face claims the ball's radius all the way up the rod
         # and reads as 11 mm inside the shank it in fact passes cleanly between.
         L = HAMMER['head_l']; hr = HAMMER['head_r']; rr = HF['rod_r']
-        dirs = (poses['felt']-hinge)/L
-        ball = poses['felt']-dirs*hr
+        dirs = (poses['felt']-(tip+[0, L, 0]))/L
+        ball = hinge+dirs*(L-hr)
         caps['head'] = (ball, ball, hr*1.02)                      # the felt, wrap proud
         caps['head_rod'] = (hinge, ball-dirs*hr, rr*1.6)          # the moulding
         caps['head_tail'] = (hinge, hinge-dirs*HF['tail']*1.2, rr*1.7)

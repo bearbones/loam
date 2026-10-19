@@ -100,11 +100,13 @@ G = 9.81                    # the rulers' g (tools/players/core.G); bounds in g 
 # off the rulers'. The 0.03 % difference errs strict: a 3 g step priced at 9.80665 runs at <= 3 x 9.81 measured.
 # strike speed: v_in(a') = V0 + V1 sqrt(a')  (2.50 .. 3.76 m/s; ruler 7 ratio >= 1.5, ruler 1/11 cap the top)
 V0, V1 = 2.5, 1.26
+V_IN = dict(mallet=(V0, V1), hammer=(1.65, 1.10))
 # prep: h(a', IOI) = (H0 + H1 a') g(IOI), capped at H_MAX; g = sqrt(IOI/IOI_REF) up to IOI_REF, then a
 # monotone cubic Hermite in log IOI (slope-matched at IOI_REF, flat at IOI_LONG) up to G_LONG
 H0, H1 = 0.15, 0.125
 IOI_REF, IOI_LONG, G_LONG = 0.357, 1.2, 2.0
 H_MAX = 0.50
+PREP_H = dict(mallet=(H0, H1, H_MAX), hammer=(0.18, 0.06, 0.36))
 FLOAT_IOI = 0.6             # a rebound-led float straight to the next apex at IOI <= this; a bounce loop above
 # the tempo float: T_down on a grid, cost (e - E_AIM)^2 + (T_down/IOI - TD_AIM)^2, penalties holding e, a_f and s
 E_LO, E_HI, E_AIM = 0.3, 0.8, 0.55
@@ -121,25 +123,26 @@ S_MIN = 0.25                # s = g T_down^2 / (2 h) >= this (rule 4: the downst
 STILL_V = 0.05              # m/s: still (ruler 8's HITCH_V; 1.7 mm a frame)
 REST_MIN = 0.25             # s: a rest's stillness (ruler 8's REST_MIN; the catch's tail and the wind-up's start add 33-131 ms)
 FLOW_K = 0.6                # a flowing rise's least speed / the lesser of its peaks before and after (ruler 8's HITCH_K 0.5 + 0.1)
-FLOAT_MIN = 0.02            # s: a float handed over to a driven rise lasts at least this (ruler 8 judges it from t + 5 ms)
+FLOAT_MIN = 0.085           # s: a float handed over to a driven rise lasts at least this (>= 2.5 frames, ruler 15)
 FLOW_N = 24                 # handover times (and, where free, wind-up ends) a flowing rise is searched on
 FLOW_SAMPLES = 64           # samples a Dahl rise's speed is judged on (a hold loop's: every COORD_DT)
-EASE_MIN = 0.02             # s: a coasting rise's ease (from the float's -a_f to a = 0) lasts at least this (jerk <= a_f/EASE_MIN)
+EASE_MIN = 0.085            # s: a coasting rise's ease (from the float's -a_f to a = 0) lasts at least this (>= 2.5 frames)
 RISE_SKIP = 0.005           # s: ruler 8 judges a rise (and a float) from the contact + this (r_strike.FLOAT_SKIP)
 PEAK_TIE = 0.01             # m/s: of rises whose peak world speeds are this close (0.3 mm a frame) a rest wins (the head
                             # waits low through a long gap, not parked high; the goal's tie, A11), then the lesser COORD_P-
                             # norm; else the lesser peak (ruler 1). One rule where no carriage moves and under a freewheel
 # the bounce loop
-E_LOOP, AF_LOOP_G = 0.45, 1.0
+E_LOOP, AF_LOOP_G = 0.52, 0.60
+E_LOOP_KIND = dict(mallet=E_LOOP, hammer=0.72)
 # a rest's APEX CATCH (goal A11, ruler 8's '8 catch'; _top_catch): the float hands over, still rising, D before
 # its free apex to one quintic hermite (in the quartic family, c5 = 0) that brings the head to rest, never
 # reversing, where the free bounce would have turned. Its shortest member rests exactly on the ballistic apex at a
 # peak brake of 1.077 a_f; it is lengthened (resting a little above the apex) to TOP_MIN_T and to TOP_BRAKE_G
-TOP_SHARE = 0.45            # D = this x (t_f - RISE_SKIP): the catch begins at this x ruler 8's launch speed v(t + 5 ms)
-                            # (its CATCH_SHARE 0.5, with margin: the free flight carries 81 % of the height, >= 3/4 at 0.5)
-TOP_MIN_T = 2/30            # s: the catch lasts at least two frames (a' = 0's shortest member is 1.88 frames: +0.6 mm)
+TOP_SHARE = 0.48            # D = this x (t_f - RISE_SKIP): the catch begins at this x ruler 8's launch speed v(t + 5 ms)
+                            # (its CATCH_SHARE 0.5, with margin: the free flight carries >= 3/4 of the height)
+TOP_MIN_T = 2.6/30          # s: the catch lasts at least 2.6 frames (>= 2.5 frames, ruler 15)
 TOP_BRAKE_G = 1.4           # the catch brakes no harder than this (ruler 8's 1.5 g, with margin; 1.077 a_f passes it above 1.3 g)
-CATCH_K, CATCH_MIN, CATCH_MAX = 1.3, 0.08, 0.25   # the low catch (_low): clamp(CATCH_K sqrt(2 dip/a_f)) s
+CATCH_K, CATCH_MIN, CATCH_MAX = 1.3, 0.085, 0.25   # the low catch (_low): clamp(CATCH_K sqrt(2 dip/a_f)) s
 H_LOW_PREP = 0.6            # a rest is at most this x the prep high (ruler 3's dh >= 0.25 h over a wind-up from rest, with margin)
 H_LOW_UNDER = 0.5           # where no rise fits before the hold (_low, an issue: none on the assets) the head is caught LOW, at
                             # this x the float's apex (a dip >= ruler 8's 1 cm HITCH_REV: a new up-run, no hitch)
@@ -147,8 +150,8 @@ H_LOW_UNDER = 0.5           # where no rise fits before the hold (_low, an issue
 # the bounce loop and the head COASTS up under its steps, arriving at the prep with the last landing. Its float takes
 # dahl_float's (e, a_f) grid; a coast climbs at >= UNDER_K x STILL_V, ruler 8's still line ('8 low rest': a head under
 # STILL_V, below its park while the carriage moves, is waiting). At the loop's e 0.45 under 1 g the bars' 4 s tolls
-# coast at 0.029-0.048 m/s, under that line; at e 0.31 under 1.48 g 0.059-0.068
-UNDER_K = 1.1
+# coast at 0.029-0.048 m/s, under that line; at e 0.31 under 1.48 g 0.053-0.068
+UNDER_K = 1.05
 # the Dahl loop (FLOAT_IOI < IOI, gap < HOLD_GAP): one flowing rise. The rebound floats at -a_f and hands over,
 # still rising, at t_w to one quintic wind-up to (h, 0, A_TOP) flowing into the least legal downstroke. (e, a_f,
 # t_w) is the grid point (e E_LO..E_HI by DAHL_E_STEP and a_f AF_LO_G..AF_HI_G by DAHL_AF_STEP, each one step
@@ -203,7 +206,7 @@ FIRST_DIP, FIRST_DIP_FRAC, FIRST_FLOOR = 0.15, 0.35, 0.05   # the first note's a
 # after the last note: one bounce loop, a raise to H_END (>= 1.5 x the tempo apex), the park
 H_END, END_RAISE_S = 0.42, 0.6
 # the arc and the declared virtual pin, per kind (one value for every arm of the kind)
-ARC = {'mallet': dict(rho=0.16, k=1.2)}
+ARC = {'mallet': dict(rho=0.16, k=1.2), 'hammer': dict(rho=0.16, k=1.2)}
 R_PIN = 0.40
 # the detent ring on a stepped landing (a damped sine in the travel's direction, amp OVERSHOOT x PITCH),
 # faded by a 3-4-5 from RING_FADE of the dwell to its end, so it is spent before the next step moves.
@@ -220,7 +223,7 @@ RIDE_ROWS = tuple(k/8 for k in range(9))   # bake rows where the tooth rate cros
 # homing joint sweeps (ruler 22 home): elbow e0 -> e0 - HOME_COVER/2 span -> e0 + HOME_COVER/2 span -> e0;
 # shoulder 0 -> -HOME_DROP_DEG -> -HOME_DROP_DEG + HOME_COVER span -> 0; each leg a 3-4-5 given the sweep
 # window's time in proportion to its joint amplitude. HOME_SPAN_GUESS stands in when the caller has no span.
-HOME_COVER = 0.85
+HOME_COVER = 0.82
 HOME_DROP_DEG = 3.0
 HOME_NEAR = 0.3             # sweep the joints at home unless home is this close (x) to another mechanism's reach
 HOME_SPAN_GUESS = dict(elbow=1.0, shoulder=0.6)
@@ -354,9 +357,10 @@ def a_or_one(a):
     return 1.0 if a is None else float(a)
 
 
-def v_in(a):
+def v_in(a, kind='mallet'):
     """The downstroke's speed at the contact (m/s), from a' in [0, 1]."""
-    return V0+V1*math.sqrt(max(a_or_one(a), 0.0))
+    v0, v1 = V_IN[kind]
+    return v0+v1*math.sqrt(max(a_or_one(a), 0.0))
 
 
 def prep_gain(ioi):
@@ -373,11 +377,12 @@ def prep_gain(ioi):
     return h00*1.0+h10*m0+h01*G_LONG
 
 
-def prep(a, ioi):
+def prep(a, ioi, kind='mallet'):
     """The declared prep height h(a', IOI) above the contact (m): IOI is the gap
     to the note being prepped (inf for a first note), a' None counts as 1.0.
     This is the function Rig.declared(aid).prep returns."""
-    return min((H0+H1*a_or_one(a))*prep_gain(ioi), H_MAX)
+    h0, h1, hmax = PREP_H[kind]
+    return min((h0+h1*a_or_one(a))*prep_gain(ioi), hmax)
 
 
 def amp_ranges(events):
@@ -447,12 +452,19 @@ def joint_points(joint, span):
 def joint_legs(joint, t0, t1, span):
     """The joint sweep over [t0, t1] as three legs dict(t0, t1, q0, q1, frac):
     q in radians from the home angle, each leg a 3-4-5 given time in proportion
-    to its amplitude (equal peak joint speed), `frac` its share of the window."""
+    to its amplitude (with a FLOAT_MIN floor on any short leg so every leg is
+    >= 2.5 frames), `frac` its share of the window."""
     q = joint_points(joint, span); amp = [abs(b-a) for a, b in zip(q, q[1:])]
-    tot = sum(amp) or 1.0; out = []; t = t0
-    for k, (a, b, m) in enumerate(zip(q, q[1:], amp)):
-        tb = t1 if k == 2 else t+(t1-t0)*m/tot
-        out.append(dict(t0=t, t1=tb, q0=a, q1=b, frac=m/tot, leg=k)); t = tb
+    tot = sum(amp) or 1.0; T = t1-t0; floor = min(FLOAT_MIN, T/3.0)
+    dts = [T*(m/tot) for m in amp]
+    for _ in range(2):
+        fixed = sum(floor for dt in dts if dt <= floor+1e-12)
+        free = sum(m for dt, m in zip(dts, amp) if dt > floor+1e-12) or 1.0
+        dts = [floor if dt <= floor+1e-12 else max(T-fixed, floor)*(m/free) for dt, m in zip(dts, amp)]
+    out = []; t = t0
+    for k, (a, b, m, dt) in enumerate(zip(q, q[1:], amp, dts)):
+        tb = t1 if k == 2 else t+dt
+        out.append(dict(t0=t, t1=tb, q0=a, q1=b, frac=dt/T if T > 0 else m/tot, leg=k)); t = tb
     return out
 
 
@@ -760,7 +772,7 @@ def _flow(ts, v0, af, tw, r1, h, a1=0.0):
     H = np.where(fl, t*(col(v0)-.5*col(af)*t),
                  np.where(wd, col(hw)+tau*(col(vw)+tau*(-.5*col(af)+tau*(col(c3)+tau*(col(c4)+tau*col(c5))))), h))
     V = np.where(fl, col(v0)-col(af)*t, np.where(wd, Vw, 0.0))
-    ok = (vw > STILL_V) & (r1 > tw+1e-6) & np.all(~wd | (Vw > 0), 1) & np.all(H <= h+1e-9, 1)
+    ok = (vw > STILL_V) & (r1 >= tw+FLOAT_MIN-1e-9) & np.all(~wd | (Vw > 0), 1) & np.all(H <= h+1e-9, 1)
     ok &= _valley(V[:, ts >= RISE_SKIP]) >= FLOW_K
     if a1 == 0: ok &= 6*c3+24*c4*R+60*c5*R*R > 0
     return H, V, ok, (c3, c4, c5, hw, vw)
@@ -796,12 +808,13 @@ def _coast_fit(v0, af, tw, T, h, jc, Zh):
     col = lambda x: x[:, None]
 
     def fit(te):
-        vm = np.maximum(col(vw)-.5*col(af)*te, 1e-9); hm = col(hw)+col(vw)*te-col(af)*te*te/3; Ts = np.sqrt(8*vm*Zh/col(jc))
+        vm = np.maximum(col(vw)-.5*col(af)*te, 1e-9); hm = col(hw)+col(vw)*te-col(af)*te*te/3
+        Ts = np.maximum(np.sqrt(8*vm*Zh/col(jc)), FLOAT_MIN)
         tc = (h-hm-8/15*vm*Ts)/vm
         return col(tw)+te+tc+Ts-T, tc, Ts
     E = EASE_MIN+np.linspace(0.0, 1.0, 33)[None, :]*col(te_hi-EASE_MIN)
     r, tc, _ = fit(E)
-    good = (r[:, :-1] <= 0) & (r[:, 1:] > 0) & (tc[:, 1:] >= 0)
+    good = (r[:, :-1] <= 0) & (r[:, 1:] > 0) & (tc[:, 1:] >= FLOAT_MIN)
     ok = good.any(1) & (te_hi > EASE_MIN)
     k = np.argmax(good, 1); n = np.arange(tw.size)
     lo, hi = E[n, k], E[n, np.minimum(k+1, E.shape[1]-1)]
@@ -810,7 +823,7 @@ def _coast_fit(v0, af, tw, T, h, jc, Zh):
         lo = np.where(rm <= 0, m, lo); hi = np.where(rm <= 0, hi, m)
     te = .5*(lo+hi); _, tc, Ts = fit(te[:, None])
     tc, Ts = tc[:, 0], Ts[:, 0]
-    return te, np.maximum(tc, 0.0), Ts, ok & (tc >= -1e-9)
+    return te, np.maximum(tc, 0.0), Ts, ok & (tc >= FLOAT_MIN-1e-9) & (Ts >= FLOAT_MIN-1e-9)
 
 
 def _coast(ts, v0, af, tw, te, tc, Ts, h):
@@ -896,7 +909,7 @@ def dahl_float(vp, h, Td, ioi, rho, k):
     U = np.linspace(0.0, 1.0, FLOW_N); rows = []
     for e in E:                                 # a row of the grid at a time (bounded memory)
         af, u = (m.ravel() for m in np.meshgrid(A, U, indexing='ij'))
-        v0 = e*vp; tw_hi = np.minimum(np.minimum(v0/af, DAHL_RISE_BY*ioi), T-1e-3)
+        v0 = e*vp; tw_hi = np.minimum(np.minimum(v0/af, DAHL_RISE_BY*ioi), T-FLOAT_MIN)
         tw = FLOAT_MIN+u*(tw_hi-FLOAT_MIN); pos = tw_hi > FLOAT_MIN
         H, V, ok, _ = _flow(ts, v0, af, tw, T, h, a1)
         sp = _arc_speed(H, V, rho, k)
@@ -934,9 +947,9 @@ def _level(cu, dx, yz0, yz1, who):
     return ry, rz
 
 
-def _freewheel_least(dx):
+def _freewheel_least(dx, kind='mallet'):
     """A freewheel's least unhurried time (3 g, 1.0 E a frame)."""
-    return motion_timing.smooth_s('mallet', dx, motion_timing.FREE_G, motion_timing.FREE_RHO)
+    return motion_timing.smooth_s(kind, dx, motion_timing.FREE_G, motion_timing.FREE_RHO)
 
 
 class _Planner:
@@ -967,11 +980,11 @@ class _Planner:
         is a 3 g step). A freewheel shorter than the 3-4-5 at the hurried
         ceilings (motion_timing.contact_floor_s) is an issue."""
         B = self.B; tid = len(self.travels); n = motion_timing.teeth(x1-x0); D = x1-x0
-        label = reg_label or regime
-        hurried = regime == 'freewheel' and motion_timing.hurried('mallet', D, tb-ta)
-        if regime == 'freewheel' and tb-ta < motion_timing.contact_floor_s('mallet', D)-1e-9:
+        label = reg_label or regime; kind = self.arm.kind
+        hurried = regime == 'freewheel' and motion_timing.hurried(kind, D, tb-ta)
+        if regime == 'freewheel' and tb-ta < motion_timing.contact_floor_s(kind, D)-1e-9:
             self.issue(tb, 'freewheel below the hurried ceilings', window=tb-ta,
-                       floor=motion_timing.contact_floor_s('mallet', D))
+                       floor=motion_timing.contact_floor_s(kind, D))
         rec = dict(id=tid, t0=ta, t1=tb, x0=x0, x1=x1, teeth=n, regime=label, hurried=bool(hurried), event=event,
                    clicks=[], period=period, window=extra.get('window'))
         self.hold_x(ta, x0, yz0)
@@ -1048,7 +1061,7 @@ class _Planner:
         for p, c in zip(N, N[1:]):
             c.ioi = c.t-p.t; c.gap = c.ioi; p.ioi_next = c.ioi
         for n in N:
-            n.v_in = v_in(n.a); n.h = prep(n.a, n.ioi)
+            n.v_in = v_in(n.a, arm.kind); n.h = prep(n.a, n.ioi, arm.kind)
         self.N = N
         hx, hy, hz = (float(v) for v in arm.home); hov = float(arm.hover)
         # ---- the rest and the homing sweep
@@ -1123,7 +1136,7 @@ class _Planner:
         for pv, cu in zip(N, N[1:]):
             self._gap(pv, cu)
         # ---- after the last note: the float, a raise to H_END (flowing, or after a rest), the park
-        nl = N[-1]; e = E_LOOP; af = AF_LOOP_G*G; v0 = e*nl.v_in
+        nl = N[-1]; e = E_LOOP_KIND.get(self.arm.kind, E_LOOP); af = AF_LOOP_G*G; v0 = e*nl.v_in
         nl.e, nl.a_f, nl.float_apex = e, af, v0*v0/(2*af)
         t_end = nl.t+_top_catch(v0, af)[3]+REST_MIN+END_RAISE_S
         shape = self._rise_alone(nl, nl, v0, af, t_end, t_end, H_END, rest_s=END_RAISE_S)
@@ -1184,7 +1197,7 @@ class _Planner:
         hold = cu.gap >= HOLD_GAP-1e-9
         # the notation's hurried (the score's go-to-contact window): it picks S1 below; the travel's
         # declared flag is judged on the window it actually runs (travel())
-        hur_n = bool(moving and motion_timing.hurried('mallet', dx, t1-cu.go))
+        hur_n = bool(moving and motion_timing.hurried(self.arm.kind, dx, t1-cu.go))
         yz0, yz1 = (pv.y, pv.z), (cu.y, cu.z)
         if ioi <= FLOAT_IOI+1e-9:
             # ---- tempo: the rebound-led float straight to the next apex, the thrown downstroke
@@ -1223,7 +1236,7 @@ class _Planner:
             return
         # ---- the bounce loop before a hold: the float, a rise (flowing, or after a rest) to the park, the
         # traverse, the cocked hold, the downstroke from rest
-        e = E_LOOP; af = AF_LOOP_G*G; v0 = e*vp; h1 = v0*v0/(2*af)
+        e = E_LOOP_KIND.get(self.arm.kind, E_LOOP); af = AF_LOOP_G*G; v0 = e*vp; h1 = v0*v0/(2*af)
         pv.e, pv.a_f, pv.float_apex = e, af, h1
         Td, ok = t_down_long(h, cu.v_in, 0.0, self.rho, self.k)
         if not ok: self.issue(t1, 'downstroke infeasible', h=h)
@@ -1412,8 +1425,8 @@ class _Planner:
         A contact pair at different y or z (the carriage would move the head's
         y/z too, untimed here) raises. Returns (ta, shape for _build_rise,
         style, glide share)."""
-        t0 = pv.t; sig = float(self.arm.sigma); tf = v0/af
-        need = _freewheel_least(dx); Tc_min = min(need, t_hs-go); hurried = motion_timing.hurried('mallet', dx, t_hs-go)
+        t0 = pv.t; sig = float(self.arm.sigma); tf = v0/af; kind = self.arm.kind
+        need = _freewheel_least(dx, kind); Tc_min = min(need, t_hs-go); hurried = motion_timing.hurried(kind, dx, t_hs-go)
         ts = np.arange(t0, t_hs, COORD_DT); rel = ts-t0
         ry, rz = _level(cu, dx, yz0, yz1, '_coordinate')
         Zh = math.sqrt(1+float(arc_Z(h, self.rho, self.k, 1))**2)
@@ -1440,7 +1453,9 @@ class _Planner:
             FREE_G; the plain 3-4-5, share 0, is always allowed: Tc_min holds it). A hurried travel (even go -> hold
             is short of its least unhurried time) does not glide."""
             for gl in (GLIDE if not hurried else (0.0,)):
-                yield np.where((gl == 0) | (_glide(dx, t_hs-A, gl)[4] <= motion_timing.FREE_G*G+1e-9), gl, np.nan)
+                gl_a = np.maximum(gl, (FLOAT_MIN+1e-9)/np.maximum(t_hs-A, 1e-9)) if gl > 0 else np.zeros_like(A)
+                Th, Tc, _, _, acc = _glide(dx, t_hs-A, gl_a)
+                yield np.where((gl == 0) | ((acc <= motion_timing.FREE_G*G+1e-9) & (Th >= FLOAT_MIN) & (Tc >= FLOAT_MIN)), gl_a, np.nan)
 
         def lead(A, gl):
             """The carriage's in-position lead at its end (= its start's, by symmetry)."""
@@ -1602,7 +1617,8 @@ class _Planner:
             self.issue(cu.t, 'coast under the loop too slow' if j is not None else 'no coast under the loop',
                        v_m=float(vm[j]) if j is not None else None, need=UNDER_K*STILL_V)
         if j is None:
-            return ta, self._low(t0, E_LOOP*vp, AF_LOOP_G*G, h, t_arr), E_LOOP, AF_LOOP_G*G
+            e0 = E_LOOP_KIND.get(self.arm.kind, E_LOOP)
+            return ta, self._low(t0, e0*vp, AF_LOOP_G*G, h, t_arr), e0, AF_LOOP_G*G
         w = t0+tw[j]
         return ta, ('coast', w, w+te[j], t_arr-Ts[j], t_arr), float(e[j]), float(af[j])
 
@@ -1635,7 +1651,10 @@ class _Planner:
         ry, rz = (yz1[0]-yz0[0])/dx, (yz1[1]-yz0[1])/dx; hz = float(self.arm.sigma)*arc_Z(hh, self.rho, self.k, 1)*h1
         best = None
         for gl in GLIDE:
-            if gl > 0 and _glide(dx, T, gl)[4] > motion_timing.FREE_G*G+1e-9: continue
+            if gl > 0:
+                gl = max(gl, (FLOAT_MIN+1e-9)/max(T, 1e-9))
+                Th, Tc, _, _, acc = _glide(dx, T, gl)
+                if acc > motion_timing.FREE_G*G+1e-9 or Th < FLOAT_MIN or Tc < FLOAT_MIN: continue
             vx = _glide_v(ts-ta, T, dx, gl)
             v = float(np.mean((vx*vx+(vx*ry+h1)**2+(vx*rz+hz)**2)**(COORD_P/2))**(1/COORD_P))
             if best is None or v < best[0]: best = (v, gl)

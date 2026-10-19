@@ -80,7 +80,7 @@ func oracle_m2(s: PerformanceScript, t: float) -> void:
 		if s.screw_nodes.has(aid):
 			var sc: Dictionary=cfg["screw"]
 			var c := Vector3(0,float(sc["y"]),float(sc["z"]))
-			var turn := Basis(Vector3.RIGHT,wrapf(-TAU*root.x/float(sc["pitch"]),-PI,PI))  # wrapped in double first: a Basis takes a 32-bit angle, and a screw 4 m down its rail has turned ~3000 rad
+			var turn := Basis(Vector3.RIGHT,wrapf(-TAU*root.x/float(sc.get("lead",sc["pitch"])),-PI,PI))  # wrapped in double first: a Basis takes a 32-bit angle, and a screw 4 m down its rail has turned ~3000 rad
 			s.screw_nodes[aid].transform=Transform3D(turn,c-turn*c)*s.screw_home[aid]
 			continue
 		p["gear"].position=root+(Vector3(0,(.17 if mount=="up" else -.17),-.10) if flat else Vector3(0,0,(.195 if mount=="front" else -.195)))

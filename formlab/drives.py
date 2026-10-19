@@ -99,6 +99,33 @@ ELBOW_DRIVE = dict(
     ear_r=.018,
 )
 
+# PLAYERS M5 mallet wrist hinge shaft (0.50 m in [0.40, 0.60] m, parallel to the
+# bar along Z at contact) & four-bar wrist crank + coupler rod on the wristhead.
+WRIST_DRIVE = dict(
+    shaft_l=.50,
+    r_crank=.180,
+    r_lug=.140,
+    coupler_l=.220,
+    x_shaft=-.032,
+    x_crank=.038,
+    x_rod=.048,
+    shaft_r=.0055,
+    thickness=.009,
+    pin_r=.007,
+    ear_r=.015,
+)
+
+# PLAYERS M5 hammer lift cam on the hammer flange driving the head's tail button.
+HAMMER_CAM = dict(
+    d_cam=.036,
+    r_follower=.048,
+    r_button=.0096,
+    ratio=2.0,
+    thickness=.010,
+    bore_r=.007,
+)
+
+
 
 def pack_masses(entry):
     """Compute volume (m^3) and mass (kg) from validate_mesh reports and piece
@@ -503,6 +530,172 @@ def joint_limits(cfg, poses):
     )
 
 
+def wrist_drive_pieces(sign=-1.0):
+    """Pieces for the PLAYERS M5 mallet wrist hinge shaft & four-bar crank:
+      - `wristhead`: motor can on the +X face of the wrist crosshead;
+      - `wrist_shaft`: 0.50 m shaft (in [0.40, 0.60] m) in local frame at
+        `pose["tip"]`, lying horizontally along Z (`0 -> sign * 0.50 m`,
+        parallel to the bar at contact `theta = 0`) and turning about X by
+        `sign * theta`;
+      - `wrist_crank`: crank arm of length r_crank (0.160 m) pivoting on
+        `wristhead` at `pose["wrist"]`;
+      - `wrist_rod`: coupler rod of length coupler_l (0.260 m) connecting the
+        crank pin to the drive lug at `z = sign * r_lug` on `wrist_shaft`.
+    """
+    WD = WRIST_DRIVE
+    sgn = 1.0 if float(sign) >= 0.0 else -1.0
+    xs = WD['x_shaft']; xc = WD['x_crank']; xr = WD['x_rod']
+    tc = WD['thickness']; rc = WD['r_crank']; rf = WD['r_lug']; lr = WD['coupler_l']
+    sl = WD['shaft_l']; sr = WD['shaft_r']; pr = WD['pin_r']; er = WD['ear_r']
+
+    # 1. Motor boss on `wristhead` (+X cheek at +0.031 m out to xc)
+    m_can = revolve([(0, .031), (.014, .031), (.016, .034), (.016, xc - tc / 2), (0, xc - tc / 2)],
+                    X, (0, 0, 0), 18)
+    m_can.material = 'steel'
+    wristhead_extra = [m_can]
+
+    # 2. Hinged mallet shaft (`0.50 m` along Z, parallel to the bar at contact)
+    shaft = []
+    # Brass throat collar under the felt ball (y = 0.055 m, z = 0)
+    collar = ring((0, .055, 0), .009, .016, .012, axis=Y, sides=24, corner=.3)
+    collar.material = 'brass'
+    shaft.append(collar)
+    # Bridge lug from the throat collar at (0, 0.055, 0) to the shaft head at (xs, 0.055, 0)
+    u3 = np.linspace(0, 1, 5)[:, None]
+    pa = np.array([0., .055, 0.]); pb = np.array([xs, .055, 0.])
+    bridge = sweep(pa + (pb - pa) * u3, .005, .009, profile=rounded_rect(.3, 12))
+    bridge.material = 'brass'
+    shaft.append(bridge)
+    # 0.50 m tapered rosewood shaft running horizontally along Z at y = 0.055 m
+    u_sh = np.linspace(0, 1, 20)[:, None]
+    s0 = np.array([xs, .055, 0.]); s1 = np.array([xs, .055, sgn * sl])
+    r_prof = np.linspace(sr * .9, sr * 1.15, 20)
+    sh_bar = sweep(s0 + (s1 - s0) * u_sh, r_prof, r_prof, sides=16)
+    sh_bar.material = 'rose'
+    shaft.append(sh_bar)
+    # Brass hinge eye and steel X-axis hinge pin at the proximal end (xs, 0.055, sgn * sl)
+    h_eye = ring((xs, .055, sgn * sl), pr, er * .95, tc, axis=X, sides=28, corner=.3)
+    h_eye.material = 'brass'
+    shaft.append(h_eye)
+    h_pin = revolve([(0, xs - tc), (pr, xs - tc), (pr, xs + tc), (0, xs + tc)],
+                    X, (0, .055, sgn * sl), 16)
+    h_pin.material = 'steel'
+    shaft.append(h_pin)
+    # Drive lug collar clamped on the shaft at (xs, 0.055, sgn * rf) -> lug eye at (xr, 0, sgn * rf)
+    lug_clamp = ring((xs, .055, sgn * rf), sr * .95, sr * 1.85, tc, axis=Z, sides=20, corner=.3)
+    lug_clamp.material = 'brass'
+    shaft.append(lug_clamp)
+    p_lug0 = np.array([xs, .055, sgn * rf]); p_lug1 = np.array([xr, 0., sgn * rf])
+    lug_arm = sweep(p_lug0 + (p_lug1 - p_lug0) * u3, .005, .010, profile=rounded_rect(.3, 12))
+    lug_arm.material = 'brass'
+    shaft.append(lug_arm)
+    lug_eye = ring((xr, 0., sgn * rf), pr, er * .85, tc, axis=X, sides=24, corner=.3)
+    lug_eye.material = 'brass'
+    shaft.append(lug_eye)
+    lug_pin = revolve([(0, xr - tc), (pr, xr - tc), (pr, xr + tc), (0, xr + tc)],
+                      X, (0, 0., sgn * rf), 16)
+    lug_pin.material = 'steel'
+    shaft.append(lug_pin)
+
+    # 3. Wrist crank in link frame (0, 0, 0) -> (0, rc, 0) at x = xc
+    crank = []
+    crank.append(ring((xc, 0, 0), pr, er, tc, axis=X, sides=28, corner=.3))
+    u_cr = np.linspace(0, 1, 12)[:, None]
+    ca = np.array([xc, er * .6, 0.]); cb = np.array([xc, rc - er * .6, 0.])
+    crank.append(sweep(ca + (cb - ca) * u_cr, tc * .45, .011, profile=rounded_rect(.35, 16)))
+    crank.append(ring((xc, rc, 0), pr, er * .9, tc, axis=X, sides=28, corner=.3))
+    c_pin = revolve([(0, xc - tc / 2), (pr, xc - tc / 2), (pr, xr + tc / 2 + .002), (0, xr + tc / 2 + .002)],
+                    X, (0, rc, 0), 16)
+    crank.append(c_pin)
+
+    # 4. Wrist coupler rod in link frame (0, 0, 0) -> (0, lr, 0) at x = xr
+    rod = []
+    rod.append(ring((xr, 0, 0), pr, er * .88, tc, axis=X, sides=28, corner=.3))
+    rod.append(ring((xr, lr, 0), pr, er * .88, tc, axis=X, sides=28, corner=.3))
+    u_rd = np.linspace(0, 1, 16)[:, None]
+    ra = np.array([xr, er * .6, 0.]); rb = np.array([xr, lr - er * .6, 0.])
+    rod.append(sweep(ra + (rb - ra) * u_rd, tc * .42, .009, profile=rounded_rect(.35, 16)))
+
+    return dict(wristhead=wristhead_extra, wrist_shaft=shaft, wrist_crank=crank, wrist_rod=rod)
+
+
+def four_bar_wrist(wrist, tip, head_angle, sign=-1.0):
+    """Exact closed-form four-bar solution for the mallet wrist crank on `wristhead`.
+
+    Given `wrist`, `tip` (arrays of shape (..., 3) or (3,)) and `head_angle`:
+      - Crank pivot on `wristhead`: P0 = wrist
+      - Driven lug on `wrist_shaft` (turned by `sign * head_angle` about +X at `tip`):
+        P2 = tip + [0, -r_lug * sin(head_angle), sign * r_lug * cos(head_angle)]
+      - Crank length: r_c = WRIST_DRIVE['r_crank'] (0.160 m)
+      - Coupler length: L_r = WRIST_DRIVE['coupler_l'] (0.260 m)
+    """
+    wrist = np.asarray(wrist, float)
+    tip = np.asarray(tip, float)
+    th = np.asarray(head_angle, float)
+    sgn = 1.0 if float(sign) >= 0.0 else -1.0
+    rc = WRIST_DRIVE['r_crank']
+    rf = WRIST_DRIVE['r_lug']
+    lr = WRIST_DRIVE['coupler_l']
+    p2 = tip.copy()
+    p2[..., 1] = tip[..., 1] - rf * np.sin(th)
+    p2[..., 2] = tip[..., 2] + sgn * rf * np.cos(th)
+    D_vec = p2 - wrist
+    D = np.linalg.norm(D_vec[..., 1:], axis=-1)
+    dx2 = D_vec[..., 0] * D_vec[..., 0]
+    l_yz2 = lr * lr - dx2
+    cos_a = np.clip((rc * rc + D * D - l_yz2) / np.maximum(2.0 * rc * D, 1e-12), -1.0, 1.0)
+    alpha = np.arccos(cos_a)
+    phi = np.arctan2(D_vec[..., 1], D_vec[..., 2])
+    theta_c = phi + sgn * alpha
+    p1 = wrist.copy()
+    p1[..., 1] = wrist[..., 1] + rc * np.sin(theta_c)
+    p1[..., 2] = wrist[..., 2] + rc * np.cos(theta_c)
+    coupler = np.linalg.norm(p2 - p1, axis=-1)
+    closure = np.abs(coupler - lr)
+    return dict(theta_crank=theta_c, p1=p1, p2=p2, closure_err=closure, r_crank=rc, r_lug=rf, l_nom=lr)
+
+
+def hammer_cam_radius(theta):
+    """Cam profile radius r_cam(theta) (m) from the cam axle at `d_cam` to the
+    surface of the hammer head's tail button (radius `r_button`) at head angle
+    `theta` (rad)."""
+    HC = HAMMER_CAM
+    rf = HC['r_follower']; dc = HC['d_cam']; rb = HC['r_button']
+    th = np.clip(np.asarray(theta, float), 0.0, math.pi / 3)
+    return np.sqrt(rf * rf + dc * dc - 2.0 * rf * dc * np.sin(th)) - rb
+
+
+def hammer_cam_gap(head_angle):
+    """Follower gap (m) between the hammer head's tail button and the cam
+    profile spun by `psi = -ratio * head_angle * sign`."""
+    HC = HAMMER_CAM
+    rf = HC['r_follower']; dc = HC['d_cam']; rb = HC['r_button']
+    th = np.asarray(head_angle, float)
+    r_center = np.sqrt(rf * rf + dc * dc - 2.0 * rf * dc * np.sin(th))
+    return r_center - rb - hammer_cam_radius(th)
+
+
+def hammer_cam_pieces(rest_angle, sign=-1.0):
+    """Closed brass eccentric lift cam + steel hub and axle pin (`<aid>__hammer_cam`)
+    in its own local frame at `cam_origin = [0, head_l, -sign * d_cam]`."""
+    HC = HAMMER_CAM
+    tc = HC['thickness']; br = HC['bore_r']
+    r_min = float(hammer_cam_radius(rest_angle))
+    r_max = float(hammer_cam_radius(0.0))
+    # Cam disc with eccentric lobe reaching from r_min to r_max
+    lobe = ring((0, 0, 0), br, r_min, tc, axis=X, sides=36, corner=.3)
+    lobe.material = 'brass'
+    u = np.linspace(0, 1, 8)[:, None]
+    pa = np.array([0., .008, 0.]); pb = np.array([0., r_max - .006, 0.])
+    nose = sweep(pa + (pb - pa) * u, tc * .46, .012, profile=rounded_rect(.4, 16))
+    nose.material = 'brass'
+    hub = ring((0, 0, 0), br * .6, br * 1.6, tc * 1.5, axis=X, sides=24, corner=.3)
+    hub.material = 'steel'
+    pin = revolve([(0, -tc), (br * .6, -tc), (br * .6, tc), (0, tc)], X, (0, 0, 0), 16)
+    pin.material = 'steel'
+    return [lobe, nose, hub, pin]
+
+
 def manifest_drives(cfg):
     """Metadata block recorded in `manifest['arms'][aid]['drives']`."""
     drv = drive_kind(cfg)
@@ -513,7 +706,7 @@ def manifest_drives(cfg):
         dict(kind='pinion', motor=True, r_pitch=PINION['r_pitch'], teeth=PINION['teeth'],
              phase=round(phase, 9), backlash_deg=BACKLASH_DEG)
     )
-    return dict(
+    out = dict(
         carriage=carriage_drv,
         shoulder=dict(
             kind='sector_gear',
@@ -537,3 +730,28 @@ def manifest_drives(cfg):
             x_rod=ELBOW_DRIVE['x_rod'],
         ),
     )
+    kind = cfg.get('kind')
+    if kind == 'mallet':
+        out['hinge'] = dict(
+            kind='four_bar_crank',
+            shaft_l=WRIST_DRIVE['shaft_l'],
+            r_crank=WRIST_DRIVE['r_crank'],
+            r_lug=WRIST_DRIVE['r_lug'],
+            coupler_l=WRIST_DRIVE['coupler_l'],
+            x_shaft=WRIST_DRIVE['x_shaft'],
+            x_crank=WRIST_DRIVE['x_crank'],
+            x_rod=WRIST_DRIVE['x_rod'],
+        )
+    elif kind == 'hammer':
+        hl = float(cfg.get('head', {}).get('length', 0.31))
+        sgn = float(cfg.get('head', {}).get('sign', -1.0))
+        out['hinge'] = dict(
+            kind='cam',
+            d_cam=HAMMER_CAM['d_cam'],
+            r_follower=HAMMER_CAM['r_follower'],
+            r_button=HAMMER_CAM['r_button'],
+            ratio=HAMMER_CAM['ratio'],
+            cam_origin=[0.0, round(hl, 5), round(-sgn * HAMMER_CAM['d_cam'], 5)],
+        )
+    return out
+

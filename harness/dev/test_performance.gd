@@ -117,7 +117,6 @@ func check_scene() -> void:
 					for c in scene.motion.click_times(aid):
 						if int(c["step"])==0 and int(c["pawl"])==1: freewheels+=1
 					if freewheels>0 and ride_max<.5: failures.append("a pawl that rides %d clicks never rides in the bake %s (ride at most %.3f)" % [freewheels,aid,ride_max])
-					if scene.motion.hammer(aid) and ride_max!=0.0: failures.append("the hammer's pawl rides "+aid)
 					for t in moments:
 						scene.evaluate(t); var pz: Dictionary=scene.motion.pose(aid,t)
 						if pawl.global_position.distance_to(pz["root"]+MotionBake.v(cfg["pawl"]["pivot"]))>.00001: failures.append("pawl off its pivot "+aid)
@@ -162,11 +161,10 @@ func check_scene() -> void:
 		# on its roller with the synthesised sample, CLICK_DB under the instruments;
 		# a stepped arm clicks (where and how often is formlab.rig's, held by
 		# tools/test_motion.py and tools/test_bake.py), no two STEPPED clicks (a
-		# stepped or homing landing, every hammer click) come closer than
-		# CLICK_MIN_S, and a servo arm never clicks. A mallet's freewheel clicks a
-		# tooth, as close as the tooth rate puts them (11.9 ms at the fastest):
-		# those play frame-batched on the arm's freewheel player, the ride tick
-		# lighter than the drop. The samples are ticks that decay.
+		# stepped or homing landing) come closer than CLICK_MIN_S, and a servo arm
+		# never clicks. A stepped arm's freewheel clicks a tooth, as close as the
+		# tooth rate puts them (11.9 ms at the fastest): those play frame-batched
+		# on the arm's freewheel player, the ride tick lighter than the drop.
 		var tick_decays = func(wav: AudioStreamWAV, shortest: float, longest: float) -> String:
 			if wav==null or wav.get_length()<shortest or wav.get_length()>longest or wav.format!=AudioStreamWAV.FORMAT_16_BITS: return "missing or the wrong shape"
 			var early := 0.0; var late := 0.0; var n: int=wav.data.size()/2; var tail: int=int(.01*wav.mix_rate)
@@ -185,9 +183,9 @@ func check_scene() -> void:
 			if cp.volume_db>scene.CLICK_DB+1e-6 or cp.volume_db<scene.CLICK_DB-6.0: failures.append("click not mixed under the instruments "+aid)
 			var why: String=tick_decays.call(cp.stream,.05,.3)
 			if why!="": failures.append("click sample %s %s" % [why,aid])
-			var mallet: bool=str(cfg.get("kind",""))=="mallet"
+			var stepped_arm: bool=scene.motion.stepped(aid)
 			var wp: AudioStreamPlayer3D=scene.wheel_players.get(aid)
-			if mallet:
+			if stepped_arm:
 				if wp==null or wp.get_parent()!=scene.parts[aid]["roller"] or not (wp.stream is AudioStreamPolyphonic): failures.append("no freewheel player on the roller "+aid)
 				elif absf(wp.volume_db-cp.volume_db)>1e-6 or (wp.stream as AudioStreamPolyphonic).polyphony!=cp.max_polyphony: failures.append("freewheel player not mixed and voiced as the click player "+aid)
 				why=tick_decays.call(scene.ride_stream,.005,.05)
@@ -197,7 +195,7 @@ func check_scene() -> void:
 			for c in list:
 				var t: float=float(c["t"])
 				if not (int(c["pawl"]) in [0,1] and int(c["step"]) in [0,1]): failures.append("click pawl/step not 0/1 %s at %.3f s" % [aid,t])
-				if not mallet and (int(c["step"])!=1 or int(c["pawl"])!=0): failures.append("a %s click is not a stepped drop %s at %.3f s" % [cfg.get("kind",""),aid,t])
+				if not stepped_arm and (int(c["step"])!=1 or int(c["pawl"])!=0): failures.append("a %s click is not a stepped drop %s at %.3f s" % [cfg.get("kind",""),aid,t])
 				if t<prev_any: failures.append("clicks out of time order %s at %.3f s" % [aid,t])
 				prev_any=t
 				if int(c["step"])!=1: continue
@@ -220,7 +218,7 @@ func check_scene() -> void:
 					for k in int(f["stepped"]): on_click.append([t1,cp.stream.get_length()])
 					var v: Dictionary=scene.freewheel_voice(int(f["drop"]),int(f["ride"]))
 					if not v.is_empty():
-						if not mallet: failures.append("a %s click batched %s" % [cfg.get("kind",""),aid])
+						if not stepped_arm: failures.append("a %s click batched %s" % [cfg.get("kind",""),aid])
 						on_wheel.append([t1,(scene.ride_stream if v["ride"] else cp.stream).get_length()])
 						most[0]+=1; most[1]=maxi(most[1],int(f["drop"])+int(f["ride"]))
 					t0=t1
@@ -245,20 +243,20 @@ func check_scene() -> void:
 		# and its gantry sways. Measured on the RENDERED nodes: before the first
 		# blow every one of them sits at its imported home, within 40 ms of the
 		# blow at least one has moved, and by the next strike's start (the
-		# header's gate_end: a mallet's next apex, the hammer's next approach)
+		# header's gate_end: the next stroke's apex)
 		# they are home again — the shudder never smears a contact.
 		for aid in scene.parts:
 			if not scene.motion.stepped(aid) or scene.motion.blows(aid).is_empty(): continue
 			# every blow's gate falls after it and no later than the next blow; a
-			# mallet's blow carries its stroke's v_in and e, the hammer's neither
+			# stepped arm's blow carries its stroke's v_in and e
 			var bl: Array=scene.motion.blows(aid)
-			var mallet_arm: bool=str(scene.layout["arms"][aid].get("kind",""))=="mallet"
+			var stepped_b: bool=scene.motion.stepped(aid)
 			for j in bl.size():
 				var g = bl[j]["gate_end"]
 				if (g==null)!=(j==bl.size()-1): failures.append("blow %d of %s: gate_end null off the last blow" % [j,aid])
 				elif g!=null and not (float(g)>float(bl[j]["t"]) and float(g)<=float(bl[j+1]["t"])): failures.append("blow %d of %s: gate_end %.4f not in (its blow, the next]" % [j,aid,float(g)])
-				if mallet_arm and not (bl[j].has("v_in") and bl[j].has("e") and float(bl[j]["v_in"])>0.0 and float(bl[j]["e"])>0.0 and float(bl[j]["e"])<1.0): failures.append("mallet blow %d of %s carries no v_in / e" % [j,aid])
-				if not mallet_arm and (bl[j].has("v_in") or bl[j].has("e")): failures.append("a %s blow carries a mallet's v_in / e %s" % [scene.layout["arms"][aid].get("kind",""),aid])
+				if stepped_b and not (bl[j].has("v_in") and bl[j].has("e") and float(bl[j]["v_in"])>0.0 and float(bl[j]["e"])>0.0 and float(bl[j]["e"])<1.0): failures.append("stepped blow %d of %s carries no v_in / e" % [j,aid])
+				if not stepped_b and (bl[j].has("v_in") or bl[j].has("e")): failures.append("a %s blow carries a mallet's v_in / e %s" % [scene.layout["arms"][aid].get("kind",""),aid])
 			var mid: String=scene.motion.mech_of(aid)
 			# node -> its imported home transform; the stand is shared by the
 			# instrument's arms, so it is judged from the instrument's first blow.

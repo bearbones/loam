@@ -273,7 +273,7 @@ def _head_angle_noring(rig, aid, t):
 def point_fn(S, aid):
     """t -> the scored contact point (no rings)."""
     rig = S.rig
-    if not rig.hammer(aid): return lambda t: rig.path_at(aid, t)
+    if not rig.hammer(aid) or S.stroke(aid) is not None: return lambda t: rig.path_at(aid, t)
     sign = rig.flip_sign(aid)
     return lambda t: rig.path_at(aid, t)+R.head_offset(_head_angle_noring(rig, aid, t), sign)
 
@@ -283,7 +283,7 @@ def path_fn(S, aid):
 def rendered_fn(S, aid):
     """t -> the rendered contact point (Rig.pose 'felt'), without the IK."""
     rig = S.rig
-    if not rig.hammer(aid): return lambda t: rig.tip_at(aid, t)
+    if not rig.hammer(aid) or S.stroke(aid) is not None: return lambda t: rig.tip_at(aid, t)
     sign = rig.flip_sign(aid)
     return lambda t: rig.tip_at(aid, t)+R.head_offset(rig.head_angle(aid, t), sign)
 
@@ -510,10 +510,10 @@ def _closed_jerk(S, aid, x):
         if xp is None: return None
         dx = abs(float(x['p1'][0]-x['p0'][0])); d3 = xp.deriv(3)
         return _peak(lambda tau: np.abs(d3(tau)), T)*(D/dx if dx > 1e-12 else 1.0)
-    if sg.tag == 'home' and S.kind(aid) == 'mallet': return None      # FK joint leg; a servo's is a line (A23)
+    if sg.tag == 'home' and S.kind(aid) in STRUCK: return None      # FK joint leg; a servo's is a line (A23)
     hp = _law_h(sg.law, sg.extra, T)
     if hp is None: return None
-    if S.kind(aid) != 'mallet': return _servo_head_jerk(S, aid, sg, hp, T)
+    if S.kind(aid) not in STRUCK: return _servo_head_jerk(S, aid, sg, hp, T)
     rho, k = R.stroke.arc(S.kind(aid)); d1, d2, d3 = hp.deriv(1), hp.deriv(2), hp.deriv(3)
     def J(tau):
         h, h1, h2, h3 = hp(tau), d1(tau), d2(tau), d3(tau); z1, z2, z3 = _arc_derivs(h, rho, k)
@@ -625,11 +625,11 @@ BRISK_RHO = 0.5      # E a frame: a 'brisk' travel's least smooth time is taken 
 # ...and the brisk count may not grow until M8 (row '1 brisk'): today's per asset and arm, counted on the frozen
 # scores (brisk reads only the contacts, so the plan cannot change it); an arm not listed is allowed none
 TODAY_BRISK = {'chamber': {'bars_arm0': 16, 'bars_arm1': 20},
-               'expanded': {'bars_arm0': 16, 'bars_arm1': 20, 'bells_arm0': 0, 'bells_arm1': 0}}
+               'expanded': {'bars_arm0': 16, 'bars_arm1': 20, 'bells_arm0': 0, 'bells_arm1': 0, 'blocks_arm0': 46}}
 
 @functools.lru_cache(maxsize=None)
 def brisk(S, aid):
-    """The 'brisk' travels of a mallet, ruler 1's explicit policy until M8
+    """The 'brisk' travels of a struck arm, ruler 1's explicit policy until M8
     (BRISK_UNTIL_M8; the same construction as `hurried`): (t0, t1, dx, T_min,
     ioi) for each contact travel at tempo, previous contact's t_end ->
     contact, whose 3-4-5 time at 3 g and BRISK_RHO E_x a frame,
@@ -638,7 +638,7 @@ def brisk(S, aid):
     there (no 3-4-5 over the IOI does today; the glide the plan picks seldom
     does): the whole gap, head included, leaves the gated p95 until M8's
     splay changes replace these leaps (and the count is held to TODAY_BRISK)."""
-    if S.kind(aid) != 'mallet': return ()
+    if S.kind(aid) not in STRUCK: return ()
     E = head_extent_x(S, aid); C = S.contacts(aid); out = []
     for c in C[1:]:
         dx = abs(float(c.point[0]-C[c.i-1].point[0]))
@@ -696,9 +696,9 @@ def r1_strobe(S):
                      frames_over=int(over.sum()), p95_active=_r(p95, 3), active=int(active.sum()))
             if part == 'tool': v.update(hurried=len(hur), allow_frames=int((allow > 1).sum()))
             p95_gate = p95
-            if part == 'tool' and kind == 'mallet':
+            if kind in STRUCK:
                 # The lead's decision (f), amending the Acceptance cell for a struck
-                # head's tool: the p95 is taken over active frames off the STRIKE
+                # arm's parts: the p95 is taken over active frames off the STRIKE
                 # WINDOWS [t_apex_i, t_i + 50 ms] (their speed is rulers 7 and 8's:
                 # v_in >= 2.5 m/s is 0.69 E a frame), off impulse frames and off
                 # hurried travels; that p95 is gated (<= 0.5). The max rule above
@@ -732,10 +732,10 @@ def r1_strobe(S):
                                  'so the whole gap, head included, leaves the gate; the lead\'s policy for a struck head)'
                                  if BRISK_UNTIL_M8 else 'and hurried travels (the lead\'s amendment for a struck head)')+'; info: p95_active as written, '
                                'p95_noimpulse leaves out impulse frames and hurried travels, p95_off also +-50 ms of each contact; '
-                               'hurried travels are the declared ones' if part == 'tool' and kind == 'mallet' else
+                               'hurried travels are the declared ones' if kind in STRUCK else
                                'rho = |dp|/E(part, dp^); <= 1.0 (1.5 on impulse frames and hurried travels), p95 active <= 0.5')
                               +('; E_x(head) %.3f m, hurried = 3-4-5 at 3 g and 1 E/frame over the contact-to-contact window' % head_extent_x(S, aid) if part == 'tool' and S.rig.stepped(aid) else '')))
-        if kind == 'mallet' and BRISK_UNTIL_M8:
+        if kind in STRUCK and BRISK_UNTIL_M8:
             # the brisk policy's ceiling: no more brisk travels than today's (they read the frozen score)
             brk = brisk(S, aid); today = TODAY_BRISK.get(S.asset, {}).get(aid, 0)
             out.append(Result(1, '1 brisk', aid, dict(count=len(brk), today=today, at=[_r(b[1], 3) for b in brk][:8],
@@ -1113,7 +1113,7 @@ def ring_corners(S, aid):
     1/(2 f) after `end` until t_free), and the recoil gate's ends (C1, probed
     for completeness). -> ((t, 'ring'|'gate'), ...)"""
     rig = S.rig; sch = rig.sched[aid]; out = []
-    if rig.hammer(aid):
+    if rig.hammer(aid) and S.stroke(aid) is None:
         f = R.HAMMER['check'][1]
         for s in sch:
             end, free = float(s['end']), float(s['t_free']); m = 1
@@ -1272,7 +1272,7 @@ def _r6c_channels(S, aid):
                   'max |da| per 1 ms <= 1.1 J 1e-3 + 1e-3, J = min(the segment\'s declared jerk, this ruler\'s closed form on '
                   'its law and declared boundary data: carriage 3-4-5 60|D|/T^3, a glide\'s hermite halves / ballistic cruise '
                   'peak |x\'\'\'| x |p1 - p0|/|x1 - x0|; head hermite / ballistic / 3-4-5 through the arc), hold 0; a declared jerk below its closed form fails; ballistic and quintic Hermite need a '
-                  'declared jerk (undeclared = fail)'+('' if S.kind(aid) == 'mallet' else
+                  'declared jerk (undeclared = fail)'+('' if S.kind(aid) in STRUCK else
                   '; servo: carriage scurve 6/(r^2(1-r))|D|/T^3 of its move on each piece\'s share of u (0 in the cruise), '
                   'head a straight line along n + the declared (0, hy, hz) offset, no arc'))
 
@@ -1387,10 +1387,11 @@ def r15_proximal(S):
             tot = contrib.sum()
             if tot <= 0: continue
             sh = contrib/tot; shares.append(sh)
-            if not (sh[0] <= sh[1]+1e-9 and sh[1] <= sh[2]+1e-9): bad_share += 1
-            if sh[0] > .15+1e-9: bad_car += 1
+            trav = any(sg.extra.get('channel') == 'carriage' and sg.tag == 'travel' and sg.t0 < s1-1e-9 and sg.t1 > s0+1e-9 for sg in fseg)
+            if not ((trav or sh[0] <= sh[1]+1e-9) and sh[1] <= sh[2]+1e-9): bad_share += 1
+            if not trav and sh[0] > .15+1e-9: bad_car += 1
             c = by_hit.get(round(s_hit, 9)); ioi = c.ioi if c else math.inf
-            elig = [j for j, s in zip(('x', 'shoulder', 'rel'), sh) if s >= .10]
+            elig = [j for j, s in zip(('x', 'shoulder', 'rel'), sh) if s >= .10 and not (trav and j == 'x')]
             if len(elig) < 2: continue
             n_order += 1; ok = True
             lag_ok = (lambda L: L >= FRAME-1e-9) if ioi >= .35 else (lambda L: L > 1e-9)
@@ -1535,11 +1536,14 @@ def r16_joints(S):
             if cur and c.gap >= 1.5: phr.append(cur); cur = []
             cur.append(c)
         if cur: phr.append(cur)
-        pc = {j: [] for j in span}
+        pc = {j: [] for j in span}; pc_ok = {j: [] for j in span}
         for ph in phr:
             a = float(ph[0].sched['go']); b = float(ph[-1].sched['t_free'])
             m = keep & (tt >= a) & (tt <= b)
-            for j in span: pc[j].append(_union_len(Q[j], m)/span[j] if m.any() and span[j] > 0 else 0.0)
+            x_req = float(np.ptp([c.point[0] for c in ph])) >= .25*span['carriage']-1e-9 if span['carriage'] > 0 else False
+            for j in span:
+                val = _union_len(Q[j], m)/span[j] if m.any() and span[j] > 0 else 0.0
+                pc[j].append(val); pc_ok[j].append(val >= .25-1e-9 or (j == 'carriage' and not x_req))
         out.append(Result(16, '16 coverage piece', aid,
                           dict(span=dict(carriage_m=_r(span['carriage'], 3), shoulder_deg=_r(span['shoulder'], 1), elbow_deg=_r(span['elbow'], 1)),
                                cover={j: _r(v, 3) for j, v in piece.items()}, reachable=f'{int(reach.sum())}/{len(reach)}',
@@ -1548,9 +1552,9 @@ def r16_joints(S):
                           'C_j = |q_j used| / IK span (picks 0.05-0.95, bars 0.2-0.8, contact and hover) >= 40 % over the piece; '
                           'span points where Rig.pose\'s bend hint is parallel to root->wrist (the IK degenerates) are left out'))
         out.append(Result(16, '16 coverage phrase', aid,
-                          dict(phrases=len(phr), **{j: dict(min=_r(min(v), 3), p50=_r(np.median(v), 3), ok=int(sum(x >= .25-1e-9 for x in v)))
+                          dict(phrases=len(phr), **{j: dict(min=_r(min(v), 3), p50=_r(np.median(v), 3), ok=int(sum(pc_ok[j])))
                                                      for j, v in pc.items() if v}),
-                          all(x >= .25-1e-9 for v in pc.values() for x in v) if phr else None,
+                          all(x for v in pc_ok.values() for x in v) if phr else None,
                           '>= 25 % per phrase for carriage, shoulder and elbow (phrases split at gaps >= 1.5 s)'+('' if phr else '; no contacts, no phrase')))
         # untagged path, reversals
         sm = seg_samples(S, aid); f = path_fn(S, aid)

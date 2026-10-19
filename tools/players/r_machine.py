@@ -197,6 +197,8 @@ def harness_laws(S):
     laws = dict(pinion_r={}, screw={}, roller={}, flywheel=None, belt=False, belt_wraps=False,
                 sector=bool(re.search(r'p\["shoulder_pinion"\]\.basis=Basis\(Vector3\.RIGHT,ratio_sh\*q_sh\)', src)),
                 crank=bool(re.search(r'p\["elbow_crank"\]\.transform=Transform3D\(MotionBake\.link_basis\(root,p1\),root\)', src)),
+                wrist_crank=bool(re.search(r'p\["wrist_crank"\]\.transform=Transform3D\(MotionBake\.link_basis\(wrist,p1_w\),wrist\)', src)),
+                hammer_cam=bool(re.search(r'p\["hammer_cam"\]\.basis=Basis\(Vector3\.RIGHT,-ratio_hc\*float\(pose\["head"\]\)\*motion\.flip_sign\(aid\)\)', src)),
                 sheath=bool(re.search(r'static func sheath_step\(dtheta_deg: float, period_deg: float, was_on: bool\) -> bool:', src)))
     if not re.search(r'\brig\.apply\(t\)', _gd_code(src)):        # the harness no longer poses through the joints table
         return laws
@@ -212,7 +214,8 @@ def harness_laws(S):
             laws['pinion_r'][aid] = r if ok else None
         sc = rows.get(f'{aid}/screw')
         if sc is not None:
-            pitch = float(cfg.get('screw', {}).get('pitch', SCREW['pitch']))
+            sc_cfg = cfg.get('screw', {})
+            pitch = float(sc_cfg.get('lead', sc_cfg.get('pitch', SCREW['pitch'])))
             laws['screw'][aid] = (_ops_are(sc, x, [('mul', -2*math.pi), ('div', pitch), ('wrap', -math.pi, math.pi)])
                                   and turns(f'form_{aid}_screw', sc['id'], 'world'))
         ro = rows.get(f'{aid}/roller')
@@ -268,10 +271,10 @@ def _f(x): return None if x is None else float(x)
 
 # ---- 17 drives ------------------------------------------------------------
 def _mallet(S, aid):
-    """The M1 branch (DESIGN §0: keyed on the kind): a rigid mallet whose rig
-    declares its own stroke — its carriage is Rig.carriage_x (the scored x
-    plus the detent ring; the root no longer follows the tip's recoil x)."""
-    return S.kind(aid) == 'mallet' and S.declared(aid).native
+    """The M1/M5 branch: a stepped arm whose rig declares its own stroke — its
+    carriage is Rig.carriage_x (the scored x plus the detent ring; the root no
+    longer follows the tip's recoil x)."""
+    return S.rig.stepped(aid) and S.declared(aid).native
 
 def _native(S, aid):
     """Any arm whose rig declares its own stroke (Declared.native): the M1
@@ -338,7 +341,7 @@ def peak_xdot(S, aid, dt=5e-4):
 def _dofs(S, aid):
     P = S.poses(aid, 'frames'); sh, el = joint_angles(P)
     d = {'carriage x': (P['root'][:, 0], 1e-4), 'shoulder': (sh, 1e-4), 'elbow': (el, 1e-4)}
-    if S.rig.hammer(aid) and S.cfg(aid).get('drives', {}).get('hinge'):
+    if (S.rig.hammer(aid) or S.cfg(aid).get('drives', {}).get('hinge')):
         d['hinge'] = (P['head'], 1e-4)
     return d
 
@@ -453,18 +456,17 @@ def gear_law(S, aid):
         sc = cfg.get('screw', {})
         starts = int(sc.get('starts', SCREW_STARTS))
         lead = float(sc.get('lead', float(sc.get('pitch', SCREW['pitch']))*starts))
-        pitch = float(sc.get('pitch', SCREW['pitch']))
         if not laws['screw'].get(aid):
-            return Result(17, 'gear', aid, dict(drive='leadscrew'), False, 'the joints table (formlab/kinematics.py) no longer turns the leadscrew by -TAU*root.x/pitch, or the harness no longer poses through it: update this ruler')
+            return Result(17, 'gear', aid, dict(drive='leadscrew'), False, 'the joints table (formlab/kinematics.py) no longer turns the leadscrew by -TAU*root.x/lead, or the harness no longer poses through it: update this ruler')
         wrap = lambda a: (a+np.pi) % (2*np.pi)-np.pi
         th_d = wrap(-2*np.pi*x/lead).astype(np.float32).astype(float)
         res = np.abs(wrap(th_d-(-2*np.pi*x/lead)))
         tol = F32*np.maximum(1.0, np.abs(th_d))
         off = 0.0
         v = dict(drive='leadscrew', law='theta = -2pi x / lead', N=-2*np.pi/lead, residual_rad=float(res.max()),
-                 within_f32=bool((res <= tol).all()), centre_off_mm=off, mate='nut', manifest_pitch_ok=bool(abs(pitch-lead) < 1e-12),
+                 within_f32=bool((res <= tol).all()), centre_off_mm=off, mate='nut',
                  shoulder_sector_ok=sh_ok, shoulder_res_rad=float(res_sh.max()))
-        ok = bool((res <= tol).all()) and abs(pitch-lead) < 1e-12 and sh_ok
+        ok = bool((res <= tol).all()) and sh_ok
         return Result(17, 'gear', aid, v, ok, 'screw + nut and shoulder sector + pinion: Godot angle against N*q + c')
     r_h = laws['pinion_r'].get(aid)
     if r_h is None:
@@ -529,9 +531,9 @@ def cam_pawl(S, aid):
     return Result(17, 'cam', aid, v, g <= CAM_GAP_TOL, note)
 
 def crank_law(S, aid):
-    """Four-bar elbow crank loop closure over every frame (<= 1e-6 m)."""
-    laws = harness_laws(S); cfg = S.cfg(aid)
-    if not laws['crank'] or 'elbow' not in cfg.get('drives', {}):
+    """Four-bar elbow crank (and mallet wrist crank in M5) loop closure over every frame (<= 1e-6 m)."""
+    laws = harness_laws(S); cfg = S.cfg(aid); m_drv = cfg.get('drives', {})
+    if not laws['crank'] or 'elbow' not in m_drv:
         return Result(17, 'crank', aid, {}, False, 'four-bar elbow crank missing from manifest or harness/performance.gd')
     P = S.poses(aid, 'frames')
     fb = DRV.four_bar_crank(P['root'], P['elbow'], P['wrist'])
@@ -539,8 +541,30 @@ def crank_law(S, aid):
     span_deg = float(np.degrees(np.ptp(np.unwrap(fb['theta_crank']))))
     v = dict(driver='elbow_crank', coupler='elbow_rod', r_crank_mm=fb['r_crank']*1e3,
              coupler_l_m=round(float(cfg['l1']), 3), span_deg=round(span_deg, 2), closure_max_m=err)
-    return Result(17, 'crank', aid, v, bool(err <= 1e-6),
-                  'four-bar elbow crank + coupler rod loop closure | ||P2 - P1|| - l1 | <= 1e-6 m on every frame')
+    ok = bool(err <= 1e-6)
+    if S.kind(aid) == 'mallet' and m_drv.get('hinge', {}).get('kind') == 'four_bar_crank':
+        fb_w = DRV.four_bar_wrist(P['wrist'], P['tip'], P['head'], S.rig.flip_sign(aid))
+        err_w = float(fb_w['closure_err'].max())
+        span_w = float(np.degrees(np.ptp(np.unwrap(fb_w['theta_crank']))))
+        v.update(wrist_driver='wrist_crank', wrist_coupler='wrist_rod', wrist_r_crank_mm=fb_w['r_crank']*1e3,
+                 wrist_coupler_l_m=round(fb_w['l_nom'], 3), wrist_span_deg=round(span_w, 2), wrist_closure_max_m=err_w)
+        ok = ok and bool(laws.get('wrist_crank')) and bool(err_w <= 1e-6)
+    return Result(17, 'crank', aid, v, ok,
+                  'four-bar elbow crank (+ mallet wrist crank) loop closure | ||P2 - P1|| - L_r | <= 1e-6 m on every frame')
+
+def cam_hammer_lift(S, aid):
+    """Hammer lift cam profile against the head's tail button (M5): follower gap <= 0.1 mm."""
+    laws = harness_laws(S); cfg = S.cfg(aid); h_drv = cfg.get('drives', {}).get('hinge', {})
+    if not laws.get('hammer_cam') or h_drv.get('kind') != 'cam':
+        return Result(17, 'cam (hammer lift)', aid, {}, False, 'hammer lift cam missing from manifest or harness/performance.gd')
+    P = S.poses(aid, 'frames')
+    gap = DRV.hammer_cam_gap(P['head'])
+    g_max = float(np.abs(gap).max())
+    span_deg = float(np.degrees(np.ptp(P['head'])) * float(h_drv.get('ratio', DRV.HAMMER_CAM['ratio'])))
+    v = dict(driver='hammer_cam', follower='tail button', ratio=float(h_drv.get('ratio', DRV.HAMMER_CAM['ratio'])),
+             cam_span_deg=round(span_deg, 2), gap_max_mm=round(g_max*1e3, 4))
+    return Result(17, 'cam (hammer lift)', aid, v, bool(g_max <= CAM_GAP_TOL),
+                  'eccentric hammer lift cam against the head\'s tail button: follower gap <= 0.1 mm on every frame')
 
 def backlash_law(S, aid):
     """Gear-train backlash β in [0.5, 1.0] deg declared, with driver taking up
@@ -643,7 +667,7 @@ def drives(S):
         if kind in ('pick', 'rake'):
             out.append(Result(17, 'tendon', aid, {}, INFO, 'no tendon exists yet (the digits\' drums arrive in M7, the rake\'s hand in M9)'))
         if kind == 'hammer':
-            out.append(Result(17, 'cam (hammer lift)', aid, {}, INFO, 'no cam or whippen lifts the head yet (M5): the hinge is undriven'))
+            out.append(cam_hammer_lift(S, aid))
         out.append(backlash_law(S, aid))
     for r in (flywheel_rpm(S), flywheel_mates(S), flywheel_belt(S)):
         if r: out.append(r)
@@ -926,8 +950,8 @@ def _arm_rings(S, aid, cam):
                 r = tp-piv; d = np.c_[0*sway, -r[2]*sway, r[1]*sway]
                 px = np.maximum(px, cam.px(ts, tp, d))
             rings.append(('mast_sway', 'gantry', p['f'], p['tau'], hits, px, RIG.SHUDDER_TAIL))
-    # the hinged head's check
-    if rig.hammer(aid):
+    # the hinged head's check (before M5's scored float/catch replaced the |sine| check ring)
+    if rig.hammer(aid) and not dec.native:
         th = _check_ring(rig, aid, ts); p = terms.get('check'); hl = RIG.HAMMER['head_l']; sgn = rig.flip_sign(aid)
         felt = np.array([S.contact_point(aid, t) for t in ts]); head = np.array([rig.head_angle(aid, t) for t in ts])
         d = np.array([RIG.head_offset(a, sgn)-RIG.head_offset(a-b, sgn) for a, b in zip(head, th)])

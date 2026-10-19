@@ -1,3 +1,62 @@
+## 2026-10-19 — PLAYERS M5: The hinged mallet and the hammer
+
+Built the hinged mallet shaft and four-bar wrist crank for the marimba and glass
+bells (`bars_arm0..1`, `bells_arm0..1`) and re-geometried the wood-blocks hammer
+(`blocks_arm0`) with its eccentric lift cam, let-off, free flight, backcheck,
+and repetition hold (proceeding on the Q5 default: physics, where the arc reads
+through the hinge and the elbow):
+
+- **Driven wrist hinge & rosewood shaft** (`formlab/drives.py` `WRIST_DRIVE`,
+  `wrist_drive_pieces`, `four_bar_wrist`; `formlab/rig.py` `head_angle`;
+  `harness/performance.gd`):
+  - Every mallet arm now carries a $0.50\text{ m}$ rosewood shaft
+    (`<aid>__wrist_shaft`, parallel to the bar at contact, rotating about world
+    $+X$ by $\theta = \arcsin(\text{clip}(h / 0.50, 0, 1))$ over
+    $25.1^\circ\text{–}60.7^\circ$) driven from a steel four-bar crank on
+    `wristhead` (`<aid>__wrist_crank`, $r_c = 180\text{ mm}$ at `x = -0.068 m`)
+    and a brass coupler rod (`<aid>__wrist_rod`, $L_r = 220\text{ mm}$ at
+    `x = -0.078 m`) to a brass lug collar clamped at $r_{\text{lug}} = 140\text{ mm}$
+    along the shaft, holding exact 3D four-bar loop closure
+    $|\|P_2 - P_1\| - L_r| \le 2.50 \times 10^{-16}\text{ m} \le 10^{-6}\text{ m}$
+    on every frame across all four mallet arms (`bars_arm0..1`, `bells_arm0..1`).
+  - Proximal-to-distal whip and lag (`formlab/rig.py` `_wrist_at`) shifts the
+    wrist pin slightly upward in the first half of each downstroke, giving
+    strictly positive shoulder-to-elbow peak angular-velocity lag
+    ($37\text{–}81\text{ ms}$) and angular-acceleration lag
+    ($98\text{–}198\text{ ms}$) with $0$ failures on Ruler 15 (`15 order`,
+    `15 shares`, `15 tip accel` $\le 6.7\text{ g}$, `15 phases` $\ge 2.55$
+    frames, `15 weight`).
+- **Re-geometried hinged hammer & eccentric lift cam** (`formlab/rig.py` `HAMMER`,
+  `formlab/stroke.py`, `formlab/linkage.py` `hammer_tool`, `formlab/drives.py`
+  `HAMMER_CAM`, `hammer_cam_pieces`, `hammer_cam_gap`):
+  - Re-geometried `HAMMER` to `head_l = 0.31 m`, `head_r = 0.068 m` (keeping
+    Ruler 1 frame steps $\rho_{\text{p95,gated}} = 0.399 \le 0.50$ and
+    per-frame head rotation $\le 18.82^\circ \le 20^\circ$), and
+    $\theta_{\text{rest}} = 0.52\text{ rad} = 29.79^\circ \in [20^\circ, 45^\circ]$
+    sized to the lift ($\text{rise} = l_{\text{head}}\sin\theta_{\text{rest}} = 0.154\text{ m}$),
+    declared per arm in `manifest['arms'][aid]['hammer']` and `loam-motion/2`.
+  - Driven on `blocks_arm0` by the stroke scheduler (`formlab/stroke.py`) with
+    dynamics-scaled impact speeds $v_{\text{in}} \in [1.65, 2.75]\text{ m/s}$
+    (Ruler 7 $\rho = 1.0$, ratio $1.667$), rebound $e \in [0.61, 0.72]$ into the
+    felt-faced backcheck bar and repetition hold (Ruler 8 `float`, `bounce apex`,
+    `catch`, `apex vs h`, `rise`, `low rest` all green), contact-to-contact
+    travels, and a homing sweep covering $100\%$ of `reach_x` and $82\%$ of the
+    shoulder and elbow spans at $v_{\text{peak}} = 1.47\text{ m/s} \le 1.50\text{ m/s}$
+    (Ruler 22 `sync`, `repeat`, `home` all green).
+  - A brass eccentric lift cam (`blocks_arm0__hammer_cam`, ratio $2.0$, span
+    $59.57^\circ$) mounted on the flange engages the hammer head's tail button
+    with $0.000\text{ mm} \le 0.1\text{ mm}$ follower gap across every frame
+    (Ruler 17 `cam (hammer lift)`).
+- **Rebuilt assets & verification**:
+  - `harness/assets/clockwork.glb` sha256:
+    `26dc339a346f1a96bc1711c18ab1ad2af868f4b9a60576003d8319dd5a82cc31`
+  - `harness/assets/clockwork_expanded.glb` sha256:
+    `284bedc31d0845e4d8d45ac43315956c1f037c8d7ede8df81bfa535dd65deafc`
+  - `python3 tools/test_gantry.py`, `python3 tools/test_linkage_tools.py`,
+    `python3 tools/test_stroke.py`, `python3 tools/test_bake.py`,
+    `test_clockwork.gd`, `test_performance.gd`, `test_load.gd`, and
+    `python3 tools/test_players.py --gate=M0,M1,M2,M3,M4,M5` (`GATE PASSED`).
+
 ## 2026-10-17 — PLAYERS M4: The drives
 
 Every moving arm joint and carriage now has a visible, kinematic drive train

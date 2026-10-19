@@ -89,7 +89,7 @@ FLOAT_IOI = 1.0      # s: ruler 8's float leads to the next apex at IOI <= 1 s; 
 # only at IOI <= 0.6 s (a ballistic float at >= 0.5 g ending at the next
 # downstroke rises >= 0.28 m past IOI 0.59 s); above it the bounce loop. The
 # hammer keeps the M0 value until M5.
-FLOAT_IOI_KIND = dict(mallet=ST.FLOAT_IOI, hammer=FLOAT_IOI)
+FLOAT_IOI_KIND = dict(mallet=ST.FLOAT_IOI, hammer=ST.FLOAT_IOI)
 APEX_TOL = 2e-3      # s: a declared hold "ends at t_apex" within this (ruler 3's, r_motion)
 IOI_CLASS = .05      # ruler 21: IOIs within 5 % are one tempo class
 # Ruler 19's hurried-travel ceiling "<= today's count until M8": today's count
@@ -190,7 +190,8 @@ def face_fn(S, aid, rendered=True):
     Rig.head_angle (= Rig.pose 'felt', rings and check bounce included);
     scored: Rig.path_at + head offset at the ring-free head angle (no rings)."""
     rig = S.rig
-    if not rig.hammer(aid): return (lambda t: rig.tip_at(aid, t)) if rendered else (lambda t: rig.path_at(aid, t))
+    if not rig.hammer(aid) or S.declared(aid).native:
+        return (lambda t: rig.tip_at(aid, t)) if rendered else (lambda t: rig.path_at(aid, t))
     sign = rig.flip_sign(aid)
     if rendered: return lambda t: rig.tip_at(aid, t)+R.head_offset(rig.head_angle(aid, t), sign)
     return lambda t: rig.path_at(aid, t)+R.head_offset(_head_angle_noring(rig, aid, t), sign)
@@ -346,8 +347,8 @@ def _pin(S, aid, t):
     return p+rig.wrist_offset(S.cfg(aid))
 
 def _mallet(S, aid):
-    """The M1 branch: a rigid mallet whose rig declares its own stroke."""
-    return S.kind(aid) == 'mallet' and S.declared(aid).native
+    """The M1/M5 branch: a struck arm whose rig declares its own stroke."""
+    return S.kind(aid) in KINDS and S.declared(aid).native
 
 def _head_segments(S, aid):
     """A declaring mallet's head-channel segments in time order."""

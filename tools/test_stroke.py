@@ -199,7 +199,7 @@ def rings_and_path(rig, aid):
 
 def contract(rig, aid):
     D = rig.declared(aid); st = rig.stroke(aid)
-    check(D.native and D.prep is ST.prep and all(abs(D.prep(n.a_raw, n.ioi)-n.h) <= 1e-12 for n in st.notes),
+    check(D.native and (D.prep is ST.prep if rig.mallet(aid) else callable(D.prep)) and all(abs(D.prep(n.a_raw, n.ioi)-n.h) <= 1e-12 for n in st.notes),
           f'{aid}: declared natively, with stroke.prep the prep every note was planned to')
     ok = True; msg = []
     for ch in ('head', 'carriage'):
@@ -282,11 +282,11 @@ def others(rig, aid):
 
 def unplaced(score, layout, rig):
     """layout_search.plan_arms builds its Rig before the rail search has placed
-    any root: a mallet's plan may not need a cfg, and once the search writes
+    any root: a stepped arm's plan may not need a cfg, and once the search writes
     one the Rig poses exactly what a Rig built on the placed layout does."""
     import copy
     from formlab import layout_search as LS
-    bare = copy.deepcopy(layout); mallets = [a for a in rig.plans if rig.plans[a] and rig.mallet(a)]
+    bare = copy.deepcopy(layout); mallets = [a for a in rig.plans if rig.plans[a] and rig.stepped(a)]
     for aid in mallets:
         for k in LS.CFG_KEYS: bare['arms'][aid].pop(k, None)     # what the rail search chooses
     try:
@@ -312,7 +312,7 @@ def run(layout_path, score_path):
     check(rig.pushed == [], 'the rig pushes no start (one occupancy model)')
     for aid in rig.plans:
         if not rig.plans[aid]: continue
-        if rig.mallet(aid):
+        if rig.stepped(aid):
             mirrors(rig, S, aid); homing(rig, S, aid); rings_and_path(rig, aid); contract(rig, aid); handovers(rig, aid); issues(rig, aid)
         elif rig.acts[aid]['kind'] in ('pick', 'rake') and rig.stroke(aid) is not None:
             pass        # a servo stroke (PLAYERS M2, formlab/servo.py) declares itself: tools/test_servo.py holds it

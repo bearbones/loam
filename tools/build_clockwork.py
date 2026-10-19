@@ -385,7 +385,7 @@ for sid,n in forms.get('neck',{}).items():
 # Geometry variants share anchors and are selected in Godot with --form or F.
 form_colliders=[]
 for entry in forms['objects']:
-    obj,collider=make_form(entry,{'brass':brass,'wood':wood,'spruce':spruce,'steel':steel,'felt':felt,'horn':horn,'bronze':bronze})
+    obj,collider=make_form(entry,{'brass':brass,'wood':wood,'spruce':spruce,'steel':steel,'felt':felt,'horn':horn,'bronze':bronze,'rose':rose})
     if not entry.get('local'): form_colliders.append(collider)
 # Assemble the articulated rigs at their home poses in the editable Blender file.
 # Godot re-poses them every frame from the motion bake of this same Rig (formlab/bake.py).
@@ -399,6 +399,11 @@ for aid,cfg in manifest['arms'].items():
     if arm_clearance.drive_kind(cfg)=='rack': places.append(('gear',pinion))
     if cfg.get('drives'):
         places.append(('shoulder_pinion',root+Vector(cfg['drives']['shoulder']['pinion_origin'])))
+        h_drv=cfg['drives'].get('hinge',{})
+        if h_drv.get('kind')=='four_bar_crank':
+            places.append(('wrist_shaft',tip))
+        elif h_drv.get('kind')=='cam':
+            places.append(('hammer_cam',tip+Vector(h_drv['cam_origin'])))
     # A hinged hammer's head hangs on the flange's pin, head_l above the tool
     # frame's origin (formlab.linkage.hammer_tool); Godot turns it about that
     # pin every frame. Without this it would sit at the file's origin.
@@ -414,6 +419,17 @@ for aid,cfg in manifest['arms'].items():
         f_hat=(wrist-elbow).normalized()
         p1=root+f_hat*rc; p2=elbow+f_hat*rf
         link_list+=[('shoulder_sector',root,elbow,Vector((0,0,0))),('elbow_crank',root,p1,Vector((0,0,0))),('elbow_rod',p1,p2,Vector((0,0,0)))]
+        h_drv=cfg['drives'].get('hinge',{})
+        if h_drv.get('kind')=='four_bar_crank':
+            rc_w=float(h_drv['r_crank']); rf_w=float(h_drv['r_lug']); lr_w=float(h_drv['coupler_l'])
+            sgn_w=float(R.flip_sign(aid)); th_w=float(p['head'])
+            wp2=Vector((tip.x,tip.y-rf_w*math.sin(th_w),tip.z+sgn_w*rf_w*math.cos(th_w)))
+            d_w=wp2-wrist; d_wyz=math.hypot(d_w.y,d_w.z)
+            l_wyz2=lr_w*lr_w-d_w.x*d_w.x
+            cos_aw=max(-1.0,min(1.0,(rc_w*rc_w+d_wyz*d_wyz-l_wyz2)/max(2.0*rc_w*d_wyz,1e-9)))
+            th_cw=math.atan2(d_w.y,d_w.z)+sgn_w*math.acos(cos_aw)
+            wp1=Vector((wrist.x,wrist.y+rc_w*math.sin(th_cw),wrist.z+rc_w*math.cos(th_cw)))
+            link_list+=[('wrist_crank',wrist,wp1,Vector((0,0,0))),('wrist_rod',wp1,wp2,Vector((0,0,0)))]
     for part,a,b,o in link_list:
         x,y,z=arm_clearance.link_basis(np.array([a]),np.array([b]))
         B=Matrix(((x[0][0],y[0][0],z[0][0]),(x[0][1],y[0][1],z[0][1]),(x[0][2],y[0][2],z[0][2])))

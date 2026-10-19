@@ -87,10 +87,20 @@ if score_path.exists() and layout.get('arms'):
         parts['shoulder_pinion']=dict(pieces=s_drv['shoulder_pinion'])
         parts['elbow_crank']=dict(pieces=e_drv['elbow_crank'])
         parts['elbow_rod']=dict(pieces=e_drv['elbow_rod'])
+        # PLAYERS M5 hinged mallet shaft + four-bar wrist crank, and hammer lift cam:
+        if cfg['kind']=='mallet':
+            w_drv=drives_lib.wrist_drive_pieces(rig.flip_sign(aid))
+            parts['wristhead']['pieces']=parts['wristhead']['pieces']+w_drv['wristhead']
+            parts['wrist_shaft']=dict(pieces=w_drv['wrist_shaft'])
+            parts['wrist_crank']=dict(pieces=w_drv['wrist_crank'])
+            parts['wrist_rod']=dict(pieces=w_drv['wrist_rod'])
+        elif cfg['kind']=='hammer':
+            parts['hammer_cam']=dict(pieces=drives_lib.hammer_cam_pieces(rig.rest_angle(aid),rig.flip_sign(aid)))
         strings={sid:s for sid,s in layout['strings'].items() if s['mid']==cfg['mid']}
         rep=report(rig,aid,o1,o2,layers,spec,strings,poses=poses,mount=pmount,drive=drive); reports[aid]=rep
         material={'carriage':'steel','elbowhead':'steel','wristhead':'steel','shoulder':'steel','elbow':'steel','wrist':'steel',
-                  'shoulder_sector':'brass','shoulder_pinion':'brass','elbow_crank':'steel','elbow_rod':'brass'}
+                  'shoulder_sector':'brass','shoulder_pinion':'brass','elbow_crank':'steel','elbow_rod':'brass',
+                  'wrist_shaft':'rose','wrist_crank':'steel','wrist_rod':'brass','hammer_cam':'brass'}
         arm_masses={}
         for part,body in parts.items():
             if part in ('layers','spec'): continue
@@ -138,7 +148,15 @@ if score_path.exists() and layout.get('arms'):
         all_poses[aid]=poses; layout['arms'][aid].update(o1=arms[aid]['o1'],o2=arms[aid]['o2'],layers=layers,pinion=pmount,drive=drive)
         arms[aid]['pinion']=pmount; arms[aid]['drive']=drive
         if pawl_info: arms[aid]['pawl']=pawl_info; layout['arms'][aid]['pawl']=pawl_info
-        if head_info: arms[aid]['head']=head_info; layout['arms'][aid]['head']=head_info
+        if head_info:
+            arms[aid]['head']=head_info; layout['arms'][aid]['head']=head_info
+            arms[aid]['head_l']=float(HAMMER['head_l'])
+            arms[aid]['hammer']=dict(HAMMER,rest_angle=round(float(rig.rest_angle(aid)),9))
+            layout['arms'][aid]['head_l']=arms[aid]['head_l']
+            layout['arms'][aid]['hammer']=arms[aid]['hammer']
+        elif kind=='mallet':
+            arms[aid]['head_l']=float(drives_lib.WRIST_DRIVE['shaft_l'])
+            layout['arms'][aid]['head_l']=arms[aid]['head_l']
         arms[aid]['limits']=drives_lib.joint_limits(layout['arms'][aid],poses)
         arms[aid]['drives']=drives_lib.manifest_drives(layout['arms'][aid])
         arms[aid]['masses']=arm_masses

@@ -52,8 +52,10 @@ def candidates(mech, layout):
     strings = [s for s in layout['strings'].values() if s['mid'] == mech['id']]
     if mech['kind'] == 'struck':
         cy = float(layout['mechanisms'][mech['id']]['center'][1]); cz = float(np.mean([s['a'][2] for s in strings]))
-        # .28 above the felt: a 12 cm head, a shank you can see, the socket collar, the boss
-        ys = [cy+.9, cy+1.15, cy+1.4]; zs = [cz-.75, cz-1.0, cz-1.3]; bend = 'up'; wrist = [0, .28, 0]
+        # .28 above the felt for a mallet (.50 for the hinged hammer's 0.31 m head_l + flange post):
+        # room for the head/flange, a shank you can see, the socket collar, the boss
+        has_hammer = any(a.get('kind') == 'hammer' for a in mech.get('actuators', [])) or mech['id'] == 'blocks'
+        ys = [cy+.9, cy+1.15, cy+1.4]; zs = [cz-.75, cz-1.0, cz-1.3]; bend = 'up'; wrist = [0, .50 if has_hammer else .28, 0]
     else:
         zs_plane = float(np.mean([s['a'][2] for s in strings]))
         ys = [.55, 2.75, 3.15, 3.6, 4.1]; zs = [zs_plane+d for d in (-.75, -1.05, -1.4, -1.8, -2.25)]

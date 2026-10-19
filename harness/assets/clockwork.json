@@ -1471,12 +1471,12 @@
       ],
       "upper_pair_separation_m": 0.10811565500809509,
       "lower_pair_separation_m": 0.10658769758898076,
-      "self_clearance_m": 0.05304494727957022,
+      "self_clearance_m": 0.05304494727957042,
       "self_worst": [
         "lower",
         "tool"
       ],
-      "self_worst_time_s": 10.45,
+      "self_worst_time_s": 7.225,
       "string_clearance_m": 0.023,
       "string_worst": [
         "harp09",
@@ -1703,7 +1703,7 @@
       ],
       "upper_pair_separation_m": 0.10371824602404191,
       "lower_pair_separation_m": 0.08820199415352578,
-      "self_clearance_m": 0.053005120869997785,
+      "self_clearance_m": 0.05300512086999727,
       "self_worst": [
         "lower",
         "tool"
@@ -1875,8 +1875,8 @@
       ],
       "root_y": 2.25,
       "root_z": 0.06909916627486701,
-      "l1": 1.45,
-      "l2": 1.45,
+      "l1": 1.6,
+      "l2": 1.6,
       "bend": "up",
       "wrist_offset": [
         0,
@@ -1896,12 +1896,12 @@
       "pinion": "back",
       "margins": {
         "self": 0.0507,
-        "pair": 0.0442,
+        "pair": 0.0447,
         "scene": 0.08,
         "strings": 0.1105,
         "mast": 0.097,
         "others": 1.474,
-        "fine": 0.0442,
+        "fine": 0.0447,
         "cross": {
           "bars_arm1": 0.1352
         }
@@ -1916,13 +1916,13 @@
         "span": 0.1824,
         "pin_x": 0.1254
       },
-      "link_extent_y": 1.5865999999999998,
+      "link_extent_y": 1.7366,
       "oil_cups": [
         {
           "part": "upper",
           "centre": [
             0.045,
-            1.505,
+            1.655,
             0.0
           ],
           "axis": [
@@ -1934,8 +1934,8 @@
           "h": 0.031
         }
       ],
-      "upper_pair_separation_m": 0.10616989336835081,
-      "lower_pair_separation_m": 0.10620489374779049,
+      "upper_pair_separation_m": 0.1072629710372315,
+      "lower_pair_separation_m": 0.10670447398008197,
       "self_clearance_m": 0.0507373658754042,
       "self_worst": [
         "carriage_web",
@@ -1969,41 +1969,42 @@
         "home_x": 3.921429,
         "roller_spin": -60.185185
       },
+      "head_l": 0.5,
       "limits": {
         "shoulder": {
           "limits_deg": [
-            -26.49,
-            126.51
+            -26.57,
+            126.53
           ],
           "interference_deg": [
-            -26.99,
-            127.01
+            -27.07,
+            127.03
           ],
           "motion_deg": [
-            34.86,
-            65.16
+            37.19,
+            57.46
           ],
           "margin_deg": [
-            61.35,
-            61.35
+            63.76,
+            69.07
           ]
         },
         "elbow": {
           "limits_deg": [
-            24.5,
+            24.75,
             163.54
           ],
           "interference_deg": [
-            24.0,
+            24.25,
             164.04
           ],
           "motion_deg": [
-            30.69,
-            58.71
+            28.3,
+            52.33
           ],
           "margin_deg": [
-            6.19,
-            104.83
+            3.55,
+            111.21
           ]
         }
       },
@@ -2037,26 +2038,39 @@
           "kind": "four_bar_crank",
           "r_crank": 0.08,
           "r_lug": 0.08,
-          "coupler_l": 1.45,
+          "coupler_l": 1.6,
           "x_crank": 0.068,
           "x_rod": 0.08
+        },
+        "hinge": {
+          "kind": "four_bar_crank",
+          "shaft_l": 0.5,
+          "r_crank": 0.18,
+          "r_lug": 0.14,
+          "coupler_l": 0.22,
+          "x_shaft": -0.032,
+          "x_crank": 0.038,
+          "x_rod": 0.048
         }
       },
       "masses": {
         "carriage": 25.3811,
-        "upper": 31.4336,
-        "upper2": 18.2493,
+        "upper": 34.3601,
+        "upper2": 19.9986,
         "elbowhead": 13.5281,
-        "lower": 31.6563,
-        "lower2": 18.2493,
-        "wristhead": 8.8383,
+        "lower": 34.5828,
+        "lower2": 19.9986,
+        "wristhead": 8.8516,
         "shoulder": 2.3127,
         "elbow": 2.3127,
         "wrist": 2.3127,
         "shoulder_sector": 0.7985,
         "shoulder_pinion": 0.2113,
         "elbow_crank": 0.3172,
-        "elbow_rod": 2.3889,
+        "elbow_rod": 2.6297,
+        "wrist_shaft": 0.4177,
+        "wrist_crank": 0.3064,
+        "wrist_rod": 0.2804,
         "tool": 0.2794,
         "shank": 0.9767,
         "pawl": 0.9786,
@@ -2099,7 +2113,8 @@
           "worst": "arm bars_arm1 upper",
           "mount": "back",
           "drive": "rack",
-          "phase": 0.0161
+          "phase": 0.0161,
+          "form": "form_bars_arm0_rack"
         }
       }
     },
@@ -2173,7 +2188,7 @@
         }
       ],
       "upper_pair_separation_m": 0.10077948181615548,
-      "lower_pair_separation_m": 0.10777956783098534,
+      "lower_pair_separation_m": 0.1079308436696346,
       "self_clearance_m": 0.05073736587540428,
       "self_worst": [
         "carriage_web",
@@ -2207,23 +2222,24 @@
         "home_x": 5.078571,
         "roller_spin": -60.185185
       },
+      "head_l": 0.5,
       "limits": {
         "shoulder": {
           "limits_deg": [
-            -26.57,
-            126.53
+            -26.53,
+            126.47
           ],
           "interference_deg": [
-            -27.07,
-            127.03
+            -27.03,
+            126.97
           ],
           "motion_deg": [
             26.37,
-            44.88
+            42.17
           ],
           "margin_deg": [
-            52.94,
-            81.65
+            52.9,
+            84.3
           ]
         },
         "elbow": {
@@ -2236,12 +2252,12 @@
             164.04
           ],
           "motion_deg": [
-            53.08,
-            75.81
+            53.48,
+            75.41
           ],
           "margin_deg": [
-            28.33,
-            87.73
+            28.73,
+            88.13
           ]
         }
       },
@@ -2278,6 +2294,16 @@
           "coupler_l": 1.6,
           "x_crank": 0.068,
           "x_rod": 0.08
+        },
+        "hinge": {
+          "kind": "four_bar_crank",
+          "shaft_l": 0.5,
+          "r_crank": 0.18,
+          "r_lug": 0.14,
+          "coupler_l": 0.22,
+          "x_shaft": -0.032,
+          "x_crank": 0.038,
+          "x_rod": 0.048
         }
       },
       "masses": {
@@ -2287,7 +2313,7 @@
         "elbowhead": 13.4628,
         "lower": 34.5828,
         "lower2": 19.9986,
-        "wristhead": 8.8383,
+        "wristhead": 8.8516,
         "shoulder": 2.3127,
         "elbow": 2.3127,
         "wrist": 2.3127,
@@ -2295,6 +2321,9 @@
         "shoulder_pinion": 0.2113,
         "elbow_crank": 0.3172,
         "elbow_rod": 2.6297,
+        "wrist_shaft": 0.4177,
+        "wrist_crank": 0.3064,
+        "wrist_rod": 0.2804,
         "tool": 0.2794,
         "shank": 0.9767,
         "pawl": 0.9786,
@@ -2337,7 +2366,8 @@
           "worst": "arm bars_arm0 pinion_boss",
           "mount": "back",
           "drive": "rack",
-          "phase": -0.01007
+          "phase": -0.01007,
+          "form": "form_bars_arm1_rack"
         }
       }
     }
@@ -3703,12 +3733,12 @@
         "time_s": 47.85714285714286
       },
       "harp_arm0/bars_arm1": {
-        "gap_m": 4.605351725815314,
+        "gap_m": 4.606065291125827,
         "parts": [
           "upper2",
           "pinion2"
         ],
-        "time_s": 62.166666666666664
+        "time_s": 62.175
       },
       "harp_arm1/harp_arm2": {
         "gap_m": 0.12560000000000004,
@@ -3775,12 +3805,12 @@
         "time_s": 3.0166666666666666
       },
       "rake_arm0/bars_arm1": {
-        "gap_m": 7.759344090352227,
+        "gap_m": 7.765232384474527,
         "parts": [
           "upper2",
           "pinion2"
         ],
-        "time_s": 54.95
+        "time_s": 54.99166666666667
       },
       "bars_arm0/bars_arm1": {
         "gap_m": 0.18105770082331707,
@@ -3886,6 +3916,9 @@
     "bars_arm0__shoulder_pinion",
     "bars_arm0__elbow_crank",
     "bars_arm0__elbow_rod",
+    "bars_arm0__wrist_shaft",
+    "bars_arm0__wrist_crank",
+    "bars_arm0__wrist_rod",
     "bars_arm0__tool",
     "bars_arm0__shank",
     "bars_arm0__pawl",
@@ -3904,6 +3937,9 @@
     "bars_arm1__shoulder_pinion",
     "bars_arm1__elbow_crank",
     "bars_arm1__elbow_rod",
+    "bars_arm1__wrist_shaft",
+    "bars_arm1__wrist_crank",
+    "bars_arm1__wrist_rod",
     "bars_arm1__tool",
     "bars_arm1__shank",
     "bars_arm1__pawl",
