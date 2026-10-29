@@ -1,3 +1,53 @@
+## 2026-10-29 — PLAYERS M6a: Fingered planner prototype (Go/No-Go)
+
+Prototyped the fingered `_Solver` in scratch with 4-digit harp hands (thumb +
+fingers 2, 3, 4; flat span 3 string gaps = $0.326\text{ m}$, splayed span 4
+string gaps = $0.435\text{ m}$; `approach_s = 0.20 s`, `recover_s = 0.15 s`,
+`arm_clearance = 0.05` score units = $0.15\text{ m}$ world separation between
+outer digits) and 2-shaft Stevens-grip mallet holders on `bars` (`hands = 2`;
+flat span 1 bar gap = $0.386\text{ m}$, splayed span 2 bar gaps =
+$0.771\text{ m}$), and measured the full ablation matrix across `songs/chamber.py`
+and `songs/clockwork.py` with unmodified actuator `home` positions (`harp04`,
+`harp08`, `harp12` on `harp`; `bars02`, `bars05` on `bars`):
+
+| Configuration | Harp windows / clr | As written | Substituted | Dropped | Chamber refused | Expanded refused | Harp carriage moves | Bars carriage moves (hurried) |
+|---|---|---|---|---|---|---|---|---|
+| Today's point arms | `0.09/0.05 s`, `0.09` | `221/239` | `9` | `9` | `27/257` | `0/64` | `113` | `60` (`14`) |
+| Point arms at `0.20/0.15 s` | `0.20/0.15 s`, `0.09` | `189/239` | `15` | `35` | `84/288` | `0/64` | `86` | `60` (`14`) |
+| Fingered (`LA=off, Y=off`) | `0.20/0.15 s`, `0.05` | `215/239` | `24` | `0` | `24/263` | `0/64` | `6` | `20` (`0`) |
+| Fingered (`LA=on, Y=off`) | `0.20/0.15 s`, `0.05` | `215/239` | `24` | `0` | `24/263` | `0/64` | `6` | `20` (`0`) |
+| Fingered (`LA=off, Y=on`) | `0.20/0.15 s`, `0.05` | `236/239` | `2` | `1` | `4/242` | `0/64` | `9` | `20` (`0`) |
+| **Fingered (`LA=on, Y=on`)** | **`0.20/0.15 s`, `0.05`** | **`237/239`** | **`2`** | **`0`** | **`2/241`** | **`0/64`** | **`9`** | **`20` (`0`)** |
+
+- **Why both yielding and look-ahead are needed when `home` is unchanged**:
+  - Without yielding (`Y=off`), `harp_arm1` leaves `home = harp08` at $6.43\text{ s}$
+    (`harp07`) and parks on `window_lo = harp07` (`H7..H10`), whose outer thumb
+    on `H10` sits one string step ($0.109\text{ m} < 0.16\text{ m}$) from `H11`
+    and forces all $24$ `harp11` notes onto alternates (`harp10`/`harp12`).
+    With yielding (`Y=on`), `harp_arm1` yields its resting window to
+    `window_lo = harp06` (`H6..H9`) when `harp_arm2` claims `harp11` at
+    $7.86\text{ s}$ (and yields `H5..H8 -> H6..H9` after the bar-11 and bar-15
+    `harp05` bass notes so `harp_arm0` keeps `harp04`).
+  - Without look-ahead (`LA=off, Y=on`), `harp_arm2` rests on `window_lo = harp11`
+    after $7.86\text{ s}$, starts the bar-4 sixteenth-note run (`H12..H15` at
+    $13.57\text{–}14.11\text{ s}$, $\text{IOI} = 0.179\text{ s} < 0.35\text{ s}$)
+    without advancing its window to `harp12`, and runs out of digits on `harp15`
+    at $14.11\text{ s}$ ($1$ drop). With look-ahead (`LA=on, Y=on`), the run
+    group refines its placement to `window_lo = harp12` (`finger 0..3` on
+    `H12..H15`), eliminating the drop. The only $2$ substitutions in the entire
+    piece are `harp11 -> harp10` at $13.57\text{ s}$ and $19.29\text{ s}$, where
+    `harp11` (answer) is scored at the exact same millisecond as `harp12` (run
+    onset on `harp_arm2`).
+  - On `bars`, two-shaft holders (`hands = 2`, flat 1 gap, splay 2 gaps) play
+    every 2-bar third (`0 <-> 2`, `1 <-> 3`, `2 <-> 4`, `3 <-> 5`) across the
+    two shafts instead of leaping 16 rack teeth ($0.771\text{ m}$) in
+    $0.357\text{ s}$, reducing `bars` carriage moves from $60$ to $20$ and
+    hurried travels from $14$ to $0$.
+- **Decision**: **GO** (`0 <= 6` drops, `237 >= 228` as written, `0` expanded
+  refusals, `9 <= 50` harp carriage moves, `0 <= 6` hurried bars travels;
+  `ruler.plan_consistent` passes before and after `Score.finalize()` with $0$
+  conflicts).
+
 ## 2026-10-19 — PLAYERS M5: The hinged mallet and the hammer
 
 Built the hinged mallet shaft and four-bar wrist crank for the marimba and glass
