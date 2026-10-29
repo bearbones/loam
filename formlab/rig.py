@@ -184,13 +184,14 @@ def _bounded(cache):
 class Rig:
     def __init__(self, score, layout):
         self.score = score; self.geometry = layout
-        self.acts = {}; self.plans = {}; self.mech_of = {}
+        self.acts = {}; self.plans = {}; self.mech_of = {}; self.mechs = {}
         for m in score['instrument']['mechanisms']:
+            self.mechs[m['id']] = m
             for a in m['actuators']:
                 self.acts[a['id']] = a; self.plans[a['id']] = []; self.mech_of[a['id']] = m['id']
         for e in score['events']:
             if e.get('actuator') in self.plans: self.plans[e['actuator']].append(e)
-        for aid in self.plans: self.plans[aid].sort(key=lambda e: float(e['t_move']))
+        for aid in self.plans: self.plans[aid].sort(key=lambda e: (float(e['t_move']), float(e['t'])))
         self._schedules()
 
     @classmethod
@@ -315,6 +316,29 @@ class Rig:
             out.append((legs[0][0], legs[-1][1], min(xlo, xhi), max(xlo, xhi), legs))
         return out
 
+    def _hand_digits(self, aid):
+        m = self.mechs.get(self.mech_of[aid], {})
+        h = m.get('hands', 0)
+        if h is True:
+            ak = self.acts[aid]['kind']
+            h = 4 if ak == 'pick' else (2 if ak == 'mallet' and m.get('id') == 'bars' else 0)
+        return int(h or 0)
+
+    def _hand_span(self, aid, w_lo, sids=(), pick=None):
+        digits = self._hand_digits(aid)
+        if digits < 2 or w_lo is None:
+            ps = [float(self.contact(sid, pick)[0]) for sid in (sids or [w_lo])]
+            last_x = float(self.contact((sids or [w_lo])[-1], pick)[0])
+            return last_x, last_x, min(ps), max(ps)
+        m = self.mechs.get(self.mech_of[aid], {})
+        m_sids = [s['id'] for s in m.get('strings', [])]
+        lo_i = m_sids.index(w_lo)
+        hi_sid = m_sids[min(len(m_sids)-1, lo_i+max(0, digits-1))]
+        x_lo, x_hi = float(self.contact(w_lo)[0]), float(self.contact(hi_sid)[0])
+        rlo, rhi = min(x_lo, x_hi), max(x_lo, x_hi)
+        ps = [rlo, rhi]+[float(self.contact(sid, pick)[0]) for sid in sids]
+        return rlo, rhi, min(ps), max(ps)
+
     def _segments(self, aid, win):
         """One arm's whole occupancy of the rail as (t0, t1, lo, hi) spans.
         Three phases a contact, because the interval an arm CROSSED is not
@@ -336,7 +360,7 @@ class Rig:
             until = win[i+1]['go'] if i+1 < len(win) else np.inf
             segs += self._moving(o, o['go'])
             segs.append((o['arrive'], o['end'], o['plo'], o['phi']))
-            segs.append((o['end'], until, o['last'][0], o['last'][0]))
+            segs.append((o['end'], until, o.get('rlo', o['last'][0]), o.get('rhi', o['last'][0])))
         return segs
 
     @staticmethod
@@ -349,14 +373,25 @@ class Rig:
         arr = o['arrive']
         if not o['profiled'] or arr <= go:
             return [(go, arr, o['mlo'], o['mhi'])]
-        DT = motion_timing.OCC_DT; t_fast = min(arr, go+motion_timing.servo_fast_s(o['xb']-o['xa']))
+        DT = motion_timing.OCC_DT
+        dx = max(abs(o['xb']-o['xa']), abs(o['xb_hi']-o['xa_hi'])) if o.get('xa_hi') is not None else abs(o['xb']-o['xa'])
+        t_fast = min(arr, go+motion_timing.servo_fast_s(dx))
         n = int(np.ceil((arr-go)/DT-1e-9))
-        return [(go+k*DT, min(go+(k+1)*DT, arr))+motion_timing.servo_span(o['xa'], o['xb'], go, t_fast, arr, go+k*DT, min(go+(k+1)*DT, arr))
-                for k in range(n)]
+        out = []
+        for k in range(n):
+            a, b = go+k*DT, min(go+(k+1)*DT, arr)
+            lo0, hi0 = motion_timing.servo_span(o['xa'], o['xb'], go, t_fast, arr, a, b)
+            if o.get('xa_hi') is not None:
+                _, hi1 = motion_timing.servo_span(o['xa_hi'], o['xb_hi'], go, t_fast, arr, a, b)
+                out.append((a, b, min(lo0, hi1), max(lo0, hi1)))
+            else:
+                out.append((a, b, lo0, hi0))
+        return out
 
     def _windows(self, aid):
-        lift = self.hover(aid); act = self.acts[aid]
+        lift = self.hover(aid); act = self.acts[aid]; digits = self._hand_digits(aid)
         rest = self.contact(act['home'])+lift; free_prev = -np.inf; out = []
+        rlo_prev = rhi_prev = float(rest[0])
         lead = motion_timing.arrive_lead(act['kind'], float(act['approach_s']))
         for e in self.plans[aid]:
             tm = float(e['t_move']); hit = float(e['t']); ids = e['strings']
@@ -374,15 +409,29 @@ class Rig:
             want = motion_timing.travel_s(act['kind'], first[0]-rest[0])
             g0 = max(free_prev, tm)
             xs = [rest[0]]+[self.contact(sid, e.get('pick'))[0] for sid in ids]
-            ps = [self.contact(sid, e.get('pick'))[0] for sid in ids]
+            w_lo = e.get('window_lo')
+            if w_lo is not None and digits >= 2 and len(ids) == 1:
+                rlo, rhi, plo, phi = self._hand_span(aid, w_lo, ids, e.get('pick'))
+                mlo, mhi = min(rlo_prev, plo), max(rhi_prev, phi)
+                xa, xb = float(rlo_prev), float(rlo)
+                xa_hi, xb_hi = float(rhi_prev), float(rhi)
+                dx_max = max(abs(xb-xa), abs(xb_hi-xa_hi))
+            else:
+                ps = [self.contact(sid, e.get('pick'))[0] for sid in ids]
+                plo, phi = min(ps), max(ps)
+                rlo = rhi = float(last[0])
+                mlo, mhi = min(rlo_prev, first[0]), max(rhi_prev, first[0])
+                xa, xb = float(rlo_prev), float(first[0])
+                xa_hi = xb_hi = None
+                dx_max = abs(xb-xa)
             out.append(dict(event=e, rest=rest, first=first, last=last, spread=spread, tm=tm, g0=g0, go=g0, approach=approach,
                             arrive=arrive, head_free=head_free, hit=hit, end=hit+spread*(len(ids)-1), t_free=float(e['t_free']), lo=min(xs), hi=max(xs), want=want,
-                            mlo=min(rest[0], first[0]), mhi=max(rest[0], first[0]), plo=min(ps), phi=max(ps), moving=False,
-                            xa=float(rest[0]), xb=float(first[0]),
-                            profiled=motion_timing.servo_profiled(act['kind']) and abs(first[0]-rest[0]) > 1e-12))
+                            mlo=mlo, mhi=mhi, plo=plo, phi=phi, rlo=rlo, rhi=rhi, moving=False,
+                            xa=xa, xb=xb, xa_hi=xa_hi, xb_hi=xb_hi,
+                            profiled=motion_timing.servo_profiled(act['kind']) and dx_max > 1e-12))
             # the carriage is free at t_head_free: t_free, or the contact
             # itself for a head that rides its rebound into the next travel
-            rest = last+lift; free_prev = head_free
+            rest = last+lift; free_prev = head_free; rlo_prev, rhi_prev = rlo, rhi
         return out
 
     def _schedules(self):

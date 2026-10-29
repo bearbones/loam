@@ -129,6 +129,7 @@ class Mechanism:
     # point-arm planning. Same units as pos/span.
     arm_clearance: float = 0.0
     fanned: bool = False        # pos already carries the neck fan (see fan())
+    hands: int = 0              # digits per hand (4 harp, 2 two-shaft mallet, 0 point arm)
 
     def axis_pos(self, sid: str) -> float:
         """A string's coordinate along the mechanism axis (pos units)."""
@@ -205,7 +206,8 @@ class Mechanism:
             pos=None, axis=None, restrike_s: float = 0.05,
             arm_kind: str = "pick", approach_s: float = None,
             recover_s: float = 0.06, travel_s: float = 0.03,
-            pick_default: float = 0.2, length_max: float = 0.6):
+            pick_default: float = 0.2, length_max: float = 0.6,
+            hands: int = 0):
         """Lay out strings evenly along the axis, lengths ∝ 1/f
         (longest = length_max, the lowest string), and `arms`
         actuators with reach windows that overlap by `overlap`
@@ -242,7 +244,7 @@ class Mechanism:
                         home=ids[len(ids) // 2]))
         return cls(id=id, kind=kind, material=material, strings=strs,
                 actuators=acts, pos=list(pos or [0.0, 0.0, 0.0]),
-                axis=axis, span=span, restrike_s=restrike_s)
+                axis=axis, span=span, restrike_s=restrike_s, hands=hands)
 
 
 @dataclass
@@ -257,7 +259,11 @@ class Instrument:
         raise KeyError(f"no mechanism {mid}")
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        d = asdict(self)
+        for m in d.get("mechanisms", []):
+            if not m.get("hands"):
+                m.pop("hands", None)
+        return d
 
 
 class _Solver:
@@ -295,6 +301,61 @@ class _Solver:
         # each arm's homing sweep (_Solver.home), also the first entry of its
         # moves once committed
         self.homes = {}
+        # PLAYERS M6b: fingered hands (4 digits + 4-gap splay on harp, 2 shafts
+        # + 2-gap splay on bars, 0 for point arms).
+        hands = getattr(mech, "hands", 0)
+        if hands is True:
+            ak = mech.actuators[0].kind if mech.actuators else ""
+            hands = 4 if ak == "pick" else (2 if ak == "mallet" and mech.id == "bars" else 0)
+        self.digits = int(hands or 0)
+        self.flat_gaps = max(0, self.digits - 1)
+        self.splay_gaps = self.digits if self.digits >= 2 else 0
+        self.digit_free = {(a.id, f): -np.inf for a in mech.actuators
+                           for f in range(max(1, self.digits))}
+        self.win_lo = {a.id: None for a in mech.actuators}
+        self.placed_notes = {a.id: [] for a in mech.actuators}
+        self._win_lo_before_group = {}
+
+    def _reach_bounds(self, act: Actuator):
+        idxs = [self.mech.index(s) for s in act.reach]
+        return min(idxs), max(idxs)
+
+    def _cand_windows(self, act: Actuator, sids, extra_sids=()):
+        """Valid window_lo string IDs for `act` that cover `sids` (and `extra_sids`)."""
+        if self.digits < 2 or len(sids) > 1:
+            return [sids[0]]
+        m = self.mech
+        r_lo, r_hi = self._reach_bounds(act)
+        all_idx = [m.index(s) for s in list(sids) + list(extra_sids)]
+        s_min, s_max = min(all_idx), max(all_idx)
+        if s_min < r_lo or s_max > r_hi or (s_max - s_min) > self.splay_gaps:
+            return []
+        lo_min = max(r_lo, s_max - self.splay_gaps)
+        lo_max = min(r_hi - self.flat_gaps, s_min)
+        if lo_min > lo_max:
+            return []
+        return [m.strings[lo].id for lo in range(lo_min, lo_max + 1)]
+
+    def _finger_for(self, w_lo: str, sid: str) -> int:
+        if self.digits < 2:
+            return 0
+        d = self.mech.index(sid) - self.mech.index(w_lo)
+        if self.digits == 2:
+            return 0 if d <= 0 else 1
+        return min(max(d, 0), self.digits - 1)
+
+    def _win_span(self, w_lo: str, sids=()):
+        """Axis interval (lo_x, hi_x) occupied by a hand placed at `w_lo`."""
+        m = self.mech
+        if self.digits < 2:
+            xs = [m.axis_pos(s) for s in (sids or [w_lo])]
+            return (min(xs), max(xs))
+        lo_i = m.index(w_lo)
+        hi_i = min(len(m.strings) - 1, lo_i + self.flat_gaps)
+        xs = [m.axis_pos(w_lo), m.axis_pos(m.strings[hi_i].id)]
+        for s in sids:
+            xs.append(m.axis_pos(s))
+        return (min(xs), max(xs))
 
     def span_m(self, s_from: str, s_to: str) -> float:
         """World metres along the rail between two strings' contacts.
@@ -315,32 +376,38 @@ class _Solver:
             * act.travel_s
         return max(_mt.travel_s(act.kind, self.span_m(s_from, s_to)), floor)
 
-    def _range_at(self, aid: str, t: float):
+    def _range_at(self, aid: str, t: float, moves=None):
         """Axis interval arm `aid` occupies at time t under the plan
         committed so far: the crossed interval while moving, else a
-        point over the destination of its latest finished move (its
+        point/span over the destination of its latest finished move (its
         home before any)."""
-        hover = self.mech.axis_pos(self.mech.actuator(aid).home)
+        hover_x = self.mech.axis_pos(self.mech.actuator(aid).home)
+        hover = (hover_x, hover_x)
         latest = -np.inf
-        for t0, t_arr, t1, mv, pl, dest, law in self.moves[aid]:
+        for t0, t_arr, t1, mv, pl, dest, law in (self.moves[aid] if moves is None else moves):
             if t0 <= t < t_arr:
                 return self._moving(t0, t_arr, mv, law, t)
             if t_arr <= t <= t1:
                 return pl
             if t1 < t and t1 > latest:
-                latest, hover = t1, dest
-        return hover, hover
+                latest = t1
+                hover = dest if isinstance(dest, tuple) else (dest, dest)
+        return hover
 
     @staticmethod
     def _moving(t0, t_arr, mv, law, t):
         """The interval a carriage travelling over [t0, t_arr) is charged
         at t: the whole crossed one, or, with a law, where its S-curve can
         be over the OCC_DT step that holds t."""
-        if law is None:
+        if law is None or t_arr <= t0:
             return mv
         a = t0 + np.floor((t - t0) / _mt.OCC_DT) * _mt.OCC_DT
-        return _mt.servo_span(law[0], law[1], t0, law[2], t_arr, a,
-                min(a + _mt.OCC_DT, t_arr))
+        b = min(a + _mt.OCC_DT, t_arr)
+        lo0, hi0 = _mt.servo_span(law[0], law[1], t0, law[2], t_arr, a, b)
+        if len(law) > 4:
+            _, hi1 = _mt.servo_span(law[3], law[4], t0, law[2], t_arr, a, b)
+            return (min(lo0, hi1), max(lo0, hi1))
+        return (lo0, hi0)
 
     @staticmethod
     def _steps(t0, t_arr, law):
@@ -350,40 +417,66 @@ class _Solver:
         n = int(np.ceil((t_arr - t0) / _mt.OCC_DT - 1e-9))
         return [t0 + k * _mt.OCC_DT for k in range(1, n)]
 
-    def _law(self, act: Actuator, sids, t_move: float, t_arrive: float):
+    def _law(self, act: Actuator, sids, t_move: float, t_arrive: float,
+            w_from: str = None, w_to: str = None, had_win: bool = None):
         """The travel law a servo-profiled carriage moves by (it leaves
         its string at t_move and lands on sids[0] in [t_fast, t_arrive],
         t_fast = t_move + motion_timing.servo_fast_s), or None."""
-        s_from = self.at[act.id]
+        s_from = w_from if w_from is not None else (self.win_lo[act.id] or self.at[act.id])
+        s_to = w_to if w_to is not None else sids[0]
         if not _mt.servo_profiled(act.kind) or not s_from \
                 or t_arrive <= t_move:
             return None
         m = self.mech
-        xa, xb = m.axis_pos(s_from), m.axis_pos(sids[0])
+        if self.digits >= 2 and len(sids) == 1:
+            if had_win is None:
+                had_win = (self.win_lo[act.id] is not None)
+            from_lo, from_hi = self._win_span(s_from) if had_win \
+                else (m.axis_pos(s_from), m.axis_pos(s_from))
+            to_lo, to_hi = self._win_span(s_to)
+            if abs(from_lo - to_lo) <= 1e-12 and abs(from_hi - to_hi) <= 1e-12:
+                return None
+            dx = max(abs(to_lo - from_lo), abs(to_hi - from_hi)) * _mt.WORLD_SCALE
+            return (from_lo, to_lo, min(t_arrive, t_move + _mt.servo_fast_s(dx)),
+                    from_hi, to_hi)
+        xa, xb = m.axis_pos(s_from), m.axis_pos(s_to)
         if xa == xb:
             return None
         return (xa, xb, min(t_arrive, t_move
-                + _mt.servo_fast_s(self.span_m(s_from, sids[0]))))
+                + _mt.servo_fast_s(self.span_m(s_from, s_to))))
 
-    def _spans(self, act: Actuator, sids):
+    def _spans(self, act: Actuator, sids, w_from: str = None,
+            w_to: str = None, had_win: bool = None):
         """((lo, hi) crossed on the way, (lo, hi) played on arrival)."""
         m = self.mech
+        if self.digits >= 2 and len(sids) == 1:
+            s_from = w_from if w_from is not None else (self.win_lo[act.id] or self.at[act.id])
+            s_to = w_to if w_to is not None else sids[0]
+            played = self._win_span(s_to, sids)
+            if not s_from:
+                return played, played
+            if had_win is None:
+                had_win = (self.win_lo[act.id] is not None)
+            from_span = self._win_span(s_from) if had_win \
+                else (m.axis_pos(s_from), m.axis_pos(s_from))
+            return (min(from_span[0], played[0]), max(from_span[1], played[1])), played
         xs = [m.axis_pos(s) for s in sids]
         played = (min(xs), max(xs))
-        s_from = self.at[act.id]
+        s_from = w_from if w_from is not None else self.at[act.id]
         if not s_from:
             return played, played
         x0 = m.axis_pos(s_from)
         return (min(x0, xs[0]), max(x0, xs[0])), played
 
     def _separated(self, act: Actuator, t_move: float, t_arrive: float,
-            t_last: float, sids) -> bool:
+            t_last: float, sids, w_from: str = None, w_to: str = None,
+            had_win: bool = None, ignore_moves=None) -> bool:
         """The candidate move keeps `arm_clearance` from every other arm
         of the mechanism for all time from t_move on, in the three
         phases `self.moves` records: the interval it crosses until it
-        arrives, the strings it plays until t_last, then a point over
-        sids[-1]. Ranges are piecewise constant in time, so testing
-        every breakpoint plus the midpoints between them is exact.
+        arrives, the strings it plays until t_last, then a point/span
+        over sids[-1]/w_to. Ranges are piecewise constant in time, so
+        testing every breakpoint plus the midpoints between them is exact.
 
         There is only the one model. `_feasible` charges a hurried arm
         from the moment it comes free, so t_move is the instant the
@@ -400,20 +493,22 @@ class _Solver:
         if _mt.servo_profiled(act.kind):
             w += _mt.OCC_PAD / _mt.WORLD_SCALE
         m = self.mech
-        moving, played = self._spans(act, sids)
-        rest = m.axis_pos(sids[-1])
-        law = self._law(act, sids, t_move, t_arrive)
+        moving, played = self._spans(act, sids, w_from=w_from, w_to=w_to, had_win=had_win)
+        rest_span = self._win_span(w_to or sids[0]) if (self.digits >= 2 and len(sids) == 1) \
+            else (m.axis_pos(sids[-1]), m.axis_pos(sids[-1]))
+        law = self._law(act, sids, t_move, t_arrive, w_from=w_from, w_to=w_to, had_win=had_win)
 
         def mine(t):
             if t < t_arrive:
                 return self._moving(t_move, t_arrive, moving, law, t)
-            return played if t <= t_last else (rest, rest)
+            return played if t <= t_last else rest_span
         for other in m.actuators:
             if other.id == act.id:
                 continue
+            omoves = (ignore_moves or {}).get(other.id, self.moves[other.id])
             times = {t_move, t_arrive, t_last, t_last + 1e-6}
             times.update(self._steps(t_move, t_arrive, law))
-            for t0, t_arr, t1, _, _, _, olaw in self.moves[other.id]:
+            for t0, t_arr, t1, _, _, _, olaw in omoves:
                 for tb in (t0, t_arr, t1):
                     if tb >= t_move:
                         times.add(tb)
@@ -426,13 +521,15 @@ class _Solver:
                 + [ts[-1] + 1.0]
             for tp in probes:
                 a_lo, a_hi = mine(tp)
-                b_lo, b_hi = self._range_at(other.id, tp)
+                b_lo, b_hi = self._range_at(other.id, tp, moves=omoves)
                 if max(a_lo - b_hi, b_lo - a_hi) < w:
                     return False
         return True
 
     def _push(self, act: Actuator, t0: float, t_hi: float,
-            t_arrive: float, t_last: float, sids) -> float:
+            t_arrive: float, t_last: float, sids,
+            w_from: str = None, w_to: str = None,
+            had_win: bool = None, ignore_moves=None) -> float:
         """The earliest start in [t0, t_hi] whose whole occupancy is clear
         of the siblings, or None if the arm cannot get across at all.
 
@@ -450,19 +547,161 @@ class _Solver:
         for other in self.mech.actuators:
             if other.id == act.id:
                 continue
-            for seg in self.moves[other.id]:
+            omoves = (ignore_moves or {}).get(other.id, self.moves[other.id])
+            for seg in omoves:
                 # a law's range changes every OCC_DT step: each is a change
                 for tb in (seg[0], seg[1], *self._steps(seg[0], seg[1], seg[6])):
                     if t0 < tb + 1e-9 <= t_hi:
                         cands.add(tb + 1e-9)
         for start in sorted(cands):
-            if self._separated(act, start, t_arrive, t_last, sids):
+            if self._separated(act, start, t_arrive, t_last, sids,
+                    w_from=w_from, w_to=w_to, had_win=had_win,
+                    ignore_moves=ignore_moves):
                 return start
         return None
 
+    def _assign_fingers(self, w_lo: str, sids_in_group):
+        """Given a hand placement at `w_lo` and a list of string IDs played
+        in this placement, return `sid -> finger` (`0 .. digits - 1`) or None
+        if no anatomical assignment exists (digit 0 is anchored at `w_lo`)."""
+        if self.digits < 2:
+            return {s: 0 for s in sids_in_group}
+        lo_i = self.mech.index(w_lo)
+        unique_d = sorted({self.mech.index(s) - lo_i for s in sids_in_group})
+        if any(d < 0 or d > self.splay_gaps for d in unique_d):
+            return None
+        if len(unique_d) > self.digits:
+            return None
+        if sum(1 for d in unique_d if d > 0) > self.digits - 1:
+            return None
+        if self.digits == 2:
+            fmap = {d: (0 if d == 0 else 1) for d in unique_d}
+        elif max(unique_d) <= self.flat_gaps:
+            fmap = {d: d for d in unique_d}
+        elif 3 not in unique_d:
+            fmap = {d: min(d, 3) for d in unique_d}
+        elif 2 not in unique_d:
+            fmap = {d: (2 if d == 3 else min(d, 3)) for d in unique_d}
+        else:
+            fmap = {d: (1 if d == 2 else (2 if d == 3 else min(d, 3))) for d in unique_d}
+        return {s: fmap[self.mech.index(s) - lo_i] for s in sids_in_group}
+
+    def _trial_retro_moves(self, act: Actuator, first_move_idx: int,
+            w_cand: str, notes_slice=None):
+        """Return updated moves list for `act` if its placement starting at
+        `first_move_idx` had been placed at `w_cand`, or None if infeasible."""
+        moves = self.moves[act.id]
+        if first_move_idx < 0 or first_move_idx >= len(moves):
+            return None
+        prev_notes = notes_slice if notes_slice is not None else self.placed_notes[act.id]
+        t_move0, t_arr0, t_last0, _, _, _, _ = moves[first_move_idx]
+        if first_move_idx == 0:
+            w_from0 = act.home
+            prev_free = -np.inf
+            prev_head_free = -np.inf
+        else:
+            if notes_slice is not None and first_move_idx > self.placed_notes[act.id][0][2]:
+                w_from0 = self.win_lo[act.id]
+            else:
+                w_from0 = self._win_lo_before_group.get(act.id, act.home)
+            prev_last = moves[first_move_idx - 1][2]
+            prev_free = prev_last + act.recover_s
+            prev_head_free = prev_last if (_mt.contact_to_contact(act.kind) or self.digits >= 2) else prev_free
+        lead = _mt.arrive_lead(act.kind, act.approach_s)
+        t0_hit = t_arr0 + lead
+        if t0_hit - act.approach_s - prev_free < -1e-9:
+            return None
+        dx0 = self.span_m(w_from0, w_cand)
+        sids0 = [prev_notes[0][1]]
+        if dx0 > 1e-9:
+            if _mt.hurried(act.kind, dx0, t0_hit - prev_head_free):
+                return None
+            want = self.travel(act, w_from0, w_cand) + (_mt.still_s(act.kind, act.approach_s) - lead)
+            room = t_arr0 - prev_head_free
+            tr = want if room >= want else room
+            flr0 = _mt.floor_s(act.kind, dx0)
+            if tr < flr0 - 1e-9:
+                return None
+            lead_t = _mt.slew_lead(act.kind, dx0, want, room, lead) if room >= want else tr
+            t_move0 = self._push(act, t_arr0 - lead_t, t_arr0 - flr0, t_arr0, t_last0,
+                                 sids0, w_from=w_from0, w_to=w_cand, had_win=(first_move_idx > 0))
+            if t_move0 is None:
+                return None
+        else:
+            if _mt.contact_to_contact(act.kind):
+                want = _mt.still_s(act.kind, act.approach_s) - lead
+                room = t_arr0 - prev_head_free
+                if room < -1e-9:
+                    return None
+                tr = want if room >= want else room
+                t0_s = t_arr0 - tr
+            else:
+                t0_s = max(t_arr0, prev_head_free)
+                if t0_s >= t0_hit - 1e-9:
+                    return None
+            t_move0 = self._push(act, t0_s, t0_s, max(t_arr0, t0_s), t_last0,
+                                 sids0, w_from=w_from0, w_to=w_cand, had_win=(first_move_idx > 0))
+            if t_move0 is None:
+                return None
+        prev_sids = [ns for _, ns, _, _ in prev_notes]
+        fmap = self._assign_fingers(w_cand, prev_sids)
+        if fmap is None:
+            return None
+        last_f_t = {}
+        for pt, ps, _, _ in prev_notes:
+            pf = fmap[ps]
+            if pf in last_f_t and pt - act.approach_s < last_f_t[pf] + act.recover_s - 1e-9:
+                return None
+            last_f_t[pf] = pt
+        trial_moves = list(moves[:first_move_idx])
+        for idx in range(first_move_idx, len(moves)):
+            tm, ta, tl, _, _, _, _ = moves[idx]
+            if idx == first_move_idx:
+                tm = t_move0
+            wf = w_from0 if idx == first_move_idx else w_cand
+            hw = (idx > 0)
+            sids_idx = [prev_notes[idx - first_move_idx][1]]
+            if not self._separated(act, tm, ta, tl, sids_idx, w_from=wf, w_to=w_cand, had_win=hw):
+                return None
+            mv, pl = self._spans(act, sids_idx, w_from=wf, w_to=w_cand, had_win=hw)
+            rst = self._win_span(w_cand)
+            lw = self._law(act, sids_idx, tm, ta, w_from=wf, w_to=w_cand, had_win=hw)
+            trial_moves.append((tm, ta, tl, mv, pl, rst, lw))
+        return trial_moves
+
+    def _try_yield_for(self, act: Actuator, t0: float, t_hi: float,
+            t_arrive: float, t_last: float, w_from: str, w_to: str, sids):
+        """Check if an idle sibling arm can yield its current placement window
+        (or a suffix of its current group where the hand was free) so `act`
+        can take `w_to`."""
+        for other in self.mech.actuators:
+            if other.id == act.id:
+                continue
+            cur_wo = self.win_lo[other.id]
+            onotes = self.placed_notes[other.id]
+            if cur_wo is None or not onotes:
+                continue
+            for k in range(len(onotes)):
+                sub_notes = onotes[k:]
+                first_idx = sub_notes[0][2]
+                osids = [ns for _, ns, _, _ in sub_notes]
+                for wo_cand in self._cand_windows(other, [osids[0]], extra_sids=osids[1:]):
+                    if wo_cand == cur_wo:
+                        continue
+                    trial_omoves = self._trial_retro_moves(other, first_idx, wo_cand, notes_slice=sub_notes)
+                    if trial_omoves is None:
+                        continue
+                    tm = self._push(act, t0, t_hi, t_arrive, t_last, sids,
+                                    w_from=w_from, w_to=w_to,
+                                    ignore_moves={other.id: trial_omoves})
+                    if tm is not None:
+                        return tm, (other.id, wo_cand, trial_omoves, k)
+        return None, None
+
     def _feasible(self, a: Actuator, t: float, sids, spread_s: float):
-        """(t_move, travel, t_last, dx) if arm `a` can take the contact
-        under the busy rule and the clearance rule, else None.
+        """(t_move, travel, t_last, dx[, w_to, f_cur, retro]) if arm `a`
+        can take the contact under the busy rule and the clearance rule,
+        else None.
 
         `dx` is the world distance the arm has to cross (what "least
         travel wins" is decided on) and `travel` what the score actually
@@ -490,6 +729,8 @@ class _Solver:
         waits and crosses in what is left."""
         if any(s not in a.reach for s in sids):
             return None
+        if self.digits >= 2 and len(sids) == 1:
+            return self._feasible_hand(a, t, sids, spread_s)
         s_from = self.at[a.id]
         dx = self.span_m(s_from, sids[0]) if s_from else 0.0
         if t - a.approach_s - self.free_at[a.id] < 0.0:
@@ -521,6 +762,119 @@ class _Solver:
         if t_move is None:
             return None
         return t_move, arrive - t_move, t_last, dx
+
+    def _feasible_hand(self, a: Actuator, t: float, sids, spread_s: float):
+        m = self.mech
+        t_last = t + spread_s * (len(sids) - 1)
+        lead = _mt.arrive_lead(a.kind, a.approach_s)
+        arrive = t - lead
+        cur_w = self.win_lo[a.id]
+        cands = []
+
+        # 1. Try staying in the current hand placement (or refining cur_w via
+        #    look-ahead if all notes in the current group + sids[0] fit a
+        #    single window that was feasible when the group began).
+        if cur_w is not None:
+            hand_is_free = (t - a.approach_s >= self.free_at[a.id] - 1e-9)
+            prev_notes = self.placed_notes[a.id]
+            if hand_is_free and prev_notes:
+                if (t - prev_notes[-1][0] >= 0.8 - 1e-9):
+                    prev_notes = []
+                elif cur_w in self._cand_windows(a, sids) and self._assign_fingers(
+                        cur_w, [ns for _, ns, _, _ in prev_notes] + [sids[0]]) is None:
+                    prev_notes = []
+            prev_sids = [ns for _, ns, _, _ in prev_notes]
+            refine_windows = [cur_w] if cur_w in self._cand_windows(a, sids, extra_sids=prev_sids) else []
+            for wc in self._cand_windows(a, sids, extra_sids=prev_sids):
+                if wc not in refine_windows:
+                    refine_windows.append(wc)
+
+            for w_cand in refine_windows:
+                fmap = self._assign_fingers(w_cand, prev_sids + [sids[0]])
+                if fmap is None:
+                    continue
+                f_cur = fmap[sids[0]]
+                ok_digits = True
+                last_f_t = {}
+                for pt, ps, _, _ in prev_notes + [(t, sids[0], -1, None)]:
+                    pf = fmap[ps]
+                    if pf in last_f_t and pt - a.approach_s < last_f_t[pf] + a.recover_s - 1e-9:
+                        ok_digits = False
+                        break
+                    last_f_t[pf] = pt
+                if not ok_digits:
+                    continue
+                if w_cand != cur_w and prev_notes:
+                    first_move_idx = prev_notes[0][2]
+                    if self._trial_retro_moves(a, first_move_idx, w_cand) is None:
+                        continue
+                if _mt.contact_to_contact(a.kind):
+                    if t - a.approach_s - self.free_at[a.id] < -1e-9:
+                        continue
+                    want = _mt.still_s(a.kind, a.approach_s) - lead
+                    room = arrive - self.head_free_at[a.id]
+                    if room < -1e-9:
+                        continue
+                    tr = want if room >= want else room
+                    t0 = arrive - tr
+                    t_hi = arrive - tr
+                else:
+                    t0 = max(arrive, self.head_free_at[a.id])
+                    if t0 >= t - 1e-9:
+                        continue
+                    t_hi = t0
+                    tr = max(0.0, arrive - t0)
+                t_move = self._push(a, t0, t_hi, max(arrive, t0), t_last, sids,
+                                    w_from=w_cand, w_to=w_cand)
+                yield_info = None
+                if t_move is None:
+                    t_move, yield_info = self._try_yield_for(
+                        a, t0, t_hi, max(arrive, t0), t_last, w_cand, w_cand, sids
+                    )
+                if t_move is not None:
+                    shift_cost = abs(m.index(w_cand) - m.index(cur_w)) * 1e-6
+                    r_flag = yield_info if yield_info is not None else (w_cand != cur_w)
+                    cands.append((0.0 + shift_cost, 0 if yield_info is None else 1,
+                                  t_move, max(0.0, arrive - t_move), t_last, 0.0,
+                                  w_cand, f_cur, r_flag))
+
+        if cands:
+            cands.sort(key=lambda c: (c[0], c[1]))
+            _, _, t_move, tr, t_last, dx, w_to, f_cur, retro = cands[0]
+            return t_move, tr, t_last, dx, w_to, f_cur, retro
+
+        # 2. Otherwise the carriage moves to a new window w_to covering sids[0].
+        if t - a.approach_s - self.free_at[a.id] < -1e-9:
+            return None
+        w_from = cur_w if cur_w is not None else a.home
+        for w_to in self._cand_windows(a, sids):
+            f_cur = self._finger_for(w_to, sids[0])
+            dx = self.span_m(w_from, w_to)
+            want = self.travel(a, w_from, w_to) + (_mt.still_s(a.kind, a.approach_s) - lead)
+            room = arrive - self.head_free_at[a.id]
+            tr = want if room >= want else room
+            flr = _mt.floor_s(a.kind, dx)
+            if tr < flr - 1e-9:
+                continue
+            still = dx <= 0.0 and _mt.contact_to_contact(a.kind)
+            lead_t = _mt.slew_lead(a.kind, dx, want, room, lead) if room >= want else tr
+            t_move = self._push(a, arrive - lead_t, arrive - (tr if still else flr),
+                                arrive, t_last, sids, w_from=w_from, w_to=w_to)
+            yield_info = None
+            if t_move is None:
+                t_move, yield_info = self._try_yield_for(
+                    a, arrive - lead_t, arrive - (tr if still else flr),
+                    arrive, t_last, w_from, w_to, sids
+                )
+            if t_move is not None:
+                home_dist = abs(m.axis_pos(w_to) - m.axis_pos(a.home))
+                cands.append((dx, 0 if yield_info is None else 1, home_dist,
+                              t_move, arrive - t_move, t_last, w_to, f_cur, yield_info))
+        if not cands:
+            return None
+        cands.sort(key=lambda c: (c[0], c[1], c[2]))
+        dx, _, _, t_move, tr, t_last, w_to, f_cur, yield_info = cands[0]
+        return t_move, tr, t_last, dx, w_to, f_cur, yield_info
 
     def home(self, aid: str, t0: float):
         """Commit arm `aid`'s homing sweep from t0 (motion_timing.home_legs:
@@ -581,7 +935,8 @@ class _Solver:
             f = self._feasible(a, t, sids, spread_s)
             if f is None:
                 continue
-            t_move, tr, t_last, dx = f
+            t_move, tr, t_last, dx = f[:4]
+            ext = f[4:]
             # Least travel wins on the DISTANCE, not on the time: a
             # servo's time is SLEW_S for nearly every move on a
             # mechanism this size, so timing it ties every arm and
@@ -590,16 +945,24 @@ class _Solver:
             # wanted does not masquerade as the nearer one.
             key = (dx, self.free_at[a.id])
             if best is None or key < best[0]:
-                best = (key, a, t_move, tr, t_last)
+                best = (key, a, t_move, tr, t_last, ext)
         if best is None:
             return None
-        _, a, t_move, tr, t_last = best
+        _, a, t_move, tr, t_last, ext = best
         t_free = t_last + a.recover_s
-        return a, dict(actuator=a.id, t_move=float(t_move),
+        out = dict(actuator=a.id, t_move=float(t_move),
                 t_free=float(t_free),
-                t_head_free=float(t_last if _mt.contact_to_contact(a.kind)
+                t_head_free=float(t_last if (_mt.contact_to_contact(a.kind)
+                                             or (self.digits >= 2 and len(sids) == 1))
                                   else t_free),
                 travel_s=float(tr), from_string=self.at[a.id])
+        if ext:
+            w_to, f_cur, retro = ext
+            out["window_lo"] = w_to
+            out["finger"] = int(f_cur)
+            if retro:
+                out["_retro"] = retro
+        return a, out
 
     def options(self, t: float, sids, spread_s: float = 0.0) -> int:
         """How many actuators could take this contact now — the
@@ -607,14 +970,96 @@ class _Solver:
         return sum(1 for a in self.mech.actuators
                    if self._feasible(a, t, sids, spread_s) is not None)
 
-    def commit(self, t: float, sids, act: Actuator, p: dict) -> None:
+    def _update_group_plans(self, aid: str, w_cand: str, trial_moves,
+            start_k: int = 0):
+        act = self.mech.actuator(aid)
+        onotes = self.placed_notes[aid][start_k:]
+        if start_k > 0:
+            self._win_lo_before_group[aid] = self.win_lo[aid]
+            self.placed_notes[aid] = onotes
+        fmap = self._assign_fingers(w_cand, [ns for _, ns, _, _ in onotes])
+        for pt, ps, midx, pdict in onotes:
+            if pdict is not None:
+                pdict["window_lo"] = w_cand
+                if fmap is not None:
+                    pdict["finger"] = int(fmap[ps])
+                tm, ta, _, _, _, _, _ = trial_moves[midx]
+                pdict["t_move"] = float(tm)
+                pdict["travel_s"] = float(max(0.0, ta - tm))
+        if fmap is not None:
+            for f in range(max(1, self.digits)):
+                self.digit_free[(aid, f)] = -np.inf
+            for pt, ps, _, _ in onotes:
+                self.digit_free[(aid, fmap[ps])] = pt + act.recover_s
+
+    def commit(self, t: float, sids, act: Actuator, p: dict, retro=None) -> None:
         m = self.mech
-        moving, played = self._spans(act, sids)
+        if retro is None:
+            retro = p.pop("_retro", False)
         t_last = p["t_free"] - act.recover_s
         t_arr = t - _mt.arrive_lead(act.kind, act.approach_s)
-        self.moves[act.id].append((p["t_move"], t_arr, t_last,
-                moving, played, m.axis_pos(sids[-1]),
-                self._law(act, sids, p["t_move"], t_arr)))
+        if self.digits >= 2 and len(sids) == 1:
+            w_to = p.get("window_lo", sids[0])
+            f_cur = int(p.get("finger", 0))
+            cur_w = self.win_lo[act.id]
+            w_from = cur_w if cur_w is not None else act.home
+            if isinstance(retro, tuple):
+                other_id, wo_cand, trial_omoves, start_k = retro
+                self.moves[other_id] = trial_omoves
+                self._update_group_plans(other_id, wo_cand, trial_omoves, start_k=start_k)
+                self.win_lo[other_id] = wo_cand
+                retro = (w_to != cur_w) if cur_w is not None else False
+            hand_was_free = (t - act.approach_s >= self.free_at[act.id] - 1e-9)
+            prev_notes = self.placed_notes[act.id]
+            start_fresh = False
+            if cur_w is None or (w_to != cur_w and retro is not True):
+                start_fresh = True
+            elif hand_was_free and prev_notes and retro is not True:
+                if (t - prev_notes[-1][0] >= 0.8 - 1e-9):
+                    start_fresh = True
+                elif self._assign_fingers(w_to, [ns for _, ns, _, _ in prev_notes] + [sids[0]]) is None:
+                    start_fresh = True
+            if not start_fresh:
+                if retro is True and prev_notes:
+                    first_idx = prev_notes[0][2]
+                    trial = self._trial_retro_moves(act, first_idx, w_to)
+                    if trial is not None:
+                        self.moves[act.id] = trial
+                        self._update_group_plans(act.id, w_to, trial)
+                    w_from = w_to
+                else:
+                    w_from = cur_w
+                move_idx = len(self.moves[act.id])
+                self.placed_notes[act.id].append((t, sids[0], move_idx, p))
+                fmap = self._assign_fingers(w_to, [ns for _, ns, _, _ in self.placed_notes[act.id]])
+                if fmap is not None:
+                    f_cur = fmap[sids[0]]
+                    p["finger"] = int(f_cur)
+                    for pt, ps, _, pdict in self.placed_notes[act.id]:
+                        if pdict is not None:
+                            pdict["finger"] = int(fmap[ps])
+                    for f in range(max(1, self.digits)):
+                        self.digit_free[(act.id, f)] = -np.inf
+                    for pt, ps, _, _ in self.placed_notes[act.id]:
+                        self.digit_free[(act.id, fmap[ps])] = pt + act.recover_s
+            else:
+                self._win_lo_before_group[act.id] = w_from
+                move_idx = len(self.moves[act.id])
+                self.placed_notes[act.id] = [(t, sids[0], move_idx, p)]
+                for f in range(max(1, self.digits)):
+                    self.digit_free[(act.id, f)] = -np.inf
+                self.digit_free[(act.id, f_cur)] = p["t_free"]
+            moving, played = self._spans(act, sids, w_from=w_from, w_to=w_to)
+            rest_span = self._win_span(w_to)
+            lw = self._law(act, sids, p["t_move"], t_arr, w_from=w_from, w_to=w_to)
+            self.moves[act.id].append((p["t_move"], t_arr, t_last,
+                    moving, played, rest_span, lw))
+            self.win_lo[act.id] = w_to
+        else:
+            moving, played = self._spans(act, sids)
+            self.moves[act.id].append((p["t_move"], t_arr, t_last,
+                    moving, played, m.axis_pos(sids[-1]),
+                    self._law(act, sids, p["t_move"], t_arr)))
         self.free_at[act.id] = p["t_free"]
         self.head_free_at[act.id] = p.get("t_head_free", p["t_free"])
         self.at[act.id] = sids[-1]
@@ -712,8 +1157,9 @@ class Score:
                 self.conflicts.append(ev["i"])
             else:
                 a, plan = p
+                retro = plan.pop("_retro", False)
                 ev.update(plan)
-                sv.commit(t, sids, a, plan)
+                sv.commit(t, sids, a, ev, retro=retro)
         self.events.append(ev)
         self._mix(mech, t, stereo(chunk * amp, pan))
         return ev
@@ -859,13 +1305,14 @@ class Score:
             if p is None:
                 ev["actuator"] = None
                 for k in ("t_move", "t_free", "t_head_free", "travel_s",
-                        "from_string"):
+                        "from_string", "window_lo", "finger"):
                     ev.pop(k, None)
                 self.conflicts.append(i)
             else:
                 a, plan = p
+                retro = plan.pop("_retro", False)
                 ev.update(plan)
-                fresh[ev["mech"]].commit(ev["t"], ev["strings"], a, plan)
+                fresh[ev["mech"]].commit(ev["t"], ev["strings"], a, ev, retro=retro)
             if ev.get("actuator") != was:
                 reassigned += 1
         # Homing sweeps fill the first rest of every contact-to-contact arm

@@ -91,6 +91,11 @@ def run():
     # M1: the carriage's free instant and the homing sweeps are motion too
     freed = copy.deepcopy(score); freed['events'][0]['t_head_free'] = float(freed['events'][0]['t'])
     check(key_of(freed, layout, mech) != base, "an event's t_head_free changes the key")
+    # M6b: the fingered planner's finger and window_lo are motion too
+    fingered = copy.deepcopy(score); fingered['events'][0]['finger'] = 2
+    check(key_of(fingered, layout, mech) != base, "an event's finger changes the key")
+    windowed = copy.deepcopy(score); windowed['events'][0]['window_lo'] = 's0'
+    check(key_of(windowed, layout, mech) != base, "an event's window_lo changes the key")
     # M1: a mallet's prep and strike speed follow a' (the amp normalised over its voice)
     loud = copy.deepcopy(score); loud['events'][0]['amp'] = .5
     check(key_of(loud, layout, mech) != base, "an event's amp changes the key")

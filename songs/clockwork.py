@@ -66,7 +66,7 @@ assert check['ok'] and not check['unassigned'] and not score.conflicts
 old_by_id={e['i']:e for e in original['events']}
 for e in score.events[:len(original['events'])]:
     old=old_by_id[e['i']]
-    for key in ('t','strings','onsets','actuator','t_move','t_free','t_head_free','pick','shape'):
+    for key in ('t','strings','onsets','actuator','t_move','t_free','t_head_free','pick','shape','finger','window_lo'):
         assert e.get(key)==old.get(key),(e['i'],key)
 # every arm whose kind homes warms up with its homing sweep (ruler 22): the
 # contact-to-contact arms and, from PLAYERS M2, the rake (motion_timing.homes);

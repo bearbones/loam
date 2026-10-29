@@ -1,3 +1,29 @@
+## 2026-10-29 — PLAYERS M6b: Fingered planner integration
+
+Integrated the M6a fingered planner behind `hands=` on `Mechanism`:
+
+- `loam/score.py`: added `hands: int = 0` to `Mechanism` and `Mechanism.build`
+  (omitted from `Instrument.to_dict()` when zero so point-arm exports stay
+  byte-identical), and integrated fingered window placement (`window_lo`,
+  `finger`), anatomical digit assignment (`_assign_fingers`), unhurried
+  look-ahead retro-placement (`_trial_retro_moves`), and suffix sibling yielding
+  (`_try_yield_for`) into `_Solver` (`_feasible`, `_law`, `_spans`,
+  `_separated`, `_push`, `plan`, `options`, `commit`) and `Score` (`play`,
+  `finalize`).
+- `formlab/rig.py`: updated `Rig._windows`, `Rig._moving`, and `Rig._segments`
+  with `_hand_digits` and `_hand_span` so fingered mechanisms mirror `_Solver`'s
+  window occupancy and two-edge S-curve law exactly (`rig.pushed == []`).
+- `formlab/layout_search.py` & `tools/test_rail_cache.py`: added `finger` and
+  `window_lo` to `_mech_key` event hashing and verified both in
+  `tools/test_rail_cache.py`.
+- `songs/clockwork.py`: added `finger` and `window_lo` to the original-event
+  round-trip assertion.
+- `tools/test_score_plan.py`: added unit and scratch-plan tests covering 4-digit
+  look-ahead on sixteenth runs, 4-gap splay, sibling yielding, `Score.finalize()`
+  idempotence, Ruler 25 Go thresholds (`237/239` as written, `0` drops, `8` harp
+  carriage moves, `0` hurried bars travels), and `Rig._segments` parity (`0`
+  pushed starts).
+
 ## 2026-10-29 — PLAYERS M6a: Fingered planner prototype (Go/No-Go)
 
 Prototyped the fingered `_Solver` in scratch with 4-digit harp hands (thumb +

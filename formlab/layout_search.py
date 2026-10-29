@@ -457,7 +457,7 @@ def _mech_key(score, layout, mech, hz, enough, placed=None):
     a_n = sys.modules[Rig.__module__].stroke.a_norm(score['events'])
     # (and a rake roll's onsets: where along its path each string sounds, motion_timing.string_times)
     ev = [dict({k: e.get(k) for k in ('t', 't_move', 't_free', 't_head_free', 'strings', 'pick', 'spread_s', 'onsets',
-                                     'actuator', 'amp', 'voice')}, a_norm=an)
+                                     'actuator', 'amp', 'voice', 'finger', 'window_lo')}, a_norm=an)
           for e, an in zip(score['events'], a_n) if e.get('mech') == mech['id']]
     # the homing sweeps the rig draws in the first rest (loam.score._Solver.home)
     ev.append([c for c in score.get('cues', []) if c.get('kind') == 'home' and c.get('mech') == mech['id']])

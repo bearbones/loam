@@ -414,5 +414,207 @@ g.fan(width=0.5, by="index")
 gx = [g.axis_pos(s.id) for s in g.strings]
 check("index fan is uniform", np.allclose(np.diff(gx), 0.8/7), str(np.round(gx, 3)))
 
+# ---- fingered planner (PLAYERS M6b: Mechanism.hands, window_lo, finger, look-ahead, yielding) ----
+fh = Mechanism.build("fh", "plucked", "steel", [50+2*i for i in range(10)], arms=2, overlap=4, span=0.9,
+        approach_s=0.20, recover_s=0.15, travel_s=0.02, hands=4)
+fh.arm_clearance = 0.05
+sv_fh = _Solver(fh)
+# A 4-note sixteenth run on fh00..fh03 (0.1786 s apart < 0.20 + 0.15 = 0.35 s):
+# impossible for a point arm, played in one window fh00 by digits 0, 1, 2, 3.
+run_evs = []
+for k, sid in enumerate(("fh02", "fh01", "fh03", "fh00")):
+    t_k = 1.0 + k * (60.0 / 84.0 / 4.0)
+    res = sv_fh.plan(t_k, [sid])
+    if res is not None:
+        a_k, pl_k = res
+        ev_k = dict(t=t_k, strings=[sid], **pl_k)
+        sv_fh.commit(t_k, [sid], a_k, ev_k)
+        run_evs.append(ev_k)
+check("fingered 4-digit hand plays a 4-note sixteenth run in one window via look-ahead",
+      len(run_evs) == 4 and all(e["window_lo"] == "fh00" for e in run_evs)
+      and [e["finger"] for e in run_evs] == [2, 1, 3, 0],
+      str([(e["strings"][0], e.get("window_lo"), e.get("finger")) for e in run_evs]))
+
+# Splay to 4 gaps (fh00..fh04) covers up to 4 distinct strings when one inner string is skipped.
+sv_sp = _Solver(fh)
+sp_evs = []
+for k, sid in enumerate(("fh00", "fh01", "fh02", "fh04")):
+    t_k = 1.0 + k * 0.18
+    res = sv_sp.plan(t_k, [sid])
+    if res is not None:
+        a_k, pl_k = res
+        ev_k = dict(t=t_k, strings=[sid], **pl_k)
+        sv_sp.commit(t_k, [sid], a_k, ev_k)
+        sp_evs.append(ev_k)
+check("4-digit hand splays across 4 gaps (fh00..fh04) when at most 4 strings are played",
+      len(sp_evs) == 4 and all(e["window_lo"] == "fh00" for e in sp_evs)
+      and [e["finger"] for e in sp_evs] == [0, 1, 2, 3],
+      str([(e["strings"][0], e.get("window_lo"), e.get("finger")) for e in sp_evs]))
+
+# Sibling yielding: arm0 (home fy03) plays fy03 at 1.0 s and rests on fy03..fy06;
+# at 2.0 s arm1 (home fy08, reach fy04..fy09) needs fy05, and arm0 yields its resting window to fy00..fy03.
+fy = Mechanism.build("fy", "plucked", "steel", [50+2*i for i in range(10)], arms=2, overlap=4, span=0.9,
+        approach_s=0.20, recover_s=0.15, travel_s=0.02, hands=4)
+fy.actuators[0].reach = [f"fy{i:02d}" for i in range(7)]
+fy.actuators[0].home = "fy03"
+fy.actuators[1].reach = [f"fy{i:02d}" for i in range(4, 10)]
+fy.actuators[1].home = "fy08"
+fy.arm_clearance = 0.05
+sv_fy = _Solver(fy)
+a0, p0 = sv_fy.plan(1.0, ["fy03"])
+ev0 = dict(t=1.0, strings=["fy03"], **p0)
+sv_fy.commit(1.0, ["fy03"], a0, ev0)
+w0_before = ev0["window_lo"]
+f_y = sv_fy._feasible(fy.actuators[1], 2.0, ["fy05"], 0.0)
+check("sibling yielding: idle arm0 shifts its resting window (fy03 -> fy00) so arm1 can take fy05",
+      w0_before == "fy03" and f_y is not None and isinstance(f_y[6], tuple)
+      and f_y[6][0] == "fy_arm0" and f_y[6][1] == "fy00",
+      f"w0_before={w0_before}, yield={f_y and f_y[6][:2]}")
+
+# Scratch plan on The Chamber + The Clockwork Chamber with hands= on harp (4) and bars (2):
+# verifies M6b gate (Ruler 25 Go thresholds, finalize() idempotence, Rig._segments parity).
+from loam.rhythm import euclid, rotate, scale_notes
+from loam import ruler
+harp_m6 = Mechanism.build("harp", "plucked", "steel", scale_notes(50, "dorian", 3)[:16],
+        arms=3, overlap=4, span=1.6, pos=[0.0, 0.0, 0.0],
+        approach_s=0.20, recover_s=0.15, travel_s=0.02,
+        pick_default=0.18, restrike_s=0.06, hands=4)
+harp_m6.fan(width=0.34, power=1.0, by="index", smooth=2,
+        rise=((0.66 - 2.05) / 3, (0.66 + 1.64 - 2.05) / 3))
+harp_m6.arm_clearance = 0.05
+rake_m6 = Mechanism.build("rake", "raked", "bronze", [50, 57, 62, 65, 69],
+        arms=1, span=0.5, pos=[-1.4, 0.2, 0.3], arm_kind="rake",
+        approach_s=0.15, recover_s=0.10, travel_s=0.0,
+        pick_default=0.28, restrike_s=0.10)
+rake_m6.fan(width=0.70, power=1.0, rise=((0.66 - 2.65) / 3, (0.66 + 1.36 - 2.65) / 3))
+bars_m6 = Mechanism.build("bars", "struck", "rosewood", scale_notes(62, "dorian", 2)[:8],
+        arms=2, overlap=2, span=0.9, pos=[1.5, -0.1, 0.4],
+        arm_kind="mallet", approach_s=0.08, recover_s=0.04,
+        travel_s=0.025, restrike_s=0.05, length_max=0.35, hands=2)
+bars_m6.arm_clearance = 0.09
+inst_m6 = Instrument("the chamber", [harp_m6, rake_m6, bars_m6])
+sc_m6 = Score(Take(1.0, 0xC4A), "The Chamber", bpm=84.0, seed=0xC4A, instrument=inst_m6)
+sc_m6._synth = lambda m_, s_, a_, pk_, d_, sd_: (np.zeros(1), (s_ and m_.string(s_).pick_default if pk_ is None else pk_) if m_.kind in ("plucked", "raked") else None, 0.1)
+sc_m6._mix = lambda m_, t_, ch_: None
+BEAT = 60.0 / 84.0
+BAR = 4 * BEAT
+def beat_t(bar, b=0.0): return bar * BAR + b * BEAT
+H_m6 = [f"harp{i:02d}" for i in range(16)]
+R_m6 = [f"rake{i:02d}" for i in range(5)]
+B_m6 = [f"bars{i:02d}" for i in range(8)]
+rng_m6 = np.random.default_rng(0xC4A)
+intended_m6 = as_written_m6 = sub_m6 = drop_m6 = 0
+def ask_pluck_m6(mech, t_, sid, amp, voice, alt=None, **kw):
+    global intended_m6, as_written_m6, sub_m6, drop_m6
+    intended_m6 += 1
+    if sc_m6.can_play(mech, t_, sid) is not None:
+        as_written_m6 += 1
+        return sc_m6.pluck(mech, t_, sid, amp=amp, voice=voice, **kw)
+    if alt is not None and sc_m6.can_play(mech, t_, alt) is not None:
+        sub_m6 += 1
+        return sc_m6.pluck(mech, t_, alt, amp=amp, voice=voice, **kw)
+    drop_m6 += 1
+    return None
+def ask_rake_m6(t_, up=True, amp=0.8, voice="rake"):
+    global intended_m6, as_written_m6, drop_m6
+    ids_ = R_m6 if up else R_m6[::-1]
+    on_ = mt.rake_onsets(up)
+    spread_ = on_[-1] / (len(ids_) - 1)
+    intended_m6 += 1
+    if sc_m6.can_play("rake", t_, strings=ids_, spread_s=spread_) is None:
+        drop_m6 += 1
+        return None
+    as_written_m6 += 1
+    return sc_m6.rake("rake", t_, ids_, amp=amp, spread_s=spread_, onsets=on_, voice=voice, dur=2.6)
+def pick_for_m6(amp): return float(np.clip(0.26 - 0.12 * amp, 0.10, 0.30))
+
+for bar in range(0, 8):
+    ask_pluck_m6("harp", beat_t(bar, 0), H_m6[0], 0.9, "ground", pick=0.14)
+    ask_pluck_m6("harp", beat_t(bar, 2), H_m6[4], 0.7, "ground", pick=0.18)
+    if bar >= 4:
+        for k_, si in enumerate([12, 13, 14, 15]):
+            ask_pluck_m6("harp", beat_t(bar, 3.0 + 0.25 * k_), H_m6[si],
+                         0.45 + 0.08 * k_, "run", alt=H_m6[min(si + 1, 15)], pick=0.22)
+    if bar >= 2:
+        a_ = 0.6 + 0.1 * (bar % 2)
+        ask_pluck_m6("harp", beat_t(bar, 1), H_m6[7], a_, "answer", alt=H_m6[6], pick=pick_for_m6(a_))
+        ask_pluck_m6("harp", beat_t(bar, 3), H_m6[9 if bar % 2 else 11], a_, "answer", alt=H_m6[10], pick=pick_for_m6(a_))
+ask_rake_m6(beat_t(7, 2), up=True, amp=0.9)
+bass_pat = euclid(3, 8)
+mel_pat = rotate(euclid(5, 8), 1)
+bass_seq = [0, 2, 4]
+motif = [7, 9, 11, 9, 12, 11, 9, 7, 8, 11, 13, 11]
+mi = bi = 0
+for bar in range(8, 16):
+    for step in range(8):
+        t_ = beat_t(bar, step * 0.5)
+        if bass_pat[step]:
+            si = bass_seq[bi % 3] + (3 if bar % 4 == 3 else 0)
+            ask_pluck_m6("harp", t_, H_m6[si], 0.85, "bass", alt=H_m6[si + 1], pick=0.13)
+            bi += 1
+        if mel_pat[step]:
+            si = motif[mi % len(motif)]
+            a_ = 0.55 + 0.2 * (step == 0) + 0.1 * rng_m6.random()
+            ask_pluck_m6("harp", t_, H_m6[si], a_, "line", alt=H_m6[si - 1], pick=pick_for_m6(a_))
+            mi += 1
+    if bar in (12, 14):
+        ask_rake_m6(beat_t(bar), up=bar == 12, amp=0.85)
+tune = [0, 2, 4, 5, 4, 2, 0, 3]
+thin = rotate(euclid(3, 8), 2)
+for bar in range(16, 24):
+    for step in range(8):
+        t_ = beat_t(bar, step * 0.5)
+        if bass_pat[step]:
+            si = bass_seq[(step // 3) % 3]
+            ask_pluck_m6("harp", t_, H_m6[si], 0.8, "bass", alt=H_m6[si + 1], pick=0.13)
+        if thin[step] and bar % 2 == 0:
+            si = 9 + (step * 2) % 5
+            ask_pluck_m6("harp", t_, H_m6[si], 0.5, "line", alt=H_m6[si + 1], pick=0.2)
+        bi_ = min(tune[step] + (1 if bar % 4 == 2 else 0), 7)
+        if bar % 4 != 3:
+            ask_pluck_m6("bars", t_, B_m6[bi_], 0.6 + 0.25 * (step % 4 == 0), "mallets", alt=B_m6[max(bi_ - 1, 0)])
+    if bar % 4 == 3:
+        for k_ in range(8):
+            ask_pluck_m6("bars", beat_t(bar, 0.5 * k_), B_m6[k_], 0.5 + 0.05 * k_, "run", alt=B_m6[min(k_ + 1, 7)])
+    ask_rake_m6(beat_t(bar, 0), up=True, amp=0.75)
+    ask_rake_m6(beat_t(bar, 2), up=False, amp=0.65)
+ask_rake_m6(beat_t(24), up=False, amp=0.8)
+ask_pluck_m6("harp", beat_t(24), H_m6[0], 0.9, "ground", pick=0.14)
+for bar, (b0, b1) in zip((25, 26), ((0, 4), (7, 3))):
+    ask_pluck_m6("bars", beat_t(bar, 0), B_m6[b0], 0.7, "mallets")
+    ask_pluck_m6("bars", beat_t(bar, 2), B_m6[b1], 0.55, "mallets")
+    ask_pluck_m6("harp", beat_t(bar, 1), H_m6[14 - (bar - 25) * 2], 0.5, "answer", pick=0.22)
+ask_rake_m6(beat_t(27, 0), up=True, amp=0.85)
+for si in (0, 7, 14):
+    ask_pluck_m6("harp", beat_t(27, 2), H_m6[si], 0.95, "chord", pick=0.12)
+
+st1 = sc_m6.finalize()
+chk1 = ruler.plan_consistent(sc_m6.events)
+snap1 = [dict(e) for e in sc_m6.events]
+st2 = sc_m6.finalize()
+check("M6b scratch plan (Ruler 25 Go): 237/239 >= 228 as written, 0 <= 6 drops, 2/241 refusals, plan_consistent ok",
+      intended_m6 == 239 and as_written_m6 == 237 and sub_m6 == 2 and drop_m6 == 0
+      and len(sc_m6.events) == 239 and st1["refused"] == 2 and chk1["ok"] and not sc_m6.conflicts,
+      f"as_written={as_written_m6}/{intended_m6}, sub={sub_m6}, drop={drop_m6}, refused={st1['refused']}/{st1['asked']}, conflicts={len(sc_m6.conflicts)}")
+check("M6b finalize() is idempotent (clockwork round-trip preserves finger, window_lo, t_move)",
+      st2["reassigned"] == 0 and all(
+          e.get(k) == old.get(k)
+          for e, old in zip(sc_m6.events, snap1)
+          for k in ("t", "strings", "onsets", "actuator", "t_move", "t_free", "t_head_free", "pick", "finger", "window_lo")
+      ))
+
+# Check Rig._segments parity on the M6b scratch plan against layout.json
+import json as _json
+lay_m6 = _json.loads(open(os.path.join(os.path.dirname(__file__), "..", "render/form-study/layout.json")).read())
+lay_m6["mechanisms"]["harp"]["arm_clearance_m"] = harp_m6.arm_clearance * mt.WORLD_SCALE
+doc_m6 = dict(total_s=86.0, instrument=inst_m6.to_dict(), events=sc_m6.events, cues=sc_m6.cues)
+rig_m6 = _rig.Rig(doc_m6, lay_m6)
+harp_moves = sum(1 for aid in ("harp_arm0", "harp_arm1", "harp_arm2") for s_ in rig_m6.sched[aid] if s_["moving"])
+bars_hurried = sum(1 for aid in ("bars_arm0", "bars_arm1") for s_ in rig_m6.sched[aid]
+                   if s_["moving"] and mt.hurried("mallet", abs(s_["xb"] - s_["xa"]), s_["arrive"] - s_["go"]))
+check("M6b Rig._segments mirrors fingered _Solver: 0 pushed starts, harp moves <= 50, bars hurried <= 6",
+      rig_m6.pushed == [] and harp_moves <= 50 and bars_hurried == 0,
+      f"pushed={rig_m6.pushed}, harp_moves={harp_moves}, bars_hurried={bars_hurried}")
+
 print("SCORE PLAN: " + ("PASS" if not fails else "FAIL " + str(fails)))
 sys.exit(1 if fails else 0)
