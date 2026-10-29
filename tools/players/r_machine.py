@@ -343,11 +343,14 @@ def _dofs(S, aid):
     d = {'carriage x': (P['root'][:, 0], 1e-4), 'shoulder': (sh, 1e-4), 'elbow': (el, 1e-4)}
     if (S.rig.hammer(aid) or S.cfg(aid).get('drives', {}).get('hinge')):
         d['hinge'] = (P['head'], 1e-4)
+    if S.rig.mallet_splay_plan(aid) is not None:
+        _, ang = S.rig.mallet_splay_at(aid, P['t'])
+        d['splay'] = (ang, 1e-4)
     return d
 
 def driven_share(S, aid):
     """Moving DOFs against their drivers (M4: carriage, shoulder sector gear,
-    elbow four-bar crank; the hammer head's cam arrives in M5)."""
+    elbow four-bar crank; the hammer head's cam arrives in M5; Stevens-grip splay in M8)."""
     drv = drive_of(S, aid); cfg = S.cfg(aid); m_drv = cfg.get('drives') or {}
     has_pinion_motor = bool(m_drv.get('carriage', {}).get('motor'))
     sh_drv = m_drv.get('shoulder', {}).get('kind')
@@ -357,6 +360,7 @@ def driven_share(S, aid):
         'shoulder': sh_drv,
         'elbow': el_drv,
         'hinge': m_drv.get('hinge', {}).get('kind'),
+        'splay': m_drv.get('splay', {}).get('kind'),
     }
     rng = {}; moving = []
     for name, (q, eps) in _dofs(S, aid).items():
@@ -1472,7 +1476,8 @@ def _repeat_mallet(S, aid, n=64):
     for i, c in enumerate(cs):
         nxt = cs[i+1] if i+1 < len(cs) else None
         key = (tuple(c.event['strings']), r3(float(c.event.get('pick', -1) or -1)), r2(c.a), r3(c.ioi),
-               r2(nxt.a) if nxt else None, r3(c.ioi_next))
+               r2(nxt.a) if nxt else None, r3(c.ioi_next),
+               c.event.get('window_lo'), c.event.get('finger'))
         groups.setdefault(key, []).append((c, nxt))
     rms = []; worst = (0.0, None); strokes = 0; missing = 0
     for key, mem in groups.items():
@@ -1545,7 +1550,8 @@ def _repeat(S, aid, n=64):
     for i, c in enumerate(cs):
         nxt = cs[i+1] if i+1 < len(cs) else None
         key = (tuple(c.event['strings']), r3(float(c.event.get('pick', -1) or -1)), r2(c.a), r3(c.ioi),
-               r2(nxt.a) if nxt else None, r3(c.ioi_next))
+               r2(nxt.a) if nxt else None, r3(c.ioi_next),
+               c.event.get('window_lo'), c.event.get('finger'))
         groups.setdefault(key, []).append(c)
     rms = []; worst = (0.0, None); strokes = 0
     for key, mem in groups.items():

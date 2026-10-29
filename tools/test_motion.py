@@ -84,7 +84,10 @@ def run(layout_path, score_path):
             # what the move wanted unhurried against the window it got
             if s['moving']:
                 wanted += 1
-                kind = rig.acts[aid]['kind']; dx = s['first'][0]-s['rest'][0]
+                kind = rig.acts[aid]['kind']
+                wlo = s['event'].get('window_lo')
+                target_x = rig.contact(wlo)[0] if (rig._hand_digits(aid) >= 2 and wlo) else s['first'][0]
+                dx = target_x-s['rest'][0]
                 hurried += int(motion_timing.hurried(kind, dx, s['arrive']-s['go'])
                                if motion_timing.contact_to_contact(kind)
                                else s['want'] > s['approach']-s['go']+1e-9)
@@ -165,12 +168,14 @@ def run(layout_path, score_path):
             m_land = max(m_land, abs(rig.carriage_x(aid, tv['t1'])-tv['x1']))
             if tv['event'] >= 0:
                 s = row[id(score['events'][tv['event']])]; m_scored += 1
-                m_land = max(m_land, abs(tv['x1']-s['first'][0]),
-                             max(abs(rig.carriage_x(aid, t)-s['first'][0]) for t in np.linspace(tv['t1'], s['hit'], 25)))
+                wlo = s['event'].get('window_lo')
+                target_x = rig.contact(wlo)[0] if (rig._hand_digits(aid) >= 2 and wlo) else s['first'][0]
+                m_land = max(m_land, abs(tv['x1']-target_x),
+                             max(abs(rig.carriage_x(aid, t)-target_x) for t in np.linspace(tv['t1'], s['hit'], 25)))
                 m_late += int(tv['t1'] > s['hit']+1e-9)
                 # the rig hurries exactly the travels the planner counted hurried
                 m_hurried += int(bool(tv['hurried'])); m_hurry_off += int(bool(tv['hurried']) != bool(
-                    motion_timing.hurried(rig.acts[aid]['kind'], s['first'][0]-s['rest'][0], s['arrive']-s['go'])))
+                    motion_timing.hurried(rig.acts[aid]['kind'], tv['x1']-tv['x0'], s['arrive']-s['go'])))
                 # the carriage never moves before the score's go
                 m_before_go += int(tv['t0'] < s['go']-1e-9); m_at_go += int(abs(tv['t0']-s['go']) <= 1e-9)
                 if tv['t0'] > s['go']: m_before_go += int(np.ptp([rig.carriage_x(aid, t) for t in np.linspace(s['go'], tv['t0'], 25)]) > 1e-12)

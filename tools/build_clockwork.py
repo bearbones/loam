@@ -402,6 +402,11 @@ for aid,cfg in manifest['arms'].items():
         h_drv=cfg['drives'].get('hinge',{})
         if h_drv.get('kind')=='four_bar_crank':
             places.append(('wrist_shaft',tip))
+            if int(cfg.get('hands',0))>=2:
+                dx0=float(cfg['drives'].get('splay',{}).get('dx_base',0.385714))
+                places.append(('mallet2_head',tip+Vector((dx0,0,0))))
+                places.append(('mallet2_shaft',tip+Vector((dx0,0,0))))
+                places.append(('splay_sector',tip+Vector((0,0.055,float(R.flip_sign(aid))*0.50))))
         elif h_drv.get('kind')=='cam':
             places.append(('hammer_cam',tip+Vector(h_drv['cam_origin'])))
     # A hinged hammer's head hangs on the flange's pin, head_l above the tool

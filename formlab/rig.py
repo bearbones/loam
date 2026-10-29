@@ -535,7 +535,11 @@ class Rig:
 
     def _arm_input(self, aid):
         home = self.contact(self.acts[aid]['home'])
-        hits = [stroke.HitIn(t=float(s['hit']), point=tuple(float(v) for v in s['first']), a=self._a_norm(s['event']),
+        hd = self._hand_digits(aid) >= 2
+        hits = [stroke.HitIn(t=float(s['hit']),
+                             point=tuple(float(v) for v in (self.contact(s['event']['window_lo'])
+                                                            if hd and s['event'].get('window_lo') else s['first'])),
+                             a=self._a_norm(s['event']),
                              go=float(s['go']), event=int(s['event'].get('i', i)), amp=float(s['event'].get('amp', 1.0)))
                 for i, s in enumerate(self.sched[aid])]
         hm = self.homes(aid, self.joint_site(aid))
@@ -1079,6 +1083,79 @@ class Rig:
             except ImportError: import hand as H
             cache[aid] = H.build_hand_plan(self, aid)
         return cache[aid]
+
+    def mallet_splay_plan(self, aid):
+        """Cached two-mallet Stevens-grip splay plan (PLAYERS M8) for mallet arm `aid`."""
+        if self._hand_digits(aid) < 2 or self.acts.get(aid, {}).get('kind') != 'mallet':
+            return None
+        cache = self.__dict__.setdefault('_splay_plans', {})
+        if aid in cache:
+            return cache[aid]
+        m = self.mechs.get(self.mech_of.get(aid, ''), {})
+        sids = [s['id'] for s in m.get('strings', [])]
+        dx_base = abs(float(self.contact(sids[1])[0] - self.contact(sids[0])[0])) if len(sids) >= 2 else 0.3857142857142857
+        sched = self.sched.get(aid, [])
+        raw_dx = []; w_los = []; fingers = []
+        for s in sched:
+            ev = s['event']; w_lo = ev.get('window_lo')
+            f = int(ev.get('finger', 0))
+            xw = float(self.contact(w_lo)[0]) if w_lo else float(s['first'][0])
+            xh = float(s['first'][0])
+            w_los.append(w_lo); fingers.append(f)
+            raw_dx.append(max(dx_base, abs(xh - xw)) if f == 1 else None)
+        dxs = list(raw_dx)
+        for i in range(len(dxs)):
+            if dxs[i] is None:
+                best = None
+                for step in (1, -1, 2, -2, 3, -3):
+                    j = i + step
+                    if 0 <= j < len(dxs) and w_los[j] == w_los[i] and raw_dx[j] is not None:
+                        best = raw_dx[j]; break
+                dxs[i] = best if best is not None else dx_base
+        segs = []; notes = []
+        dx_cur = dxs[0] if dxs else dx_base
+        for i, s in enumerate(sched):
+            t_hit = float(s['hit'])
+            t_ap = float(s.get('t_apex', t_hit - 0.08))
+            t_prev = float(sched[i-1]['hit']) if i > 0 else max(0.0, t_ap - 0.25)
+            dx_i = dxs[i]
+            if i > 0 and abs(dx_i - dx_cur) > 1e-6:
+                t0 = min(t_prev, t_ap - 1e-3); t1 = max(t_ap, t0 + 1e-3)
+                segs.append((t0, t1, dx_cur, dx_i))
+                dx_cur = dx_i
+            ioi = t_hit - t_prev if i > 0 else np.inf
+            is_third = dx_i > 1.5 * dx_base
+            is_lat = is_third and ioi <= 0.40 and i > 0 and fingers[i] != fingers[i-1]
+            mode = 'double_lateral' if is_lat else ('double_vertical' if is_third else 'single')
+            notes.append(dict(i=i, t=t_hit, t_apex=t_ap, finger=fingers[i], dx=dx_i, mode=mode, window_lo=w_los[i]))
+        t0s = np.array([g[0] for g in segs], float) if segs else np.zeros(0)
+        plan = dict(dx_base=dx_base, dx_init=(dxs[0] if dxs else dx_base), segs=segs, t0s=t0s, notes=notes)
+        cache[aid] = plan
+        return plan
+
+    def mallet_splay_at(self, aid, t):
+        """Return (splay_dx, splay_angle) for two-mallet holder `aid` at scalar or array `t`."""
+        plan = self.mallet_splay_plan(aid)
+        t_arr = np.asarray(t, float)
+        scalar = t_arr.ndim == 0
+        ts = t_arr.reshape(-1)
+        if plan is None:
+            z = np.zeros_like(ts)
+            return (0.0, 0.0) if scalar else (z, z.copy())
+        dx = np.full(len(ts), float(plan['dx_init']))
+        segs = plan['segs']
+        if segs:
+            idx = np.searchsorted(plan['t0s'], ts, side='right') - 1
+            for k in range(len(ts)):
+                j = int(idx[k])
+                if j >= 0:
+                    t0, t1, d0, d1 = segs[j]
+                    u = np.clip((ts[k] - t0) / max(t1 - t0, 1e-9), 0.0, 1.0)
+                    dx[k] = d1 if ts[k] >= t1 else d0 + (d1 - d0) * float(stroke.s345(u))
+        ang = (dx - float(plan['dx_base'])) / 0.40
+        if scalar:
+            return float(dx[0]), float(ang[0])
+        return dx, ang
 
     def declared(self, aid):
         """The arm's declared structure (formlab.segments.Declared). An arm

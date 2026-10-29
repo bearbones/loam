@@ -931,11 +931,16 @@ def _heads(S, aid):
     for c in S.contacts(aid):
         q = S.rig.pose(aid, c.t); times.append(c.t); tip.append(q['tip']); felt.append(q['felt'])
     times = np.array(times); centre, r = _head_centres(S, aid, np.array(tip), np.array(felt))
+    centres = [centre]
+    if S.rig.mallet_splay_plan(aid) is not None:
+        dx, _ = S.rig.mallet_splay_at(aid, times)
+        c2 = centre.copy(); c2[:, 0] += dx; centres.append(c2)
     best = (math.inf, None, None)
     for sid, fn in els:
-        sd = fn(centre)-r; k = int(np.argmin(sd))
-        if sd[k] < best[0]: best = (float(sd[k]), float(times[k]), sid)
-    return Result(23, '23 head', aid, dict(min_mm=_r(best[0]*1e3), t=_r(best[1], 6), element=best[2], samples=len(times)),
+        for c_arr in centres:
+            sd = fn(c_arr)-r; k = int(np.argmin(sd))
+            if sd[k] < best[0]: best = (float(sd[k]), float(times[k]), sid)
+    return Result(23, '23 head', aid, dict(min_mm=_r(best[0]*1e3), t=_r(best[1], 6), element=best[2], heads=len(centres), samples=len(times)),
                   bool(best[0] >= -EXACT), 'core sphere vs every bar/block/bell, 120 Hz + every contact instant')
 
 def _tool_strings(S, aid):

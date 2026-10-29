@@ -105,7 +105,7 @@ rake.fan(width=0.70, power=1.0, rise=((0.66 - 2.65) / 3, (0.66 + 1.36 - 2.65) / 
 bars = Mechanism.build("bars", "struck", "rosewood", BAR_MIDIS,
         arms=2, overlap=2, span=0.9, pos=[1.5, -0.1, 0.4],
         arm_kind="mallet", approach_s=0.08, recover_s=0.04,
-        travel_s=0.025, restrike_s=0.05, length_max=0.35)
+        travel_s=0.025, restrike_s=0.05, length_max=0.35, hands=2)
 bars.arm_clearance = ARM_CLEARANCE
 inst = Instrument("the chamber", [harp, rake, bars])
 

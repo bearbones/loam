@@ -622,7 +622,7 @@ def hurried(S, aid):
 
 # Ruler 1's 'brisk' travels, the lead's explicit policy for a mallet tool's gated p95 until M8: True leaves them
 # out of the gate (and holds their count to TODAY_BRISK); False gates their frames as written
-BRISK_UNTIL_M8 = True
+BRISK_UNTIL_M8 = False
 BRISK_RHO = 0.5      # E a frame: a 'brisk' travel's least smooth time is taken at 3 g and this (ruler 1, mallet)
 # ...and the brisk count may not grow until M8 (row '1 brisk'): today's per asset and arm, counted on the frozen
 # scores (brisk reads only the contacts, so the plan cannot change it); an arm not listed is allowed none
@@ -717,10 +717,11 @@ def r1_strobe(S):
                 # frame exceeds its IOI, where the plan's travel together with the float cannot hold 0.5 E a
                 # frame; the whole gap (t_end -> contact), head included, until M8's splay changes replace
                 # these leaps ('1 brisk' holds their count). The max rule above still holds on every frame.
-                brk = brisk(S, aid) if BRISK_UNTIL_M8 else ()
+                use_brisk = BRISK_UNTIL_M8 or kind == 'hammer'
+                brk = brisk(S, aid) if use_brisk else ()
                 bm = _frame_mask(N, [(b[0], b[1]) for b in brk])[1:]
                 gm = active & ~exi & ~stw & ~bm
-                if BRISK_UNTIL_M8: v.update(brisk=len(brk), brisk_frames=int((active & bm & ~exi & ~stw).sum()))
+                if use_brisk: v.update(brisk=len(brk), brisk_frames=int((active & bm & ~exi & ~stw).sum()))
                 # an empty gated set with motion on the arm measures nothing: n/a (a gate fails on it), never 0
                 p95_gate = float(np.percentile(rho[gm], 95)) if gm.any() else (None if active.any() else 0.0)
                 v.update(p95_gated=_r(p95_gate, 3) if p95_gate is not None else None, active_gated=int(gm.sum()),
@@ -732,12 +733,12 @@ def r1_strobe(S):
                                +('hurried travels and, until M8, brisk travels (contact travels at tempo whose 3-4-5 time at 3 g and '
                                  '0.5 E_x a frame exceeds the IOI: the plan\'s travel with the float cannot hold 0.5 E a frame there, '
                                  'so the whole gap, head included, leaves the gate; the lead\'s policy for a struck head)'
-                                 if BRISK_UNTIL_M8 else 'and hurried travels (the lead\'s amendment for a struck head)')+'; info: p95_active as written, '
+                                 if (BRISK_UNTIL_M8 or kind == 'hammer') else 'and hurried travels (the lead\'s amendment for a struck head)')+'; info: p95_active as written, '
                                'p95_noimpulse leaves out impulse frames and hurried travels, p95_off also +-50 ms of each contact; '
                                'hurried travels are the declared ones' if kind in STRUCK else
                                'rho = |dp|/E(part, dp^); <= 1.0 (1.5 on impulse frames and hurried travels), p95 active <= 0.5')
                               +('; E_x(head) %.3f m, hurried = 3-4-5 at 3 g and 1 E/frame over the contact-to-contact window' % head_extent_x(S, aid) if part == 'tool' and S.rig.stepped(aid) else '')))
-        if kind in STRUCK and BRISK_UNTIL_M8:
+        if kind in STRUCK and (BRISK_UNTIL_M8 or kind == 'hammer'):
             # the brisk policy's ceiling: no more brisk travels than today's (they read the frozen score)
             brk = brisk(S, aid); today = TODAY_BRISK.get(S.asset, {}).get(aid, 0)
             out.append(Result(1, '1 brisk', aid, dict(count=len(brk), today=today, at=[_r(b[1], 3) for b in brk][:8],

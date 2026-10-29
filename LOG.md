@@ -1,3 +1,53 @@
+## 2026-10-29 — PLAYERS M8: Two-mallet holders
+
+Built the two-shaft Stevens-grip mallet holders (`bars_arm0`, `bars_arm1`) on
+the rosewood marimba (`hands = 2` in `songs/chamber.py`), added the driven splay
+sector gear (`<aid>__splay_sector`) and outer birch shaft + ivory felt head
+(`<aid>__mallet2_shaft`, `<aid>__mallet2_head`), retired the interim `1 brisk`
+exemption on mallet arms (`BRISK_UNTIL_M8 = False`), and reduced hurried mallet
+travels from $12\text{–}24$ to $0 \le 6$:
+
+- **Two-shaft Stevens-grip anatomy & splay drive** (`formlab/drives.py`
+  `wrist_drive_pieces`, `manifest_drives`; `formlab/rig.py` `mallet_splay_plan`,
+  `mallet_splay_at`; `formlab/bake.py`; `tools/build_forms.py`;
+  `tools/build_clockwork.py`; `harness/performance.gd`):
+  - Each `bars` holder (`bars_arm0`, `bars_arm1`) carries an inner shaft on the
+    carriage's $x$ (`finger = 0`, at `window_lo`) and an outer shaft (`finger = 1`,
+    offset by $\text{splay\_dx}(t) \in [0.386, 0.771]\text{ m}$, spanning 1 bar
+    pitch = $0.386\text{ m}$ at rest and widening to a 2-bar third =
+    $0.771\text{ m}$ on a `3-4-5` polynomial during the upstroke $[t_{i-1}, t_{\text{apex},i}]$
+    while holding constant during the downstroke $[t_{\text{apex},i}, t_i]$).
+  - Driven by a brass splay sector gear (`<aid>__splay_sector`, $R_{\text{sector}} = 48\text{ mm}$,
+    ratio $-2.0$, $55.25^\circ$ span) meshing a 12-tooth brass pinion on
+    `wristhead` (`Ruler 17 driven share = 1.0000` across `[carriage x, shoulder, elbow, hinge, splay]`).
+  - Double vertical strokes (`mode = 'double_vertical'`) and double lateral
+    strokes (`mode = 'double_lateral'` on `IOI <= 0.40 s` shaft alternations)
+    play the bar-13 to bar-19 thirds (`0 <-> 2`, `1 <-> 3`, `2 <-> 4`, `3 <-> 5`)
+    across the two shafts without leaping 16 rack teeth in $0.357\text{ s}$.
+- **Ruler & invariant results**:
+  - **Ruler 19**: `19 hurried = 0 <= 6` across all 4 mallet arms (`bars_arm0`
+    `2` stepped / `0` freewheel, `bars_arm1` `2` stepped / `12` freewheel with
+    $\text{peak\_g} \le 2.20\,g \le 3.0\,g$; `bells_arm0..1` `0` hurried), and
+    `19 pawl` `0` misses / `0` ride error.
+  - **Ruler 1** (`BRISK_UNTIL_M8 = False`): all 4 mallet arms pass `1 tool`
+    ($\rho_{\text{p95,gated}} \le 0.490 \le 0.50$, $\max \le 0.993 \le 1.0$),
+    `1 wrist` ($\le 0.323$), `1 elbow` ($\le 0.292$), and `1 links` ($\le 0.696$)
+    with zero brisk exemptions.
+  - **Ruler 10**: `10a rotation` $25.1^\circ\text{–}60.7^\circ$, `10b arc`
+    sagitta/chord $0.0567\text{–}0.0719$ ($100\%$ toward pin), `10c normal`
+    $0.0^\circ$, `10d elbow` $5.39^\circ\text{–}15.51^\circ$.
+  - **Ruler 22**: `sync` $100\%$ ok ($\le 3.18\text{ ms}$), `repeat` RMS
+    $\le 1.43 \times 10^{-11}\text{ mm}$, `home` `x_swept_frac = 1.00` and
+    `joint_swept_frac = 0.82` ($v_{\text{peak}} \le 1.33\text{ m/s}$, `land_m = 0.0 m`).
+  - **Ruler 23**: `heads = 2` (both felt spheres checked against all 8 bars at
+    120 Hz + every contact instant), `min_mm = 0.0 mm`.
+  - **Ruler 25**: `chamber` plays `237/239` as written (`2` substituted, `0 <= 9`
+    dropped, `2/241` refused); `expanded` refuses `0/64`; all audio stems
+    bit-identical (`changed = []`).
+  - **Rebuilt assets**:
+    - `harness/assets/clockwork.glb`: `bd33fccc341990276ebc1842d11bd5cd0cbe259130096d24dcfe378c2e2744a5`
+    - `harness/assets/clockwork_expanded.glb`: `431ee60e6776e76120faec2ffbd9c1d4f8838f9f3eb8d480dafd2e40ea632824`
+
 ## 2026-10-29 — PLAYERS M7: The hands
 
 Built the articulated 4-digit Salzedo/Renié harp hands (`harp_arm0..2` on both

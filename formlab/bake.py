@@ -301,6 +301,7 @@ def bake(score_path, manifest_path, asset=None, hz=240, verbose=print):
             v = values[name].reshape(len(times), width)
             columns.extend(v[:, i] for i in range(width))
         clicks, click_pawl, click_step = arm_clicks(rig, aid)
+        sp_plan = rig.mallet_splay_plan(aid)
         arms[aid] = dict(
             kind=rig.acts[aid]['kind'], mech=rig.mech_of[aid], stepped=rig.stepped(aid), hammer=rig.hammer(aid),
             flip_sign=rig.flip_sign(aid), rail_span=[lo, hi], unreachable=unreachable,
@@ -308,6 +309,13 @@ def bake(score_path, manifest_path, asset=None, hz=240, verbose=print):
             clicks=clicks, click_pawl=click_pawl, click_step=click_step, blows=arm_blows(rig, aid),
             # the hinged head's pin above the tool frame: rig.HAMMER's (per arm from M5)
             head_l=head_l)
+        if sp_plan is not None:
+            arms[aid]['splay'] = dict(
+                dx_base=float(sp_plan['dx_base']),
+                dx_init=float(sp_plan['dx_init']),
+                segs=[[float(v) for v in g] for g in sp_plan['segs']],
+                notes=sp_plan['notes'],
+            )
         if rig.hammer(aid) or 'head' in cfg:
             hd = cfg.get('head') or {}
             if hd.get('length') is None or float(hd['length']) != head_l or [float(v) for v in hd.get('hinge', [])] != [0.0, head_l, 0.0]:

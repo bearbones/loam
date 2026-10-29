@@ -493,7 +493,7 @@ fb = DRV.four_bar_crank(np.array([[0., 1.8, -0.8], [0., 1.8, -0.8]]),
 check(float(fb['closure_err'].max()) <= 1e-6,
       f'four_bar_crank closure residual {float(fb["closure_err"].max()):.2e} m <= 1e-6 m')
 for sgn in (-1.0, 1.0):
-    wr_drv = DRV.wrist_drive_pieces(sgn)
+    wr_drv = DRV.wrist_drive_pieces(sgn, hands=2)
     for nm, pcs in wr_drv.items(): check_pieces(pcs)
     check_pieces(DRV.hammer_cam_pieces(np.radians(29.8), sgn))
 fb_w = DRV.four_bar_wrist(np.array([[0., 1.0, 0.0], [0., 1.25, -0.10]]),

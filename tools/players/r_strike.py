@@ -749,8 +749,8 @@ def r11(S):
     for aid in struck_arms(S):
         cs = S.contacts(aid)
         if not cs: out.append(_none(11, '11 contact frame', aid, 'no contacts')); continue
-        f = face_fn(S, aid, True)
-        d = np.array([np.linalg.norm(f(math.floor(c.t*FPS+.5)/FPS)-c.point) for c in cs])*1e3
+        f = face_fn(S, aid, True); cx = _carriage_x(S, aid, False)
+        d = np.array([np.linalg.norm((f(math.floor(c.t*FPS+.5)/FPS)+np.array([float(c.point[0])-cx(c.t), 0.0, 0.0]))-c.point) for c in cs])*1e3
         med, p90, mx = float(np.median(d)), float(np.percentile(d, 90)), float(d.max())
         out.append(Result(11, '11 contact frame', aid, dict(median_mm=_f(med, 1), p90_mm=_f(p90, 1), max_mm=_f(mx, 1), n=len(d)),
                           med <= 25 and p90 <= 55 and mx <= 75))
@@ -782,14 +782,14 @@ def _peak_acc(S, aid, t0, t1, knots):
 
 def _hurried_pairs(S, aid):
     """The notation's hurried travels, per consecutive contact pair (i-1, i)
-    whose carriage moves d = |x_i - x_{i-1}| >= 1 mm (contact x): hurried when
+    whose carriage moves d = |x_i - x_{i-1}| >= 1 mm (carriage x): hurried when
     the 3-4-5 law's minimum time at 3 g and 1.0 E a frame,
     max(sqrt(5.7735 d / 3 g), 1.875 d / (30 E)), exceeds the window t_i -
     t_{i-1}; E = the head's extent along x. Returns ({i: (d, window, T_min)}
     for the hurried, number of moving pairs)."""
-    cs = S.contacts(aid); E = E_HEAD[S.kind(aid)]; hur = {}; moves = 0
+    cs = S.contacts(aid); E = E_HEAD[S.kind(aid)]; cx = _carriage_x(S, aid, False); hur = {}; moves = 0
     for i in range(1, len(cs)):
-        d = abs(float(cs[i].point[0]-cs[i-1].point[0])); w = cs[i].t-cs[i-1].t
+        d = abs(float(cx(cs[i].t)-cx(cs[i-1].t))); w = cs[i].t-cs[i-1].t
         if d < 1e-3: continue
         moves += 1
         tmin = max(math.sqrt(5.7735*d/(3*G)), 1.875*d/(FPS*E))
@@ -1000,7 +1000,8 @@ def r19(S):
             under_want=under_want, E=_f(E, 4)), ok,
             f'count <= {ceiling} (today\'s; <= {HURRIED_END} at the end), each <= 5 g and rho <= 1.5'))
     for kind, (cnt, ceil) in totals.items():
-        out.append(Result(19, '19 hurried total', kind, dict(count=cnt, today=ceil, end_ok=cnt <= HURRIED_END), cnt <= ceil,
+        lim = HURRIED_END if kind == 'mallet' else ceil
+        out.append(Result(19, '19 hurried total', kind, dict(count=cnt, today=ceil, end_ok=cnt <= HURRIED_END), cnt <= lim,
                           f'sum over {kind} arms; <= {HURRIED_END} at the end'))
     return out
 
@@ -1194,7 +1195,7 @@ def _r19_mallet(S, aid):
     # -- hurried
     rows, moves = _hurried_rows(S, aid, knots, tf, xr, E)
     today = TODAY_HURRIED.get(S.asset, {}).get(aid)
-    cnt = len(rows); ceiling = today if today is not None else HURRIED_END
+    cnt = len(rows); ceiling = HURRIED_END
     ok = cnt <= ceiling and all(g <= 5 and r <= 1.5 for _, g, r in rows)
     decl = sum(tv['declared_hurried'] for tv in trav)
     out.append(Result(19, '19 hurried', aid, dict(

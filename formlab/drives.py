@@ -530,9 +530,11 @@ def joint_limits(cfg, poses):
     )
 
 
-def wrist_drive_pieces(sign=-1.0):
-    """Pieces for the PLAYERS M5 mallet wrist hinge shaft & four-bar crank:
-      - `wristhead`: motor can on the +X face of the wrist crosshead;
+def wrist_drive_pieces(sign=-1.0, hands=0):
+    """Pieces for the PLAYERS M5 mallet wrist hinge shaft & four-bar crank,
+    and PLAYERS M8 two-mallet holder (when `hands >= 2`):
+      - `wristhead`: motor can on the +X face of the wrist crosshead (+ splay
+        driver pinion when `hands >= 2`);
       - `wrist_shaft`: 0.50 m shaft (in [0.40, 0.60] m) in local frame at
         `pose["tip"]`, lying horizontally along Z (`0 -> sign * 0.50 m`,
         parallel to the bar at contact `theta = 0`) and turning about X by
@@ -541,6 +543,12 @@ def wrist_drive_pieces(sign=-1.0):
         `wristhead` at `pose["wrist"]`;
       - `wrist_rod`: coupler rod of length coupler_l (0.260 m) connecting the
         crank pin to the drive lug at `z = sign * r_lug` on `wrist_shaft`.
+      When `hands >= 2` (Stevens-grip two-mallet holder, PLAYERS M8):
+      - `mallet2_head`: second wound felt head (r = 0.060 m) at local origin;
+      - `mallet2_shaft`: second 0.50 m tapered rosewood shaft with brass collar,
+        bridge lug, proximal hinge eye and splay guide collar;
+      - `splay_sector`: driven brass splay sector gear (`r_sector = 0.048 m`)
+        and guide cross-bar at the proximal hinge.
     """
     WD = WRIST_DRIVE
     sgn = 1.0 if float(sign) >= 0.0 else -1.0
@@ -554,48 +562,52 @@ def wrist_drive_pieces(sign=-1.0):
     m_can.material = 'steel'
     wristhead_extra = [m_can]
 
+    def _build_shaft():
+        sh = []
+        # Brass throat collar under the felt ball (y = 0.055 m, z = 0)
+        collar = ring((0, .055, 0), .009, .016, .012, axis=Y, sides=24, corner=.3)
+        collar.material = 'brass'
+        sh.append(collar)
+        # Bridge lug from the throat collar at (0, 0.055, 0) to the shaft head at (xs, 0.055, 0)
+        u3 = np.linspace(0, 1, 5)[:, None]
+        pa = np.array([0., .055, 0.]); pb = np.array([xs, .055, 0.])
+        bridge = sweep(pa + (pb - pa) * u3, .005, .009, profile=rounded_rect(.3, 12))
+        bridge.material = 'brass'
+        sh.append(bridge)
+        # 0.50 m tapered rosewood shaft running horizontally along Z at y = 0.055 m
+        u_sh = np.linspace(0, 1, 20)[:, None]
+        s0 = np.array([xs, .055, 0.]); s1 = np.array([xs, .055, sgn * sl])
+        r_prof = np.linspace(sr * .9, sr * 1.15, 20)
+        sh_bar = sweep(s0 + (s1 - s0) * u_sh, r_prof, r_prof, sides=16)
+        sh_bar.material = 'rose'
+        sh.append(sh_bar)
+        # Brass hinge eye and steel X-axis hinge pin at the proximal end (xs, 0.055, sgn * sl)
+        h_eye = ring((xs, .055, sgn * sl), pr, er * .95, tc, axis=X, sides=28, corner=.3)
+        h_eye.material = 'brass'
+        sh.append(h_eye)
+        h_pin = revolve([(0, xs - tc), (pr, xs - tc), (pr, xs + tc), (0, xs + tc)],
+                        X, (0, .055, sgn * sl), 16)
+        h_pin.material = 'steel'
+        sh.append(h_pin)
+        # Drive lug collar clamped on the shaft at (xs, 0.055, sgn * rf) -> lug eye at (xr, 0, sgn * rf)
+        lug_clamp = ring((xs, .055, sgn * rf), sr * .95, sr * 1.85, tc, axis=Z, sides=20, corner=.3)
+        lug_clamp.material = 'brass'
+        sh.append(lug_clamp)
+        p_lug0 = np.array([xs, .055, sgn * rf]); p_lug1 = np.array([xr, 0., sgn * rf])
+        lug_arm = sweep(p_lug0 + (p_lug1 - p_lug0) * u3, .005, .010, profile=rounded_rect(.3, 12))
+        lug_arm.material = 'brass'
+        sh.append(lug_arm)
+        lug_eye = ring((xr, 0., sgn * rf), pr, er * .85, tc, axis=X, sides=24, corner=.3)
+        lug_eye.material = 'brass'
+        sh.append(lug_eye)
+        lug_pin = revolve([(0, xr - tc), (pr, xr - tc), (pr, xr + tc), (0, xr + tc)],
+                          X, (0, 0., sgn * rf), 16)
+        lug_pin.material = 'steel'
+        sh.append(lug_pin)
+        return sh
+
     # 2. Hinged mallet shaft (`0.50 m` along Z, parallel to the bar at contact)
-    shaft = []
-    # Brass throat collar under the felt ball (y = 0.055 m, z = 0)
-    collar = ring((0, .055, 0), .009, .016, .012, axis=Y, sides=24, corner=.3)
-    collar.material = 'brass'
-    shaft.append(collar)
-    # Bridge lug from the throat collar at (0, 0.055, 0) to the shaft head at (xs, 0.055, 0)
-    u3 = np.linspace(0, 1, 5)[:, None]
-    pa = np.array([0., .055, 0.]); pb = np.array([xs, .055, 0.])
-    bridge = sweep(pa + (pb - pa) * u3, .005, .009, profile=rounded_rect(.3, 12))
-    bridge.material = 'brass'
-    shaft.append(bridge)
-    # 0.50 m tapered rosewood shaft running horizontally along Z at y = 0.055 m
-    u_sh = np.linspace(0, 1, 20)[:, None]
-    s0 = np.array([xs, .055, 0.]); s1 = np.array([xs, .055, sgn * sl])
-    r_prof = np.linspace(sr * .9, sr * 1.15, 20)
-    sh_bar = sweep(s0 + (s1 - s0) * u_sh, r_prof, r_prof, sides=16)
-    sh_bar.material = 'rose'
-    shaft.append(sh_bar)
-    # Brass hinge eye and steel X-axis hinge pin at the proximal end (xs, 0.055, sgn * sl)
-    h_eye = ring((xs, .055, sgn * sl), pr, er * .95, tc, axis=X, sides=28, corner=.3)
-    h_eye.material = 'brass'
-    shaft.append(h_eye)
-    h_pin = revolve([(0, xs - tc), (pr, xs - tc), (pr, xs + tc), (0, xs + tc)],
-                    X, (0, .055, sgn * sl), 16)
-    h_pin.material = 'steel'
-    shaft.append(h_pin)
-    # Drive lug collar clamped on the shaft at (xs, 0.055, sgn * rf) -> lug eye at (xr, 0, sgn * rf)
-    lug_clamp = ring((xs, .055, sgn * rf), sr * .95, sr * 1.85, tc, axis=Z, sides=20, corner=.3)
-    lug_clamp.material = 'brass'
-    shaft.append(lug_clamp)
-    p_lug0 = np.array([xs, .055, sgn * rf]); p_lug1 = np.array([xr, 0., sgn * rf])
-    lug_arm = sweep(p_lug0 + (p_lug1 - p_lug0) * u3, .005, .010, profile=rounded_rect(.3, 12))
-    lug_arm.material = 'brass'
-    shaft.append(lug_arm)
-    lug_eye = ring((xr, 0., sgn * rf), pr, er * .85, tc, axis=X, sides=24, corner=.3)
-    lug_eye.material = 'brass'
-    shaft.append(lug_eye)
-    lug_pin = revolve([(0, xr - tc), (pr, xr - tc), (pr, xr + tc), (0, xr + tc)],
-                      X, (0, 0., sgn * rf), 16)
-    lug_pin.material = 'steel'
-    shaft.append(lug_pin)
+    shaft = _build_shaft()
 
     # 3. Wrist crank in link frame (0, 0, 0) -> (0, rc, 0) at x = xc
     crank = []
@@ -616,7 +628,40 @@ def wrist_drive_pieces(sign=-1.0):
     ra = np.array([xr, er * .6, 0.]); rb = np.array([xr, lr - er * .6, 0.])
     rod.append(sweep(ra + (rb - ra) * u_rd, tc * .42, .009, profile=rounded_rect(.35, 16)))
 
-    return dict(wristhead=wristhead_extra, wrist_shaft=shaft, wrist_crank=crank, wrist_rod=rod)
+    out = dict(wristhead=wristhead_extra, wrist_shaft=shaft, wrist_crank=crank, wrist_rod=rod)
+    if int(hands) >= 2:
+        try:
+            from .linkage import _wound_head
+        except ImportError:
+            from linkage import _wound_head
+        m2_head = _wound_head(.06)
+        for p in m2_head:
+            p.material = 'felt'
+        m2_shaft = _build_shaft()
+        # Driven brass splay sector gear + guide bar at the proximal hinge (local origin)
+        splay_sec = []
+        sec_disc = ring((xs, 0, 0), pr, .048, tc, axis=Y, sides=36, corner=.3)
+        sec_disc.material = 'brass'
+        splay_sec.append(sec_disc)
+        sec_pin = revolve([(0, -tc), (pr, -tc), (pr, tc), (0, tc)], Y, (xs, 0, 0), 16)
+        sec_pin.material = 'steel'
+        splay_sec.append(sec_pin)
+        u_sp = np.linspace(0, 1, 16)[:, None]
+        ga = np.array([xs, 0., 0.]); gb = np.array([xs + .3857, 0., 0.])
+        g_bar = sweep(ga + (gb - ga) * u_sp, .006, .011, profile=rounded_rect(.35, 14))
+        g_bar.material = 'brass'
+        splay_sec.append(g_bar)
+        g_eye = ring((xs + .3857, 0, 0), pr, er * .9, tc, axis=Y, sides=24, corner=.3)
+        g_eye.material = 'brass'
+        splay_sec.append(g_eye)
+        # Mating splay driver pinion on wristhead
+        sp_pin = ring((xs, -.028, sgn * .072), pr * .8, .024, tc, axis=Y, sides=24, corner=.3)
+        sp_pin.material = 'brass'
+        out['wristhead'].append(sp_pin)
+        out['mallet2_head'] = m2_head
+        out['mallet2_shaft'] = m2_shaft
+        out['splay_sector'] = splay_sec
+    return out
 
 
 def four_bar_wrist(wrist, tip, head_angle, sign=-1.0):
@@ -742,6 +787,16 @@ def manifest_drives(cfg):
             x_crank=WRIST_DRIVE['x_crank'],
             x_rod=WRIST_DRIVE['x_rod'],
         )
+        if int(cfg.get('hands', 0)) >= 2:
+            out['splay'] = dict(
+                kind='sector_gear',
+                r_sector=0.048,
+                r_pinion=0.024,
+                ratio=-2.0,
+                dx_base=0.385714,
+                dx_max=0.771429,
+                backlash_deg=BACKLASH_DEG,
+            )
     elif kind == 'hammer':
         hl = float(cfg.get('head', {}).get('length', 0.31))
         sgn = float(cfg.get('head', {}).get('sign', -1.0))

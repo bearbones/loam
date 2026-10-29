@@ -26,6 +26,9 @@ var head_home: Dictionary = {}   # each hinged hammer's head (formlab.linkage.ha
 var drive_parts: Dictionary = {} # aid -> extra M4/M5 drive parts (shoulder_sector, shoulder_pinion, elbow_crank, elbow_rod, ...)
 var spinion_home: Dictionary = {} # each arm's shoulder driver pinion imported basis
 var wshaft_home: Dictionary = {}  # each mallet arm's hinged wrist shaft imported basis
+var m2head_home: Dictionary = {}  # each two-mallet holder's second felt head imported basis
+var m2shaft_home: Dictionary = {} # each two-mallet holder's second rosewood shaft imported basis
+var splay_home: Dictionary = {}   # each two-mallet holder's splay sector gear imported basis
 var hcam_home: Dictionary = {}    # each hammer arm's lift cam imported basis
 var sheath_active: Dictionary = {} # periodic-feature blur sheath hysteresis state (key -> bool)
 var stand_nodes: Dictionary = {}    # mid -> the instrument's stand and its imported home
@@ -182,12 +185,15 @@ func _ready() -> void:
 		# Carriage-mounted shoulder sector gear + driver pinion, four-bar elbow crank + coupler rod (M4),
 		# and M5 hinged mallet shaft + four-bar wrist crank and hammer lift cam (formlab.drives).
 		drive_parts[aid]={}
-		for dpart in ["shoulder_sector","shoulder_pinion","elbow_crank","elbow_rod","wrist_shaft","wrist_crank","wrist_rod","hammer_cam"]:
+		for dpart in ["shoulder_sector","shoulder_pinion","elbow_crank","elbow_rod","wrist_shaft","wrist_crank","wrist_rod","mallet2_head","mallet2_shaft","splay_sector","hammer_cam"]:
 			var dnode: Node3D=model.find_child(aid+"__"+dpart,true,false)
 			if dnode!=null:
 				drive_parts[aid][dpart]=dnode
 				if dpart=="shoulder_pinion": spinion_home[aid]=dnode.basis
 				elif dpart=="wrist_shaft": wshaft_home[aid]=dnode.basis
+				elif dpart=="mallet2_head": m2head_home[aid]=dnode.basis
+				elif dpart=="mallet2_shaft": m2shaft_home[aid]=dnode.basis
+				elif dpart=="splay_sector": splay_home[aid]=dnode.basis
 				elif dpart=="hammer_cam": hcam_home[aid]=dnode.basis
 	# The chamber's flywheel, its axle pulley, companion pinion and the belt pulley turn about z
 	# (formlab.layout.flywheel_plan); their imported bases are the unspun home.
@@ -653,6 +659,22 @@ func evaluate(t: float) -> void:
 			var p1_w := Vector3(wrist.x,wrist.y+rc_w*sin(th_cw),wrist.z+rc_w*cos(th_cw))
 			p["wrist_crank"].transform=Transform3D(MotionBake.link_basis(wrist,p1_w),wrist)
 			p["wrist_rod"].transform=Transform3D(MotionBake.link_basis(p1_w,p2_w),p1_w)
+			if p.has("mallet2_head") and p.has("mallet2_shaft") and p.has("splay_sector"):
+				var sp: Dictionary=motion.arms.get(aid,{}).get("splay",{})
+				var splay_dx := float(sp.get("dx_init",0.385714))
+				var dx_base := float(sp.get("dx_base",0.385714))
+				for g in sp.get("segs",[]):
+					if t>=float(g[0]):
+						var u_sp := clampf((t-float(g[0]))/maxf(float(g[1])-float(g[0]),1e-9),0.0,1.0)
+						var s345 := u_sp*u_sp*u_sp*(10.0+u_sp*(-15.0+6.0*u_sp))
+						splay_dx=float(g[3]) if t>=float(g[1]) else float(g[2])+(float(g[3])-float(g[2]))*s345
+				var splay_ang := (splay_dx-dx_base)/0.40
+				p["mallet2_head"].position=pose["tip"]+Vector3(splay_dx,0.0,0.0)
+				p["mallet2_head"].basis=m2head_home[aid]
+				p["mallet2_shaft"].position=pose["tip"]+Vector3(splay_dx,0.0,0.0)
+				p["mallet2_shaft"].basis=Basis(Vector3.RIGHT,sgn_w*th_w)*m2shaft_home[aid]
+				p["splay_sector"].position=pose["tip"]+Vector3(0.0,0.055*cos(th_w)+sgn_w*0.50*sin(th_w),-0.055*sin(th_w)+sgn_w*0.50*cos(th_w))
+				p["splay_sector"].basis=Basis(Vector3.UP,splay_ang)*splay_home[aid]
 		# Hammer lift cam (formlab.drives.HAMMER_CAM, M5):
 		if p.has("hammer_cam"):
 			var hc_drv: Dictionary=cfg.get("drives",{}).get("hinge",{})

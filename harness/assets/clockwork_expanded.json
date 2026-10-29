@@ -1051,16 +1051,22 @@
         -0.8160000000000001,
         -0.05439999999999999
       ],
-      "root_y": 2.75,
-      "root_z": -2.25,
+      "bend": "back",
       "l1": 1.45,
       "l2": 1.45,
-      "bend": "back",
-      "wrist_offset": [
-        0,
-        0.2,
-        -0.1
-      ],
+      "margins": {
+        "behind": 1.5,
+        "cross": {
+          "harp_arm1": 0.169,
+          "harp_arm2": 0.4384
+        },
+        "fine": 0.023,
+        "mast": 0.095,
+        "pair": 0.0458,
+        "scene": 0.3509,
+        "self": 0.0215,
+        "strings": 0.023
+      },
       "o1": [
         0.0,
         0.03762,
@@ -1072,19 +1078,13 @@
         0.0
       ],
       "pinion": "back",
-      "margins": {
-        "self": 0.0215,
-        "pair": 0.0458,
-        "behind": 1.5,
-        "scene": 0.3509,
-        "strings": 0.023,
-        "mast": 0.095,
-        "fine": 0.023,
-        "cross": {
-          "harp_arm1": 0.169,
-          "harp_arm2": 0.4384
-        }
-      },
+      "root_y": 2.75,
+      "root_z": -2.25,
+      "wrist_offset": [
+        0,
+        0.2,
+        -0.1
+      ],
       "layers": {
         "plate": 0.019000000000000003,
         "plate_out": 0.031000000000000003,
@@ -1384,16 +1384,22 @@
         -0.3808,
         0.3808
       ],
-      "root_y": 3.15,
-      "root_z": -1.8,
+      "bend": "back",
       "l1": 1.15,
       "l2": 1.15,
-      "bend": "back",
-      "wrist_offset": [
-        0,
-        0.2,
-        -0.1
-      ],
+      "margins": {
+        "behind": 1.0677,
+        "cross": {
+          "harp_arm0": 0.169,
+          "harp_arm2": 0.0272
+        },
+        "fine": 0.023,
+        "mast": 0.095,
+        "pair": 0.0413,
+        "scene": 0.9527,
+        "self": 0.0249,
+        "strings": 0.023
+      },
       "o1": [
         0.0,
         0.04649,
@@ -1405,19 +1411,13 @@
         0.0191
       ],
       "pinion": "back",
-      "margins": {
-        "self": 0.0249,
-        "pair": 0.0413,
-        "behind": 1.0677,
-        "scene": 0.9527,
-        "strings": 0.023,
-        "mast": 0.095,
-        "fine": 0.023,
-        "cross": {
-          "harp_arm0": 0.169,
-          "harp_arm2": 0.0272
-        }
-      },
+      "root_y": 3.15,
+      "root_z": -1.8,
+      "wrist_offset": [
+        0,
+        0.2,
+        -0.1
+      ],
       "layers": {
         "plate": 0.019000000000000003,
         "plate_out": 0.031000000000000003,
@@ -1717,16 +1717,22 @@
         0.05439999999999999,
         0.8160000000000001
       ],
-      "root_y": 4.1,
-      "root_z": -1.4,
+      "bend": "back",
       "l1": 1.3,
       "l2": 1.3,
-      "bend": "back",
-      "wrist_offset": [
-        0,
-        0.2,
-        -0.1
-      ],
+      "margins": {
+        "behind": 1.1409,
+        "cross": {
+          "harp_arm0": 0.4384,
+          "harp_arm1": 0.0272
+        },
+        "fine": 0.0208,
+        "mast": 0.0994,
+        "pair": 0.044,
+        "scene": 1.3135,
+        "self": 0.0208,
+        "strings": 0.023
+      },
       "o1": [
         0.0,
         0.0,
@@ -1738,19 +1744,13 @@
         0.03762
       ],
       "pinion": "back",
-      "margins": {
-        "self": 0.0208,
-        "pair": 0.044,
-        "behind": 1.1409,
-        "scene": 1.3135,
-        "strings": 0.023,
-        "mast": 0.0994,
-        "fine": 0.0208,
-        "cross": {
-          "harp_arm0": 0.4384,
-          "harp_arm1": 0.0272
-        }
-      },
+      "root_y": 4.1,
+      "root_z": -1.4,
+      "wrist_offset": [
+        0,
+        0.2,
+        -0.1
+      ],
       "layers": {
         "plate": 0.019000000000000003,
         "plate_out": 0.031000000000000003,
@@ -2050,16 +2050,20 @@
         -4.725,
         -3.675
       ],
-      "root_y": 0.55,
-      "root_z": -1.35,
+      "bend": "back",
       "l1": 1.6,
       "l2": 1.6,
-      "bend": "back",
-      "wrist_offset": [
-        0,
-        0.2,
-        -0.1
-      ],
+      "margins": {
+        "behind": 1.4322,
+        "cross": {},
+        "fine": 0.023,
+        "mast": 0.085,
+        "others": 1.999,
+        "pair": 0.0262,
+        "scene": 0.17,
+        "self": 0.053,
+        "strings": 0.023
+      },
       "o1": [
         0.0,
         0.0191,
@@ -2071,17 +2075,13 @@
         0.00959
       ],
       "pinion": "down",
-      "margins": {
-        "self": 0.053,
-        "pair": 0.0262,
-        "behind": 1.4322,
-        "scene": 0.17,
-        "strings": 0.023,
-        "mast": 0.085,
-        "others": 1.999,
-        "fine": 0.023,
-        "cross": {}
-      },
+      "root_y": 0.55,
+      "root_z": -1.35,
+      "wrist_offset": [
+        0,
+        0.2,
+        -0.1
+      ],
       "layers": {
         "plate": 0.019000000000000003,
         "plate_out": 0.031000000000000003,
@@ -2282,16 +2282,21 @@
         3.1500000000000004,
         4.692857142857143
       ],
-      "root_y": 2.25,
-      "root_z": 0.06909916627486701,
+      "bend": "up",
       "l1": 1.6,
       "l2": 1.6,
-      "bend": "up",
-      "wrist_offset": [
-        0,
-        0.28,
-        0
-      ],
+      "margins": {
+        "cross": {
+          "bars_arm1": 0.1352
+        },
+        "fine": 0.0447,
+        "mast": 0.097,
+        "others": 1.474,
+        "pair": 0.0447,
+        "scene": 0.08,
+        "self": 0.0507,
+        "strings": 0.1105
+      },
       "o1": [
         0.0,
         0.07071,
@@ -2303,18 +2308,13 @@
         0.11
       ],
       "pinion": "back",
-      "margins": {
-        "self": 0.0507,
-        "pair": 0.0447,
-        "scene": 0.08,
-        "strings": 0.1105,
-        "mast": 0.097,
-        "others": 1.474,
-        "fine": 0.0447,
-        "cross": {
-          "bars_arm1": 0.1352
-        }
-      },
+      "root_y": 2.25,
+      "root_z": 0.06909916627486701,
+      "wrist_offset": [
+        0,
+        0.28,
+        0
+      ],
       "layers": {
         "plate": 0.019000000000000003,
         "plate_out": 0.031000000000000003,
@@ -2379,6 +2379,7 @@
         "roller_spin": -60.185185
       },
       "head_l": 0.5,
+      "hands": 2,
       "limits": {
         "shoulder": {
           "limits_deg": [
@@ -2460,6 +2461,15 @@
           "x_shaft": -0.032,
           "x_crank": 0.038,
           "x_rod": 0.048
+        },
+        "splay": {
+          "kind": "sector_gear",
+          "r_sector": 0.048,
+          "r_pinion": 0.024,
+          "ratio": -2.0,
+          "dx_base": 0.385714,
+          "dx_max": 0.771429,
+          "backlash_deg": 0.75
         }
       },
       "masses": {
@@ -2469,7 +2479,7 @@
         "elbowhead": 13.528,
         "lower": 34.5828,
         "lower2": 19.9986,
-        "wristhead": 8.8516,
+        "wristhead": 8.9762,
         "shoulder": 2.3127,
         "elbow": 2.3127,
         "wrist": 2.3127,
@@ -2480,6 +2490,9 @@
         "wrist_shaft": 0.4177,
         "wrist_crank": 0.3064,
         "wrist_rod": 0.2804,
+        "mallet2_head": 0.2794,
+        "mallet2_shaft": 0.4177,
+        "splay_sector": 1.3835,
         "tool": 0.2794,
         "shank": 0.9767,
         "pawl": 0.9786,
@@ -2499,8 +2512,8 @@
             "x_col": 2.8600000000000003,
             "foot_y": -0.02,
             "height": 2.05,
-            "gap": 0.030719799725584716,
-            "worst": "arm bars_arm0 carriage_web"
+            "gap": 0.030933308812658586,
+            "worst": "arm bars_arm0 carriage_cheek"
           },
           {
             "side": 1,
@@ -2515,8 +2528,8 @@
             "worst": "arm bars_arm0 carriage_cheek"
           }
         ],
-        "margin_m": 0.030719799725584716,
-        "worst": "arm bars_arm0 carriage_web",
+        "margin_m": 0.030760447642826635,
+        "worst": "arm bars_arm0 carriage_cheek",
         "rack": {
           "gap": 0.18926437109133956,
           "worst": "arm bars_arm1 upper",
@@ -2535,16 +2548,21 @@
         4.307142857142857,
         5.85
       ],
-      "root_y": 2.5,
-      "root_z": -0.48090083372513304,
+      "bend": "up",
       "l1": 1.6,
       "l2": 1.6,
-      "bend": "up",
-      "wrist_offset": [
-        0,
-        0.28,
-        0
-      ],
+      "margins": {
+        "cross": {
+          "bars_arm0": 0.1352
+        },
+        "fine": 0.0388,
+        "mast": 0.0957,
+        "others": 2.6311,
+        "pair": 0.0388,
+        "scene": 0.08,
+        "self": 0.0507,
+        "strings": 0.1105
+      },
       "o1": [
         0.0,
         0.07071,
@@ -2556,18 +2574,13 @@
         0.10833
       ],
       "pinion": "back",
-      "margins": {
-        "self": 0.0507,
-        "pair": 0.0388,
-        "scene": 0.08,
-        "strings": 0.1105,
-        "mast": 0.0957,
-        "others": 2.6311,
-        "fine": 0.0388,
-        "cross": {
-          "bars_arm0": 0.1352
-        }
-      },
+      "root_y": 2.5,
+      "root_z": -0.48090083372513304,
+      "wrist_offset": [
+        0,
+        0.28,
+        0
+      ],
       "layers": {
         "plate": 0.019000000000000003,
         "plate_out": 0.031000000000000003,
@@ -2632,6 +2645,7 @@
         "roller_spin": -60.185185
       },
       "head_l": 0.5,
+      "hands": 2,
       "limits": {
         "shoulder": {
           "limits_deg": [
@@ -2713,6 +2727,15 @@
           "x_shaft": -0.032,
           "x_crank": 0.038,
           "x_rod": 0.048
+        },
+        "splay": {
+          "kind": "sector_gear",
+          "r_sector": 0.048,
+          "r_pinion": 0.024,
+          "ratio": -2.0,
+          "dx_base": 0.385714,
+          "dx_max": 0.771429,
+          "backlash_deg": 0.75
         }
       },
       "masses": {
@@ -2722,7 +2745,7 @@
         "elbowhead": 13.4628,
         "lower": 34.5828,
         "lower2": 19.9986,
-        "wristhead": 8.8516,
+        "wristhead": 8.9762,
         "shoulder": 2.3127,
         "elbow": 2.3127,
         "wrist": 2.3127,
@@ -2733,6 +2756,9 @@
         "wrist_shaft": 0.4177,
         "wrist_crank": 0.3064,
         "wrist_rod": 0.2804,
+        "mallet2_head": 0.2794,
+        "mallet2_shaft": 0.4177,
+        "splay_sector": 1.3835,
         "tool": 0.2794,
         "shank": 0.9767,
         "pawl": 0.9786,
@@ -2771,7 +2797,7 @@
         "margin_m": 0.030743415109030822,
         "worst": "arm bars_arm1 carriage_cheek",
         "rack": {
-          "gap": 0.41875456971462577,
+          "gap": 0.41887200470058156,
           "worst": "arm bars_arm0 pinion_boss",
           "mount": "back",
           "drive": "rack",
@@ -2788,16 +2814,21 @@
         -2.7750000000000004,
         -1.475
       ],
-      "root_y": 2.25,
-      "root_z": -3.660997961080648,
+      "bend": "up",
       "l1": 1.45,
       "l2": 1.45,
-      "bend": "up",
-      "wrist_offset": [
-        0,
-        0.28,
-        0
-      ],
+      "margins": {
+        "cross": {
+          "bells_arm1": 0.1358
+        },
+        "fine": 0.0441,
+        "mast": 0.0971,
+        "others": 0.095,
+        "pair": 0.0441,
+        "scene": 0.405,
+        "self": 0.0507,
+        "strings": 0.1105
+      },
       "o1": [
         0.0,
         0.07071,
@@ -2809,18 +2840,13 @@
         0.11
       ],
       "pinion": "back",
-      "margins": {
-        "self": 0.0507,
-        "pair": 0.0441,
-        "scene": 0.405,
-        "strings": 0.1105,
-        "mast": 0.0971,
-        "others": 0.095,
-        "fine": 0.0441,
-        "cross": {
-          "bells_arm1": 0.1358
-        }
-      },
+      "root_y": 2.25,
+      "root_z": -3.660997961080648,
+      "wrist_offset": [
+        0,
+        0.28,
+        0
+      ],
       "layers": {
         "plate": 0.019000000000000003,
         "plate_out": 0.031000000000000003,
@@ -3041,16 +3067,21 @@
         -1.475,
         -0.825
       ],
-      "root_y": 2.5,
-      "root_z": -4.210997961080648,
+      "bend": "up",
       "l1": 1.45,
       "l2": 1.45,
-      "bend": "up",
-      "wrist_offset": [
-        0,
-        0.28,
-        0
-      ],
+      "margins": {
+        "cross": {
+          "bells_arm0": 0.1358
+        },
+        "fine": 0.0352,
+        "mast": 0.0675,
+        "others": 0.0815,
+        "pair": 0.0352,
+        "scene": 0.405,
+        "self": 0.0507,
+        "strings": 0.1105
+      },
       "o1": [
         0.0,
         0.07071,
@@ -3062,18 +3093,13 @@
         0.10625
       ],
       "pinion": "back",
-      "margins": {
-        "self": 0.0507,
-        "pair": 0.0352,
-        "scene": 0.405,
-        "strings": 0.1105,
-        "mast": 0.0675,
-        "others": 0.0815,
-        "fine": 0.0352,
-        "cross": {
-          "bells_arm0": 0.1358
-        }
-      },
+      "root_y": 2.5,
+      "root_z": -4.210997961080648,
+      "wrist_offset": [
+        0,
+        0.28,
+        0
+      ],
       "layers": {
         "plate": 0.019000000000000003,
         "plate_out": 0.031000000000000003,
@@ -3294,16 +3320,19 @@
         1.275,
         2.925
       ],
-      "root_y": 2.75,
-      "root_z": -3.7884161919793518,
+      "bend": "up",
       "l1": 1.0,
       "l2": 1.0,
-      "bend": "up",
-      "wrist_offset": [
-        0,
-        0.5,
-        0
-      ],
+      "margins": {
+        "cross": {},
+        "fine": 0.0115,
+        "mast": 0.0979,
+        "others": 0.095,
+        "pair": 0.0145,
+        "scene": 0.1086,
+        "self": 0.0115,
+        "strings": 0.37
+      },
       "o1": [
         0.0,
         0.07071,
@@ -3315,16 +3344,13 @@
         0.10337
       ],
       "pinion": "back",
-      "margins": {
-        "self": 0.0115,
-        "pair": 0.0145,
-        "scene": 0.1086,
-        "strings": 0.37,
-        "mast": 0.0979,
-        "others": 0.095,
-        "fine": 0.0115,
-        "cross": {}
-      },
+      "root_y": 2.75,
+      "root_z": -3.7884161919793518,
+      "wrist_offset": [
+        0,
+        0.5,
+        0
+      ],
       "layers": {
         "plate": 0.019000000000000003,
         "plate_out": 0.031000000000000003,
@@ -4963,12 +4989,12 @@
         "time_s": 22.016666666666666
       },
       "harp_arm0/bars_arm0": {
-        "gap_m": 4.015709900572955,
+        "gap_m": 4.017349097699373,
         "parts": [
           "wristhead_web",
-          "pinion1"
+          "pinion2"
         ],
-        "time_s": 71.04166666666667
+        "time_s": 45.3
       },
       "harp_arm0/bars_arm1": {
         "gap_m": 5.0824389410225885,
@@ -5027,12 +5053,12 @@
         "time_s": 2.441666666666667
       },
       "harp_arm1/bars_arm1": {
-        "gap_m": 4.326082200766303,
+        "gap_m": 4.326080958644721,
         "parts": [
           "upper2",
           "pinion2"
         ],
-        "time_s": 51.09166666666667
+        "time_s": 61.45
       },
       "harp_arm1/bells_arm0": {
         "gap_m": 1.1835517311357688,
@@ -5107,20 +5133,20 @@
         "time_s": 24.285714285714285
       },
       "rake_arm0/bars_arm0": {
-        "gap_m": 6.733765388277547,
-        "parts": [
-          "lower",
-          "pinion2"
-        ],
-        "time_s": 3.0166666666666666
-      },
-      "rake_arm0/bars_arm1": {
-        "gap_m": 7.765232520433217,
+        "gap_m": 6.624026170144832,
         "parts": [
           "upper2",
           "pinion2"
         ],
-        "time_s": 54.99166666666667
+        "time_s": 64.25
+      },
+      "rake_arm0/bars_arm1": {
+        "gap_m": 7.752127837441397,
+        "parts": [
+          "upper2",
+          "pinion2"
+        ],
+        "time_s": 55.675
       },
       "rake_arm0/bells_arm0": {
         "gap_m": 1.1501563283092586,
@@ -5155,12 +5181,12 @@
         "time_s": 15.8
       },
       "bars_arm0/bells_arm0": {
-        "gap_m": 5.108964735383418,
+        "gap_m": 5.054168549649946,
         "parts": [
           "pinion2",
-          "elbowhead_web2"
+          "lower"
         ],
-        "time_s": 59.35
+        "time_s": 53.575
       },
       "bars_arm0/bells_arm1": {
         "gap_m": 4.498150118030459,
@@ -5171,28 +5197,28 @@
         "time_s": 59.285714285714285
       },
       "bars_arm0/blocks_arm0": {
-        "gap_m": 2.1232655582795643,
+        "gap_m": 2.123263514859215,
         "parts": [
           "pinion_boss",
           "tool"
         ],
-        "time_s": 45.35714285714286
+        "time_s": 53.92857142857143
       },
       "bars_arm1/bells_arm0": {
-        "gap_m": 5.929288744019373,
+        "gap_m": 5.892442015549151,
         "parts": [
           "pinion2",
           "upper2"
         ],
-        "time_s": 59.708333333333336
+        "time_s": 53.583333333333336
       },
       "bars_arm1/bells_arm1": {
-        "gap_m": 5.350512053360593,
+        "gap_m": 5.344282707155876,
         "parts": [
           "pinion2",
           "wristhead_web"
         ],
-        "time_s": 59.30833333333333
+        "time_s": 63.57142857142857
       },
       "bars_arm1/blocks_arm0": {
         "gap_m": 2.1539806675742335,
@@ -5200,7 +5226,7 @@
           "pinion_boss",
           "tool"
         ],
-        "time_s": 62.5
+        "time_s": 53.92857142857143
       },
       "bells_arm0/bells_arm1": {
         "gap_m": 0.44532695491344865,
@@ -5327,6 +5353,9 @@
     "bars_arm0__wrist_shaft",
     "bars_arm0__wrist_crank",
     "bars_arm0__wrist_rod",
+    "bars_arm0__mallet2_head",
+    "bars_arm0__mallet2_shaft",
+    "bars_arm0__splay_sector",
     "bars_arm0__tool",
     "bars_arm0__shank",
     "bars_arm0__pawl",
@@ -5348,6 +5377,9 @@
     "bars_arm1__wrist_shaft",
     "bars_arm1__wrist_crank",
     "bars_arm1__wrist_rod",
+    "bars_arm1__mallet2_head",
+    "bars_arm1__mallet2_shaft",
+    "bars_arm1__splay_sector",
     "bars_arm1__tool",
     "bars_arm1__shank",
     "bars_arm1__pawl",
