@@ -1113,38 +1113,114 @@
           "h": 0.031
         }
       ],
-      "upper_pair_separation_m": 0.10832999703602304,
-      "lower_pair_separation_m": 0.10777021666270789,
-      "self_clearance_m": 0.021506320707633975,
+      "upper_pair_separation_m": 0.09712837491290516,
+      "lower_pair_separation_m": 0.09832255665663904,
+      "self_clearance_m": 0.019799999999999943,
       "self_worst": [
-        "lower",
-        "upper2"
+        "upper",
+        "lower2"
       ],
-      "self_worst_time_s": 32.25,
-      "string_clearance_m": 0.023,
+      "self_worst_time_s": 32.75,
+      "string_clearance_m": 0.15588368052941573,
       "string_worst": [
         "harp00",
         "shank",
-        0.0
+        32.13333333333333
       ],
       "drive": "screw",
+      "hand": {
+        "knuckle_oblique_deg": 32.0,
+        "splay_span_normal": 0.33,
+        "splay_span_wide": 0.44,
+        "knuckle_half_span_normal": 0.156,
+        "knuckle_half_span_wide": 0.172,
+        "wrist_block_half_x": 0.1,
+        "max_overhang_x": 0.075,
+        "palm_w": 0.312,
+        "palm_h": 0.058,
+        "palm_t": 0.014,
+        "wrist_pin_y": 0.088,
+        "wrist_crank_r": 0.028,
+        "wrist_lug_r": 0.028,
+        "wrist_coupler_l": 0.062,
+        "wrist_lean_min_deg": 15.0,
+        "wrist_lean_nom_deg": 24.0,
+        "wrist_lean_max_deg": 35.0,
+        "thumb_flex_deg": 45.0,
+        "finger_curl_deg": -30.0,
+        "polarisation_deg": 24.0,
+        "couple_ratios": [
+          1.0,
+          0.7,
+          0.55
+        ],
+        "phalanges": [
+          0.032,
+          0.022,
+          0.016
+        ],
+        "thumb_phalanges": [
+          0.034,
+          0.022
+        ],
+        "bone_r": 0.0042,
+        "pad_r": 0.0036,
+        "pad_l": 0.011,
+        "palm_cap_r": 0.014,
+        "digit_cap_r": 0.005,
+        "drum_r": 0.012,
+        "drum_w": 0.009,
+        "pulley_r": 0.006,
+        "pulley_w": 0.005,
+        "cable_r": 0.0009,
+        "close_frames": 3,
+        "close_stop_rad": 0.42,
+        "stick_min_s": 0.06,
+        "d_rel_nom": 0.018,
+        "slide_dist": 0.125,
+        "raise_h_min": 0.42,
+        "wrist_flex": {
+          "kind": "four_bar_crank",
+          "r_crank": 0.028,
+          "r_lug": 0.028,
+          "coupler_l": 0.062,
+          "lean_deg": 24.0
+        },
+        "splay": {
+          "kind": "pivoted_fan",
+          "span_normal": 0.33,
+          "span_wide": 0.44,
+          "max_overhang_x": 0.075
+        },
+        "tendon": {
+          "drums": 4,
+          "drum_r": 0.012,
+          "pulley_r": 0.006,
+          "couple_ratios": [
+            1.0,
+            0.7,
+            0.55
+          ]
+        },
+        "side_sign": 1.0
+      },
       "limits": {
         "shoulder": {
           "limits_deg": [
-            -146.48,
-            6.52
+            -146.5,
+            6.5
           ],
           "interference_deg": [
-            -146.98,
-            7.02
+            -147.0,
+            7.0
           ],
           "motion_deg": [
-            -74.77,
-            -60.0
+            -98.0,
+            -61.0
           ],
           "margin_deg": [
-            71.71,
-            66.52
+            48.5,
+            67.5
           ]
         },
         "elbow": {
@@ -1157,12 +1233,12 @@
             164.04
           ],
           "motion_deg": [
-            94.84,
-            130.64
+            88.0,
+            144.0
           ],
           "margin_deg": [
-            70.34,
-            32.9
+            63.5,
+            19.54
           ]
         }
       },
@@ -1198,13 +1274,36 @@
           "coupler_l": 1.45,
           "x_crank": 0.068,
           "x_rod": 0.08
+        },
+        "wrist_flex": {
+          "kind": "four_bar_crank",
+          "r_crank": 0.028,
+          "r_lug": 0.028,
+          "coupler_l": 0.062,
+          "lean_deg": 24.0
+        },
+        "splay": {
+          "kind": "pivoted_fan",
+          "span_normal": 0.33,
+          "span_wide": 0.44,
+          "max_overhang_x": 0.075
+        },
+        "tendons": {
+          "drums": 4,
+          "drum_r": 0.012,
+          "pulley_r": 0.006,
+          "couple_ratios": [
+            1.0,
+            0.7,
+            0.55
+          ]
         }
       },
       "masses": {
         "carriage": 23.9106,
         "upper": 31.4336,
         "upper2": 18.2493,
-        "elbowhead": 12.8121,
+        "elbowhead": 12.8122,
         "lower": 31.6563,
         "lower2": 18.2493,
         "wristhead": 8.8383,
@@ -1215,8 +1314,8 @@
         "shoulder_pinion": 0.2113,
         "elbow_crank": 0.3172,
         "elbow_rod": 2.3889,
-        "tool": 0.1496,
-        "shank": 0.8286,
+        "tool": 1.2586,
+        "shank": 0.7756,
         "railhead": 182.4572,
         "gantry": 634.0585,
         "screw": 3.3407
@@ -1347,38 +1446,114 @@
           "h": 0.031
         }
       ],
-      "upper_pair_separation_m": 0.10698111791385875,
-      "lower_pair_separation_m": 0.103283723200365,
-      "self_clearance_m": 0.02490151751044796,
+      "upper_pair_separation_m": 0.08784571981103545,
+      "lower_pair_separation_m": 0.10252812922793025,
+      "self_clearance_m": 0.019799999999999998,
       "self_worst": [
-        "lower",
-        "upper2"
+        "upper",
+        "lower2"
       ],
-      "self_worst_time_s": 24.15,
-      "string_clearance_m": 0.023,
+      "self_worst_time_s": 3.191666666666667,
+      "string_clearance_m": 0.1122430239143055,
       "string_worst": [
-        "harp04",
-        "shank",
-        1.4285714285714286
+        "harp10",
+        "lower2",
+        2.2916666666666665
       ],
       "drive": "screw",
+      "hand": {
+        "knuckle_oblique_deg": 32.0,
+        "splay_span_normal": 0.33,
+        "splay_span_wide": 0.44,
+        "knuckle_half_span_normal": 0.156,
+        "knuckle_half_span_wide": 0.172,
+        "wrist_block_half_x": 0.1,
+        "max_overhang_x": 0.075,
+        "palm_w": 0.312,
+        "palm_h": 0.058,
+        "palm_t": 0.014,
+        "wrist_pin_y": 0.088,
+        "wrist_crank_r": 0.028,
+        "wrist_lug_r": 0.028,
+        "wrist_coupler_l": 0.062,
+        "wrist_lean_min_deg": 15.0,
+        "wrist_lean_nom_deg": 24.0,
+        "wrist_lean_max_deg": 35.0,
+        "thumb_flex_deg": 45.0,
+        "finger_curl_deg": -30.0,
+        "polarisation_deg": 24.0,
+        "couple_ratios": [
+          1.0,
+          0.7,
+          0.55
+        ],
+        "phalanges": [
+          0.032,
+          0.022,
+          0.016
+        ],
+        "thumb_phalanges": [
+          0.034,
+          0.022
+        ],
+        "bone_r": 0.0042,
+        "pad_r": 0.0036,
+        "pad_l": 0.011,
+        "palm_cap_r": 0.014,
+        "digit_cap_r": 0.005,
+        "drum_r": 0.012,
+        "drum_w": 0.009,
+        "pulley_r": 0.006,
+        "pulley_w": 0.005,
+        "cable_r": 0.0009,
+        "close_frames": 3,
+        "close_stop_rad": 0.42,
+        "stick_min_s": 0.06,
+        "d_rel_nom": 0.018,
+        "slide_dist": 0.125,
+        "raise_h_min": 0.42,
+        "wrist_flex": {
+          "kind": "four_bar_crank",
+          "r_crank": 0.028,
+          "r_lug": 0.028,
+          "coupler_l": 0.062,
+          "lean_deg": 24.0
+        },
+        "splay": {
+          "kind": "pivoted_fan",
+          "span_normal": 0.33,
+          "span_wide": 0.44,
+          "max_overhang_x": 0.075
+        },
+        "tendon": {
+          "drums": 4,
+          "drum_r": 0.012,
+          "pulley_r": 0.006,
+          "couple_ratios": [
+            1.0,
+            0.7,
+            0.55
+          ]
+        },
+        "side_sign": -1.0
+      },
       "limits": {
         "shoulder": {
           "limits_deg": [
-            -141.54,
-            11.56
+            -141.5,
+            11.5
           ],
           "interference_deg": [
-            -142.04,
-            12.06
+            -142.0,
+            12.0
           ],
           "motion_deg": [
-            -78.45,
-            -52.42
+            -102.0,
+            -55.0
           ],
           "margin_deg": [
-            63.09,
-            63.98
+            39.5,
+            66.5
           ]
         },
         "elbow": {
@@ -1391,12 +1566,12 @@
             164.04
           ],
           "motion_deg": [
-            97.51,
-            157.3
+            80.0,
+            156.0
           ],
           "margin_deg": [
-            72.76,
-            6.24
+            55.25,
+            7.54
           ]
         }
       },
@@ -1432,10 +1607,33 @@
           "coupler_l": 1.15,
           "x_crank": 0.068,
           "x_rod": 0.08
+        },
+        "wrist_flex": {
+          "kind": "four_bar_crank",
+          "r_crank": 0.028,
+          "r_lug": 0.028,
+          "coupler_l": 0.062,
+          "lean_deg": 24.0
+        },
+        "splay": {
+          "kind": "pivoted_fan",
+          "span_normal": 0.33,
+          "span_wide": 0.44,
+          "max_overhang_x": 0.075
+        },
+        "tendons": {
+          "drums": 4,
+          "drum_r": 0.012,
+          "pulley_r": 0.006,
+          "couple_ratios": [
+            1.0,
+            0.7,
+            0.55
+          ]
         }
       },
       "masses": {
-        "carriage": 23.9106,
+        "carriage": 23.9105,
         "upper": 25.5802,
         "upper2": 14.7508,
         "elbowhead": 12.5934,
@@ -1449,8 +1647,8 @@
         "shoulder_pinion": 0.2113,
         "elbow_crank": 0.3172,
         "elbow_rod": 1.9073,
-        "tool": 0.1496,
-        "shank": 0.8286,
+        "tool": 1.2111,
+        "shank": 0.7756,
         "railhead": 295.6015,
         "gantry": 893.0498,
         "screw": 3.3407
@@ -1466,8 +1664,8 @@
             "x_col": -1.0208,
             "foot_y": -0.02,
             "height": 3.23,
-            "gap": 0.034399999999999695,
-            "worst": "arm harp_arm0 lower2"
+            "gap": 0.034399999999999674,
+            "worst": "arm harp_arm0 wristhead_web"
           },
           {
             "side": 1,
@@ -1485,8 +1683,8 @@
         "margin_m": 0.02100000000000035,
         "worst": "gantry harp_arm1 rack",
         "rack": {
-          "gap": 0.2195035178242067,
-          "worst": "arm harp_arm2 upper",
+          "gap": 0.23491796399368894,
+          "worst": "arm bells_arm1 lower2",
           "mount": "back",
           "drive": "screw"
         }
@@ -1581,38 +1779,114 @@
           "h": 0.031
         }
       ],
-      "upper_pair_separation_m": 0.10721624659875455,
-      "lower_pair_separation_m": 0.10590980416182776,
-      "self_clearance_m": 0.020839562343542214,
+      "upper_pair_separation_m": 0.10336618828644993,
+      "lower_pair_separation_m": 0.09428907989283294,
+      "self_clearance_m": 0.020405466301808964,
       "self_worst": [
         "lower",
         "upper2"
       ],
-      "self_worst_time_s": 19.833333333333332,
-      "string_clearance_m": 0.023,
+      "self_worst_time_s": 3.375,
+      "string_clearance_m": 0.052343768944765716,
       "string_worst": [
-        "harp09",
+        "harp11",
         "shank",
-        10.714285714285715
+        30.758333333333333
       ],
       "drive": "screw",
+      "hand": {
+        "knuckle_oblique_deg": 32.0,
+        "splay_span_normal": 0.33,
+        "splay_span_wide": 0.44,
+        "knuckle_half_span_normal": 0.156,
+        "knuckle_half_span_wide": 0.172,
+        "wrist_block_half_x": 0.1,
+        "max_overhang_x": 0.075,
+        "palm_w": 0.312,
+        "palm_h": 0.058,
+        "palm_t": 0.014,
+        "wrist_pin_y": 0.088,
+        "wrist_crank_r": 0.028,
+        "wrist_lug_r": 0.028,
+        "wrist_coupler_l": 0.062,
+        "wrist_lean_min_deg": 15.0,
+        "wrist_lean_nom_deg": 24.0,
+        "wrist_lean_max_deg": 35.0,
+        "thumb_flex_deg": 45.0,
+        "finger_curl_deg": -30.0,
+        "polarisation_deg": 24.0,
+        "couple_ratios": [
+          1.0,
+          0.7,
+          0.55
+        ],
+        "phalanges": [
+          0.032,
+          0.022,
+          0.016
+        ],
+        "thumb_phalanges": [
+          0.034,
+          0.022
+        ],
+        "bone_r": 0.0042,
+        "pad_r": 0.0036,
+        "pad_l": 0.011,
+        "palm_cap_r": 0.014,
+        "digit_cap_r": 0.005,
+        "drum_r": 0.012,
+        "drum_w": 0.009,
+        "pulley_r": 0.006,
+        "pulley_w": 0.005,
+        "cable_r": 0.0009,
+        "close_frames": 3,
+        "close_stop_rad": 0.42,
+        "stick_min_s": 0.06,
+        "d_rel_nom": 0.018,
+        "slide_dist": 0.125,
+        "raise_h_min": 0.42,
+        "wrist_flex": {
+          "kind": "four_bar_crank",
+          "r_crank": 0.028,
+          "r_lug": 0.028,
+          "coupler_l": 0.062,
+          "lean_deg": 24.0
+        },
+        "splay": {
+          "kind": "pivoted_fan",
+          "span_normal": 0.33,
+          "span_wide": 0.44,
+          "max_overhang_x": 0.075
+        },
+        "tendon": {
+          "drums": 4,
+          "drum_r": 0.012,
+          "pulley_r": 0.006,
+          "couple_ratios": [
+            1.0,
+            0.7,
+            0.55
+          ]
+        },
+        "side_sign": 1.0
+      },
       "limits": {
         "shoulder": {
           "limits_deg": [
-            -162.85,
-            -13.45
+            -162.9,
+            -13.5
           ],
           "interference_deg": [
-            -163.35,
-            -12.95
+            -163.4,
+            -13.0
           ],
           "motion_deg": [
-            -102.92,
-            -79.18
+            -103.0,
+            -70.0
           ],
           "margin_deg": [
-            59.93,
-            65.73
+            59.9,
+            56.5
           ]
         },
         "elbow": {
@@ -1625,12 +1899,12 @@
             164.04
           ],
           "motion_deg": [
-            88.05,
-            136.49
+            82.0,
+            161.0
           ],
           "margin_deg": [
-            63.3,
-            27.05
+            57.25,
+            2.54
           ]
         }
       },
@@ -1666,16 +1940,39 @@
           "coupler_l": 1.3,
           "x_crank": 0.068,
           "x_rod": 0.08
+        },
+        "wrist_flex": {
+          "kind": "four_bar_crank",
+          "r_crank": 0.028,
+          "r_lug": 0.028,
+          "coupler_l": 0.062,
+          "lean_deg": 24.0
+        },
+        "splay": {
+          "kind": "pivoted_fan",
+          "span_normal": 0.33,
+          "span_wide": 0.44,
+          "max_overhang_x": 0.075
+        },
+        "tendons": {
+          "drums": 4,
+          "drum_r": 0.012,
+          "pulley_r": 0.006,
+          "couple_ratios": [
+            1.0,
+            0.7,
+            0.55
+          ]
         }
       },
       "masses": {
         "carriage": 23.9106,
         "upper": 28.5068,
         "upper2": 16.5001,
-        "elbowhead": 12.8121,
+        "elbowhead": 12.8122,
         "lower": 28.7296,
         "lower2": 16.5001,
-        "wristhead": 8.8383,
+        "wristhead": 8.8384,
         "shoulder": 2.3127,
         "elbow": 2.3127,
         "wrist": 2.3127,
@@ -1683,8 +1980,8 @@
         "shoulder_pinion": 0.2113,
         "elbow_crank": 0.3172,
         "elbow_rod": 2.1481,
-        "tool": 0.1496,
-        "shank": 0.8286,
+        "tool": 1.2586,
+        "shank": 0.7756,
         "railhead": 318.6494,
         "gantry": 1103.1666,
         "screw": 3.3407
@@ -1712,7 +2009,7 @@
             "x_col": 1.106,
             "foot_y": -0.02,
             "height": 4.18,
-            "gap": 0.03459999999999987,
+            "gap": 0.0553999999999998,
             "worst": "arm harp_arm2 carriage_axle"
           }
         ],
@@ -1813,8 +2110,8 @@
           "h": 0.031
         }
       ],
-      "upper_pair_separation_m": 0.10371824602404191,
-      "lower_pair_separation_m": 0.08820199415352578,
+      "upper_pair_separation_m": 0.10371860582288002,
+      "lower_pair_separation_m": 0.08820284408958466,
       "self_clearance_m": 0.05300512086999727,
       "self_worst": [
         "lower",
@@ -2046,9 +2343,9 @@
           "h": 0.031
         }
       ],
-      "upper_pair_separation_m": 0.1072629710372315,
+      "upper_pair_separation_m": 0.10726269482618023,
       "lower_pair_separation_m": 0.10670447398008197,
-      "self_clearance_m": 0.0507373658754042,
+      "self_clearance_m": 0.05074227602862422,
       "self_worst": [
         "carriage_web",
         "pinion3"
@@ -2085,20 +2382,20 @@
       "limits": {
         "shoulder": {
           "limits_deg": [
-            -26.56,
-            126.54
+            -26.57,
+            126.53
           ],
           "interference_deg": [
-            -27.06,
-            127.04
+            -27.07,
+            127.03
           ],
           "motion_deg": [
             37.19,
-            57.9
+            57.46
           ],
           "margin_deg": [
-            63.75,
-            68.64
+            63.76,
+            69.07
           ]
         },
         "elbow": {
@@ -2111,12 +2408,12 @@
             164.04
           ],
           "motion_deg": [
-            27.86,
-            52.77
+            28.3,
+            52.33
           ],
           "margin_deg": [
-            3.11,
-            110.77
+            3.55,
+            111.21
           ]
         }
       },
@@ -2157,9 +2454,9 @@
         "hinge": {
           "kind": "four_bar_crank",
           "shaft_l": 0.5,
-          "r_crank": 0.16,
-          "r_lug": 0.045,
-          "coupler_l": 0.26,
+          "r_crank": 0.18,
+          "r_lug": 0.14,
+          "coupler_l": 0.22,
           "x_shaft": -0.032,
           "x_crank": 0.038,
           "x_rod": 0.048
@@ -2169,7 +2466,7 @@
         "carriage": 25.3811,
         "upper": 34.3601,
         "upper2": 19.9986,
-        "elbowhead": 13.5281,
+        "elbowhead": 13.528,
         "lower": 34.5828,
         "lower2": 19.9986,
         "wristhead": 8.8516,
@@ -2180,9 +2477,9 @@
         "shoulder_pinion": 0.2113,
         "elbow_crank": 0.3172,
         "elbow_rod": 2.6297,
-        "wrist_shaft": 0.3821,
-        "wrist_crank": 0.2798,
-        "wrist_rod": 0.3245,
+        "wrist_shaft": 0.4177,
+        "wrist_crank": 0.3064,
+        "wrist_rod": 0.2804,
         "tool": 0.2794,
         "shank": 0.9767,
         "pawl": 0.9786,
@@ -2299,9 +2596,9 @@
           "h": 0.031
         }
       ],
-      "upper_pair_separation_m": 0.10077948181615548,
-      "lower_pair_separation_m": 0.10777956783098534,
-      "self_clearance_m": 0.05073736587540428,
+      "upper_pair_separation_m": 0.10078032305099614,
+      "lower_pair_separation_m": 0.1079320162582097,
+      "self_clearance_m": 0.05074227602862427,
       "self_worst": [
         "carriage_web",
         "pinion3"
@@ -2338,20 +2635,20 @@
       "limits": {
         "shoulder": {
           "limits_deg": [
-            -26.55,
-            126.55
+            -26.53,
+            126.47
           ],
           "interference_deg": [
-            -27.05,
-            127.05
+            -27.03,
+            126.97
           ],
           "motion_deg": [
             26.37,
-            42.53
+            42.17
           ],
           "margin_deg": [
-            52.92,
-            84.02
+            52.9,
+            84.3
           ]
         },
         "elbow": {
@@ -2364,12 +2661,12 @@
             164.04
           ],
           "motion_deg": [
-            53.08,
-            75.81
+            53.48,
+            75.41
           ],
           "margin_deg": [
-            28.33,
-            87.73
+            28.73,
+            88.13
           ]
         }
       },
@@ -2410,9 +2707,9 @@
         "hinge": {
           "kind": "four_bar_crank",
           "shaft_l": 0.5,
-          "r_crank": 0.16,
-          "r_lug": 0.045,
-          "coupler_l": 0.26,
+          "r_crank": 0.18,
+          "r_lug": 0.14,
+          "coupler_l": 0.22,
           "x_shaft": -0.032,
           "x_crank": 0.038,
           "x_rod": 0.048
@@ -2433,9 +2730,9 @@
         "shoulder_pinion": 0.2113,
         "elbow_crank": 0.3172,
         "elbow_rod": 2.6297,
-        "wrist_shaft": 0.3821,
-        "wrist_crank": 0.2798,
-        "wrist_rod": 0.3245,
+        "wrist_shaft": 0.4177,
+        "wrist_crank": 0.3064,
+        "wrist_rod": 0.2804,
         "tool": 0.2794,
         "shank": 0.9767,
         "pawl": 0.9786,
@@ -2552,9 +2849,9 @@
           "h": 0.031
         }
       ],
-      "upper_pair_separation_m": 0.1060864086364665,
-      "lower_pair_separation_m": 0.10702564478800318,
-      "self_clearance_m": 0.05073736587540395,
+      "upper_pair_separation_m": 0.1060863934362937,
+      "lower_pair_separation_m": 0.10711563794112268,
+      "self_clearance_m": 0.05074227602862405,
       "self_worst": [
         "carriage_web",
         "pinion3"
@@ -2591,20 +2888,20 @@
       "limits": {
         "shoulder": {
           "limits_deg": [
-            -26.53,
-            126.47
+            -26.54,
+            126.56
           ],
           "interference_deg": [
-            -27.03,
-            126.97
+            -27.04,
+            127.06
           ],
           "motion_deg": [
             34.67,
-            55.47
+            55.04
           ],
           "margin_deg": [
-            61.2,
-            71.0
+            61.21,
+            71.52
           ]
         },
         "elbow": {
@@ -2617,12 +2914,12 @@
             164.04
           ],
           "motion_deg": [
-            30.86,
-            56.96
+            31.32,
+            56.5
           ],
           "margin_deg": [
-            6.36,
-            106.58
+            6.82,
+            107.04
           ]
         }
       },
@@ -2663,9 +2960,9 @@
         "hinge": {
           "kind": "four_bar_crank",
           "shaft_l": 0.5,
-          "r_crank": 0.16,
-          "r_lug": 0.045,
-          "coupler_l": 0.26,
+          "r_crank": 0.18,
+          "r_lug": 0.14,
+          "coupler_l": 0.22,
           "x_shaft": -0.032,
           "x_crank": 0.038,
           "x_rod": 0.048
@@ -2675,7 +2972,7 @@
         "carriage": 25.3811,
         "upper": 31.4336,
         "upper2": 18.2493,
-        "elbowhead": 13.5281,
+        "elbowhead": 13.528,
         "lower": 31.6563,
         "lower2": 18.2493,
         "wristhead": 8.8516,
@@ -2686,9 +2983,9 @@
         "shoulder_pinion": 0.2113,
         "elbow_crank": 0.3172,
         "elbow_rod": 2.3889,
-        "wrist_shaft": 0.3821,
-        "wrist_crank": 0.2798,
-        "wrist_rod": 0.3245,
+        "wrist_shaft": 0.4177,
+        "wrist_crank": 0.3064,
+        "wrist_rod": 0.2804,
         "tool": 0.2794,
         "shank": 0.9767,
         "pawl": 0.9786,
@@ -2805,9 +3102,9 @@
           "h": 0.031
         }
       ],
-      "upper_pair_separation_m": 0.0971889272594619,
-      "lower_pair_separation_m": 0.10695682225367488,
-      "self_clearance_m": 0.05073736587540484,
+      "upper_pair_separation_m": 0.09719020669669536,
+      "lower_pair_separation_m": 0.10713359786954123,
+      "self_clearance_m": 0.05074227602862494,
       "self_worst": [
         "carriage_web",
         "pinion3"
@@ -2853,11 +3150,11 @@
           ],
           "motion_deg": [
             22.07,
-            39.95
+            39.55
           ],
           "margin_deg": [
             48.56,
-            86.56
+            86.96
           ]
         },
         "elbow": {
@@ -2870,12 +3167,12 @@
             164.04
           ],
           "motion_deg": [
-            59.73,
-            82.64
+            60.14,
+            82.24
           ],
           "margin_deg": [
-            35.23,
-            80.9
+            35.64,
+            81.3
           ]
         }
       },
@@ -2916,9 +3213,9 @@
         "hinge": {
           "kind": "four_bar_crank",
           "shaft_l": 0.5,
-          "r_crank": 0.16,
-          "r_lug": 0.045,
-          "coupler_l": 0.26,
+          "r_crank": 0.18,
+          "r_lug": 0.14,
+          "coupler_l": 0.22,
           "x_shaft": -0.032,
           "x_crank": 0.038,
           "x_rod": 0.048
@@ -2928,7 +3225,7 @@
         "carriage": 25.3811,
         "upper": 31.4336,
         "upper2": 18.2493,
-        "elbowhead": 13.4251,
+        "elbowhead": 13.425,
         "lower": 31.6563,
         "lower2": 18.2493,
         "wristhead": 8.8516,
@@ -2939,9 +3236,9 @@
         "shoulder_pinion": 0.2113,
         "elbow_crank": 0.3172,
         "elbow_rod": 2.3889,
-        "wrist_shaft": 0.3821,
-        "wrist_crank": 0.2798,
-        "wrist_rod": 0.3245,
+        "wrist_shaft": 0.4177,
+        "wrist_crank": 0.3064,
+        "wrist_rod": 0.2804,
         "tool": 0.2794,
         "shank": 0.9767,
         "pawl": 0.9786,
@@ -3056,15 +3353,15 @@
           "h": 0.031
         }
       ],
-      "upper_pair_separation_m": 0.0764751831194113,
-      "lower_pair_separation_m": 0.1021983451248894,
+      "upper_pair_separation_m": 0.07647819278368692,
+      "lower_pair_separation_m": 0.09712239007039358,
       "self_clearance_m": 0.011549999999999932,
       "self_worst": [
         "shank",
         "head_tail"
       ],
       "self_worst_time_s": 23.214285714285715,
-      "string_clearance_m": 0.3699999999999998,
+      "string_clearance_m": 0.3290427475328036,
       "string_worst": [
         "blocks00",
         "shank",
@@ -3117,20 +3414,20 @@
       "limits": {
         "shoulder": {
           "limits_deg": [
-            -26.55,
-            126.55
+            -26.49,
+            126.51
           ],
           "interference_deg": [
-            -27.05,
-            127.05
+            -26.99,
+            127.01
           ],
           "motion_deg": [
             4.05,
-            24.46
+            29.97
           ],
           "margin_deg": [
-            30.6,
-            102.09
+            30.54,
+            96.54
           ]
         },
         "elbow": {
@@ -3143,12 +3440,12 @@
             164.04
           ],
           "motion_deg": [
-            73.27,
-            117.86
+            64.34,
+            101.35
           ],
           "margin_deg": [
-            48.02,
-            45.68
+            39.09,
+            62.19
           ]
         }
       },
@@ -3206,7 +3503,7 @@
         "elbowhead": 13.384,
         "lower": 22.8762,
         "lower2": 13.0015,
-        "wristhead": 8.8383,
+        "wristhead": 8.8384,
         "shoulder": 2.3127,
         "elbow": 2.3127,
         "wrist": 2.3127,
@@ -3273,7 +3570,7 @@
       ],
       "kind": "plucked",
       "material": "steel",
-      "arm_clearance_m": 0.27
+      "arm_clearance_m": 0.15000000000000002
     },
     "rake": {
       "center": [
@@ -4642,20 +4939,20 @@
   "arm_checks": {
     "_cross_arm": {
       "harp_arm0/harp_arm1": {
-        "gap_m": 0.23526068087092983,
+        "gap_m": 0.28529607374796495,
         "parts": [
           "upper2",
           "lower2"
         ],
-        "time_s": 36.42857142857143
+        "time_s": 3.308333333333333
       },
       "harp_arm0/harp_arm2": {
-        "gap_m": 0.6600490122949136,
+        "gap_m": 0.8768162482202403,
         "parts": [
-          "wristhead_web",
-          "tool"
+          "upper2",
+          "lower2"
         ],
-        "time_s": 44.041666666666664
+        "time_s": 3.316666666666667
       },
       "harp_arm0/rake_arm0": {
         "gap_m": 2.643601,
@@ -4666,71 +4963,71 @@
         "time_s": 22.016666666666666
       },
       "harp_arm0/bars_arm0": {
-        "gap_m": 3.4208843601913723,
+        "gap_m": 4.015709900572955,
         "parts": [
           "wristhead_web",
-          "carriage_bush-"
+          "pinion1"
         ],
-        "time_s": 47.85714285714286
+        "time_s": 71.04166666666667
       },
       "harp_arm0/bars_arm1": {
-        "gap_m": 4.606065291125827,
+        "gap_m": 5.0824389410225885,
         "parts": [
           "upper2",
           "pinion2"
         ],
-        "time_s": 62.175
+        "time_s": 15.8
       },
       "harp_arm0/bells_arm0": {
-        "gap_m": 0.553868593615079,
+        "gap_m": 0.5340997277400771,
         "parts": [
           "nut_flange",
           "lower"
         ],
-        "time_s": 59.96666666666667
+        "time_s": 30.733333333333334
       },
       "harp_arm0/bells_arm1": {
-        "gap_m": 0.19134141903229968,
+        "gap_m": 0.06301663449484618,
         "parts": [
-          "nut_flange",
-          "lower2"
+          "upper",
+          "wristhead_web"
         ],
-        "time_s": 68.57142857142857
+        "time_s": 36.42857142857143
       },
       "harp_arm0/blocks_arm0": {
-        "gap_m": 1.371664493992802,
-        "parts": [
-          "nut_flange",
-          "lower2"
-        ],
-        "time_s": 32.925
-      },
-      "harp_arm1/harp_arm2": {
-        "gap_m": 0.12560000000000004,
+        "gap_m": 1.5261201955435832,
         "parts": [
           "upper2",
           "lower2"
         ],
-        "time_s": 34.641666666666666
+        "time_s": 32.916666666666664
+      },
+      "harp_arm1/harp_arm2": {
+        "gap_m": 0.2510014606553574,
+        "parts": [
+          "upper2",
+          "lower2"
+        ],
+        "time_s": 3.375
       },
       "harp_arm1/rake_arm0": {
-        "gap_m": 3.0934,
+        "gap_m": 3.1445577606043,
         "parts": [
           "lower2",
           "upper2"
         ],
-        "time_s": 3.25
+        "time_s": 3.275
       },
       "harp_arm1/bars_arm0": {
-        "gap_m": 2.942514950102138,
+        "gap_m": 2.7893406966703167,
         "parts": [
           "wristhead_web",
-          "pinion2"
+          "carriage_bush-"
         ],
-        "time_s": 45.3
+        "time_s": 2.441666666666667
       },
       "harp_arm1/bars_arm1": {
-        "gap_m": 4.096198110431967,
+        "gap_m": 4.326082200766303,
         "parts": [
           "upper2",
           "pinion2"
@@ -4738,71 +5035,71 @@
         "time_s": 51.09166666666667
       },
       "harp_arm1/bells_arm0": {
-        "gap_m": 1.1129157361422934,
+        "gap_m": 1.1835517311357688,
         "parts": [
           "nut_flange",
           "elbowhead_web2"
         ],
-        "time_s": 6.883333333333334
+        "time_s": 31.5
       },
       "harp_arm1/bells_arm1": {
-        "gap_m": 0.8352139944708924,
+        "gap_m": 0.6691234498752547,
         "parts": [
-          "nut_flange",
-          "elbowhead_web2"
+          "upper",
+          "wristhead_web"
         ],
-        "time_s": 18.666666666666668
+        "time_s": 3.325
       },
       "harp_arm1/blocks_arm0": {
-        "gap_m": 1.0123876379794976,
+        "gap_m": 1.1628265848069852,
         "parts": [
           "nut_flange",
           "lower2"
         ],
-        "time_s": 24.133333333333333
+        "time_s": 2.408333333333333
       },
       "harp_arm2/rake_arm0": {
-        "gap_m": 3.869806130653007,
+        "gap_m": 3.6562560411252374,
         "parts": [
           "lower2",
           "upper2"
         ],
-        "time_s": 37.608333333333334
+        "time_s": 3.2666666666666666
       },
       "harp_arm2/bars_arm0": {
-        "gap_m": 2.430223547397172,
-        "parts": [
-          "tool",
-          "pinion2"
-        ],
-        "time_s": 71.89166666666667
-      },
-      "harp_arm2/bars_arm1": {
-        "gap_m": 3.3530230272975783,
+        "gap_m": 2.3124068332931462,
         "parts": [
           "lower",
           "pinion2"
         ],
-        "time_s": 15.766666666666667
+        "time_s": 2.441666666666667
+      },
+      "harp_arm2/bars_arm1": {
+        "gap_m": 3.6544225012754965,
+        "parts": [
+          "lower",
+          "pinion2"
+        ],
+        "time_s": 15.8
       },
       "harp_arm2/bells_arm0": {
-        "gap_m": 1.9121116656600838,
+        "gap_m": 2.025360216735955,
         "parts": [
           "lower2",
           "elbowhead_web2"
         ],
-        "time_s": 30.733333333333334
+        "time_s": 34.958333333333336
       },
       "harp_arm2/bells_arm1": {
-        "gap_m": 1.5758468653709077,
+        "gap_m": 1.396635905227009,
         "parts": [
           "upper",
           "lower2"
         ],
-        "time_s": 10.466666666666667
+        "time_s": 3.325
       },
       "harp_arm2/blocks_arm0": {
-        "gap_m": 1.0493008980629561,
+        "gap_m": 1.2615004775759924,
         "parts": [
           "upper",
           "lower2"
@@ -4818,7 +5115,7 @@
         "time_s": 3.0166666666666666
       },
       "rake_arm0/bars_arm1": {
-        "gap_m": 7.765232384474527,
+        "gap_m": 7.765232520433217,
         "parts": [
           "upper2",
           "pinion2"
@@ -4826,7 +5123,7 @@
         "time_s": 54.99166666666667
       },
       "rake_arm0/bells_arm0": {
-        "gap_m": 1.150157071570986,
+        "gap_m": 1.1501563283092586,
         "parts": [
           "upper2",
           "lower2"
@@ -4834,7 +5131,7 @@
         "time_s": 46.69166666666667
       },
       "rake_arm0/bells_arm1": {
-        "gap_m": 2.548655950925416,
+        "gap_m": 2.5486565971852277,
         "parts": [
           "upper2",
           "lower2"
@@ -4842,7 +5139,7 @@
         "time_s": 77.825
       },
       "rake_arm0/blocks_arm0": {
-        "gap_m": 4.870822666346933,
+        "gap_m": 4.870821520152677,
         "parts": [
           "upper2",
           "lower2"
@@ -4866,7 +5163,7 @@
         "time_s": 59.35
       },
       "bars_arm0/bells_arm1": {
-        "gap_m": 4.498149169601689,
+        "gap_m": 4.498150118030459,
         "parts": [
           "pinion2",
           "wristhead_web"
@@ -4874,15 +5171,15 @@
         "time_s": 59.285714285714285
       },
       "bars_arm0/blocks_arm0": {
-        "gap_m": 2.176597567142839,
+        "gap_m": 2.1232655582795643,
         "parts": [
           "pinion_boss",
-          "wristhead_web"
+          "tool"
         ],
         "time_s": 45.35714285714286
       },
       "bars_arm1/bells_arm0": {
-        "gap_m": 5.929289919548619,
+        "gap_m": 5.929288744019373,
         "parts": [
           "pinion2",
           "upper2"
@@ -4890,7 +5187,7 @@
         "time_s": 59.708333333333336
       },
       "bars_arm1/bells_arm1": {
-        "gap_m": 5.350511430893353,
+        "gap_m": 5.350512053360593,
         "parts": [
           "pinion2",
           "wristhead_web"
@@ -4898,10 +5195,10 @@
         "time_s": 59.30833333333333
       },
       "bars_arm1/blocks_arm0": {
-        "gap_m": 2.1720475290619894,
+        "gap_m": 2.1539806675742335,
         "parts": [
           "pinion_boss",
-          "wristhead_web"
+          "tool"
         ],
         "time_s": 62.5
       },

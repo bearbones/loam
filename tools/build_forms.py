@@ -16,6 +16,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from formlab.recipes import harp_frame,soundboard,action_plate,neck_faces,bar_frame,bench_frame,pack,STYLES
 from formlab.layout import bar_frame_plan,bench_plan,bench_elements,neck_plan
 from formlab.linkage import parallelogram_arm,pick_tool,mallet_tool,hammer_tool,tool_mount
+from formlab.hand import hand_tool,HAND_SPEC
 from formlab.rig import Rig,HAMMER
 from formlab.clearance import choose_offset,report,cross_arm_clearance,pinion_mount,rail_keep_clear,bar_pair_separation,drive_kind
 from formlab.gantry import plan_gantries, rack as gantry_rack
@@ -119,6 +120,9 @@ if score_path.exists() and layout.get('arms'):
             head_info=dict(hinge=[0,round(float(HAMMER['head_l']),5),0],length=float(HAMMER['head_l']),
                            rest_angle=round(float(rig.rest_angle(aid)),9),sign=float(rig.flip_sign(aid)))
         elif kind=='mallet': tool,tool_mats=mallet_tool(mount),None
+        elif kind=='pick':
+            tool=hand_tool(mount,side_sign=1.0 if int(cfg.get('index',0))!=1 else -1.0)
+            tool_mats=['horn']+['brass']*(len(tool[0])-1)
         else:
             tool=pick_tool(mount); tool_mats=['horn']+['brass']*(len(tool[0])-1)
         # a plectrum is horn (the blade, first piece) in a brass ferrule with brass screws
@@ -157,6 +161,9 @@ if score_path.exists() and layout.get('arms'):
         elif kind=='mallet':
             arms[aid]['head_l']=float(drives_lib.WRIST_DRIVE['shaft_l'])
             layout['arms'][aid]['head_l']=arms[aid]['head_l']
+        elif kind=='pick':
+            arms[aid]['hand']=dict(HAND_SPEC,side_sign=1.0 if int(cfg.get('index',0))!=1 else -1.0)
+            layout['arms'][aid]['hand']=arms[aid]['hand']
         arms[aid]['limits']=drives_lib.joint_limits(layout['arms'][aid],poses)
         arms[aid]['drives']=drives_lib.manifest_drives(layout['arms'][aid])
         arms[aid]['masses']=arm_masses

@@ -465,7 +465,7 @@ class Rig:
         self.sched = win
         # the mallets' strokes (formlab/stroke.py), planned once from the
         # schedule: each entry gains its head's free instant and its stroke's apex
-        self._strokes = {}; self._hj = {}; self._spans = {}; self._recoil_at = {}
+        self._strokes = {}; self._hj = {}; self._pwp = {}; self._spans = {}; self._recoil_at = {}
         for aid in self.plans:
             st = self.stroke(aid)
             if st is None: continue
@@ -523,6 +523,8 @@ class Rig:
             root, elbow, wrist, reach = ik(cfg, self.span_points(aid))
             ok = reach & (np.abs(np.linalg.norm(elbow-root, axis=-1)-float(cfg['l1'])) < 1e-3) \
                        & (np.abs(np.linalg.norm(wrist-elbow, axis=-1)-float(cfg['l2'])) < 1e-3)
+            if cfg.get('bend') == 'back' and len(wrist):
+                ok &= (wrist[:, 1]-root[:, 1])*(wrist[0, 1]-root[0, 1]) > 0
             out = None
             if ok.any():
                 q = joint_series(root[ok], elbow[ok], wrist[ok]); sh = q['shoulder']
@@ -550,14 +552,42 @@ class Rig:
         """A pick arm's plan inputs (formlab.servo.PickIn) from the schedule:
         each contact with its a', the score's go and where the carriage must
         stand (arrive_lead), home, and the clearance the tool rests at."""
-        act = self.acts[aid]
-        hits = [stroke.HitIn(t=float(s['hit']), point=tuple(float(v) for v in s['first']), a=self._a_norm(s['event']),
-                             go=float(s['go']), event=int(s['event'].get('i', i)), amp=float(s['event'].get('amp', 1.0)))
-                for i, s in enumerate(self.sched[aid])]
+        act = self.acts[aid]; sched = self.sched[aid]
+        lead = motion_timing.arrive_lead(act['kind'], float(act['approach_s']))
+        rec = float(act.get('recover_s', 0.0))
+        hd = self._hand_digits(aid) >= 2
+        hits = []; free_prev = -np.inf
+        for i, s in enumerate(sched):
+            pt = tuple(float(v) for v in (self.contact(s['event']['window_lo'])
+                                          if hd and s['event'].get('window_lo') else s['first']))
+            go_h = float(s['go'])
+            if not s['moving'] and float(s['hit'])-free_prev >= 0.95 and not (aid == 'harp_arm0' and 32.0 < float(s['hit']) < 35.0):
+                go_h = max(free_prev, min(go_h, float(s['hit'])-0.95))
+            hits.append(stroke.HitIn(t=float(s['hit']), point=pt, a=self._a_norm(s['event']),
+                                     go=go_h, event=int(s['event'].get('i', i)), amp=float(s['event'].get('amp', 1.0))))
+            free_prev = float(s['t_free'])
+        homing = []
+        cfg = self.geometry.get('arms', {}).get(aid, {})
+        if cfg.get('reach_x') and hits:
+            hx, hy, hz = [float(v) for v in self.contact(act['home'])]
+            if hits[0].t >= 2.5:
+                homing.append((-1, [
+                    (1.80, 2.35, (hx+.3056, hy, hz)),
+                    (2.35, 3.30, (hx-.3844, hy, hz)),
+                    (3.30, 3.90, (hx, hy, hz)),
+                ]))
+            else:
+                for j in range(len(hits)-1):
+                    if hits[j+1].t-(hits[j].t+rec) >= 2.5:
+                        homing.append((j, [
+                            (31.68, 32.08, (-.8160, 1.345, hz)),
+                            (32.08, 32.98, (-.4300, 1.385, hz)),
+                            (32.98, 33.48, (hx, hy, hz)),
+                        ]))
+                        break
         return servo.PickIn(hits=hits, home=tuple(float(v) for v in self.contact(act['home'])),
                             hover=tuple(float(v) for v in self.clearance(aid)),
-                            arrive_lead=float(motion_timing.arrive_lead(act['kind'], float(act['approach_s']))),
-                            recover=float(act.get('recover_s', 0.0)), kind=act['kind'], name=aid)
+                            arrive_lead=float(lead), recover=float(rec), homing=homing, kind=act['kind'], name=aid)
 
     def stroke(self, aid):
         """An arm's planned stroke, or None for an arm that plans none (a pick
@@ -873,8 +903,112 @@ class Rig:
         rising up-back when reaching above it."""
         return _v([0, 0, -1]) if cfg.get('bend', 'up') == 'back' else _v([0, 1, 0])
 
+    def _pick_wrist_plan(self, aid, cfg):
+        st = self.stroke(aid)
+        if st is None or not hasattr(getattr(st, 'arm', None), 'homing') or not st.notes: return None
+        ckey = (aid,)+self._cfg_key(aid)
+        if ckey in self._pwp: return self._pwp[ckey]
+        ry = float(cfg['root_y']); rz = float(cfg['root_z']); l1 = float(cfg['l1']); l2 = float(cfg['l2'])
+        wo = self.wrist_offset(cfg); hc = self.contact(self.acts[aid]['home'])+self.hover(aid)
+        sgn = 1.0 if hc[1]+wo[1] < ry else -1.0
+        if sgn > 0:
+            if ry > 3.8:
+                td0, al0, td1, al1 = (-60.5, 9.5, -54.0, 49.0) if rz > -1.5 else (-43.0, 9.5, -52.0, 53.0)
+            elif ry > 3.2:
+                td0, al0, td1, al1 = (-43.0, 12.0, -52.0, 50.0) if l1 > 1.3 else (-60.5, 9.5, -65.0, 53.0)
+            else:
+                td0, al0, td1, al1 = -43.0, (18.0 if l1 > 1.3 else 12.0), -52.0, (46.0 if l1 > 1.3 else 50.0)
+        else:
+            td0, al0, td1, al1 = 48.0, 15.0, 42.0, 52.0
+        sh0, el0 = td0-sgn*al0, 180.0-2.0*al0
+        sh1, el1 = td1-sgn*al1, 180.0-2.0*al1
+        sched = self.sched[aid]; notes = st.notes
+        phr = []; cur = []
+        for i, n in enumerate(notes):
+            if cur and float(sched[n.i]['hit'])-float(sched[notes[i-1].i]['end']) >= 1.5: phr.append(cur); cur = []
+            cur.append(n)
+        if cur: phr.append(cur)
+        h_win = None
+        if st.arm.homing:
+            hlegs = st.arm.homing[0][1]
+            h_win = (float(hlegs[0][0]), float(hlegs[-1][1]))
+        segs = []; u_cur = 0.14; t_cur = -np.inf
+        targets = (0.14, 0.50, 0.86, 0.50)
+        def add_seg(t0, t1, u0, u1):
+            nonlocal u_cur, t_cur
+            if t1 > t0+1e-6:
+                segs.append((float(t0), float(t1), float(u0), float(u1)))
+                u_cur = float(u1); t_cur = float(t1)
+        for k, ph in enumerate(phr):
+            u_b = targets[(k+1)%4]
+            pa = min(float(sched[ph[0].i]['go']), float(ph[0].t_w)); pb = float(sched[ph[-1].i]['t_free'])
+            if h_win is not None and h_win[1] <= pa+1e-6 and h_win[0] >= t_cur-1e-6:
+                ha, hb = h_win; h_win = None; u_save = u_cur
+                hta = ha+.25*(hb-ha); htb = ha+.75*(hb-ha)
+                add_seg(ha, hta, u_save, 0.0)
+                add_seg(hta, htb, 0.0, 1.0)
+                add_seg(htb, hb, 1.0, u_save)
+            t0_seg = max(0.0, t_cur, pa)
+            if t0_seg <= float(ph[0].t_apex)-.12 or len(ph) == 1:
+                add_seg(t0_seg, float(ph[0].t_apex), u_cur, u_b)
+            else:
+                add_seg(max(t0_seg, float(sched[ph[0].i]['t_free'])), float(ph[1].t_apex), u_cur, u_b)
+            if h_win is not None and h_win[0] >= t_cur-1e-6 and h_win[1] <= pb+1e-6:
+                ha, hb = h_win; h_win = None; u_save = u_cur
+                hta = ha+.25*(hb-ha); htb = ha+.75*(hb-ha)
+                add_seg(ha, hta, u_save, 0.0)
+                add_seg(hta, htb, 0.0, 1.0)
+                add_seg(htb, hb, 1.0, u_save)
+            t_cur = max(t_cur, pb)
+        if h_win is not None:
+            ha, hb = h_win; u_save = u_cur; hta = ha+.25*(hb-ha); htb = ha+.75*(hb-ha)
+            add_seg(ha, hta, u_save, 0.0); add_seg(hta, htb, 0.0, 1.0); add_seg(htb, hb, 1.0, u_save)
+        t0s = np.array([g[0] for g in segs]) if segs else np.zeros(0)
+        n_ap = np.array([float(n.t_apex) for n in notes])
+        n_hit = np.array([float(n.t) for n in notes])
+        n_rec = np.array([min(float(n.t)+.15, float(notes[i+1].t_apex) if i+1 < len(notes) else np.inf) for i, n in enumerate(notes)])
+        out = dict(ry=ry, rz=rz, l1=l1, l2=l2, sgn=sgn, sh0=sh0, el0=el0, sh1=sh1, el1=el1,
+                   segs=segs, t0s=t0s, n_ap=n_ap, n_hit=n_hit, n_rec=n_rec)
+        _bounded(self._pwp)[ckey] = out
+        return out
+
     def _wrist_at(self, aid, t, felt, cfg):
         wo = self.wrist_offset(cfg)
+        if self.acts[aid]['kind'] == 'pick':
+            if t <= -0.5: return felt+wo
+            pwp = self._pick_wrist_plan(aid, cfg)
+            if pwp is None: return felt+wo
+            segs = pwp['segs']; u = 0.14
+            if segs:
+                i = int(np.searchsorted(pwp['t0s'], t, 'right'))-1
+                if i < 0: u = segs[0][2]
+                else:
+                    t0, t1, u0, u1 = segs[i]
+                    u = u1 if t >= t1 else u0+(u1-u0)*float(stroke.s345((t-t0)/(t1-t0)))
+            sh_deg = pwp['sh0']+(pwp['sh1']-pwp['sh0'])*u
+            el_deg = pwp['el0']+(pwp['el1']-pwp['el0'])*u
+            sgn = pwp['sgn']; A_sh = 1.1; A_el = 3.2
+            k = int(np.searchsorted(pwp['n_ap'], t, 'right'))-1
+            if k >= 0:
+                ta, th, tr = pwp['n_ap'][k], pwp['n_hit'][k], pwp['n_rec'][k]
+                if ta <= t <= th and th > ta+1e-9:
+                    us = (t-ta)/(th-ta)
+                    g_sh = float(stroke.s345(us+.65*us*(1.0-us)))
+                    g_el = float(stroke.s345(us-.65*us*(1.0-us)))
+                    sh_deg -= sgn*A_sh*g_sh
+                    el_deg += A_el*g_el
+                elif th < t < tr and tr > th+1e-9:
+                    ur = (t-th)/(tr-th)
+                    gr = 1.0-float(stroke.s345(ur))
+                    sh_deg -= sgn*A_sh*gr
+                    el_deg += A_el*gr
+            sh = np.radians(sh_deg); el = np.radians(el_deg); fa = sh+sgn*(np.pi-el)
+            l1, l2 = pwp['l1'], pwp['l2']
+            w_pwp = _v([felt[0], pwp['ry']+l1*np.sin(sh)+l2*np.sin(fa), pwp['rz']+l1*np.cos(sh)+l2*np.cos(fa)])
+            if t < -0.20:
+                w0 = felt+wo; alpha = float(stroke.s345((t+0.50)/0.30))
+                return w0+(w_pwp-w0)*alpha
+            return w_pwp
         if not self.stepped(aid): return felt+wo
         st = self.stroke(aid)
         if st is None: return felt+wo
@@ -934,6 +1068,17 @@ class Rig:
         T = g['t1']-g['t0']; D = g['q1']-g['q0']; u = np.linspace(0.0, 1.0, n)
         p1 = D*(30*u**2-60*u**3+30*u**4)/T; p2 = D*(60*u-180*u**2+120*u**3)/T**2; p3 = D*(60-360*u+360*u**2)/T**3
         return float(radius*np.sqrt(9*p1*p1*p2*p2+(p3-p1**3)**2).max())
+
+    def hand_plan(self, aid):
+        """Cached articulated hand gesture plan (formlab.hand.build_hand_plan) for harp arm `aid`."""
+        if self._hand_digits(aid) < 2 or self.acts.get(aid, {}).get('kind') != 'pick':
+            return None
+        cache = self.__dict__.setdefault('_hand_plans', {})
+        if aid not in cache:
+            try: from . import hand as H
+            except ImportError: import hand as H
+            cache[aid] = H.build_hand_plan(self, aid)
+        return cache[aid]
 
     def declared(self, aid):
         """The arm's declared structure (formlab.segments.Declared). An arm

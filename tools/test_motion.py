@@ -57,7 +57,8 @@ def run(layout_path, score_path):
     for e in score['events']:
         aid = e['actuator']
         for sid, t in zip(e['strings'], motion_timing.string_times(e)):     # a roll's at its onsets
-            worst_contact = max(worst_contact, np.linalg.norm(rig.tip_at(aid, t)-rig.contact(sid, e.get('pick'))))
+            hw = bool(e.get('window_lo') and rig._hand_digits(aid) >= 2 and len(e['strings']) == 1)
+            worst_contact = max(worst_contact, np.linalg.norm(rig.tip_at(aid, t)-(rig.contact(e['window_lo']) if hw else rig.contact(sid, e.get('pick')))))
         for key in ('t_move', 't', 't_free'):
             t = float(e[key]); worst_step = max(worst_step, np.linalg.norm(rig.tip_at(aid, t-1e-6)-rig.tip_at(aid, t+1e-6)))
     # ...and a mallet's own boundaries: its stroke's apex, the carriage's

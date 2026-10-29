@@ -116,6 +116,8 @@ def bodies(S, aid, P):
     o1 = np.asarray(cfg['o1'], float); o2 = np.asarray(cfg['o2'], float)
     if kind == 'mallet':
         tool = ((felt+[0, MALLET_R, 0])[:, None, :], MALLET_R)
+    elif kind == 'pick':
+        tool = (np.stack([felt, felt+(0.0, .14, -.12)], 1), .052)
     else:
         caps = arm_capsules(P, o1, o2, cfg.get('layers', default_layers(DEFAULT_SPEC)), DEFAULT_SPEC,
                             cfg.get('pinion', 'back'), drive_kind(cfg))[0]

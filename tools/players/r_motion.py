@@ -400,14 +400,14 @@ def chan_samples(S, aid):
         taus = np.arange(sg.t0+STEP/2, sg.t1, STEP)
         if taus.size == 0: taus = np.array([.5*(sg.t0+sg.t1)])
         P0 = fn(taus); Pm = fn(taus-HC); Pp = fn(taus+HC)
-        a = (Pp-2*P0+Pm)/(HC*HC)
+        v = (Pp-Pm)/(2*HC); a = (Pp-2*P0+Pm)/(HC*HC)
         stp = stops.get(ch, imp)
         i = np.searchsorted(stp, taus)
         lo = stp[np.clip(i-1, 0, len(stp)-1)]; hi = stp[np.clip(i, 0, len(stp)-1)]
         valid = (np.abs(taus-lo) > HC*1.01) & (np.abs(hi-taus) > HC*1.01)
         pair_ok = valid[:-1] & valid[1:] & (i[:-1] == i[1:])
         pend = fn(np.array([sg.t0, sg.t1]))
-        out.append(dict(seg=sg, channel=ch, hold=sg.law == 'hold', t=taus, a=a, pair_ok=pair_ok, p0=pend[0], p1=pend[1]))
+        out.append(dict(seg=sg, channel=ch, hold=sg.law == 'hold', t=taus, p=P0, v=v, a=a, valid=valid, pair_ok=pair_ok, p0=pend[0], p1=pend[1]))
     return out
 
 def _law_h(law, e, T):
@@ -574,6 +574,8 @@ def bodies(S, aid, P):
     o1 = np.asarray(cfg['o1'], float); o2 = np.asarray(cfg['o2'], float)
     if kind == 'mallet':
         tool = ((felt+[0, MALLET_R, 0])[:, None, :], MALLET_R)
+    elif kind == 'pick':
+        tool = (np.stack([felt, felt+(0.0, .14, -.12)], 1), .052)
     else:
         caps = _caps(S, aid, P)
         # arm_capsules adds 'head' only when some head angle is non-zero
@@ -767,8 +769,33 @@ def r1_strobe(S):
             out.append(Result(1, '1 rotation', aid, dict(max_deg=0.0), True,
                               'no part under 0.25 m rotates: the parallelogram holds the tool upright'))
         if kind in ('pick', 'rake'):
-            out.append(Result(1, '1 digits, palm' if kind == 'pick' else '1 digits', aid, {}, None,
-                              'no digits or palm yet (harp hands M7, rake hand M9)'))
+            hp = S.rig.hand_plan(aid) if kind == 'pick' else None
+            if hp is not None:
+                from formlab import hand as H
+                h_caps, _ = H.hand_capsules_series(P['tip'])
+                p_pt, p_body, p_r = B['tool']
+                dp_p = p_pt[1:]-p_pt[:-1]; mag_p = _norm(dp_p)
+                dh_p = np.where(mag_p[:, None] > 1e-12, dp_p/np.maximum(mag_p, 1e-15)[:, None], np.array([1.0, 0, 0]))
+                Ep = .5*(extent(p_body[:-1], p_r, dh_p)+extent(p_body[1:], p_r, dh_p))
+                rho_p = mag_p/Ep
+                palm_off = float(rho_p[~imp[1:]].max()) if (~imp[1:]).any() else 0.0
+                d_max = 0.0; d_p95 = 0.0
+                for d_name in H.DIGITS:
+                    da, db, dr = h_caps[d_name]
+                    d_body = np.stack([da, p_body[:, 1]], 1)
+                    dp_d = da[1:]-da[:-1]; mag_d = _norm(dp_d)
+                    dh_d = np.where(mag_d[:, None] > 1e-12, dp_d/np.maximum(mag_d, 1e-15)[:, None], np.array([1.0, 0, 0]))
+                    Ed = .5*(extent(d_body[:-1], p_r, dh_d)+extent(d_body[1:], p_r, dh_d))
+                    rho_d = mag_d/Ed; act_d = mag_d > STILL*FRAME
+                    d_max = max(d_max, float(rho_d.max()))
+                    if act_d.any(): d_p95 = max(d_p95, float(np.percentile(rho_d[act_d], 95)))
+                ok_dp = bool(palm_off <= 0.5 and d_max <= 1.0 and d_p95 <= 0.5)
+                out.append(Result(1, '1 digits, palm', aid,
+                                  dict(palm_off_slip_max=_r(palm_off, 3), digit_max=_r(d_max, 3), digit_p95=_r(d_p95, 3)),
+                                  ok_dp, 'harp palm rho <= 0.5 outside slip frames; digit tips max <= 1.0, p95 active <= 0.5'))
+            else:
+                out.append(Result(1, '1 digits, palm' if kind == 'pick' else '1 digits', aid, {}, None,
+                                  'no digits or palm yet (harp hands M7, rake hand M9)'))
     return out
 
 # ---- preparation and action (rulers 3, 4) --------------------------------------
@@ -824,6 +851,8 @@ def prep(S, aid):
     holds = _apex_hold_runs(S, aid)
     for c in C:
         t_i = c.t
+        if S.kind(aid) == 'pick' and S.rig._hand_digits(aid) >= 2 and c.i > 0 and c.ioi < LEAD_IOI and c.event.get('finger') != C[c.i-1].event.get('finger'):
+            out.append(dict(out[-1], c=c, L=t_i-out[-1]['t_w'])); continue
         t_lo = C[c.i-1].t_end if c.i > 0 else t_i-30.0
         ts = _grid(S, aid, t_lo, t_i)
         hf = lambda t, c=c: float((np.asarray(f(t))-c.point)@c.normal)
@@ -1472,7 +1501,15 @@ def r15_proximal(S):
         else:
             out.append(Result(15, '15 weight', aid, {}, None, 'no part masses declared (manifest masses arrive in M4)'))
         if kind == 'pick':
-            out.append(Result(15, '15 digit closing', aid, {}, None, 'no digits yet (M7)'))
+            hp = S.rig.hand_plan(aid)
+            if hp is not None and hp['notes']:
+                cfs = np.array([(n['t_close'] - n['t_slip']) * FPS for n in hp['notes']], float)
+                out.append(Result(15, '15 digit closing', aid,
+                                  dict(notes=len(cfs), close_frames=_mm(cfs, 1.0, 2)),
+                                  bool((np.abs(cfs - 3.0) <= 0.1).all()),
+                                  'digit MCP closing duration after slip = 3 frames (0.10 s)'))
+            else:
+                out.append(Result(15, '15 digit closing', aid, {}, None, 'no digits yet (M7)'))
     return out
 
 # ---- joint use and limits (ruler 16) -------------------------------------------------
@@ -1518,6 +1555,8 @@ def r16_joints(S):
         pts = _span_points(S, aid); root, elbow, wrist, reach = ik(S, aid, pts)
         cfg = S.cfg(aid)
         sound = reach & (np.abs(_norm(elbow-root)-float(cfg['l1'])) < 1e-3) & (np.abs(_norm(wrist-elbow)-float(cfg['l2'])) < 1e-3)
+        if cfg.get('bend') == 'back' and len(wrist):
+            sound &= (wrist[:, 1]-root[:, 1])*(wrist[0, 1]-root[0, 1]) > 0
         if not sound.any():
             out.append(Result(16, '16 coverage', aid, dict(reachable=0), None, 'no reachable span point')); continue
         u = elbow[sound]-root[sound]; sh = np.arctan2(u[:, 1], u[:, 2])
@@ -1537,10 +1576,12 @@ def r16_joints(S):
             cur.append(c)
         if cur: phr.append(cur)
         pc = {j: [] for j in span}; pc_ok = {j: [] for j in span}
+        x_req_piece = float(np.ptp([c.sched.get('xb', c.point[0]) for c in C])) >= .40*span['carriage']-1e-9 if (C and span['carriage'] > 0) else False
         for ph in phr:
-            a = float(ph[0].sched['go']); b = float(ph[-1].sched['t_free'])
+            a = min(float(ph[0].sched['go']), float(ph[0].t)-.74 if S.kind(aid) == 'pick' else float(ph[0].sched['go']))
+            b = float(ph[-1].sched['t_free'])
             m = keep & (tt >= a) & (tt <= b)
-            x_req = float(np.ptp([c.point[0] for c in ph])) >= .25*span['carriage']-1e-9 if span['carriage'] > 0 else False
+            x_req = float(np.ptp([c.sched.get('xb', c.point[0]) for c in ph])) >= .25*span['carriage']-1e-9 if span['carriage'] > 0 else False
             for j in span:
                 val = _union_len(Q[j], m)/span[j] if m.any() and span[j] > 0 else 0.0
                 pc[j].append(val); pc_ok[j].append(val >= .25-1e-9 or (j == 'carriage' and not x_req))
@@ -1548,7 +1589,7 @@ def r16_joints(S):
                           dict(span=dict(carriage_m=_r(span['carriage'], 3), shoulder_deg=_r(span['shoulder'], 1), elbow_deg=_r(span['elbow'], 1)),
                                cover={j: _r(v, 3) for j, v in piece.items()}, reachable=f'{int(reach.sum())}/{len(reach)}',
                                ik_degenerate=int((reach & ~sound).sum())),
-                          all(v is not None and v >= .40-1e-9 for v in piece.values()) if C else None,
+                          all(v is not None and (v >= .40-1e-9 or (j == 'carriage' and not x_req_piece)) for j, v in piece.items()) if C else None,
                           'C_j = |q_j used| / IK span (picks 0.05-0.95, bars 0.2-0.8, contact and hover) >= 40 % over the piece; '
                           'span points where Rig.pose\'s bend hint is parallel to root->wrist (the IK degenerates) are left out'))
         out.append(Result(16, '16 coverage phrase', aid,
@@ -1577,12 +1618,15 @@ def r16_joints(S):
                           untagged+hole <= 1e-9 and holes == 0,
                           "path length in segments whose tag is outside segments.TAGS (the goal's closed vocabulary) or in time no segment covers"))
         nrev = 0; excess = 0; worst = 0
-        for x in sm:
-            if x['hold'] or not x['valid'].any(): continue
+        sm_rev = chan_samples(S, aid) if S.stroke(aid) is not None else sm
+        for x in sm_rev:
+            valid = x.get('valid')
+            if x['hold'] or (valid is not None and not valid.any()): continue
             sg = x['seg']; X = x['p']-x['p'].mean(0)
             if np.ptp(x['p'], axis=0).max() < 1e-9: continue
             ax = np.linalg.svd(X, full_matrices=False)[2][0]
-            s = (x['v'][x['valid']]@ax); s = s[np.abs(s) > 1e-4]
+            v_arr = x['v'][valid] if valid is not None else x['v']
+            s = (v_arr@ax); s = s[np.abs(s) > 1e-4]
             n = int(np.sum(np.sign(s[1:]) != np.sign(s[:-1]))) if s.size > 1 else 0
             own = _own_reversals(S, aid, x)
             nrev += n

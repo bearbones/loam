@@ -24,7 +24,8 @@ func check_scene() -> void:
 				var t: float=ts[k]
 				scene.evaluate(t)
 				var tool: Node3D=scene.parts[e["actuator"]]["tool"]
-				var target: Vector3=MotionBake.contact(scene.layout,e["strings"][k],e.get("pick"))
+				var hw: bool=e.get("window_lo")!=null and e["strings"].size()==1
+				var target: Vector3=MotionBake.contact(scene.layout,str(e["window_lo"]) if hw else str(e["strings"][k]),null if hw else e.get("pick"))
 				if tool.global_position.distance_to(target)>.00001: failures.append("rendered tool misses contact")
 				# A hinged hammer strikes with its head, not its tool: the flange's origin is
 				# still the contact point, but what must land there is the felt face on the

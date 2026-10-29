@@ -49,7 +49,7 @@ def run():
 
     # 1. the modules the plan is measured against
     check(set(LS.GEOMETRY_SOURCES) == {'rig.py', 'clearance.py', 'linkage.py', 'gantry.py', 'pawl.py', 'stroke.py',
-                                       'servo.py', 'rake.py', 'rake_pieces.json'},
+                                       'servo.py', 'rake.py', 'rake_pieces.json', 'hand.py'},
           'the key hashes the motion (rig, stroke, servo, rake and its designed pieces), the space model (clearance) and the '
           'geometry it measures (linkage, gantry, pawl): '+', '.join(LS.GEOMETRY_SOURCES))
     for name in LS.GEOMETRY_SOURCES:

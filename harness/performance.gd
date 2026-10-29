@@ -307,6 +307,7 @@ func _make_string(sid: String) -> Node3D:
 		mat.set_shader_parameter("radius",radius); mat.set_shader_parameter("length_m",length)
 		mat.set_shader_parameter("albedo",colour); mat.set_shader_parameter("family",family)
 		mat.set_shader_parameter("aniso",string_aniso(family))
+		mat.set_shader_parameter("cross_axis",2.0 if str(s.get("mid",""))=="harp" else 0.35)
 		mat.set_shader_parameter("sheath",sheath)
 		var zero := PackedFloat32Array(); zero.resize(STRING_NODES)
 		mat.set_shader_parameter("disp",zero); mat.set_shader_parameter("envelope",zero)
@@ -669,10 +670,31 @@ func evaluate(t: float) -> void:
 		for hit in hits[sid]:
 			var tau := t-float(hit["t"])
 			var e: Dictionary=hit["event"]
+			var is_harp := str(layout["strings"][sid].get("mid",""))=="harp" and str(e.get("kind","pluck"))=="pluck"
+			if is_harp and tau>=-0.064 and tau<0.0:
+				var w := (tau+0.064)/0.064
+				var d_rel := 0.016+0.008*float(e.get("amp",0.5))
+				var s_pull := (d_rel/sqrt(5.0))*(w*w*w*(4.0+w*(-4.5+1.5*w)))
+				var u_p := float(e.get("pick",layout["strings"][sid].get("pick",0.5)))
+				for i in STRING_NODES:
+					var u := float(i)/float(STRING_NODES-1)
+					var tent := (u/maxf(u_p,1e-6)) if u<=u_p else ((1.0-u)/maxf(1.0-u_p,1e-6))
+					displacement[i]+=s_pull*tent
+				continue
 			if tau<0 or tau>5 or e.get("shape")==null: continue
 			var gain := float(e["amp"])*.035
 			var values := score.shape_frame(e["shape"],tau)
-			for i in mini(values.size(),STRING_NODES): displacement[i]+=values[i]*gain
+			if is_harp:
+				var d_rel := 0.016+0.008*float(e.get("amp",0.5))
+				var u_p := float(e.get("pick",layout["strings"][sid].get("pick",0.5)))
+				var fade_in := 1.0-exp(-tau/0.045)
+				var rel_decay := (d_rel/sqrt(5.0))*exp(-tau/0.085)
+				for i in mini(values.size(),STRING_NODES):
+					var u := float(i)/float(STRING_NODES-1)
+					var tent := (u/maxf(u_p,1e-6)) if u<=u_p else ((1.0-u)/maxf(1.0-u_p,1e-6))
+					displacement[i]+=rel_decay*tent+values[i]*gain*fade_in*0.25
+			else:
+				for i in mini(values.size(),STRING_NODES): displacement[i]+=values[i]*gain
 			# The sheath holds the peak excursion over the last 1/30 s — the
 			# eye integrates a few cycles of a wire, so the blur, not the instant.
 			var step := 1.0/float(score.clips[e["shape"]]["rate_hz"])

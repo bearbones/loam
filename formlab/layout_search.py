@@ -131,6 +131,7 @@ def evaluate_arm(rig, aid, cfg, times, spec=DEFAULT_SPEC, layers=None, boxes=(),
         for name in ('upper', 'upper2', 'lower', 'lower2', 'wristhead_web', 'elbowhead_web1', 'elbowhead_web2', 'shank'):
             P, Q, r = caps[name]; sg = min(sg, float((segment_distance(P, Q, A, B)-r-.002).min()))
     margins['strings'] = sg
+    if sg <= .00405: return None
     # The rail itself — two guide bars and a head at each end (formlab.gantry) —
     # is an obstacle to the OTHER arms of the mechanism: cross_gap measures every
     # arm against its neighbours' rails, not only their links. (The first layout
@@ -392,7 +393,7 @@ def verify_fine(rig, aids, chosen, times, boxes, plane_z, enough, placed=()):
 # imported bare from Blender's Python, where `formlab` is not a package and the
 # sibling modules are not all imported.
 GEOMETRY_SOURCES = ('rig.py', 'clearance.py', 'linkage.py', 'gantry.py', 'pawl.py', 'stroke.py', 'servo.py', 'rake.py',
-                    'rake_pieces.json')
+                    'rake_pieces.json', 'hand.py')
 # ...and the timing rules the rig and the stroke move by (step vs freewheel,
 # the tooth period, the homing legs: travel_regime, stepped_period, step_period,
 # smooth_s, home_legs), loaded by path from loam/ exactly as formlab/stroke.py
@@ -442,6 +443,10 @@ def motion_constants():
     if rk is not None:
         out.update({'rake.'+k: getattr(rk, k) for k in sorted(dir(rk))
                     if k.isupper() and isinstance(getattr(rk, k), (int, float, dict, list, tuple))})
+    hd = getattr(m, 'hand_lib', None) or getattr(m, 'hand', None)
+    if hd is not None:
+        out.update({'hand.'+k: getattr(hd, k) for k in sorted(dir(hd))
+                    if k.isupper() and isinstance(getattr(hd, k), (int, float, dict, list, tuple))})
     return out
 
 def _mech_key(score, layout, mech, hz, enough, placed=None):

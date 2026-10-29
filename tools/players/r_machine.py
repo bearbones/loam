@@ -665,7 +665,24 @@ def drives(S):
         if c: out.append(c)
         out.append(crank_law(S, aid))
         if kind in ('pick', 'rake'):
-            out.append(Result(17, 'tendon', aid, {}, INFO, 'no tendon exists yet (the digits\' drums arrive in M7, the rake\'s hand in M9)'))
+            hp = S.rig.hand_plan(aid) if kind == 'pick' else None
+            if hp is not None:
+                from formlab import hand as H
+                mcp = {d: np.zeros(len(S.t_frames)) for d in H.DIGITS}
+                for n in hp['notes']:
+                    m_idx = (S.t_frames >= n['t_slip']) & (S.t_frames <= n['t_close'] + 0.5)
+                    for idx_f in np.nonzero(m_idx)[0]:
+                        _, q_m = H.note_pad_at(n, float(S.t_frames[idx_f]))
+                        mcp[n['digit']][idx_f] = q_m
+                ts_res = H.tendon_state(mcp)
+                res_mm = float(ts_res['residual_max_m']) * 1e3
+                out.append(Result(17, 'tendon', aid,
+                                  dict(drums=len(H.DIGITS), r_drum_mm=ts_res['r_drum']*1e3, r_pulley_mm=ts_res['r_pulley']*1e3,
+                                       residual_mm=round(res_mm, 6)),
+                                  bool(ts_res['residual_max_m'] <= TENDON_TOL),
+                                  'four wristhead tendon drums and knuckle pulleys: r_drum*theta_d + free_span constant within 0.1 mm'))
+            else:
+                out.append(Result(17, 'tendon', aid, {}, INFO, 'no tendon exists yet (the digits\' drums arrive in M7, the rake\'s hand in M9)'))
         if kind == 'hammer':
             out.append(cam_hammer_lift(S, aid))
         out.append(backlash_law(S, aid))
@@ -1497,7 +1514,10 @@ def _home_sweep_m(S, aid, homes, rest):
     parts = [np.append(np.arange(a, b, 1/(2*HZ)), b) for a, b in segs]
     ts = np.unique(np.concatenate(parts)); t0, t1 = segs[0][0], max(b for _, b in segs)
     path = _mallet_path(S, aid, ts)
-    out = dict(home_t=[round(t0, 3), round(t1, 3)], home_segments=len(segs), x_swept_frac=round(float(np.ptp(path[:, 0]))/(hi-lo), 4))
+    rlo, rhi, _, _ = rig._hand_span(aid, rig.acts[aid]['home'])
+    hand_w = (rhi-rlo) if rig._hand_digits(aid) >= 2 else 0.0
+    out = dict(home_t=[round(t0, 3), round(t1, 3)], home_segments=len(segs),
+               x_swept_frac=round(min(1.0, (float(np.ptp(path[:, 0]))+hand_w)/(hi-lo)), 4))
     spans = _joint_spans(S, aid)
     if spans:
         from players import r_motion as RM
@@ -1564,7 +1584,9 @@ def _home(S, aid):
     homes = [g for g in S.declared(aid).segments if g.tag == 'home' and g.t0 < rest[1] and g.t1 > rest[0]]
     m = (S.t_frames >= rest[0]) & (S.t_frames <= rest[1])
     lo, hi = S.cfg(aid)['reach_x']
-    swept = float(np.ptp(S.poses(aid, 'frames')['root'][m, 0]))/(hi-lo) if m.any() else 0.0
+    rlo, rhi, _, _ = rig._hand_span(aid, rig.acts[aid]['home'])
+    hand_w = (rhi-rlo) if rig._hand_digits(aid) >= 2 else 0.0
+    swept = min(1.0, (float(np.ptp(S.poses(aid, 'frames')['root'][m, 0]))+hand_w)/(hi-lo)) if m.any() else 0.0
     v = dict(rest=[round(rest[0], 3), round(rest[1], 3)], homes=len(homes), x_swept_frac=round(swept, 4))
     if not homes:
         return Result(22, 'home', aid, v, False, 'no arm homes today: no segment tagged home in its first rest >= 2 s')
@@ -1584,6 +1606,8 @@ def _joint_spans(S, aid):
         from players import r_motion as RM
         pts = RM._span_points(S, aid); root, elbow, wrist, reach = RM.ik(S, aid, pts); cfg = S.cfg(aid)
         ok = reach & (np.abs(RM._norm(elbow-root)-float(cfg['l1'])) < 1e-3) & (np.abs(RM._norm(wrist-elbow)-float(cfg['l2'])) < 1e-3)
+        if cfg.get('bend') == 'back' and len(wrist):
+            ok &= (wrist[:, 1]-root[:, 1])*(wrist[0, 1]-root[0, 1]) > 0
         if not ok.any(): return None
         q = RM.joint_series(root[ok], elbow[ok], wrist[ok]); sh = q['shoulder']
         ref = math.atan2(np.sin(sh).mean(), np.cos(sh).mean()); sh = ref+np.angle(np.exp(1j*(sh-ref)))

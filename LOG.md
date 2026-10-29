@@ -1,3 +1,78 @@
+## 2026-10-29 — PLAYERS M7: The hands
+
+Built the articulated 4-digit Salzedo/Renié harp hands (`harp_arm0..2` on both
+`clockwork` and `clockwork_expanded`), integrated the fingered harp planner
+(`hands=4`, `0.20/0.15 s` windows, `0.05` score-unit clearance = $0.15\text{ m}$),
+implemented the harp gestures (place, stick, slip, 3-frame MCP closing, string
+slide in waits $\ge 1\text{ s}$, Salzedo phrase-end raise, and synchronized final
+chord), drew strings displaced during the stick along the $22.6^\circ$ pluck
+polarisation (`cross_axis` in `wire_string.gdshader`), added the harp homing
+sweeps (moved from M2, A15), and removed the plectrum tool exemption in
+`formlab/clearance.py`:
+
+- **Anatomy & tendon drives** (`formlab/hand.py`, `formlab/kinematics.py`,
+  `formlab/bake.py`, `tools/build_forms.py`, `tools/build_clockwork.py`,
+  `harness/performance.gd`):
+  - Each `pick` arm carries an oblique brass palm bar (`<aid>__hand_palm`,
+    $32^\circ$ knuckle line, $z \in [-0.075, -0.042]\text{ m}$ clear behind the
+    strings) on a driven wrist flex (`<aid>__wrist_flex`, pin along world $+X$),
+    a splay fan bar (`<aid>__splay`, pin along world $+Z$), a 2-DOF high thumb
+    (`<aid>__thumb_abd`, `<aid>__thumb_mcp`, `<aid>__thumb_dist` with horn pad),
+    and fingers 2, 3, and 4 (`<aid>__d2..4_mcp`, `<aid>__d2..4_mid`,
+    `<aid>__d2..4_dist`, phalanges $1 : 0.7 : 0.55$ with coupled PIP/DIP and
+    horn pads, knuckle pins along world $+Y$ parallel to the strings).
+  - Four brass tendon drums (`<aid>__drum_thumb..d4`, $r_{\text{drum}} = 12\text{ mm}$)
+    on `wristhead` and four knuckle pulleys ($r_{\text{pulley}} = 5\text{ mm}$)
+    drive the digits with zero tendon-length residual
+    ($|r_{\text{drum}}\theta_d + \text{free\_span} - L_0| = 0.0\text{ mm} \le 0.1\text{ mm}$,
+    `driven_share = 1.0000` in Ruler 17).
+- **Harp gestures, string stick/slip, and shader polarisation** (`formlab/hand.py`,
+  `formlab/rig.py`, `formlab/servo.py`, `harness/performance.gd`,
+  `harness/shaders/wire_string.gdshader`):
+  - Digits land on their strings at $t_{\text{place}} = t - \text{stick}$ with
+    $|v(t_{\text{place}})| = 0.0\text{ m/s} \le 0.2\text{ m/s}$ (multi-digit
+    group spread $0.0\text{ ms} \le 1/240\text{ s}$, $100\%$ in playing order,
+    run placing lag $-58.6\text{ ms} \le 1/30\text{ s}$, unplayed planted digit
+    drift $0.0\text{ mm} \le 0.5\text{ mm}$).
+  - During the stick ($\text{stick} \in [60, 90]\text{ ms} \ge 56\text{ ms}$),
+    the pad loads the string by $d_{\text{rel}} \in [15.4, 26.0]\text{ mm} \in [12, 30]\text{ mm}$
+    along $\hat{n} = (0, 0.385, -0.923)$ ($22.6^\circ \in [7^\circ, 43^\circ]$
+    out of the string plane), and `performance.gd` / `wire_string.gdshader` draw
+    the string displaced with the pad (`stick_gap_mm = 0.0 mm`, `slip_jump_mm <= 0.013 mm <= 0.5 mm`)
+    and release it into free vibration at $t$ along `cross_axis = (0, 0.385, -0.923)`
+    (`deflection = 0.0 deg <= 5 deg`). After slip-off, the MCP curls to its
+    padded stop ($0.42\text{ rad}$) in $3.0\text{ frames}$ (`stop_err_deg = 0.0 deg`).
+  - In intra-phrase waits $\ge 1\text{ s}$, the waiting digit glides
+    $0.12\text{ m} \in [0.10, 0.15]\text{ m}$ up the string and back by
+    $t_{\text{place}}$ (`off_string_mm = 0.0 mm`). At phrase ends, the closed
+    hand rises $\Delta y = 0.42\text{ m} \ge 0.40\text{ m}$ at $22.7^\circ \in [15^\circ, 35^\circ]$
+    toward the arm over $T_{\text{raise}} \in [0.30, 1.50]\text{ s}$
+    ($\rho_{\text{Spearman}} = 0.996 \ge 0.8$), and at the $78.57\text{ s}$
+    final chord all three hands start within $0.0\text{ frames}$ and end within
+    $0.0\text{ cm}$ of the same height.
+- **Homing, proximal-to-distal wrist trajectory, and clearance** (`formlab/rig.py`,
+  `formlab/clearance.py`, `formlab/layout_search.py`):
+  - Added harp homing sweeps in each arm's first rest $\ge 2\text{ s}$
+    (`x_swept_frac >= 0.903 >= 0.90`, `joint_swept_frac >= 0.810 >= 0.80`,
+    `v_peak <= 1.29 m/s <= 1.50 m/s`, `land_m = 0.0 m`) while keeping
+    `harp_arm0` $\ge 0.158\text{ m} > 0.150\text{ m}$ clear of `harp_arm1`.
+  - Phrase-level wrist modulation (`Rig._pick_wrist_plan`) and stroke-level
+    proximal-to-distal wrist offset (`Rig._wrist_at`) satisfy Ruler 15 (`62/62`
+    strokes proximal $\to$ distal, $\text{lag}_\omega \in [34, 43]\text{ ms} \ge 1\text{ frame}$
+    at $\text{IOI} \ge 0.35\text{ s}$, carriage share $0.0\% \le 15\%$, tip
+    acceleration $\le 4.3\,g \le 10\,g$) and Ruler 16 (`piece >= 42.1%`,
+    `phrase >= 29.0%`, `0.0 m` untagged, `0` excess reversals, limits
+    $\pm 0.5^\circ$ of interference with $\ge 4.02^\circ$ margin).
+  - Removed the plectrum tool exemption in `formlab/clearance.py`; Ruler 23
+    passes with palm $\ge 16.0\text{ mm}$ and all four digits $\ge 21.6\text{ mm}$
+    clear of non-played strings at 120 Hz + every contact instant.
+  - Re-rendered `songs/chamber.py` (`222/239` as written, `17` substituted,
+    `0 <= 9` dropped, `4/243` refused) and `songs/clockwork.py` (`0/64` refused),
+    updated `docs/goals/the-players.stems.json`, replanned rails in
+    `render/form-study/rails-cache.json`, and rebuilt both GLBs:
+    - `harness/assets/clockwork.glb`: `47ac19c52d212b742e9192f39a4e0b52afcd5630a7cc3b83028b005bf77b8b97` (`134` assemblies, `1704` closed analytic components, `FK worst 2.9e-15 m`)
+    - `harness/assets/clockwork_expanded.glb`: `4ab0a363e864016e9c1dd9fd64632ae2d0066053e2723303b5dd6d3209380bd0` (`207` assemblies, `2580` closed analytic components, `FK worst 2.9e-15 m`)
+
 ## 2026-10-29 — PLAYERS M6b: Fingered planner integration
 
 Integrated the M6a fingered planner behind `hands=` on `Mechanism`:

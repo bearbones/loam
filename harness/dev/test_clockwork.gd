@@ -44,7 +44,8 @@ func _init() -> void:
 		for k in range(e["strings"].size()):
 			var t: float=ts[k]
 			var actual := rig.tip_at(aid,t)
-			var expected := MotionBake.contact(layout,e["strings"][k],e.get("pick"))
+			var hw: bool=e.get("window_lo")!=null and e["strings"].size()==1
+			var expected := MotionBake.contact(layout,str(e["window_lo"]) if hw else str(e["strings"][k]),null if hw else e.get("pick"))
 			worst_contact=maxf(worst_contact,actual.distance_to(expected)); contacts+=1
 		for key in ["t_move","t","t_free"]:
 			var t := float(e[key])
@@ -113,7 +114,7 @@ func _init() -> void:
 		var t: float=rig.times[r]
 		rig.frames_at(t,true); fk_rows+=1
 		for a in pins:
-			if rows[a[0]]["type"]=="fixed" and rig.arms.has(a[3]) and rig.stepped(a[3]): continue
+			if rows[a[0]]["type"]=="fixed" and rig.arms.has(a[3]) and (rig.stepped(a[3]) or rig.arms[a[3]]["kind"]=="pick"): continue
 			worst_fk=maxf(worst_fk,rig.frame_p(a[0]).distance_to(rig.vec(a[1],t)))
 	if worst_fk>FK_TOL: failures.append("the joints table's FK misses its pins by %.9f m" % worst_fk)
 	# C5: an intervening backwards seek must have no effect on the table either.

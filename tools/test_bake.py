@@ -641,10 +641,11 @@ def run(layout_path, score_path):
     # contacts are rows, so they land exactly
     worst = 0.0; nc = 0
     for e in rig.score['events']:
-        aid = e['actuator']
+        aid = e['actuator']; hd = rig._hand_digits(aid) >= 2
         for sid, t in zip(e['strings'], ST.motion_timing.string_times(e)):  # a roll's at its onsets
             nc += 1
-            worst = max(worst, float(np.linalg.norm(bake.felt(aid, t)-rig.contact(sid, e.get('pick')))))
+            pt = rig.contact(e['window_lo']) if hd and e.get('window_lo') else rig.contact(sid, e.get('pick'))
+            worst = max(worst, float(np.linalg.norm(bake.felt(aid, t)-pt)))
     check(worst < FLOAT32_M, f'every contact lands exactly: {nc} contacts, worst {worst:.1e} m')
     bad = {aid: a['unreachable'] for aid, a in h['arms'].items() if a['unreachable']}
     check(not bad, f'no arm is ever out of reach' + (f': {bad}' if bad else ''))

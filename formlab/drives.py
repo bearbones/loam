@@ -753,5 +753,13 @@ def manifest_drives(cfg):
             ratio=HAMMER_CAM['ratio'],
             cam_origin=[0.0, round(hl, 5), round(-sgn * HAMMER_CAM['d_cam'], 5)],
         )
+    elif kind == 'pick':
+        try:
+            from .hand import HAND_SPEC
+        except ImportError:
+            from hand import HAND_SPEC
+        out['wrist_flex'] = dict(HAND_SPEC['wrist_flex'])
+        out['splay'] = dict(HAND_SPEC['splay'])
+        out['tendons'] = dict(HAND_SPEC['tendon'])
     return out
 

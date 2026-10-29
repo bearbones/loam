@@ -88,7 +88,7 @@ ARM_CLEARANCE = 0.09
 harp = Mechanism.build("harp", "plucked", "steel", HARP_MIDIS,
         arms=3, overlap=4, span=1.6, pos=[0.0, 0.0, 0.0],
         approach_s=0.09, recover_s=0.05, travel_s=0.02,
-        pick_default=0.18, restrike_s=0.06)
+        pick_default=0.18, restrike_s=0.06, hands=4)
 # The neck fan: one scale degree per equal step, as a real harp is strung
 # (the neck's curve comes from the lengths), gathered into the triangular
 # frame — feet climb the diagonal soundboard from world y 0.66 to 2.30.
@@ -96,7 +96,7 @@ harp = Mechanism.build("harp", "plucked", "steel", HARP_MIDIS,
 # world against 0.27 m of arm, so neighbours sit three strings apart.
 harp.fan(width=0.34, power=1.0, by="index", smooth=2,
         rise=((0.66 - 2.05) / 3, (0.66 + 1.64 - 2.05) / 3))
-harp.arm_clearance = ARM_CLEARANCE
+harp.arm_clearance = 0.05
 rake = Mechanism.build("rake", "raked", "bronze", RAKE_MIDIS,
         arms=1, span=0.5, pos=[-1.4, 0.2, 0.3], arm_kind="rake",
         approach_s=0.15, recover_s=0.10, travel_s=0.0,

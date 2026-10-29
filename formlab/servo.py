@@ -366,9 +366,23 @@ def plan_pick(arm, jerk=True):
         if t1 > tc+1e-12:
             car.append(_st.Seg(tc, t1, _st.law_hold(P[0]), 'hold', 'hold', 'carriage', ev, cy=_st.law_hold(P[1]), cz=_st.law_hold(P[2])))
             tc = t1
+    def run_homing(after_j):
+        nonlocal P, tc
+        for hj, hlegs in (arm.homing or ()):
+            if hj != after_j: continue
+            for k_leg, (ha, hb, Q_tgt) in enumerate(hlegs):
+                hold_to(ha, -1)
+                Q = np.asarray(Q_tgt, float); D = Q-P; T = hb-ha; L = float(np.linalg.norm(D))
+                s = ScurveSeg(ha, hb, P, Q, 'home', -1,
+                              dict(travel=f'home_{after_j}_{k_leg}', p0=float(P[0]), p1=float(Q[0]),
+                                   D=[float(v) for v in D], go=ha, arrive=hb, hurried=False, jerk=SCURVE_J*L/T**3))
+                car.append(s); tc = hb; P = Q
+    run_homing(-1)
     for j, nt in enumerate(notes):
         Q = np.array([nt.x, nt.y, nt.z])
-        if np.max(np.abs(Q-P)) <= 1e-12: continue
+        if np.max(np.abs(Q-P)) <= 1e-12:
+            run_homing(j)
+            continue
         # the score schedules x alone (go = arrive when x stays): a move of the
         # contact's y/z only (another pick point on the same string, 0.6-78 mm)
         # leaves once the string is free (the last contact's t + recover_s:
@@ -395,13 +409,14 @@ def plan_pick(arm, jerk=True):
         # lands no sooner than servo_fast_s after it: both are issues here.
         scored = nt.arrive-nt.go > 1e-6
         free = notes[j-1].t+float(arm.recover) if j else -math.inf
-        if nt.style == 'poised' and scored:
+        after_home = bool(j and notes[j-1].release is not None and notes[j-1].release[1] <= tc+1e-9)
+        if nt.style == 'poised' and (scored or after_home):
             # need: the S-curve's least time over the 3-D chord (its peak speed and |a| ride L, as yz_s and
             # tools/test_servo.py's cap judge it; the x alone reads up to 1.92x short of L on the harps)
-            ta = max(nt.go, nt.rise[0]); need = motion_timing.servo_fast_s(float(np.linalg.norm(Q-P)))
+            ta = max(nt.go if scored else nt.rise[0], nt.rise[0]); need = motion_timing.servo_fast_s(float(np.linalg.norm(Q-P)))
             tb = nt.hold[0] if nt.hold[0]-ta >= need-1e-12 else nt.arrive
             if tb > nt.hold[0]+1e-12: issue(nt.t, 'poise under a moving carriage', window=nt.hold[0]-ta, need=need)
-            if ta > nt.go+1e-9: issue(nt.t, "travel leaves after the score's go", go=nt.go, ta=ta)
+            if scored and ta > nt.go+1e-9: issue(nt.t, "travel leaves after the score's go", go=nt.go, ta=ta)
         elif nt.style == 'poised' and j and notes[j-1].release is not None:
             tb = notes[j-1].release[1]; ta = max(tc, free, tb-yz_s(float(np.linalg.norm(Q-P)), H0))
         elif nt.style == 'poised':
@@ -425,6 +440,7 @@ def plan_pick(arm, jerk=True):
         car.append(s); tc = tb; P = Q
         nt.travel = k; nt.travel_window = (ta, tb); nt.travel_v = SCURVE_V*L/T; nt.travel_a = SCURVE_A*L/T**2; nt.hurried = s.extra['hurried']
         travels.append(dict(k=k, t0=ta, t1=tb, P0=s.P0, P1=s.P1, event=nt.event, style=nt.style, hurried=nt.hurried))
+        run_homing(j)
     hold_to(math.inf, -1)
     for s in car:
         if s.law == 'hold': s.extra['jerk'] = 0.0

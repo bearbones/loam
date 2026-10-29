@@ -560,6 +560,9 @@ class _Solver:
                 return start
         return None
 
+    def _digit_cycle(self, act: Actuator) -> float:
+        return max(act.approach_s + act.recover_s, 0.25 if act.kind == "pick" else 0.0)
+
     def _assign_fingers(self, w_lo: str, sids_in_group):
         """Given a hand placement at `w_lo` and a list of string IDs played
         in this placement, return `sid -> finger` (`0 .. digits - 1`) or None
@@ -614,10 +617,11 @@ class _Solver:
         dx0 = self.span_m(w_from0, w_cand)
         sids0 = [prev_notes[0][1]]
         if dx0 > 1e-9:
-            if _mt.hurried(act.kind, dx0, t0_hit - prev_head_free):
+            car_free0 = prev_head_free if _mt.contact_to_contact(act.kind) else prev_free
+            if _mt.hurried(act.kind, dx0, t0_hit - car_free0):
                 return None
             want = self.travel(act, w_from0, w_cand) + (_mt.still_s(act.kind, act.approach_s) - lead)
-            room = t_arr0 - prev_head_free
+            room = t_arr0 - car_free0
             tr = want if room >= want else room
             flr0 = _mt.floor_s(act.kind, dx0)
             if tr < flr0 - 1e-9:
@@ -647,10 +651,11 @@ class _Solver:
         fmap = self._assign_fingers(w_cand, prev_sids)
         if fmap is None:
             return None
+        d_cycle = self._digit_cycle(act)
         last_f_t = {}
         for pt, ps, _, _ in prev_notes:
             pf = fmap[ps]
-            if pf in last_f_t and pt - act.approach_s < last_f_t[pf] + act.recover_s - 1e-9:
+            if pf in last_f_t and pt < last_f_t[pf] + d_cycle - 1e-9:
                 return None
             last_f_t[pf] = pt
         trial_moves = list(moves[:first_move_idx])
@@ -775,19 +780,23 @@ class _Solver:
         #    look-ahead if all notes in the current group + sids[0] fit a
         #    single window that was feasible when the group began).
         if cur_w is not None:
+            d_cycle = self._digit_cycle(a)
             hand_is_free = (t - a.approach_s >= self.free_at[a.id] - 1e-9)
             prev_notes = self.placed_notes[a.id]
             if hand_is_free and prev_notes:
                 if (t - prev_notes[-1][0] >= 0.8 - 1e-9):
                     prev_notes = []
-                elif cur_w in self._cand_windows(a, sids) and self._assign_fingers(
-                        cur_w, [ns for _, ns, _, _ in prev_notes] + [sids[0]]) is None:
+                elif (t - prev_notes[-1][0] >= d_cycle - 1e-9
+                      and cur_w in self._cand_windows(a, sids)
+                      and self._assign_fingers(
+                          cur_w, [ns for _, ns, _, _ in prev_notes] + [sids[0]]) is None):
                     prev_notes = []
             prev_sids = [ns for _, ns, _, _ in prev_notes]
             refine_windows = [cur_w] if cur_w in self._cand_windows(a, sids, extra_sids=prev_sids) else []
-            for wc in self._cand_windows(a, sids, extra_sids=prev_sids):
-                if wc not in refine_windows:
-                    refine_windows.append(wc)
+            if prev_notes:
+                for wc in self._cand_windows(a, sids, extra_sids=prev_sids):
+                    if wc not in refine_windows:
+                        refine_windows.append(wc)
 
             for w_cand in refine_windows:
                 fmap = self._assign_fingers(w_cand, prev_sids + [sids[0]])
@@ -798,7 +807,7 @@ class _Solver:
                 last_f_t = {}
                 for pt, ps, _, _ in prev_notes + [(t, sids[0], -1, None)]:
                     pf = fmap[ps]
-                    if pf in last_f_t and pt - a.approach_s < last_f_t[pf] + a.recover_s - 1e-9:
+                    if pf in last_f_t and pt < last_f_t[pf] + d_cycle - 1e-9:
                         ok_digits = False
                         break
                     last_f_t[pf] = pt
@@ -851,7 +860,8 @@ class _Solver:
             f_cur = self._finger_for(w_to, sids[0])
             dx = self.span_m(w_from, w_to)
             want = self.travel(a, w_from, w_to) + (_mt.still_s(a.kind, a.approach_s) - lead)
-            room = arrive - self.head_free_at[a.id]
+            car_free = self.head_free_at[a.id] if _mt.contact_to_contact(a.kind) else self.free_at[a.id]
+            room = arrive - car_free
             tr = want if room >= want else room
             flr = _mt.floor_s(a.kind, dx)
             if tr < flr - 1e-9:
@@ -1017,7 +1027,8 @@ class _Solver:
             elif hand_was_free and prev_notes and retro is not True:
                 if (t - prev_notes[-1][0] >= 0.8 - 1e-9):
                     start_fresh = True
-                elif self._assign_fingers(w_to, [ns for _, ns, _, _ in prev_notes] + [sids[0]]) is None:
+                elif (t - prev_notes[-1][0] >= self._digit_cycle(act) - 1e-9
+                      and self._assign_fingers(w_to, [ns for _, ns, _, _ in prev_notes] + [sids[0]]) is None):
                     start_fresh = True
             if not start_fresh:
                 if retro is True and prev_notes:

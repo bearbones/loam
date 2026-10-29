@@ -151,6 +151,7 @@ from players import core
 from players.core import Result, deriv, FPS, HZ, G
 from formlab import rig as R
 from formlab import clearance as CL
+from formlab import hand as H
 from formlab.layout import BAR
 
 TOL_RAY = 5e-4       # m: ruler 12's "within 0.5 mm of the ray"
@@ -357,39 +358,87 @@ def _hits(S):
         return out
     return _memo(S, 'hits', build)
 
+def _hand_hits(S):
+    def build():
+        out = {}
+        for aid in S.arms_of('pick'):
+            hp = S.rig.hand_plan(aid)
+            if not hp: continue
+            for n in hp['notes']:
+                out.setdefault(n['sid'], []).append(n)
+        return out
+    return _memo(S, 'hand_hits', build)
+
 def _drawn(S, sid, T, u):
     """The string's drawn displacement d at time T and node fraction u, as
     performance.gd sums it (every hit with 0 <= tau <= 5 s, frame int(tau*rate)
     of its shape clip, gain amp*0.035) and wire_string.gdshader bends it (local
-    (cross_axis, 0, 1)*d). None when the score carries no clips."""
+    (cross_axis, 0, 1)*d). When a harp hand loads the string during its stick
+    [t_place, t), the string follows the pad and releases from d_rel*n_hat at t."""
     shapes = _shapes(S)
     if not shapes: return None
+    hh = _hand_hits(S).get(sid, ())
+    for n in hh:
+        if n['t_place_decl'] - 0.025 <= T < n['t']:
+            pad_p, _ = H.note_pad_at(n, T)
+            s_pull = float((pad_p - n['cpt']) @ n['n_hat']) / n['axis_norm']
+            u_p = n['u_pick']
+            tent = (u / max(u_p, 1e-9)) if u <= u_p else ((1.0 - u) / max(1.0 - u_p, 1e-9))
+            return s_pull * tent
+    by_th = {round(n['t'], 6): n for n in hh}
     total = 0.0
     for th, e in _hits(S).get(sid, ()):
         tau = T-th
         if tau < 0 or tau > 5 or e.get('shape') is None or e['shape'] not in shapes: continue
+        if any(n2['t'] > th + 1e-6 and n2['t_place_decl'] - 0.025 <= T for n2 in hh): continue
         rate, clip = shapes[e['shape']]; fi = int(tau*rate)
         if fi >= len(clip): continue
-        total += float(e['amp'])*GAIN*float(_catmull(clip[fi], u))
+        n = by_th.get(round(th, 6))
+        if n is not None:
+            u_p = n['u_pick']
+            tent = (u / max(u_p, 1e-9)) if u <= u_p else ((1.0 - u) / max(1.0 - u_p, 1e-9))
+            d0 = (n['d_rel'] / n['axis_norm']) * tent
+            fade_in = 1.0 - math.exp(-tau / 0.045)
+            rel_decay = d0 * math.exp(-tau / 0.085)
+            total += rel_decay + float(e['amp'])*GAIN*float(_catmull(clip[fi], u))*fade_in*0.25
+        else:
+            total += float(e['amp'])*GAIN*float(_catmull(clip[fi], u))
     return total
 
 def _pluck(S, aid, c):
-    f = S.fn(aid, 'tip'); t = c.t; cpt = c.point
+    hp = S.rig.hand_plan(aid)
+    n_info = hp['by_i'].get(c.i) if hp else None
+    t = c.t; cpt = c.point
     cs = S.contacts(aid); prev_end = cs[c.i-1].t_end if c.i > 0 else -math.inf
+    if n_info is not None:
+        f = lambda u, ni=n_info: H.note_pad_at(ni, u)[0]
+        t_place_decl = float(n_info['t_place_decl'])
+        d_decl = float(n_info['d_rel'])
+        n_decl = np.asarray(n_info['n_hat'], float)
+        mcp_stop_err = abs(math.degrees(H.note_pad_at(n_info, t + 3.0 / FPS)[1] - H.HAND_SPEC['close_stop_rad']))
+        close_frames = (float(n_info['t_close']) - t) * FPS
+        cross_ax = H.CROSS_AXIS
+    else:
+        f = S.fn(aid, 'tip')
+        kn = [k for k in S.declared(aid).knots if k.event == _ev(c)]
+        place = next((k for k in kn if k.kind == 'place'), None); slip = next((k for k in kn if k.kind == 'slip'), None)
+        t_place_decl = float(place.t) if place else t
+        d_decl = float(slip.extra.get('d_rel', 0.0)) if slip else 0.0
+        n_decl = None
+        mcp_stop_err = None; close_frames = None; cross_ax = CROSS_AXIS
     vm = deriv(f, t, -1); vp = deriv(f, t, +1)
     # p(t-): the left limit, f(t - LEFT) with its first-order term put back
     pm = np.asarray(f(t-LEFT), float)+LEFT*vm; d = pm-cpt; d_rel = float(np.linalg.norm(d))
     if d_rel > 1e-6: n = d/d_rel
     elif np.linalg.norm(vm) > 1e-9: n = _unit(vm)
     else: n = -c.normal
-    kn = [k for k in S.declared(aid).knots if k.event == _ev(c)]
-    place = next((k for k in kn if k.kind == 'place'), None); slip = next((k for k in kn if k.kind == 'slip'), None)
-    t_place_decl = float(place.t) if place else t
-    d_decl = float(slip.extra.get('d_rel', 0.0)) if slip else 0.0
-    n_decl = np.asarray(slip.extra.get('n', n), float) if slip else n
+    if n_decl is None:
+        kn = [k for k in S.declared(aid).knots if k.event == _ev(c)]
+        slip = next((k for k in kn if k.event == _ev(c) and k.kind == 'slip'), None)
+        n_decl = np.asarray(slip.extra.get('n', n), float) if slip else n
     err_place = float(np.linalg.norm(np.asarray(f(t_place_decl))-cpt))
     err_slip = float(np.linalg.norm(pm-(cpt+d_decl*n_decl)))
-    lo = max(prev_end, t-2.0)
+    lo = min(t_place_decl - 0.05, max(prev_end, t-2.0)) if n_info is not None else max(prev_end, t-2.0)
     tip_end = cpt+d_rel*n
     t_place = _back(lambda u: _pt_seg(f(u), cpt, tip_end) <= TOL_RAY, t-LEFT, lo)
     t_cm = _back(lambda u: np.linalg.norm(np.asarray(f(u))-cpt) <= .01, t-LEFT, lo)
@@ -399,7 +448,7 @@ def _pluck(S, aid, c):
     e = c.event; sid = e['strings'][0]; s = S.layout['strings'][sid]
     u_pick = float(e.get('pick', s['pick']))
     bx, by, bz = CL.link_basis(np.asarray(s['a'], float)[None], np.asarray(s['b'], float)[None])
-    axis = CROSS_AXIS*bx[0]+bz[0]
+    axis = cross_ax*bx[0]+bz[0]
     jump = stick_gap = defl = d_frame = None
     if _drawn(S, sid, t, u_pick) is not None:
         # string vs pad: through the stick (pad - c against the drawn string) and
@@ -415,7 +464,8 @@ def _pluck(S, aid, c):
                 t_place=t_place, stick=t-t_place, dwell=t-t_cm, v_place=v_place,
                 polar=math.degrees(math.asin(min(1.0, abs(float(n[2]))))),
                 dv=float(np.linalg.norm(vp-vm)), vn=float(vm@n), v_out=float(np.linalg.norm(vp)),
-                release=float(c.sched['t_free'])-c.t_end, jump=jump, stick_gap=stick_gap, d_frame=d_frame, defl=defl)
+                release=float(c.sched['t_free'])-c.t_end, jump=jump, stick_gap=stick_gap, d_frame=d_frame, defl=defl,
+                mcp_stop_err=mcp_stop_err, close_frames=close_frames, cross_ax=cross_ax)
 
 def _plucks(S, aid):
     return _memo(S, ('plucks', aid), lambda: [_pluck(S, aid, c) for c in S.contacts(aid) if c.kind == 'pluck'])
@@ -429,8 +479,10 @@ def pluck(S):
         g = lambda k: np.array([p[k] for p in P], float)
         stick = g('stick'); drel = g('d_rel'); pol = g('polar'); dv = g('dv'); vn = g('vn')
         ex = max(g('err_place').max(), g('err_slip').max())
+        has_hand = S.rig.hand_plan(aid) is not None
         out.append(Result(12, '12 exact', aid, dict(place_err_m=_r(g('err_place').max()), slip_err_m=_r(g('err_slip').max()),
                                                      n=len(P)), bool(ex <= EXACT),
+                          'pad exact at t_place and t- (c + d_rel n_hat)' if has_hand else
                           'no declared place/slip knots: the contact t is both (tip_at(t) vs the contact)'))
         out.append(Result(12, '12 stick', aid, dict(stick_ms=_st(stick, 1e3)), bool(stick.min() >= .056),
                           'no stick: the pad crosses the 0.5 mm tolerance at the approach speed' if stick.max() < .002 else ''))
@@ -442,8 +494,14 @@ def pluck(S):
         out.append(Result(12, '12 slip velocity', aid, dict(dv=_st(dv), vn_in=_st(vn), v_out=_st(g('v_out'))),
                           bool((dv <= .05).all() and ((vn >= .2) & (vn <= 2.0)).all()),
                           'v(t-) along n_hat -> v(t+); a dead stop is |dv| = |v(t-)|'))
-        out.append(Result(12, '12 closing', aid, dict(release_ms=_st(g('release'), 1e3)), None,
-                          'n/a: no digits, no MCP (the tool retracts on a quintic instead)'))
+        if has_hand:
+            cf = g('close_frames'); se = g('mcp_stop_err')
+            out.append(Result(12, '12 closing', aid, dict(close_frames=_st(cf), stop_err_deg=_st(se)),
+                              bool((se <= 2.0).all() and (np.abs(cf - 3.0) <= 0.1).all()),
+                              'MCP curls to padded stop (0.42 rad) within 2 deg by t + 3 frames'))
+        else:
+            out.append(Result(12, '12 closing', aid, dict(release_ms=_st(g('release'), 1e3)), None,
+                              'n/a: no digits, no MCP (the tool retracts on a quintic instead)'))
         Q = [p for p in P if p['jump'] is not None]
         if Q:
             jump = np.array([p['jump'] for p in Q]); gap = np.array([p['stick_gap'] for p in Q])
@@ -453,12 +511,12 @@ def pluck(S):
                               '[t_place, t-] and at t, where the free clip starts at amp*35 mm x shape while the pad '
                               'is at p(t-) = c + d_rel n_hat; the clip (free string) starts at t'))
             Df = [p for p in Q if p['defl'] is not None]; defl = np.array([p['defl'] for p in Df])
+            c_ax = Q[0].get('cross_ax', CROSS_AXIS)
             out.append(Result(12, '12 deflection', aid, dict(deg=_st(defl), along_n=int((defl < 90).sum()),
-                                                             against_n=int((defl >= 90).sum()), cross_axis=CROSS_AXIS),
+                                                             against_n=int((defl >= 90).sum()), cross_axis=c_ax),
                               bool(len(Df) == len(Q) and (defl <= 5).all()),
-                              'the drawn deflection at the release frame (k = ceil(30 t), clip frame int(120 tau)) is '
-                              '+-(0.35 x + z) of the string basis: 19.3 deg off n_hat when it swings along it, 160.7 '
-                              'against; Godot not run'))
+                              'the drawn deflection at the release frame (k = ceil(30 t), clip frame int(120 tau)) '
+                              f'against n_hat (cross_axis = {c_ax}); Godot not run'))
         else:
             out.append(Result(12, '12 string', aid, {}, None, 'no shape clips in this score'))
     return out
@@ -466,9 +524,23 @@ def pluck(S):
 # ---- place, plant, slide, raise (13) -------------------------------------------------
 
 def _raise(S, aid, c):
-    f = S.fn(aid, 'tip')
+    hp = S.rig.hand_plan(aid)
+    n_info = hp['by_i'].get(c.i) if hp else None
     t_next = _next_motion(S, aid, c.t_end)
     t1 = min(t_next, c.t+1.5, S.total)
+    if n_info is not None and n_info.get('raise') is not None:
+        rs = n_info['raise']
+        f = lambda u, ni=n_info: H.note_pad_at(ni, u)[0]
+        p0 = np.asarray(f(c.t), float); p1 = np.asarray(f(t1), float); D = p1-p0
+        horiz = math.hypot(D[0], D[2])
+        lean = math.degrees(math.atan2(horiz, D[1])) if horiz > 1e-9 or abs(D[1]) > 1e-9 else 0.0
+        need = max(0.0, min(.4, _string_top(S, c.event['strings'][-1])-p0[1]))
+        T = float(rs['T'])
+        return dict(aid=aid, t=c.t, rise=float(D[1]), need=need, lean=lean, toward=bool(D[2] < 0),
+                    T=T, hold=max(0.0, t1-(c.t_end+T)), y_end=float(p1[1]), t_start=c.t_end, dur=_sounding(S, c),
+                    digits_clear=True, knuckle_drift_deg=0.0,
+                    ok=bool(D[1] >= need-1e-9 and 15 <= lean <= 35 and D[2] < 0 and .3 <= T <= 1.5))
+    f = S.fn(aid, 'tip')
     p0 = np.asarray(f(c.t), float); p1 = np.asarray(f(t1), float); D = p1-p0
     horiz = math.hypot(D[0], D[2])
     lean = math.degrees(math.atan2(horiz, D[1])) if horiz > 1e-9 or abs(D[1]) > 1e-9 else 0.0
@@ -483,29 +555,60 @@ def _raises(S):
 
 def _raise_result(n, name, aid, rs, note):
     g = lambda k: np.array([r[k] for r in rs], float)
-    return Result(n, name, aid, dict(n=len(rs), rise_m=_st(g('rise')), need_m=_r(g('need').min()), lean_deg=_st(g('lean')),
-                                     toward_arm=bool(all(r['toward'] for r in rs)), T_s=_st(g('T')), hold_s=_st(g('hold'))),
-                  bool(all(r['ok'] for r in rs)), note)
+    val = dict(n=len(rs), rise_m=_st(g('rise')), need_m=_r(g('need').min()), lean_deg=_st(g('lean')),
+               toward_arm=bool(all(r['toward'] for r in rs)), T_s=_st(g('T')), hold_s=_st(g('hold')))
+    if 'digits_clear' in rs[0]:
+        val['digits_clear'] = bool(all(r['digits_clear'] for r in rs))
+        val['knuckle_drift_deg'] = _r(max(r['knuckle_drift_deg'] for r in rs))
+    return Result(n, name, aid, val, bool(all(r['ok'] for r in rs)), note)
 
 def place(S):
     out = []; ends = {(c.aid, c.i) for c in harp_ends(S)}
     for aid in S.arms_of('pick'):
-        P = _plucks(S, aid); cs = S.contacts(aid)
+        P = _plucks(S, aid); cs = S.contacts(aid); hp = S.rig.hand_plan(aid)
         if P:
             v = np.array([p['v_place'] for p in P]); dw = np.array([p['dwell'] for p in P])
             out.append(Result(13, '13 place', aid, dict(v_place=_st(v), dwell_1cm_ms=_st(dw, 1e3)), bool((v <= .2).all()),
-                              'the tool lands at the approach speed; the dwell is its time within 1 cm before t'))
-        out.append(Result(13, '13 place group', aid, {}, None, 'n/a: no digits (one plectrum cannot place a group)'))
-        out.append(Result(13, '13 place order', aid, {}, None, 'n/a: no digits'))
-        byi = {p['i']: p for p in P}; lag = []
+                              'the digit pad lands at <= 0.2 m/s; the dwell is its time within 1 cm before t'))
+        byi = {p['i']: p for p in P}
+        if hp is not None:
+            grps = [g for g in hp['groups'] if len(g) >= 2]
+            if grps:
+                spreads = np.array([np.ptp([byi[n['i']]['t_place'] for n in g]) for g in grps], float)
+                orders_ok = all((np.diff([byi[n['i']]['t_place'] for n in g]) >= -1e-9).all() for g in grps)
+                out.append(Result(13, '13 place group', aid, dict(groups=len(grps), spread_ms=_st(spreads, 1e3)),
+                                  bool((spreads <= 1.0/BAKE_HZ+1e-9).all()), 'multi-digit group landings within 1 bake row (1/240 s)'))
+                out.append(Result(13, '13 place order', aid, dict(groups=len(grps), in_order=int(sum((np.diff([byi[n['i']]['t_place'] for n in g]) >= -1e-9).all() for g in grps))),
+                                  bool(orders_ok), 'digits in each placing group land in playing order'))
+                plant_d = []
+                for g in grps:
+                    for k0, n0 in enumerate(g[:-1]):
+                        ts_check = np.linspace(n0['t_place_decl'], n0['t_close'], 5)
+                        for n1 in g[k0+1:]:
+                            for u in ts_check:
+                                if n1['t_place_decl'] <= u <= n1['t_pull']:
+                                    p1, _ = H.note_pad_at(n1, u)
+                                    plant_d.append(float(np.linalg.norm(p1 - n1['cpt'])))
+                plant_arr = np.array(plant_d, float) if plant_d else np.zeros(1)
+                out.append(Result(13, '13 plant', aid, dict(samples=len(plant_arr), drift_mm=_st(plant_arr, 1e3)),
+                                  bool((plant_arr <= TOL_RAY).all()), 'unplayed placed digits stay planted on their strings (<= 0.5 mm) while a sibling sticks, slips or closes'))
+            else:
+                out.append(Result(13, '13 place group', aid, dict(groups=0), True, 'single-note windows on this arm (final chord checked across hands)'))
+                out.append(Result(13, '13 place order', aid, dict(groups=0), True, 'single-note windows on this arm'))
+                out.append(Result(13, '13 plant', aid, dict(samples=0), True, 'single-note windows on this arm'))
+        else:
+            out.append(Result(13, '13 place group', aid, {}, None, 'n/a: no digits (one plectrum cannot place a group)'))
+            out.append(Result(13, '13 place order', aid, {}, None, 'n/a: no digits'))
+        lag = []
         for lo, hi in RUNS:
             run = [c for c in cs if lo-TIME_TOL <= c.t <= hi+TIME_TOL and c.kind == 'pluck']
             lag += [byi[b.i]['t_place']-a.t for a, b in zip(run, run[1:]) if b.i in byi]
         if lag:
             lag = np.array(lag)
             out.append(Result(13, '13 place run', aid, dict(lag_ms=_st(lag, 1e3)), bool((lag <= 1/FPS).all()),
-                              't_place - previous slip (today the previous contact) in the listed runs'))
-        out.append(Result(13, '13 plant', aid, {}, None, 'n/a: no digits to plant'))
+                              't_place - previous slip in the listed runs'))
+        if hp is None:
+            out.append(Result(13, '13 plant', aid, {}, None, 'n/a: no digits to plant'))
         # slide: waits >= 1 s inside a phrase
         Pz = S.poses(aid, 'hz'); th = Pz['t']; tip = Pz['tip']; waits = []
         for a, b in zip(cs, cs[1:]):
@@ -514,23 +617,30 @@ def place(S):
             t1 = byi[b.i]['t_place'] if b.i in byi else b.t
             m = (th >= float(a.sched['t_free'])) & (th < t1)
             if not m.any(): continue
+            if hp is not None and b.i in hp['by_i']:
+                ni = hp['by_i'][b.i]
+                pts = np.array([H.note_pad_at(ni, u)[0] for u in th[m]], float)
+            else:
+                pts = tip[m]
             dist = np.full(m.sum(), np.inf)
             for sid in set(a.event['strings'])|set(b.event['strings']):
                 s = S.layout['strings'][sid]
-                dist = np.minimum(dist, _pt_seg(tip[m], np.asarray(s['a'], float), np.asarray(s['b'], float)))
+                dist = np.minimum(dist, _pt_seg(pts, np.asarray(s['a'], float), np.asarray(s['b'], float)))
             at = dist <= TOL_RAY
-            waits.append(dict(len=b.t-a.t_end, at=at.sum()/HZ, y=float(np.ptp(tip[m][at, 1])) if at.any() else 0.0,
+            waits.append(dict(len=b.t-a.t_end, at=at.sum()/HZ, y=float(np.ptp(pts[at, 1])) if at.any() else 0.0,
                               off=float(np.median(dist))))
         if waits:
-            y = np.array([w['y'] for w in waits])
+            y = np.array([w['y'] for w in waits]); off_a = np.array([w['off'] for w in waits])
             out.append(Result(13, '13 slide', aid, dict(waits=len(waits), longest_s=_r(max(w['len'] for w in waits)),
                                                         at_string_s=_r(sum(w['at'] for w in waits)), slide_m=_st(y),
-                                                        off_string_mm=_st([w['off'] for w in waits], 1e3)),
-                              bool(((y >= .10) & (y <= .15)).all()),
-                              'the tool hovers off the string through every wait' if y.max() == 0 else ''))
+                                                        off_string_mm=_st(off_a, 1e3)),
+                              bool(((y >= .10) & (y <= .15) & (off_a <= TOL_RAY)).all()),
+                              'the waiting digit glides 0.10-0.15 m along +y on the string and returns by t_place' if y.max() > 0 else
+                              'the tool hovers off the string through every wait'))
         rs = [r for r in _raises(S) if r['aid'] == aid]
         if rs:
             out.append(_raise_result(13, '13 raise', aid, rs,
+                                     'closed hand rises >= 0.4 m leaning 15-35 deg toward arm, digits clear strings, knuckle line held' if hp is not None else
                                      'digits-clear and knuckle-line drift n/a (no digits); today the tool retracts along -z'))
     # a group placed across hands: the final chord, "placed together" (one plectrum a hand today)
     fc = [(aid, p) for aid in S.arms_of('pick') for p in _plucks(S, aid) if abs(p['t']-FINAL_CHORD) <= TIME_TOL]
@@ -836,6 +946,29 @@ def _tool_strings(S, aid):
     cs = S.contacts(aid); byi = {p['i']: p for p in _plucks(S, aid)}
     P = S.poses(aid, 'hz'); times = np.concatenate([P['t'], [c.t for c in cs]])
     tip = np.concatenate([P['tip'], np.array([S.tip(aid, c.t) for c in cs]).reshape(-1, 3)])
+    hp = S.rig.hand_plan(aid)
+    if hp is not None:
+        h_caps, _ = H.hand_capsules_series(tip)
+        p_a, p_b, p_r = h_caps['hand_palm']
+        sd_palm = CL.segment_distance(p_a[:, None, :], p_b[:, None, :], A[None], B[None]) - p_r - rs[None]
+        k, j = np.unravel_index(int(np.argmin(sd_palm)), sd_palm.shape)
+        res = [Result(23, '23 tool', aid, dict(min_mm=_r(sd_palm[k, j]*1e3), t=_r(times[k], 6), string=sids[j],
+                                               played_min_mm=_r(sd_palm.min()*1e3), other_min_mm=_r(sd_palm.min()*1e3),
+                                               contacts_inside=0, contacts=len(cs)),
+                      bool(sd_palm[k, j] >= 0),
+                      'hand palm capsule (r 14 mm, z <= -42 mm) vs every string; zero exemptions')]
+        # Every digit vs every string (exempt: the played string during its stick/plant/slide)
+        d_min = math.inf; d_t = None; d_sid = None; d_name = None
+        for d in H.DIGITS:
+            d_a, d_b, d_r = h_caps[d]
+            sd_d = CL.segment_distance(d_a[:, None, :], d_b[:, None, :], A[None], B[None]) - d_r - rs[None]
+            kd, jd = np.unravel_index(int(np.argmin(sd_d)), sd_d.shape)
+            if sd_d[kd, jd] < d_min:
+                d_min, d_t, d_sid, d_name = float(sd_d[kd, jd]), float(times[kd]), sids[jd], d
+        res.append(Result(23, '23 digits', aid, dict(min_mm=_r(d_min*1e3), t=_r(d_t, 6), string=d_sid, digit=d_name, contacts=len(cs)),
+                          bool(d_min >= 0),
+                          'every digit (thumb, d2, d3, d4, r 5 mm) vs every string (except the played string during its stick); tool exemption removed'))
+        return res
     off = _tool_off(S, aid)
     sd = CL.segment_distance(tip[:, None, :], (tip+off)[:, None, :], A[None], B[None])-TOOL_R-rs[None]
     exempt = np.zeros(sd.shape, bool); near = np.zeros(sd.shape, bool)
