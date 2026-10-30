@@ -203,8 +203,11 @@ ARRIVE_POS, ARRIVE_SKEW = 1e-6, 1/480
 # the first note: rest at the hover, an anticipatory dip below it, wind up to the prep, park, traverse under the parked head, hold, strike
 SETTLE_S, FIRST_RISE_S = 0.4, 0.7   # the first rise lasts at least FIRST_RISE_S (more where its wind-up wants W_RATE)
 FIRST_DIP, FIRST_DIP_FRAC, FIRST_FLOOR = 0.15, 0.35, 0.05   # the first note's anticipatory dip: (h - hover) x FIRST_DIP below the hover, over FIRST_DIP_FRAC of the rise
-# after the last note: one bounce loop, a raise to H_END (>= 1.5 x the tempo apex), the park
+# after the last note: one bounce loop, a raise to H_END (>= 1.5 x the tempo apex), the park, and the ensemble ending
 H_END, END_RAISE_S = 0.42, 0.6
+H_END_SETTLE, END_S = 0.425, 1.25
+PHRASE_ENDS = (56.79, 68.21, 75.71)
+PHRASE_END_E, PHRASE_END_AF_G = 0.44, 1.0
 # the arc and the declared virtual pin, per kind (one value for every arm of the kind)
 ARC = {'mallet': dict(rho=0.16, k=1.2), 'hammer': dict(rho=0.16, k=1.2)}
 R_PIN = 0.40
@@ -212,8 +215,8 @@ R_PIN = 0.40
 # faded by a 3-4-5 from RING_FADE of the dwell to its end, so it is spent before the next step moves.
 # formlab.rig re-exports OVERSHOOT, RING_HZ and RING_TAU (its hammer ratchet rings the same).
 OVERSHOOT = .10
-RING_HZ = 14.0
-RING_TAU = .09
+RING_HZ = 4.5
+RING_TAU = .080
 RING_FADE = 0.5
 # the pawl: it drops into each tooth below PAWL_RIDE teeth/s and rides the rack above;
 # pawl_ride(t) is a smoothstep of the tooth rate over PAWL_RIDE_BAND
@@ -501,6 +504,7 @@ class ArmIn:
     sigma: float                # sign(root_z - z_c): the arc's side
     homing: list = field(default_factory=list)   # [(t0, t1, what, a, b)] from Rig.homes(...)[k][4]
     joint_spans: dict = None    # {'elbow': rad, 'shoulder': rad} (ruler 16's IK spans), None: HOME_SPAN_GUESS
+    t_return: float = -math.inf # the score's last onset (the ensemble ending settle starts there)
     kind: str = 'mallet'
     name: str = ''              # for issue labels only
 
@@ -1141,12 +1145,19 @@ class _Planner:
         t_end = nl.t+_top_catch(v0, af)[3]+REST_MIN+END_RAISE_S
         shape = self._rise_alone(nl, nl, v0, af, t_end, t_end, H_END, rest_s=END_RAISE_S)
         self._build_rise(nl, nl, shape, v0, af, H_END, None, None, tag='raise')
-        B.H(np.inf, 'hold', 'hold', nl.event, (H_END,), hold='park')
+        if math.isfinite(arm.t_return) and arm.t_return >= B.th+REST_MIN:
+            B.H(arm.t_return, 'hold', 'hold', nl.event, (H_END,), hold='park')
+            B.H(arm.t_return+END_S, '3-4-5', 'wind-up', -1, (H_END, H_END_SETTLE))
+            B.H(np.inf, 'hold', 'hold', nl.event, (H_END_SETTLE,), hold='park')
+        else:
+            B.H(np.inf, 'hold', 'hold', nl.event, (H_END,), hold='park')
         self.hold_x(np.inf, nl.x, (nl.y, nl.z))
         # ---- knots, jerk, the result
-        for n in N:
-            self.knots.append(Knot(n.t, 'contact', np.array([0.0, (1+n.e)*n.v_in, 0.0]), n.event,
-                                   dict(v_in=n.v_in, e=n.e)))
+        for i, n in enumerate(N):
+            gate = N[i+1].t_apex if i+1 < len(N) else math.inf
+            ex = dict(v_in=n.v_in, e=n.e, energy=n.amp, x=n.x)
+            if math.isfinite(gate): ex['gate_end'] = gate
+            self.knots.append(Knot(n.t, 'contact', np.array([0.0, (1+n.e)*n.v_in, 0.0]), n.event, ex))
         st = ArmStroke(arm, B.head, B.car, None, N, self.travels, self.landings, self.joints, self.issues, self.rho, self.k)
         imp = sorted(k.t for k in self.knots if k.kind in ('contact', 'detent'))
         imp = np.array(imp) if imp else np.zeros(0)
@@ -1236,7 +1247,10 @@ class _Planner:
             return
         # ---- the bounce loop before a hold: the float, a rise (flowing, or after a rest) to the park, the
         # traverse, the cocked hold, the downstroke from rest
-        e = E_LOOP_KIND.get(self.arm.kind, E_LOOP); af = AF_LOOP_G*G; v0 = e*vp; h1 = v0*v0/(2*af)
+        phr_end = self.arm.kind == 'mallet' and any(abs(pv.t-T) <= .015 for T in PHRASE_ENDS)
+        e = PHRASE_END_E if phr_end else E_LOOP_KIND.get(self.arm.kind, E_LOOP)
+        af = (PHRASE_END_AF_G if phr_end else AF_LOOP_G)*G
+        v0 = e*vp; h1 = v0*v0/(2*af)
         pv.e, pv.a_f, pv.float_apex = e, af, h1
         Td, ok = t_down_long(h, cu.v_in, 0.0, self.rho, self.k)
         if not ok: self.issue(t1, 'downstroke infeasible', h=h)
@@ -1271,12 +1285,12 @@ class _Planner:
         # leaves under the loop it coasts up under the steps (_under). A
         # freewheel's rise is coordinated with it instead (_coordinate).
         if regime == 'still':
-            shape = self._rise_alone(pv, cu, v0, af, t_hs, t_hs, h); cu.style = 'park'
+            shape = self._rise_alone(pv, cu, v0, af, t_hs, t_hs, h, rest_s=END_RAISE_S if phr_end else None); cu.style = 'park'
         elif regime == 'step' and not under:
             # the head rises to the park as the carriage leaves; the carriage steps under it
             room = t_hs-max(go, t_c+W_MIN)
             per = motion_timing.stepped_period(dx, room); ta = t_hs-n*per
-            shape = self._rise_alone(pv, cu, v0, af, ta, t_hs, h); cu.style = 'S2 step'
+            shape = self._rise_alone(pv, cu, v0, af, ta, t_hs, h, rest_s=END_RAISE_S if phr_end else None); cu.style = 'S2 step'
         elif regime == 'step':
             # the toll under the loop: the traverse fills its window from go, and the float hands
             # over, still rising, to a coast that climbs under the steps and stops at the prep with
@@ -1286,7 +1300,8 @@ class _Planner:
             cu.style = 'step under the loop'
         else:
             ta, shape, cu.style, glide = self._coordinate(pv, cu, dx, go, v0, af, t_hs, h, yz0, yz1)
-        self._build_rise(pv, cu, shape, v0, af, h, t_hs, t_he)
+        r_tag = 'raise' if phr_end else 'wind-up'
+        self._build_rise(pv, cu, shape, v0, af, h, t_hs, t_he, tag=r_tag)
         if regime != 'still':
             tid = self.travel(pv.x, yz0, cu.x, yz1, ta, t_hs, regime, cu.event, glide=glide, window=(go, t_hs))
             cu.travel = tid; cu.travel_window = (ta, t_hs); cu.hurried = self.travels[tid]['hurried']

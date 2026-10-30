@@ -1054,13 +1054,27 @@ def _mallet_end(S, aid, c, apex):
     ts = np.arange(c.t_end, t_stop, 1/HZ)
     h = np.array([float((np.asarray(f(u))-c.point)@c.normal) for u in ts]); w = int(round(3*HZ/FPS))
     if len(h) > w:
-        win = np.lib.stride_tricks.sliding_window_view(h, w+1).min(axis=1); k = int(np.argmax(win)); held = float(win[k])
+        win = np.lib.stride_tricks.sliding_window_view(h, w+1)
+        wmin = win.min(axis=1); wmax = win.max(axis=1); still = (wmax-wmin) <= 1e-3
+        k = int(np.argmax(wmin)); held = float(wmin[k])
         lift = float(h[k+w:].max()-held)
+        if lift <= .01:
+            r_s = [s for s in _segs(S, aid) if s.extra.get('channel') == 'head' and s.tag == 'raise' and c.t_end <= s.t0 < t_stop]
+            if r_s:
+                h_r0 = float((np.asarray(f(r_s[0].t0))-c.point)@c.normal)
+                lift = max(lift, held-h_r0)
+            elif np.any(still[:k]):
+                lo_still = float(wmin[:k][still[:k]].min())
+                lift = max(lift, held-lo_still)
     else: held = float(h.min()) if len(h) else 0.0; lift = 0.0; k = 0
     need = 1.5*apex if apex is not None else math.nan
+    prep_fn = S.declared(aid).prep
+    if prep_fn is not None and math.isfinite(t_next):
+        nxt = next((x for x in S.contacts(aid) if x.t > c.t+1e-6), None)
+        if nxt is not None: need = min(need, float(prep_fn(nxt.a, nxt.ioi)))
     T = _park(S, aid, c.t_end, t_next)-c.t_end
     return dict(aid=aid, t=c.t, held=held, need=need, lift=lift, T=T, dur=_sounding(S, c),
-                ok=bool(apex is not None and held >= need and len(h) > w and lift > .01))
+                ok=bool(apex is not None and held >= need-1e-6 and len(h) > w and lift > .01))
 
 def _give_back(S, aid, c, sw, t_rest, sense=+1):
     """D9 (PLAYERS A27): the most the rake's path gives back of its running

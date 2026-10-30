@@ -1,3 +1,44 @@
+## 2026-10-30 — PLAYERS M10: Settles, phrase ends and the ending
+
+Retuned all contact and detent rings into the 30 fps legible band ($f \le 6\text{ Hz}$,
+$\zeta \ge 0.40$) ordered strictly by part mass, completed phrase-end releases
+for all mallet holders, and synchronized the ensemble ending across all 6
+(`clockwork`) and 9 (`clockwork_expanded`) arms at frame 2395 ($t = 79.821429\text{ s}$):
+
+- **Declared & retuned rings** (`formlab/stroke.py`, `formlab/rig.py`,
+  `harness/performance.gd`, `tools/players/r_machine.py`):
+  - Retuned `RING_HZ = 4.5` Hz, `RING_TAU = 0.080` s ($\zeta = 0.442$),
+    `RECOIL` (`x = [0.004, 6.0, 0.060]`, `z = [0.0025, 6.0, 0.060]`,
+    `bounce = [0.06, 6.0, 0.060]`, $\zeta = 0.442$), `RAIL_SAG = [0.001, 4.5, 0.080]`
+    ($\zeta = 0.442$), `STAND_THUMP = [0.0015, 3.5, 0.105]` ($\zeta = 0.433$),
+    and `MAST_SWAY = [0.0003, 2.5, 0.150]` ($\zeta = 0.424$).
+  - Annotated `'contact'` knots in `stroke.py` with `energy`, `x`, and
+    `gate_end`, and added `gate`, `sign`, and `span` to `Rig.declared(aid)`.
+  - Removed the undeclared harness-only element ring in `harness/performance.gd`
+    so `20 match` has $0.0\text{ mm}$ residual across all arms and stands.
+  - Verified `20 heavier lower`: 0 inversions across `tool` ($0.28 / 0.59\text{ kg}$
+    at $6.0\text{ Hz}$) $<$ `carriage` ($25.38\text{ kg}$ at $4.5\text{ Hz}$) $<$
+    `stand` ($93.43 / 73.40\text{ kg}$ at $3.5\text{ Hz}$) $<$ `gantry`
+    ($618.5 / 639.3\text{ kg}$ at $2.5\text{ Hz}$).
+- **Mallet phrase-end releases & ensemble ending** (`formlab/stroke.py`,
+  `formlab/rake.py`, `formlab/rig.py`, `tools/players/r_strings.py`):
+  - At listed mallet phrase ends (`PHRASE_ENDS = (56.79, 68.21, 75.71)`),
+    `stroke.py` uses `PHRASE_END_E = 0.44`, `PHRASE_END_AF_G = 1.0` so each
+    phrase-end rebound catches below its held park, lifts by $0.161\text{–}0.276\text{ m}$
+    into a declared `'raise'` to the held park ($0.338\text{ m}$ at $56.79\text{ s}$,
+    $0.300\text{ m}$ at $68.21\text{ s}$, $0.420\text{ m}$ at $75.71\text{ s}$),
+    and holds for $\ge 3$ frames (`24 release` and `24 spearman` $\rho = 0.866$
+    pass on both assets).
+  - After the coda raise, every mallet arm holds $0.420\text{ m}$ until the
+    final chord at $t_{\text{return}} = 78.571429\text{ s}$ and settles via a
+    $1.25\text{ s}$ `3-4-5` curve to `H_END_SETTLE = 0.425` m at $79.821429\text{ s}$
+    (frame `2395`), matching the 3 harp hands' final chord raise (`END_S = 1.25` s)
+    and `rake_arm0`'s return home (`END_S = 1.25` s; `24 ending` `start_skew_frames = 0`,
+    `end_spread_cm = 0.0`, `worst_offset_s = 0.0`).
+- **Ruler & invariant results**:
+  - Every gated ruler across M0..M10 and all 18 invariants in Ruler 26 pass on
+    both `chamber` and `expanded`.
+
 ## 2026-10-29 — PLAYERS M9: The rake's hand and pendulum
 
 Equipped `rake_arm0` on both `clockwork` and `clockwork_expanded` with the open

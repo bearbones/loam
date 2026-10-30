@@ -53,7 +53,7 @@ CLICK_MOVE = .4
 OVERSHOOT = stroke.OVERSHOOT; RING_HZ = stroke.RING_HZ; RING_TAU = stroke.RING_TAU
 SCURVE_RAMP = servo.SCURVE_RAMP   # the servo S-curve's ramp share (formlab/servo.py owns it; re-exported for the harness mirror)
 COCK = .5; COCK_AT = .4
-RECOIL = dict(x=[.004, 11.0, .14], z=[.0025, 17.0, .10], bounce=[.06, 8.0, .16]); RECOIL_GATE = .08
+RECOIL = dict(x=[.004, 6.0, .060], z=[.0025, 6.0, .060], bounce=[.06, 6.0, .060]); RECOIL_GATE = .08
 # (a mallet keeps the x and z rings; its |sine| 'bounce' is retired, PLAYERS M1:
 # the head's rebound is the scored float now. 'bounce' stays importable.)
 PAD = motion_timing.OCC_PAD   # m: kept over arm_clearance_m (loam.score carries it for servo-profiled arms)
@@ -75,9 +75,9 @@ HAMMER = dict(head_l=.31, head_r=.068, arm_share=.30, cock=.02, check=[.10, 12.5
 # driven from the recoil bus (Rig._bus). The stand and the gantry are fixed
 # forms as far as the rulers are concerned; the RAIL sag moves the carriage and
 # so every capsule of the arm, which is why it is mirrored here.
-STAND_THUMP = [.0015, 9.0, .12]   # the instrument's stand, vertically (m)
-RAIL_SAG = [.001, 12.0, .15]      # the rail's first bending mode, at mid-span (m)
-MAST_SWAY = [.0003, 6.0, .30]     # the gantry swaying about its plinths (rad)
+STAND_THUMP = [.0015, 3.5, .105]  # the instrument's stand, vertically (m)
+RAIL_SAG = [.001, 4.5, .080]      # the rail's first bending mode, at mid-span (m)
+MAST_SWAY = [.0003, 2.5, .150]    # the gantry swaying about its plinths (rad)
 BLOW_DROP_REF = .33               # a full blow: 0.22 m of lift risen COCK again
 SHUDDER_GAIN = 1.0                # ...all three together: the one dial to tune by eye
 SHUDDER_TAIL = 1.0                # a ring is spent this long after its blow
@@ -543,6 +543,7 @@ class Rig:
                              go=float(s['go']), event=int(s['event'].get('i', i)), amp=float(s['event'].get('amp', 1.0)))
                 for i, s in enumerate(self.sched[aid])]
         hm = self.homes(aid, self.joint_site(aid))
+        t_ret = max((max(motion_timing.string_times(e)) for e in self.score['events']), default=-np.inf)
         # joint_spans=None: the plan holds the head at the hover through each
         # joint window and only sketches the legs (st.joints, HOME_SPAN_GUESS);
         # the Rig turns the real ones from the cfg at pose time (_home_joints),
@@ -550,7 +551,7 @@ class Rig:
         # search has placed any root).
         return stroke.ArmIn(hits=hits, home=tuple(float(v) for v in home), hover=float(self.clearance(aid)[1]),
                             sigma=self._sigma(aid), homing=hm[0][4] if hm else [], joint_spans=None,
-                            kind=self.acts[aid]['kind'], name=aid)
+                            t_return=float(t_ret), kind=self.acts[aid]['kind'], name=aid)
 
     def _servo_input(self, aid):
         """A pick arm's plan inputs (formlab.servo.PickIn) from the schedule:
@@ -1243,10 +1244,11 @@ class Rig:
         if not self.stepped(aid):
             # a servo: nothing rings (no recoil, no shudder bus, no detent: segments._rings_today's servo)
             return SEG.Declared(segs, knots, [], st.prep, native=True)
-        rings = [dict(name=f'recoil.{a}', channel='tip', amp=RECOIL[a][0], f=RECOIL[a][1], tau=RECOIL[a][2]) for a in ('x', 'z')]
-        rings += [dict(name='stand_thump', channel='stand', amp=STAND_THUMP[0], f=STAND_THUMP[1], tau=STAND_THUMP[2]),
-                  dict(name='rail_sag', channel='root', amp=RAIL_SAG[0], f=RAIL_SAG[1], tau=RAIL_SAG[2]),
-                  dict(name='mast_sway', channel='mast', amp=MAST_SWAY[0], f=MAST_SWAY[1], tau=MAST_SWAY[2]),
+        lo, hi = self.rail_span(aid) if 'reach_x' in self.geometry['arms'][aid] else (0.0, 1.0)
+        rings = [dict(name=f'recoil.{a}', channel='tip', amp=RECOIL[a][0], f=RECOIL[a][1], tau=RECOIL[a][2], gate=RECOIL_GATE) for a in ('x', 'z')]
+        rings += [dict(name='stand_thump', channel='stand', amp=STAND_THUMP[0], f=STAND_THUMP[1], tau=STAND_THUMP[2], sign=-1.0, gate=RECOIL_GATE),
+                  dict(name='rail_sag', channel='root', amp=RAIL_SAG[0], f=RAIL_SAG[1], tau=RAIL_SAG[2], sign=-1.0, gate=RECOIL_GATE, span=[lo, hi]),
+                  dict(name='mast_sway', channel='mast', amp=MAST_SWAY[0], f=MAST_SWAY[1], tau=MAST_SWAY[2], sign=-1.0, gate=RECOIL_GATE),
                   dict(name='detent', channel='root.x', amp=OVERSHOOT*PITCH, f=RING_HZ, tau=RING_TAU, fade='3-4-5')]
         prep = stroke.prep if self.mallet(aid) else (lambda a, ioi, k=self.acts[aid]['kind']: stroke.prep(a, ioi, k))
         return SEG.Declared(segs, knots, rings, prep, native=True)

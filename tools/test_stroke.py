@@ -137,7 +137,8 @@ def rings_and_path(rig, aid):
     diff = max(float(np.abs(rig.path_at(aid, t)-st.p(t)).max()) for t in ts[~inj])
     check(diff == 0.0, f'{aid}: path_at is the stroke\'s ring-free path outside the homing joint legs ({len(ts)} samples)')
     hits = [float(s['hit']) for s in sched]
-    tip = max(float(np.linalg.norm(rig.pose(aid, s['hit'])['tip']-s['first'])) for s in sched)
+    wpt = lambda s: rig.contact(s['event']['window_lo']) if (rig._hand_digits(aid) >= 2 and s['event'].get('window_lo')) else s['first']
+    tip = max(float(np.linalg.norm(rig.pose(aid, s['hit'])['tip']-wpt(s))) for s in sched)
     rz = max(float(np.linalg.norm(rig.recoil(aid, t))) for t in hits)
     check(tip < 1e-12 and rz == 0.0, f'{aid}: the posed tip is on every contact ({tip:.1e} m) and the recoil exactly zero there')
     N = sorted(st.notes, key=lambda n: n.t)

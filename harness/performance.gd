@@ -750,14 +750,6 @@ func evaluate(t: float) -> void:
 			var mat: ShaderMaterial=child.material_override
 			mat.set_shader_parameter("disp",displacement); mat.set_shader_parameter("envelope",envelope)
 			mat.set_shader_parameter("excitation",excitation)
-	for sid in hits:
-		if not layout["strings"][sid]["struck"]: continue
-		var energy := 0.0
-		for hit in hits[sid]:
-			var tau := t-float(hit["t"])
-			if tau>=0 and tau<3: energy+=float(hit["event"]["amp"])*exp(-tau*8)*sin(tau*80)
-		var element: Node3D=model.find_child(sid+" bar",true,false)
-		if element!=null: element.position.y=MotionBake.v(layout["strings"][sid]["a"]).y-.055+energy*.006
 	var lamp: MeshInstance3D=model.find_child("chamber__lamp",true,false)
 	lamp.scale=Vector3.ONE
 	look.breathe(score.envelope_at("chamber",t))

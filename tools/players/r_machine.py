@@ -877,6 +877,33 @@ def _declared_detent(ts, knots, p):
         out[m] += float(sg)*amp*np.exp(-u[m]/tau)*np.sin(2*np.pi*f*u[m])*w
     return out
 
+def _declared_contact(ts, knots, p, x=None):
+    """A declared contact ring summed over its contact knots when `p` declares
+    its gate/sign/span and the knots carry their blow energy and gate_end."""
+    out = np.zeros(len(ts)); amp, f, tau = float(p['amp']), float(p['f']), float(p['tau'])
+    sgn = float(p.get('sign', 1.0)); gate_s = p.get('gate'); span = p.get('span')
+    use_energy = p['name'] in ('stand_thump', 'rail_sag', 'mast_sway')
+    tail = RIG.SHUDDER_TAIL if use_energy else 10*tau
+    here = 1.0
+    if span is not None and x is not None:
+        lo, hi = float(span[0]), float(span[1]); L = max(hi-lo, .001)
+        here = np.sin(np.pi*np.clip((x-lo)/L, 0.0, 1.0))
+    for k in knots:
+        tk = float(k.t); u = ts-tk; ge = float(k.extra.get('gate_end', np.inf))
+        m = (u >= 0) & (u <= tail) & (ts < ge if gate_s else True)
+        if not m.any(): continue
+        en = float(k.extra.get('energy', 1.0)) if use_energy else 1.0
+        sh = 1.0
+        if span is not None and 'x' in k.extra:
+            lo, hi = float(span[0]), float(span[1]); L = max(hi-lo, .001)
+            sh = (here[m] if isinstance(here, np.ndarray) else here)*np.sin(np.pi*min(max((float(k.extra['x'])-lo)/L, 0.0), 1.0))
+        gt = 1.0
+        if gate_s and np.isfinite(ge):
+            w = np.clip((ts[m]-(ge-float(gate_s)))/max(float(gate_s), 1e-300), 0.0, 1.0)
+            gt = 1.0-w*w*(3.0-2.0*w)
+        out[m] += sgn*amp*en*sh*gt*np.exp(-u[m]/tau)*np.sin(2*np.pi*f*u[m])
+    return out
+
 def _gantry_tops(cfg):
     ends = cfg.get('gantry', {}).get('ends', [])
     if not ends: return None, []
@@ -920,6 +947,7 @@ def _arm_rings(S, aid, cam):
     rec = np.array([rig.recoil(aid, t) for t in ts])
     det_knots = sorted(k.t for k in dec.knots if k.kind == 'detent')
     det_kn = sorted((k for k in dec.knots if k.kind == 'detent'), key=lambda k: k.t)
+    hit_kn = sorted((k for k in dec.knots if k.kind == 'contact'), key=lambda k: k.t)
     mal = _mallet(S, aid)
     if mal:
         # M1: the mallet's path_at is ring-free (no overshoot inside it), its
@@ -939,8 +967,10 @@ def _arm_rings(S, aid, cam):
     match = {}      # channel -> (|rendered − scored| max, |that − Σ declared| max per axis), metres
     def dsum(name, knots):
         p = terms.get(name)
-        if p and name == 'detent' and mal: return _declared_detent(ts, det_kn, p)   # signed and faded (decision (c))
-        return _declared_sum(ts, knots, _amp_m(rig, aid, dec, p), p['f'], p['tau']) if p else np.zeros(len(ts))
+        if not p: return np.zeros(len(ts))
+        if name == 'detent' and mal: return _declared_detent(ts, det_kn, p)   # signed and faded (decision (c))
+        if mal and 'gate' in p: return _declared_contact(ts, hit_kn, p, x=x if name == 'rail_sag' else None)
+        return _declared_sum(ts, knots, _amp_m(rig, aid, dec, p), p['f'], p['tau'])
     def keep(ch, ring, decl):
         if np.abs(ring).max() > 0 or np.abs(decl).max() > 0:
             match[ch] = (float(np.linalg.norm(ring, axis=1).max()), [float(v) for v in np.abs(ring-decl).max(axis=0)])
@@ -990,15 +1020,18 @@ def _mech_rings(S, cam):
     harness-only ring of struck elements (performance.gd: element.y += 0.006 ·
     Σ amp·e^(−8τ)·sin(80τ) over its hits, on every '<sid> bar' node)."""
     rig = S.rig; ts = S.t_hz; out = {}
+    has_elem_ring = bool(re.search(r'find_child\(\s*sid\s*\+\s*"\s*bar"', _gd_code(PERF.read_text()))) if PERF.exists() else False
     for mid, blows in rig.blows_by_mech.items():
         rings = []; match = {}
         thump = np.array([rig.stand_thump(mid, t) for t in ts]); c = np.asarray(S.layout['mechanisms'][mid]['center'], float)
         p = next((r for a in S.arms if S.mech(a) == mid for r in S.declared(a).rings if r['name'] == 'stand_thump'), None)
         knots = sorted({k.t for a in S.arms if S.mech(a) == mid for k in S.declared(a).knots if k.kind == 'contact'})
+        cknots = sorted((k for a in S.arms if S.mech(a) == mid for k in S.declared(a).knots if k.kind == 'contact'), key=lambda k: k.t)
         if p:
-            match['stand'] = (float(np.abs(thump).max()), [float(np.abs(thump-_declared_sum(ts, knots, p['amp'], p['f'], p['tau'])).max())])
+            decl = _declared_contact(ts, cknots, p) if 'gate' in p else _declared_sum(ts, knots, p['amp'], p['f'], p['tau'])
+            match['stand'] = (float(np.abs(thump).max()), [float(np.abs(thump-decl).max())])
             rings.append(('stand_thump', 'stand', p['f'], p['tau'], [b['t'] for b in blows], cam.px(ts, c, np.c_[0*thump, thump, 0*thump]), RIG.SHUDDER_TAIL))
-        if S.layout['mechanisms'][mid].get('material') != 'glass':      # glass elements are '<sid> bell' nodes: the harness moves only '<sid> bar'
+        if has_elem_ring and S.layout['mechanisms'][mid].get('material') != 'glass':      # glass elements are '<sid> bell' nodes: the harness moves only '<sid> bar'
             hits = {}
             for e in S.score['events']:
                 for sid, th in zip(e['strings'], RIG.motion_timing.string_times(e)):     # each string at its own time
@@ -1074,8 +1107,33 @@ def rings(S):
         out.append(Result(20, 'one (f,zeta)', mid, dict(hz=hz), one, 'Hz per part'))
         rows, bad = _ring_rows(rs, ts)
         out.append(Result(20, 'legible', mid, rows, bad == 0, cam.desc+LEGIBLE_NOTE))
-    out.append(Result(20, 'heavier lower', 'all', {}, None, 'no part masses are declared yet (M4)'))
+    out.append(_heavier_lower(S))
     return out
+
+def _heavier_lower(S):
+    lm = S.layout.get('masses') or {}
+    step_aids = [a for a in S.arms if S.rig.stepped(a) and S.rig.sched.get(a) and S.cfg(a).get('masses')]
+    if not step_aids or not any('gantry' in S.cfg(a)['masses'] for a in step_aids):
+        return Result(20, 'heavier lower', 'all', {}, None, 'no part masses are declared yet (M4)')
+    part_m = dict(
+        tool=float(np.mean([float(S.cfg(a)['masses']['tool']) for a in step_aids])),
+        carriage=float(np.mean([float(S.cfg(a)['masses']['carriage']) for a in step_aids])),
+        stand=float(np.mean([float(lm[f'form_{S.mech(a)}_stand']) for a in step_aids if f'form_{S.mech(a)}_stand' in lm])),
+        gantry=float(np.mean([float(S.cfg(a)['masses']['gantry']) for a in step_aids if 'gantry' in S.cfg(a)['masses']])),
+    )
+    part_f = {}
+    for a in step_aids:
+        for r in S.declared(a).rings:
+            pt = {'recoil.x': 'tool', 'recoil.z': 'tool', 'rail_sag': 'carriage', 'detent': 'carriage',
+                  'stand_thump': 'stand', 'mast_sway': 'gantry'}.get(r['name'])
+            if pt: part_f.setdefault(pt, set()).add(round(float(r['f']), 3))
+    ordered = sorted(part_m, key=lambda k: part_m[k])
+    inv = 0
+    for p1, p2 in zip(ordered, ordered[1:]):
+        if max(part_f.get(p1, [0.0])) <= min(part_f.get(p2, [np.inf])): inv += 1
+    rows = {p: dict(mass_kg=round(part_m[p], 2), f_hz=sorted(part_f.get(p, []))) for p in ordered}
+    return Result(20, 'heavier lower', 'all', dict(parts=rows, inversions=inv), inv == 0,
+                  'manifest part masses (M4): heavier parts ring at lower f (tool < carriage < stand < gantry)')
 
 # ---- 22 precision ---------------------------------------------------------
 def _channels(S, aid, P):

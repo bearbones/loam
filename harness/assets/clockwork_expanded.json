@@ -1683,7 +1683,7 @@
         "margin_m": 0.02100000000000035,
         "worst": "gantry harp_arm1 rack",
         "rack": {
-          "gap": 0.23491796399368894,
+          "gap": 0.235244290036985,
           "worst": "arm bells_arm1 lower2",
           "mount": "back",
           "drive": "screw"
@@ -2633,7 +2633,7 @@
             "x_col": 2.8600000000000003,
             "foot_y": -0.02,
             "height": 2.05,
-            "gap": 0.030933308812658586,
+            "gap": 0.032095647243198064,
             "worst": "arm bars_arm0 carriage_cheek"
           },
           {
@@ -2645,12 +2645,12 @@
             "x_col": 4.982857142857143,
             "foot_y": -0.02,
             "height": 2.05,
-            "gap": 0.030760447642826635,
-            "worst": "arm bars_arm0 carriage_cheek"
+            "gap": 0.03207655727046035,
+            "worst": "arm bars_arm0 carriage_web"
           }
         ],
-        "margin_m": 0.030760447642826635,
-        "worst": "arm bars_arm0 carriage_cheek",
+        "margin_m": 0.03207655727046035,
+        "worst": "arm bars_arm0 carriage_web",
         "rack": {
           "gap": 0.18926437109133956,
           "worst": "arm bars_arm1 upper",
@@ -2899,8 +2899,8 @@
             "x_col": 4.017142857142857,
             "foot_y": -0.02,
             "height": 2.3,
-            "gap": 0.030743415109030822,
-            "worst": "arm bars_arm1 carriage_cheek"
+            "gap": 0.03212830229039422,
+            "worst": "arm bars_arm1 carriage_axle"
           },
           {
             "side": 1,
@@ -2911,14 +2911,14 @@
             "x_col": 6.14,
             "foot_y": -0.02,
             "height": 2.3,
-            "gap": 0.030959999736808647,
+            "gap": 0.032121068678602,
             "worst": "arm bars_arm1 carriage_axle"
           }
         ],
-        "margin_m": 0.030743415109030822,
-        "worst": "arm bars_arm1 carriage_cheek",
+        "margin_m": 0.032121068678602,
+        "worst": "arm bars_arm1 carriage_axle",
         "rack": {
-          "gap": 0.41887200470058156,
+          "gap": 0.41903404859574206,
           "worst": "arm bars_arm0 pinion_boss",
           "mount": "back",
           "drive": "rack",
@@ -3152,7 +3152,7 @@
             "x_col": -3.0650000000000004,
             "foot_y": -0.02,
             "height": 2.05,
-            "gap": 0.03071132844666815,
+            "gap": 0.032077744021110986,
             "worst": "arm bells_arm0 carriage_web"
           },
           {
@@ -3164,11 +3164,11 @@
             "x_col": -1.185,
             "foot_y": -0.02,
             "height": 2.05,
-            "gap": 0.030726954913448477,
+            "gap": 0.03211874504941394,
             "worst": "arm bells_arm0 carriage_web"
           }
         ],
-        "margin_m": 0.03071132844666815,
+        "margin_m": 0.032077744021110986,
         "worst": "arm bells_arm0 carriage_web",
         "rack": {
           "gap": 0.1684048010550411,
@@ -3405,8 +3405,8 @@
             "x_col": -1.7650000000000001,
             "foot_y": -0.02,
             "height": 2.3,
-            "gap": 0.030809315316976747,
-            "worst": "arm bells_arm1 carriage_web"
+            "gap": 0.03208577392230676,
+            "worst": "arm bells_arm1 carriage_cheek"
           },
           {
             "side": 1,
@@ -3417,14 +3417,14 @@
             "x_col": -0.5349999999999999,
             "foot_y": -0.02,
             "height": 2.3,
-            "gap": 0.03070724408510241,
-            "worst": "arm bells_arm1 carriage_axle"
+            "gap": 0.03208689976555672,
+            "worst": "arm bells_arm1 carriage_cheek"
           }
         ],
-        "margin_m": 0.03070724408510241,
-        "worst": "arm bells_arm1 carriage_axle",
+        "margin_m": 0.03208577392230676,
+        "worst": "arm bells_arm1 carriage_cheek",
         "rack": {
-          "gap": 0.418961151993919,
+          "gap": 0.41905204995815665,
           "worst": "arm bells_arm0 pinion_boss",
           "mount": "back",
           "drive": "rack",
@@ -3679,7 +3679,7 @@
             "x_col": 0.9849999999999998,
             "foot_y": -0.02,
             "height": 2.55,
-            "gap": 0.030744041936414356,
+            "gap": 0.03208209826440558,
             "worst": "arm blocks_arm0 carriage_web"
           },
           {
@@ -3691,11 +3691,11 @@
             "x_col": 3.215,
             "foot_y": -0.02,
             "height": 2.55,
-            "gap": 0.030704824910375537,
+            "gap": 0.032091321598959686,
             "worst": "arm blocks_arm0 carriage_web"
           }
         ],
-        "margin_m": 0.030704824910375537,
+        "margin_m": 0.03208209826440558,
         "worst": "arm blocks_arm0 carriage_web",
         "rack": {
           "gap": 1.4627866375974212,
@@ -5110,28 +5110,28 @@
         "time_s": 22.016666666666666
       },
       "harp_arm0/bars_arm0": {
-        "gap_m": 4.017349097699373,
+        "gap_m": 4.018281529401168,
         "parts": [
           "wristhead_web",
           "pinion2"
         ],
-        "time_s": 45.3
+        "time_s": 45.31666666666667
       },
       "harp_arm0/bars_arm1": {
-        "gap_m": 5.0824389410225885,
+        "gap_m": 5.083154224175806,
         "parts": [
           "upper2",
           "pinion2"
         ],
-        "time_s": 15.8
+        "time_s": 15.825
       },
       "harp_arm0/bells_arm0": {
-        "gap_m": 0.5340997277400771,
+        "gap_m": 0.5356344866214393,
         "parts": [
           "nut_flange",
           "lower"
         ],
-        "time_s": 30.733333333333334
+        "time_s": 30.741666666666667
       },
       "harp_arm0/bells_arm1": {
         "gap_m": 0.06301663449484618,
@@ -5142,12 +5142,12 @@
         "time_s": 36.42857142857143
       },
       "harp_arm0/blocks_arm0": {
-        "gap_m": 1.5261201955435832,
+        "gap_m": 1.5290350305127212,
         "parts": [
           "upper2",
           "lower2"
         ],
-        "time_s": 32.916666666666664
+        "time_s": 32.9
       },
       "harp_arm1/harp_arm2": {
         "gap_m": 0.2510014606553574,
@@ -5174,15 +5174,15 @@
         "time_s": 2.441666666666667
       },
       "harp_arm1/bars_arm1": {
-        "gap_m": 4.326080958644721,
+        "gap_m": 4.326082535667511,
         "parts": [
           "upper2",
           "pinion2"
         ],
-        "time_s": 61.45
+        "time_s": 50.041666666666664
       },
       "harp_arm1/bells_arm0": {
-        "gap_m": 1.1835517311357688,
+        "gap_m": 1.1835371159083705,
         "parts": [
           "nut_flange",
           "elbowhead_web2"
@@ -5198,12 +5198,12 @@
         "time_s": 3.325
       },
       "harp_arm1/blocks_arm0": {
-        "gap_m": 1.1628265848069852,
+        "gap_m": 1.164230211544666,
         "parts": [
           "nut_flange",
           "lower2"
         ],
-        "time_s": 2.408333333333333
+        "time_s": 2.3916666666666666
       },
       "harp_arm2/rake_arm0": {
         "gap_m": 3.6562560411252374,
@@ -5222,12 +5222,12 @@
         "time_s": 2.441666666666667
       },
       "harp_arm2/bars_arm1": {
-        "gap_m": 3.6544225012754965,
+        "gap_m": 3.6556414251723366,
         "parts": [
           "lower",
           "pinion2"
         ],
-        "time_s": 15.8
+        "time_s": 15.816666666666666
       },
       "harp_arm2/bells_arm0": {
         "gap_m": 2.025360216735955,
@@ -5270,7 +5270,7 @@
         "time_s": 55.675
       },
       "rake_arm0/bells_arm0": {
-        "gap_m": 1.1501888601933306,
+        "gap_m": 1.1504435651071538,
         "parts": [
           "upper2",
           "lower2"
@@ -5286,7 +5286,7 @@
         "time_s": 77.825
       },
       "rake_arm0/blocks_arm0": {
-        "gap_m": 4.891116859412394,
+        "gap_m": 4.891098319131222,
         "parts": [
           "upper2",
           "lower2"
@@ -5294,44 +5294,44 @@
         "time_s": 58.25
       },
       "bars_arm0/bars_arm1": {
-        "gap_m": 0.18105770082331707,
+        "gap_m": 0.18239084298474662,
         "parts": [
           "upper2",
           "lower2"
         ],
-        "time_s": 15.8
+        "time_s": 8.083333333333334
       },
       "bars_arm0/bells_arm0": {
-        "gap_m": 5.054168549649946,
+        "gap_m": 5.0541724273284805,
         "parts": [
           "pinion2",
           "lower"
         ],
-        "time_s": 53.575
+        "time_s": 57.85714285714286
       },
       "bars_arm0/bells_arm1": {
-        "gap_m": 4.498150118030459,
+        "gap_m": 4.498150115909944,
         "parts": [
           "pinion2",
           "wristhead_web"
         ],
-        "time_s": 59.285714285714285
+        "time_s": 63.57142857142857
       },
       "bars_arm0/blocks_arm0": {
-        "gap_m": 2.123263514859215,
+        "gap_m": 2.1232655553502515,
         "parts": [
           "pinion_boss",
           "tool"
         ],
-        "time_s": 53.92857142857143
+        "time_s": 55.714285714285715
       },
       "bars_arm1/bells_arm0": {
-        "gap_m": 5.892442015549151,
+        "gap_m": 5.893030647980748,
         "parts": [
           "pinion2",
           "upper2"
         ],
-        "time_s": 53.583333333333336
+        "time_s": 53.53333333333333
       },
       "bars_arm1/bells_arm1": {
         "gap_m": 5.344282707155876,
@@ -5342,36 +5342,36 @@
         "time_s": 63.57142857142857
       },
       "bars_arm1/blocks_arm0": {
-        "gap_m": 2.1539806675742335,
+        "gap_m": 2.1539806634148073,
         "parts": [
           "pinion_boss",
           "tool"
         ],
-        "time_s": 53.92857142857143
+        "time_s": 48.92857142857143
       },
       "bells_arm0/bells_arm1": {
-        "gap_m": 0.44532695491344865,
+        "gap_m": 0.4466857739223066,
         "parts": [
           "upper2",
           "lower2"
         ],
-        "time_s": 6.883333333333334
+        "time_s": 13.908333333333333
       },
       "bells_arm0/blocks_arm0": {
-        "gap_m": 2.5266413758873956,
+        "gap_m": 2.526643058360524,
         "parts": [
           "carriage_bush+",
           "carriage_bush-"
         ],
-        "time_s": 58.59166666666667
+        "time_s": 32.9
       },
       "bells_arm1/blocks_arm0": {
-        "gap_m": 1.8624759693481563,
+        "gap_m": 1.8637993414378933,
         "parts": [
           "carriage_bush+",
           "pinion2"
         ],
-        "time_s": 3.05
+        "time_s": 3.066666666666667
       }
     }
   },

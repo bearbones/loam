@@ -106,7 +106,7 @@ OVER = _cl.GANTRY['rail_over']+_cl.GANTRY['head_inset']-_cl.default_layers()['pi
 ANNOUNCE_S = 0.8
 BACKSWING_S = 0.5               # s: the 3-4-5 backswing park -> apex at the same end (ruler 3: W >= 6 frames; D5: >= 0.5 s); home_up and return_up are designed
 HOLD_MIN = motion_timing.RAKE_HOLD_S  # s: an announced roll's head holds its apex this long ('poise') before the run-up (D5: >= 0.1 s)
-END_S = 0.8                     # s: the comb's return home from its last release, with the score's last onset
+END_S = 1.25                    # s: the comb's return home from its last release, with the score's last onset
 FALLBACK_S = 1.0                # s: an unplanned release (no library) comes to rest at home over this
 APEX_GRID = 1e-3                # s: ruler 3's sample step inside a declared segment (r_motion._grid)
 APEX_SNAP = 1e-5                # s: a 'stroke' cut this close to a grid sample goes ON it (stroke_cut: ruler 3's sub-us still interval)
