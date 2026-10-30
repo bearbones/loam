@@ -409,6 +409,11 @@ for aid,cfg in manifest['arms'].items():
                 places.append(('splay_sector',tip+Vector((0,0.055,float(R.flip_sign(aid))*0.50))))
         elif h_drv.get('kind')=='cam':
             places.append(('hammer_cam',tip+Vector(h_drv['cam_origin'])))
+        p_drv=cfg['drives'].get('pendulum',{})
+        if p_drv.get('kind')=='sector_gear':
+            places.append(('pendulum_arm',wrist))
+            places.append(('pendulum_sector',wrist))
+            places.append(('pendulum_pinion',wrist+Vector(p_drv['pinion_origin'])))
     # A hinged hammer's head hangs on the flange's pin, head_l above the tool
     # frame's origin (formlab.linkage.hammer_tool); Godot turns it about that
     # pin every frame. Without this it would sit at the file's origin.

@@ -365,13 +365,52 @@ def _s345(u):
 
 
 def build_hand_plan(rig, aid):
-    """Build the per-contact and per-digit hand gesture plan for harp arm `aid`:
+    """Build the per-contact and per-digit hand gesture plan for harp or rake arm `aid`:
     placing groups, exact `t_place_decl` and `t_slip` times, `d_rel` and `n_hat`,
     3-frame MCP closing, intra-phrase slide waits (`>= 1.0 s`), and phrase-end raises.
+    For `kind == 'rake'` (PLAYERS M9), lead digit swaps by sweep direction (`d2` for up,
+    `thumb` for down).
     """
     from formlab.clearance import link_basis
+    kind = rig.acts.get(aid, {}).get('kind', 'pick')
     sched = rig.sched.get(aid, [])
     notes = []
+    if kind == 'rake':
+        for i, s in enumerate(sched):
+            e = s['event']
+            if e.get('kind') != 'roll' or not e.get('strings'):
+                continue
+            t = float(s['hit'])
+            t_end = float(s['end'])
+            t_free = float(s['t_free'])
+            sid = e['strings'][0]
+            st_geo = rig.geometry['strings'][sid]
+            cpt = np.asarray(rig.contact(sid, e.get('pick')), dtype=float)
+            up_dir = str(e.get('dir', 'up')) != 'down'
+            finger = 1 if up_dir else 0
+            digit = 'd2' if up_dir else 'thumb'
+            win_lo = sid
+            amp = float(e.get('amp', 0.5))
+            dur = float(e.get('dur', 0.0))
+            ioi = t - float(sched[i - 1]['hit']) if i > 0 else math.inf
+            bx, by, bz = link_basis(np.asarray(st_geo['a'], float)[None], np.asarray(st_geo['b'], float)[None])
+            axis = CROSS_AXIS * bx[0] + bz[0]
+            axis_norm = float(np.linalg.norm(axis))
+            n_hat = axis / max(axis_norm, 1e-12)
+            d_rel = 0.016 + 0.008 * amp
+            n_rec = dict(
+                i=i, t=t, t_end=t_end, t_free=t_free, sid=sid, cpt=cpt,
+                finger=finger, digit=digit, win_lo=win_lo,
+                amp=amp, dur=dur, ioi=ioi, axis=axis, axis_norm=axis_norm,
+                n_hat=n_hat, d_rel=d_rel, u_pick=float(e.get('pick', st_geo['pick'])),
+                group_id=i, group_k=0, group_size=1,
+                t_place_decl=t - 0.064, t_pull=t - 0.064, t_slip=t_end,
+                t_close=t_end + 3.0 / 30.0, slide_t0=None, slide_t1=None,
+            )
+            n_rec['raise'] = None
+            notes.append(n_rec)
+        by_i = {n['i']: n for n in notes}
+        return dict(notes=notes, groups=[[n] for n in notes], by_i=by_i)
     for i, s in enumerate(sched):
         e = s['event']
         if e.get('kind', 'pluck') != 'pluck':

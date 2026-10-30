@@ -175,7 +175,8 @@ def contract(rig, aid):
     check(err == 0.0, f'{aid}: path_at is the servo stroke\'s p(t) (worst {err:.1e} m)')
     # the contacts
     sched = rig.sched[aid]; ck = [k for k in st.knots if k.kind == 'contact']
-    reach = max(float(np.abs(st.p(s['hit'])-np.asarray(s['first'])).max()) for s in sched)
+    wpt = lambda s: np.asarray(rig.contact(s['event'].get('window_lo', s['event']['strings'][0])) if rig._hand_digits(aid) >= 2 else s['first'])
+    reach = max(float(np.abs(st.p(s['hit'])-wpt(s)).max()) for s in sched)
     tm = all(k.t == s['hit'] for k, s in zip(ck, sched)) and len(ck) == len(sched)
     dv = max(float(np.abs(st.v(k.t, +1)-st.v(k.t, -1)-k.dv).max()) for k in ck)
     vio = max(float(np.abs(st.v(x.t, -1)+x.v_in*n).max()+np.abs(st.v(x.t, +1)-SV.V_REL*n).max()) for x in N)
@@ -220,7 +221,7 @@ def contract(rig, aid):
     worst = 0.0; early = 0
     for x, s in zip(N, sched):
         u = np.linspace(x.arrive, x.t, 31)
-        worst = max(worst, float(np.abs(st.car(u)-np.asarray(s['first'])).max()))
+        worst = max(worst, float(np.abs(st.car(u)-wpt(s)).max()))
         early += int(x.t-x.T_down < x.arrive-1e-12)
     check(worst <= TOL_P, f'{aid}: the carriage is on the contact from arrive to the contact (worst {worst:.1e} m); '
           f'{early} actions start before arrive, on the head alone')

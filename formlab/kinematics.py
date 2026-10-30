@@ -576,7 +576,7 @@ def fk_rows(C, frames, times, ids=None, godot=False, chunk=4096):
     in double: {id: (P (N,3), B (N,3,3))} for `ids` (default: the pinned joints)."""
     frames = np.asarray(frames, np.float64); times = np.asarray(times, np.float64); N = len(times)
     want = ([i for i in range(len(C.ids)) if C.pin[i] is not None
-             and (C.type[i] != 'fixed' or not C.joints[i]['owner'].startswith(('bars_', 'bells_', 'blocks_', 'harp_')))]
+             and (C.type[i] != 'fixed' or not C.joints[i]['owner'].startswith(('bars_', 'bells_', 'blocks_', 'harp_', 'rake_')))]
             if ids is None else [C.idx[j] for j in ids])
     out = {C.ids[i]: (np.empty((N, 3)), np.empty((N, 3, 3))) for i in want}
     for lo in range(0, N, chunk):

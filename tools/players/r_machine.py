@@ -346,11 +346,13 @@ def _dofs(S, aid):
     if S.rig.mallet_splay_plan(aid) is not None:
         _, ang = S.rig.mallet_splay_at(aid, P['t'])
         d['splay'] = (ang, 1e-4)
+    if S.kind(aid) == 'rake' and S.cfg(aid).get('drives', {}).get('pendulum'):
+        d['pendulum'] = (S.rig.rake_pendulum_at(aid, P['t']), 1e-4)
     return d
 
 def driven_share(S, aid):
     """Moving DOFs against their drivers (M4: carriage, shoulder sector gear,
-    elbow four-bar crank; the hammer head's cam arrives in M5; Stevens-grip splay in M8)."""
+    elbow four-bar crank; the hammer head's cam arrives in M5; Stevens-grip splay in M8; rake pendulum in M9)."""
     drv = drive_of(S, aid); cfg = S.cfg(aid); m_drv = cfg.get('drives') or {}
     has_pinion_motor = bool(m_drv.get('carriage', {}).get('motor'))
     sh_drv = m_drv.get('shoulder', {}).get('kind')
@@ -361,6 +363,7 @@ def driven_share(S, aid):
         'elbow': el_drv,
         'hinge': m_drv.get('hinge', {}).get('kind'),
         'splay': m_drv.get('splay', {}).get('kind'),
+        'pendulum': m_drv.get('pendulum', {}).get('kind'),
     }
     rng = {}; moving = []
     for name, (q, eps) in _dofs(S, aid).items():
@@ -669,7 +672,7 @@ def drives(S):
         if c: out.append(c)
         out.append(crank_law(S, aid))
         if kind in ('pick', 'rake'):
-            hp = S.rig.hand_plan(aid) if kind == 'pick' else None
+            hp = S.rig.hand_plan(aid)
             if hp is not None:
                 from formlab import hand as H
                 mcp = {d: np.zeros(len(S.t_frames)) for d in H.DIGITS}

@@ -939,9 +939,27 @@
         -0.8160000000000001,
         -0.05439999999999999
       ],
-      "bend": "back",
+      "root_y": 2.75,
+      "root_z": -2.25,
       "l1": 1.45,
       "l2": 1.45,
+      "bend": "back",
+      "wrist_offset": [
+        0,
+        0.2,
+        -0.1
+      ],
+      "o1": [
+        0.0,
+        0.03762,
+        0.10337
+      ],
+      "o2": [
+        0.0,
+        0.11,
+        0.0
+      ],
+      "pinion": "back",
       "margins": {
         "behind": 1.5,
         "cross": {
@@ -955,24 +973,6 @@
         "self": 0.0215,
         "strings": 0.023
       },
-      "o1": [
-        0.0,
-        0.03762,
-        0.10337
-      ],
-      "o2": [
-        0.0,
-        0.11,
-        0.0
-      ],
-      "pinion": "back",
-      "root_y": 2.75,
-      "root_z": -2.25,
-      "wrist_offset": [
-        0,
-        0.2,
-        -0.1
-      ],
       "layers": {
         "plate": 0.019000000000000003,
         "plate_out": 0.031000000000000003,
@@ -1272,9 +1272,27 @@
         -0.3808,
         0.3808
       ],
-      "bend": "back",
+      "root_y": 3.15,
+      "root_z": -1.8,
       "l1": 1.15,
       "l2": 1.15,
+      "bend": "back",
+      "wrist_offset": [
+        0,
+        0.2,
+        -0.1
+      ],
+      "o1": [
+        0.0,
+        0.04649,
+        0.09969
+      ],
+      "o2": [
+        0.0,
+        0.10833,
+        0.0191
+      ],
+      "pinion": "back",
       "margins": {
         "behind": 1.0677,
         "cross": {
@@ -1288,24 +1306,6 @@
         "self": 0.0249,
         "strings": 0.023
       },
-      "o1": [
-        0.0,
-        0.04649,
-        0.09969
-      ],
-      "o2": [
-        0.0,
-        0.10833,
-        0.0191
-      ],
-      "pinion": "back",
-      "root_y": 3.15,
-      "root_z": -1.8,
-      "wrist_offset": [
-        0,
-        0.2,
-        -0.1
-      ],
       "layers": {
         "plate": 0.019000000000000003,
         "plate_out": 0.031000000000000003,
@@ -1605,9 +1605,27 @@
         0.05439999999999999,
         0.8160000000000001
       ],
-      "bend": "back",
+      "root_y": 4.1,
+      "root_z": -1.4,
       "l1": 1.3,
       "l2": 1.3,
+      "bend": "back",
+      "wrist_offset": [
+        0,
+        0.2,
+        -0.1
+      ],
+      "o1": [
+        0.0,
+        0.0,
+        0.11
+      ],
+      "o2": [
+        0.0,
+        0.10337,
+        0.03762
+      ],
+      "pinion": "back",
       "margins": {
         "behind": 1.1409,
         "cross": {
@@ -1621,24 +1639,6 @@
         "self": 0.0208,
         "strings": 0.023
       },
-      "o1": [
-        0.0,
-        0.0,
-        0.11
-      ],
-      "o2": [
-        0.0,
-        0.10337,
-        0.03762
-      ],
-      "pinion": "back",
-      "root_y": 4.1,
-      "root_z": -1.4,
-      "wrist_offset": [
-        0,
-        0.2,
-        -0.1
-      ],
       "layers": {
         "plate": 0.019000000000000003,
         "plate_out": 0.031000000000000003,
@@ -1938,20 +1938,16 @@
         -4.725,
         -3.675
       ],
-      "bend": "back",
+      "root_y": 0.55,
+      "root_z": -1.35,
       "l1": 1.6,
       "l2": 1.6,
-      "margins": {
-        "behind": 1.4322,
-        "cross": {},
-        "fine": 0.023,
-        "mast": 0.085,
-        "others": 1.999,
-        "pair": 0.0262,
-        "scene": 0.17,
-        "self": 0.053,
-        "strings": 0.023
-      },
+      "bend": "back",
+      "wrist_offset": [
+        0,
+        0.2,
+        -0.1
+      ],
       "o1": [
         0.0,
         0.0191,
@@ -1963,13 +1959,17 @@
         0.00959
       ],
       "pinion": "down",
-      "root_y": 0.55,
-      "root_z": -1.35,
-      "wrist_offset": [
-        0,
-        0.2,
-        -0.1
-      ],
+      "margins": {
+        "behind": 1.4322,
+        "cross": {},
+        "fine": 0.023,
+        "mast": 0.085,
+        "others": 1.999,
+        "pair": 0.0262,
+        "scene": 0.17,
+        "self": 0.053,
+        "strings": 0.023
+      },
       "layers": {
         "plate": 0.019000000000000003,
         "plate_out": 0.031000000000000003,
@@ -2006,30 +2006,107 @@
         "tool"
       ],
       "self_worst_time_s": 35.075,
-      "string_clearance_m": 0.02300000000000004,
+      "string_clearance_m": 0.008575324699734559,
       "string_worst": [
-        "rake00",
+        "rake01",
         "shank",
-        21.42857142857143
+        58.925
       ],
       "drive": "screw",
+      "hand": {
+        "knuckle_oblique_deg": 32.0,
+        "splay_span_normal": 0.33,
+        "splay_span_wide": 0.44,
+        "knuckle_half_span_normal": 0.156,
+        "knuckle_half_span_wide": 0.172,
+        "wrist_block_half_x": 0.1,
+        "max_overhang_x": 0.075,
+        "palm_w": 0.312,
+        "palm_h": 0.058,
+        "palm_t": 0.014,
+        "wrist_pin_y": 0.088,
+        "wrist_crank_r": 0.028,
+        "wrist_lug_r": 0.028,
+        "wrist_coupler_l": 0.062,
+        "wrist_lean_min_deg": 15.0,
+        "wrist_lean_nom_deg": 24.0,
+        "wrist_lean_max_deg": 35.0,
+        "thumb_flex_deg": 45.0,
+        "finger_curl_deg": -30.0,
+        "polarisation_deg": 24.0,
+        "couple_ratios": [
+          1.0,
+          0.7,
+          0.55
+        ],
+        "phalanges": [
+          0.032,
+          0.022,
+          0.016
+        ],
+        "thumb_phalanges": [
+          0.034,
+          0.022
+        ],
+        "bone_r": 0.0042,
+        "pad_r": 0.0036,
+        "pad_l": 0.011,
+        "palm_cap_r": 0.014,
+        "digit_cap_r": 0.005,
+        "drum_r": 0.012,
+        "drum_w": 0.009,
+        "pulley_r": 0.006,
+        "pulley_w": 0.005,
+        "cable_r": 0.0009,
+        "close_frames": 3,
+        "close_stop_rad": 0.42,
+        "stick_min_s": 0.06,
+        "d_rel_nom": 0.018,
+        "slide_dist": 0.125,
+        "raise_h_min": 0.42,
+        "wrist_flex": {
+          "kind": "four_bar_crank",
+          "r_crank": 0.028,
+          "r_lug": 0.028,
+          "coupler_l": 0.062,
+          "lean_deg": 24.0
+        },
+        "splay": {
+          "kind": "pivoted_fan",
+          "span_normal": 0.33,
+          "span_wide": 0.44,
+          "max_overhang_x": 0.075
+        },
+        "tendon": {
+          "drums": 4,
+          "drum_r": 0.012,
+          "pulley_r": 0.006,
+          "couple_ratios": [
+            1.0,
+            0.7,
+            0.55
+          ]
+        },
+        "side_sign": 1.0
+      },
+      "pendulum_l": 0.52,
       "limits": {
         "shoulder": {
           "limits_deg": [
-            3.46,
-            156.56
+            3.44,
+            156.54
           ],
           "interference_deg": [
-            2.96,
-            157.06
+            2.94,
+            157.04
           ],
           "motion_deg": [
             60.54,
-            96.17
+            96.13
           ],
           "margin_deg": [
-            57.08,
-            60.39
+            57.1,
+            60.41
           ]
         },
         "elbow": {
@@ -2083,6 +2160,47 @@
           "coupler_l": 1.6,
           "x_crank": 0.068,
           "x_rod": 0.08
+        },
+        "wrist_flex": {
+          "kind": "four_bar_crank",
+          "r_crank": 0.028,
+          "r_lug": 0.028,
+          "coupler_l": 0.062,
+          "lean_deg": 24.0
+        },
+        "splay": {
+          "kind": "pivoted_fan",
+          "span_normal": 0.33,
+          "span_wide": 0.44,
+          "max_overhang_x": 0.075
+        },
+        "tendons": {
+          "drums": 4,
+          "drum_r": 0.012,
+          "pulley_r": 0.006,
+          "couple_ratios": [
+            1.0,
+            0.7,
+            0.55
+          ]
+        },
+        "pendulum": {
+          "kind": "sector_gear",
+          "arm_l": 0.52,
+          "module": 0.004,
+          "z_sector": 28,
+          "z_pinion": 14,
+          "r_sector": 0.056,
+          "r_pinion": 0.028,
+          "centre_dist": 0.084,
+          "ratio": -2.0,
+          "pinion_origin": [
+            0.0,
+            0.084,
+            -0.045
+          ],
+          "z_layer": -0.045,
+          "backlash_deg": 0.75
         }
       },
       "masses": {
@@ -2092,7 +2210,7 @@
         "elbowhead": 13.0116,
         "lower": 34.5828,
         "lower2": 19.9986,
-        "wristhead": 8.8383,
+        "wristhead": 8.9742,
         "shoulder": 2.3127,
         "elbow": 2.3127,
         "wrist": 2.3127,
@@ -2100,8 +2218,11 @@
         "shoulder_pinion": 0.2113,
         "elbow_crank": 0.3172,
         "elbow_rod": 2.6297,
-        "tool": 0.1496,
-        "shank": 0.8286,
+        "pendulum_arm": 0.9543,
+        "pendulum_sector": 0.7823,
+        "pendulum_pinion": 0.2102,
+        "tool": 1.2586,
+        "shank": 0.7756,
         "railhead": 132.58,
         "gantry": 168.3,
         "screw": 4.1026
@@ -2170,9 +2291,27 @@
         3.1500000000000004,
         4.692857142857143
       ],
-      "bend": "up",
+      "root_y": 2.25,
+      "root_z": 0.06909916627486701,
       "l1": 1.6,
       "l2": 1.6,
+      "bend": "up",
+      "wrist_offset": [
+        0,
+        0.28,
+        0
+      ],
+      "o1": [
+        0.0,
+        0.07071,
+        -0.08426
+      ],
+      "o2": [
+        0.0,
+        0.0,
+        0.11
+      ],
+      "pinion": "back",
       "margins": {
         "cross": {
           "bars_arm1": 0.1352
@@ -2185,24 +2324,6 @@
         "self": 0.0507,
         "strings": 0.1105
       },
-      "o1": [
-        0.0,
-        0.07071,
-        -0.08426
-      ],
-      "o2": [
-        0.0,
-        0.0,
-        0.11
-      ],
-      "pinion": "back",
-      "root_y": 2.25,
-      "root_z": 0.06909916627486701,
-      "wrist_offset": [
-        0,
-        0.28,
-        0
-      ],
       "layers": {
         "plate": 0.019000000000000003,
         "plate_out": 0.031000000000000003,
@@ -2436,9 +2557,27 @@
         4.307142857142857,
         5.85
       ],
-      "bend": "up",
+      "root_y": 2.5,
+      "root_z": -0.48090083372513304,
       "l1": 1.6,
       "l2": 1.6,
+      "bend": "up",
+      "wrist_offset": [
+        0,
+        0.28,
+        0
+      ],
+      "o1": [
+        0.0,
+        0.07071,
+        -0.08426
+      ],
+      "o2": [
+        0.0,
+        0.0191,
+        0.10833
+      ],
+      "pinion": "back",
       "margins": {
         "cross": {
           "bars_arm0": 0.1352
@@ -2451,24 +2590,6 @@
         "self": 0.0507,
         "strings": 0.1105
       },
-      "o1": [
-        0.0,
-        0.07071,
-        -0.08426
-      ],
-      "o2": [
-        0.0,
-        0.0191,
-        0.10833
-      ],
-      "pinion": "back",
-      "root_y": 2.5,
-      "root_z": -0.48090083372513304,
-      "wrist_offset": [
-        0,
-        0.28,
-        0
-      ],
       "layers": {
         "plate": 0.019000000000000003,
         "plate_out": 0.031000000000000003,
@@ -4223,6 +4344,9 @@
     "rake_arm0__shoulder_pinion",
     "rake_arm0__elbow_crank",
     "rake_arm0__elbow_rod",
+    "rake_arm0__pendulum_arm",
+    "rake_arm0__pendulum_sector",
+    "rake_arm0__pendulum_pinion",
     "rake_arm0__tool",
     "rake_arm0__shank",
     "bars_arm0__carriage",

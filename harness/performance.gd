@@ -30,6 +30,9 @@ var m2head_home: Dictionary = {}  # each two-mallet holder's second felt head im
 var m2shaft_home: Dictionary = {} # each two-mallet holder's second rosewood shaft imported basis
 var splay_home: Dictionary = {}   # each two-mallet holder's splay sector gear imported basis
 var hcam_home: Dictionary = {}    # each hammer arm's lift cam imported basis
+var parm_home: Dictionary = {}    # each rake arm's pendulum forearm imported basis
+var psec_home: Dictionary = {}    # each rake arm's pendulum sector gear imported basis
+var ppin_home: Dictionary = {}    # each rake arm's pendulum driver pinion imported basis
 var sheath_active: Dictionary = {} # periodic-feature blur sheath hysteresis state (key -> bool)
 var stand_nodes: Dictionary = {}    # mid -> the instrument's stand and its imported home
 var shudder_nodes: Dictionary = {}  # aid -> the rail's bars and the gantry it stands on, and the sway pivot
@@ -185,7 +188,7 @@ func _ready() -> void:
 		# Carriage-mounted shoulder sector gear + driver pinion, four-bar elbow crank + coupler rod (M4),
 		# and M5 hinged mallet shaft + four-bar wrist crank and hammer lift cam (formlab.drives).
 		drive_parts[aid]={}
-		for dpart in ["shoulder_sector","shoulder_pinion","elbow_crank","elbow_rod","wrist_shaft","wrist_crank","wrist_rod","mallet2_head","mallet2_shaft","splay_sector","hammer_cam"]:
+		for dpart in ["shoulder_sector","shoulder_pinion","elbow_crank","elbow_rod","wrist_shaft","wrist_crank","wrist_rod","mallet2_head","mallet2_shaft","splay_sector","hammer_cam","pendulum_arm","pendulum_sector","pendulum_pinion"]:
 			var dnode: Node3D=model.find_child(aid+"__"+dpart,true,false)
 			if dnode!=null:
 				drive_parts[aid][dpart]=dnode
@@ -195,6 +198,9 @@ func _ready() -> void:
 				elif dpart=="mallet2_shaft": m2shaft_home[aid]=dnode.basis
 				elif dpart=="splay_sector": splay_home[aid]=dnode.basis
 				elif dpart=="hammer_cam": hcam_home[aid]=dnode.basis
+				elif dpart=="pendulum_arm": parm_home[aid]=dnode.basis
+				elif dpart=="pendulum_sector": psec_home[aid]=dnode.basis
+				elif dpart=="pendulum_pinion": ppin_home[aid]=dnode.basis
 	# The chamber's flywheel, its axle pulley, companion pinion and the belt pulley turn about z
 	# (formlab.layout.flywheel_plan); their imported bases are the unspun home.
 	for label in ["Chamber flywheel","Chamber hub","Chamber drive pulley","Chamber belt pulley"]:
@@ -682,6 +688,18 @@ func evaluate(t: float) -> void:
 			var ratio_hc := float(hc_drv.get("ratio",2.0))
 			p["hammer_cam"].position=pose["tip"]+cam_o
 			p["hammer_cam"].basis=Basis(Vector3.RIGHT,-ratio_hc*float(pose["head"])*motion.flip_sign(aid))*hcam_home[aid]
+		# Rake pendulum forearm, sector gear & driver pinion (formlab.drives.PENDULUM_DRIVE, M9):
+		if p.has("pendulum_arm") and p.has("pendulum_sector") and p.has("pendulum_pinion"):
+			var pd_drv: Dictionary=cfg.get("drives",{}).get("pendulum",{})
+			var pin_o := MotionBake.v(pd_drv.get("pinion_origin",[0.0,0.084,-0.045]))
+			var ratio_pd := float(pd_drv.get("ratio",-2.0))
+			var th_pd := 0.22*root.x
+			p["pendulum_arm"].position=wrist
+			p["pendulum_arm"].basis=Basis(Vector3.BACK,th_pd)*parm_home[aid]
+			p["pendulum_sector"].position=wrist
+			p["pendulum_sector"].basis=Basis(Vector3.BACK,th_pd)*psec_home[aid]
+			p["pendulum_pinion"].position=wrist+pin_o
+			p["pendulum_pinion"].basis=Basis(Vector3.BACK,ratio_pd*th_pd)*ppin_home[aid]
 	if flywheel_pinion!=null and layout.has("flywheel") and layout["flywheel"].has("mate"):
 		var spin: float=flywheel_angle(t)
 		var k: float=float(layout["flywheel"]["mate"]["ratio"])

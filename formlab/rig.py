@@ -978,7 +978,33 @@ class Rig:
 
     def _wrist_at(self, aid, t, felt, cfg):
         wo = self.wrist_offset(cfg)
-        if self.acts[aid]['kind'] == 'pick':
+        kind = self.acts[aid]['kind']
+        if kind == 'rake':
+            st = self.stroke(aid)
+            if st is None or not st.notes: return felt+wo
+            hj = self._home_joints(aid)
+            home_end = float(hj['t1']) if hj is not None else 0.0
+            if t <= home_end or (hj is not None and hj['t0'] <= t <= hj['t1']):
+                return felt+wo
+            for n in st.notes:
+                ta, th = float(n.t_apex), float(n.t_end)
+                if ta < t < th and th > ta+1e-9:
+                    v_sh = (t-ta)/.22; v_el = (t-(th-.24))/.24
+                    b_sh = 64.0*(v_sh*(1.0-v_sh))**3 if 0.0 < v_sh < 1.0 else 0.0
+                    b_el = 64.0*(v_el*(1.0-v_el))**3 if 0.0 < v_el < 1.0 else 0.0
+                    if b_sh == 0.0 and b_el == 0.0: return felt+wo
+                    root, elbow, wrist0, _ = ik(cfg, felt[None])
+                    q0 = joint_series(root, elbow, wrist0)
+                    sh = float(q0['shoulder'][0]); rel = float(q0['rel'][0])
+                    sgn_u = 1.0 if n.up else -1.0
+                    sh += sgn_u*np.radians(3.2)*b_sh
+                    rel += -sgn_u*np.radians(9.0)*b_el
+                    fa = sh+rel
+                    l1 = float(cfg['l1']); l2 = float(cfg['l2'])
+                    ry = float(cfg['root_y']); rz = float(cfg['root_z'])
+                    return _v([felt[0], ry+l1*np.sin(sh)+l2*np.sin(fa), rz+l1*np.cos(sh)+l2*np.cos(fa)])
+            return felt+wo
+        if kind == 'pick':
             if t <= -0.5: return felt+wo
             pwp = self._pick_wrist_plan(aid, cfg)
             if pwp is None: return felt+wo
@@ -1074,8 +1100,9 @@ class Rig:
         return float(radius*np.sqrt(9*p1*p1*p2*p2+(p3-p1**3)**2).max())
 
     def hand_plan(self, aid):
-        """Cached articulated hand gesture plan (formlab.hand.build_hand_plan) for harp arm `aid`."""
-        if self._hand_digits(aid) < 2 or self.acts.get(aid, {}).get('kind') != 'pick':
+        """Cached articulated hand gesture plan (formlab.hand.build_hand_plan) for harp or rake arm `aid`."""
+        kind = self.acts.get(aid, {}).get('kind')
+        if not ((kind == 'pick' and self._hand_digits(aid) >= 2) or kind == 'rake'):
             return None
         cache = self.__dict__.setdefault('_hand_plans', {})
         if aid not in cache:
@@ -1083,6 +1110,21 @@ class Rig:
             except ImportError: import hand as H
             cache[aid] = H.build_hand_plan(self, aid)
         return cache[aid]
+
+    def rake_pendulum_at(self, aid, t):
+        """Return pendulum forearm swing angle (rad, about world +Z) for rake arm `aid` at `t`."""
+        t_arr = np.asarray(t, float)
+        scalar = t_arr.ndim == 0
+        ts = t_arr.reshape(-1)
+        if self.acts.get(aid, {}).get('kind') != 'rake':
+            return 0.0 if scalar else np.zeros_like(ts)
+        st = self.stroke(aid)
+        if st is not None:
+            xs = np.asarray(st.carriage.ev(ts), float)
+        else:
+            xs = np.array([float(self.tip_at(aid, float(u))[0]) for u in ts])
+        ang = 0.22 * xs
+        return float(ang[0]) if scalar else ang
 
     def mallet_splay_plan(self, aid):
         """Cached two-mallet Stevens-grip splay plan (PLAYERS M8) for mallet arm `aid`."""

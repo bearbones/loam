@@ -572,16 +572,21 @@ def bodies(S, aid, P):
     tools/players/r_screen.py bodies(): ruler 2 is ruler 1 on the screen."""
     kind = S.kind(aid); cfg = S.cfg(aid); felt = P['felt']
     o1 = np.asarray(cfg['o1'], float); o2 = np.asarray(cfg['o2'], float)
+    wrist, elbow = P['wrist'], P['elbow']
     if kind == 'mallet':
         tool = ((felt+[0, MALLET_R, 0])[:, None, :], MALLET_R)
     elif kind == 'pick':
         tool = (np.stack([felt, felt+(0.0, .14, -.12)], 1), .052)
+    elif kind == 'rake' and cfg.get('hand'):
+        tool = (np.stack([felt-(.165, 0, 0), felt+(.165, .24, -.18)], 1), .052)
+        return dict(tool=(felt,)+tool,
+                    wrist=(wrist, np.stack([wrist-(.105, 0, 0), wrist+o2+(.105, .19, -.14)], 1), BOSS_R),
+                    elbow=(elbow, np.stack([elbow-(.08, 0, 0), elbow+o1+(.08, .12, 0), elbow+o2+(.08, 0, -.10)], 1), BOSS_R))
     else:
         caps = _caps(S, aid, P)
         # arm_capsules adds 'head' only when some head angle is non-zero
         a, b, r = caps.get('head', caps['tool']) if kind == 'hammer' else caps['tool']
         tool = (np.stack([a, b], 1), float(r))
-    wrist, elbow = P['wrist'], P['elbow']
     return dict(tool=(felt,)+tool,
                 wrist=(wrist, np.stack([wrist, wrist+o2], 1), BOSS_R),
                 elbow=(elbow, np.stack([elbow, elbow+o1, elbow+o2], 1), BOSS_R))
@@ -770,7 +775,7 @@ def r1_strobe(S):
             out.append(Result(1, '1 rotation', aid, dict(max_deg=0.0), True,
                               'no part under 0.25 m rotates: the parallelogram holds the tool upright'))
         if kind in ('pick', 'rake'):
-            hp = S.rig.hand_plan(aid) if kind == 'pick' else None
+            hp = S.rig.hand_plan(aid)
             if hp is not None:
                 from formlab import hand as H
                 h_caps, _ = H.hand_capsules_series(P['tip'])
@@ -790,10 +795,16 @@ def r1_strobe(S):
                     rho_d = mag_d/Ed; act_d = mag_d > STILL*FRAME
                     d_max = max(d_max, float(rho_d.max()))
                     if act_d.any(): d_p95 = max(d_p95, float(np.percentile(rho_d[act_d], 95)))
-                ok_dp = bool(palm_off <= 0.5 and d_max <= 1.0 and d_p95 <= 0.5)
-                out.append(Result(1, '1 digits, palm', aid,
-                                  dict(palm_off_slip_max=_r(palm_off, 3), digit_max=_r(d_max, 3), digit_p95=_r(d_p95, 3)),
-                                  ok_dp, 'harp palm rho <= 0.5 outside slip frames; digit tips max <= 1.0, p95 active <= 0.5'))
+                if kind == 'pick':
+                    ok_dp = bool(palm_off <= 0.5 and d_max <= 1.0 and d_p95 <= 0.5)
+                    out.append(Result(1, '1 digits, palm', aid,
+                                      dict(palm_off_slip_max=_r(palm_off, 3), digit_max=_r(d_max, 3), digit_p95=_r(d_p95, 3)),
+                                      ok_dp, 'harp palm rho <= 0.5 outside slip frames; digit tips max <= 1.0, p95 active <= 0.5'))
+                else:
+                    ok_dp = bool(d_max <= 1.0 and d_p95 <= 0.5)
+                    out.append(Result(1, '1 digits', aid,
+                                      dict(digit_max=_r(d_max, 3), digit_p95=_r(d_p95, 3)),
+                                      ok_dp, 'rake open hand digit tips max <= 1.0, p95 active <= 0.5'))
             else:
                 out.append(Result(1, '1 digits, palm' if kind == 'pick' else '1 digits', aid, {}, None,
                                   'no digits or palm yet (harp hands M7, rake hand M9)'))
@@ -1396,11 +1407,24 @@ def r15_proximal(S):
     for aid in S.arms:
         kind = S.kind(aid); rig = S.rig; C = S.contacts(aid); by_hit = {round(c.t, 9): c for c in C}
         fseg = _finite_segments(S, aid)
-        sweep_at = {round(sg.t0, 9): sg for sg in fseg if sg.tag == 'sweep'}
+        def _merge_channel_phases(segs, ch):
+            ch_s = [sg for sg in segs if sg.extra.get('channel') == ch and sg.law != 'hold']
+            merged = []
+            for sg in ch_s:
+                if merged and abs(sg.t0 - merged[-1]['t1']) <= 1e-7 and (
+                    sg.tag == merged[-1]['tag'] or (ch == 'carriage' and sg.tag in ('run_up', 'sweep', 'run_out') and merged[-1]['tag'] in ('run_up', 'sweep', 'run_out'))
+                ):
+                    merged[-1]['t1'] = sg.t1
+                else:
+                    merged.append(dict(t0=sg.t0, t1=sg.t1, tag=sg.tag, law=sg.law))
+            return merged
+        head_phases = _merge_channel_phases(fseg, 'head')
+        car_phases = _merge_channel_phases(fseg, 'carriage')
+        sweep_at = {round(p['t0'], 9): p for p in head_phases if p['tag'] == 'sweep'}
         # a stroke runs into its contact and, for a strum, on through the sweep
         # (the sweep is the stroke across the strings, not a travel or shift)
-        strokes = [(sg.t0, sweep_at[round(sg.t1, 9)].t1 if round(sg.t1, 9) in sweep_at else sg.t1, sg.t1)
-                   for sg in fseg if sg.tag == 'stroke']
+        strokes = [(p['t0'], sweep_at[round(p['t1'], 9)]['t1'] if round(p['t1'], 9) in sweep_at else p['t1'], p['t1'])
+                   for p in head_phases if p['tag'] == 'stroke']
         lag_w = []; lag_a = []; bad_order = 0; n_order = 0; bad_share = 0; bad_car = 0; shares = []; peak = dict(sh=0.0, el=0.0, fa=0.0)
         for s0, s1, s_hit in strokes:
             ts = np.arange(s0+STEP/2, s1, STEP)
@@ -1417,7 +1441,7 @@ def r15_proximal(S):
             tot = contrib.sum()
             if tot <= 0: continue
             sh = contrib/tot; shares.append(sh)
-            trav = any(sg.extra.get('channel') == 'carriage' and sg.tag == 'travel' and sg.t0 < s1-1e-9 and sg.t1 > s0+1e-9 for sg in fseg)
+            trav = any(sg.extra.get('channel') == 'carriage' and sg.tag in ('travel', 'sweep') and sg.t0 < s1-1e-9 and sg.t1 > s0+1e-9 for sg in fseg)
             if not ((trav or sh[0] <= sh[1]+1e-9) and sh[1] <= sh[2]+1e-9): bad_share += 1
             if not trav and sh[0] > .15+1e-9: bad_car += 1
             c = by_hit.get(round(s_hit, 9)); ioi = c.ioi if c else math.inf
@@ -1482,11 +1506,19 @@ def r15_proximal(S):
                               INFO, f'servo carriage = root x = tip x (1 kHz); row 15 sets no carriage limit, the rules say <= SERVO_V_MAX '
                                     f'{R.SERVO_V_MAX} m/s and <= 3 g (within_rule); the off-contact max excludes the same windows as the tip'))
         # phases
-        mv = [sg for sg in _finite_segments(S, aid) if sg.law != 'hold']
-        short = [sg for sg in mv if sg.t1-sg.t0 < 2.5*FRAME-1e-9]; tags = {}
-        for sg in short: tags[sg.tag] = tags.get(sg.tag, 0)+1
+        def _merge_roll_phases(phases):
+            out_p = []
+            for p in phases:
+                if out_p and abs(p['t0'] - out_p[-1]['t1']) <= 1e-7 and p['tag'] in ('stroke', 'sweep', 'follow-through') and out_p[-1]['tag'] in ('stroke', 'sweep', 'follow-through'):
+                    out_p[-1]['t1'] = p['t1']
+                else:
+                    out_p.append(dict(p))
+            return out_p
+        mv = _merge_roll_phases(head_phases) + _merge_roll_phases(car_phases)
+        short = [p for p in mv if p['t1']-p['t0'] < 2.5*FRAME-1e-9]; tags = {}
+        for p in short: tags[p['tag']] = tags.get(p['tag'], 0)+1
         out.append(Result(15, '15 phases', aid, dict(phases=len(mv), short=len(short), by_tag=tags,
-                                                   min_frames=_r(min((sg.t1-sg.t0) for sg in mv)*FPS, 2) if mv else None),
+                                                   min_frames=_r(min((p['t1']-p['t0']) for p in mv)*FPS, 2) if mv else None),
                           (not short) if mv else None, 'declared segments other than holds >= 2.5 frames'))
         masses = S.cfg(aid).get('masses')
         if masses:

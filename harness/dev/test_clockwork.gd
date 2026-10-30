@@ -114,7 +114,7 @@ func _init() -> void:
 		var t: float=rig.times[r]
 		rig.frames_at(t,true); fk_rows+=1
 		for a in pins:
-			if rows[a[0]]["type"]=="fixed" and rig.arms.has(a[3]) and (rig.stepped(a[3]) or rig.arms[a[3]]["kind"]=="pick"): continue
+			if rows[a[0]]["type"]=="fixed" and rig.arms.has(a[3]) and (rig.stepped(a[3]) or rig.arms[a[3]]["kind"] in ["pick","rake"]): continue
 			worst_fk=maxf(worst_fk,rig.frame_p(a[0]).distance_to(rig.vec(a[1],t)))
 	if worst_fk>FK_TOL: failures.append("the joints table's FK misses its pins by %.9f m" % worst_fk)
 	# C5: an intervening backwards seek must have no effect on the table either.

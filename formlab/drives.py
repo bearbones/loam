@@ -741,6 +741,72 @@ def hammer_cam_pieces(rest_angle, sign=-1.0):
     return [lobe, nose, hub, pin]
 
 
+# Rake pendulum forearm + sector gear & driver pinion on `wristhead` (PLAYERS M9).
+# Pivots about world Z (`axis = [0, 0, 1]`) at `pose["wrist"]`.
+PENDULUM_DRIVE = dict(
+    arm_l=.520,
+    module=.004,
+    z_sector=28,
+    z_pinion=14,
+    r_sector=.056,
+    r_pinion=.028,
+    centre_dist=.084,
+    ratio=-2.0,
+    thickness=.010,
+    z_layer=-.045,
+    pinion_origin=[0.0, .084, -.045],
+    backlash_deg=BACKLASH_DEG,
+)
+
+
+def pendulum_drive_pieces():
+    """Build the rake's 0.52 m pendulum forearm, driven brass sector gear, and
+    mating driver pinion on `wristhead` (pivoting about world Z at `pose["wrist"]`)."""
+    PD = PENDULUM_DRIVE
+    tc = PD['thickness']; zl = PD['z_layer']; al = PD['arm_l']
+    rs = PD['r_sector']; rp = PD['r_pinion']; cd = PD['centre_dist']
+    pr = .009; er = .018
+
+    # 1. Motor boss on `wristhead` behind the pinion at (0, cd, zl)
+    m_can = revolve([(0, zl - .030), (.015, zl - .030), (.015, zl - tc / 2), (0, zl - tc / 2)],
+                    Z, (0, cd, 0), 18)
+    m_can.material = 'steel'
+
+    # 2. Pendulum forearm (`<aid>__pendulum_arm`) from (0, 0, zl) to (0, -al, zl)
+    p_arm = []
+    top_eye = ring((0, 0, zl), pr, er, tc, axis=Z, sides=28, corner=.3)
+    top_eye.material = 'brass'
+    p_arm.append(top_eye)
+    top_pin = revolve([(0, zl - tc), (pr, zl - tc), (pr, zl + tc), (0, zl + tc)], Z, (0, 0, 0), 16)
+    top_pin.material = 'steel'
+    p_arm.append(top_pin)
+    u = np.linspace(0, 1, 18)[:, None]
+    pa = np.array([0., -er * .65, zl]); pb = np.array([0., -al + er * .65, zl])
+    bar_m = sweep(pa + (pb - pa) * u, .009, .006, profile=rounded_rect(.35, 16))
+    bar_m.material = 'steel'
+    p_arm.append(bar_m)
+    bot_eye = ring((0, -al, zl), pr * .9, er * .9, tc, axis=Z, sides=28, corner=.3)
+    bot_eye.material = 'brass'
+    p_arm.append(bot_eye)
+
+    # 3. Driven sector gear (`<aid>__pendulum_sector`) at (0, 0, zl)
+    p_sec = []
+    sec_disc = ring((0, 0, zl), pr, rs, tc, axis=Z, sides=40, corner=.3)
+    sec_disc.material = 'brass'
+    p_sec.append(sec_disc)
+
+    # 4. Driver pinion (`<aid>__pendulum_pinion`) in its own local frame at (0, cd, zl)
+    p_pin = []
+    pin_disc = ring((0, 0, 0), pr * .75, rp, tc, axis=Z, sides=28, corner=.3)
+    pin_disc.material = 'brass'
+    p_pin.append(pin_disc)
+    pin_hub = revolve([(0, -tc), (pr * .75, -tc), (pr * .75, tc), (0, tc)], Z, (0, 0, 0), 16)
+    pin_hub.material = 'steel'
+    p_pin.append(pin_hub)
+
+    return dict(wristhead=[m_can], pendulum_arm=p_arm, pendulum_sector=p_sec, pendulum_pinion=p_pin)
+
+
 def manifest_drives(cfg):
     """Metadata block recorded in `manifest['arms'][aid]['drives']`."""
     drv = drive_kind(cfg)
@@ -808,7 +874,7 @@ def manifest_drives(cfg):
             ratio=HAMMER_CAM['ratio'],
             cam_origin=[0.0, round(hl, 5), round(-sgn * HAMMER_CAM['d_cam'], 5)],
         )
-    elif kind == 'pick':
+    elif kind in ('pick', 'rake'):
         try:
             from .hand import HAND_SPEC
         except ImportError:
@@ -816,5 +882,20 @@ def manifest_drives(cfg):
         out['wrist_flex'] = dict(HAND_SPEC['wrist_flex'])
         out['splay'] = dict(HAND_SPEC['splay'])
         out['tendons'] = dict(HAND_SPEC['tendon'])
+        if kind == 'rake':
+            out['pendulum'] = dict(
+                kind='sector_gear',
+                arm_l=PENDULUM_DRIVE['arm_l'],
+                module=PENDULUM_DRIVE['module'],
+                z_sector=PENDULUM_DRIVE['z_sector'],
+                z_pinion=PENDULUM_DRIVE['z_pinion'],
+                r_sector=PENDULUM_DRIVE['r_sector'],
+                r_pinion=PENDULUM_DRIVE['r_pinion'],
+                centre_dist=PENDULUM_DRIVE['centre_dist'],
+                ratio=PENDULUM_DRIVE['ratio'],
+                pinion_origin=list(PENDULUM_DRIVE['pinion_origin']),
+                z_layer=PENDULUM_DRIVE['z_layer'],
+                backlash_deg=BACKLASH_DEG,
+            )
     return out
 

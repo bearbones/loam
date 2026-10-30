@@ -102,12 +102,19 @@ if score_path.exists() and layout.get('arms'):
                 parts['splay_sector']=dict(pieces=w_drv['splay_sector'])
         elif cfg['kind']=='hammer':
             parts['hammer_cam']=dict(pieces=drives_lib.hammer_cam_pieces(rig.rest_angle(aid),rig.flip_sign(aid)))
+        elif cfg['kind']=='rake':
+            p_drv=drives_lib.pendulum_drive_pieces()
+            parts['wristhead']['pieces']=parts['wristhead']['pieces']+p_drv['wristhead']
+            parts['pendulum_arm']=dict(pieces=p_drv['pendulum_arm'])
+            parts['pendulum_sector']=dict(pieces=p_drv['pendulum_sector'])
+            parts['pendulum_pinion']=dict(pieces=p_drv['pendulum_pinion'])
         strings={sid:s for sid,s in layout['strings'].items() if s['mid']==cfg['mid']}
         rep=report(rig,aid,o1,o2,layers,spec,strings,poses=poses,mount=pmount,drive=drive); reports[aid]=rep
         material={'carriage':'steel','elbowhead':'steel','wristhead':'steel','shoulder':'steel','elbow':'steel','wrist':'steel',
                   'shoulder_sector':'brass','shoulder_pinion':'brass','elbow_crank':'steel','elbow_rod':'brass',
                   'wrist_shaft':'rose','wrist_crank':'steel','wrist_rod':'brass','hammer_cam':'brass',
-                  'mallet2_head':'felt','mallet2_shaft':'rose','splay_sector':'brass'}
+                  'mallet2_head':'felt','mallet2_shaft':'rose','splay_sector':'brass',
+                  'pendulum_arm':'steel','pendulum_sector':'brass','pendulum_pinion':'brass'}
         arm_masses={}
         for part,body in parts.items():
             if part in ('layers','spec'): continue
@@ -126,7 +133,7 @@ if score_path.exists() and layout.get('arms'):
             head_info=dict(hinge=[0,round(float(HAMMER['head_l']),5),0],length=float(HAMMER['head_l']),
                            rest_angle=round(float(rig.rest_angle(aid)),9),sign=float(rig.flip_sign(aid)))
         elif kind=='mallet': tool,tool_mats=mallet_tool(mount),None
-        elif kind=='pick':
+        elif kind in ('pick','rake'):
             tool=hand_tool(mount,side_sign=1.0 if int(cfg.get('index',0))!=1 else -1.0)
             tool_mats=['horn']+['brass']*(len(tool[0])-1)
         else:
@@ -169,9 +176,12 @@ if score_path.exists() and layout.get('arms'):
             layout['arms'][aid]['head_l']=arms[aid]['head_l']
             if rig._hand_digits(aid)>=2:
                 arms[aid]['hands']=2; layout['arms'][aid]['hands']=2
-        elif kind=='pick':
+        elif kind in ('pick','rake'):
             arms[aid]['hand']=dict(HAND_SPEC,side_sign=1.0 if int(cfg.get('index',0))!=1 else -1.0)
             layout['arms'][aid]['hand']=arms[aid]['hand']
+            if kind=='rake':
+                arms[aid]['pendulum_l']=float(drives_lib.PENDULUM_DRIVE['arm_l'])
+                layout['arms'][aid]['pendulum_l']=arms[aid]['pendulum_l']
         arms[aid]['limits']=drives_lib.joint_limits(layout['arms'][aid],poses)
         arms[aid]['drives']=drives_lib.manifest_drives(layout['arms'][aid])
         arms[aid]['masses']=arm_masses

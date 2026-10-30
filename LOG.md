@@ -1,3 +1,59 @@
+## 2026-10-29 — PLAYERS M9: The rake's hand and pendulum
+
+Equipped `rake_arm0` on both `clockwork` and `clockwork_expanded` with the open
+4-digit hand (`formlab/hand.py`), the driven pendulum forearm (`<aid>__pendulum_arm`,
+`<aid>__pendulum_sector`, `<aid>__pendulum_pinion`), and the proximal-to-distal
+sweep whip-and-lag across shoulder and elbow:
+
+- **Open hand & pendulum forearm anatomy** (`formlab/hand.py` `build_hand_plan`,
+  `formlab/drives.py` `PENDULUM_DRIVE`, `pendulum_drive_pieces`, `manifest_drives`,
+  `formlab/kinematics.py`, `formlab/rig.py` `_wrist_at`, `hand_plan`,
+  `rake_pendulum_at`, `tools/build_forms.py`, `tools/build_clockwork.py`,
+  `harness/performance.gd`):
+  - `rake_arm0` carries the open 4-digit hand (`hand.py`) with 4 tendon drums
+    and guide pulleys (`tendon` residual $0.0\text{ mm} \le 0.1\text{ mm}$),
+    swapping the lead digit by sweep direction (`d2`, `finger = 1` on `'up'`
+    sweeps; `thumb`, `finger = 0` on `'down'` sweeps).
+  - A blued-steel pendulum forearm (`<aid>__pendulum_arm`, $L = 0.520\text{ m}$)
+    pivots about world $+Z$ on `wristhead`, driven by a brass sector gear
+    (`<aid>__pendulum_sector`, $R_{\text{sector}} = 56\text{ mm}$, $100^\circ$
+    span, $z = -45\text{ mm}$) meshing a 12-tooth brass pinion
+    (`<aid>__pendulum_pinion`, $R_{\text{pinion}} = 28\text{ mm}$, ratio $-2.0$;
+    `Ruler 17 driven share = 1.0000` across `[carriage x, shoulder, elbow, pendulum]`).
+  - During each roll $[t_{\text{apex}}, t_{\text{end}}]$, `_wrist_at` applies
+    localized $C^2$ shoulder ($3.2^\circ$ over $0.22\text{ s}$) and elbow
+    ($9.0^\circ$ over $0.24\text{ s}$) bumps through `ik(cfg, felt[None])` so
+    shoulder peak $|\omega|$ and $|\alpha|$ precede elbow peak $|\omega|$ and
+    $|\alpha|$ on all 21 rolls while keeping all contacts exact at $0.0\text{ m}$.
+- **Ruler & invariant results**:
+  - **Ruler 1**: `1 tool` $\rho_{\text{p95,active}} = 0.441 \le 0.50$ ($\max = 0.684 \le 1.0$),
+    `1 digits` $\rho_{\text{p95}} = 0.447$ ($\max = 0.615$), `1 wrist`
+    $\rho_{\text{p95}} = 0.428$ ($\max = 0.973$), `1 elbow` $\rho_{\text{p95}} = 0.398$
+    ($\max = 0.761$), `1 links` $\le 0.587 \le 1.0$.
+  - **Rulers 5 & 6**: `5` $0$ violations ($6.72\text{ m}$ ghost arc over
+    $45.71\text{–}68.57\text{ s}$); `6a` $0$ corners, `6b` max turn
+    $27.0^\circ \le 45^\circ$, `6c` jerk ratio $\le 0.986 \le 1.0$.
+  - **Ruler 14**: `14 entry` $E \ge 1.084 \ge 0.7$, `14 follow-through`
+    $\text{FT} \in [0.290, 0.456]\text{ m} \ge 0.20\text{ m}$, `14 announce`
+    $5/5$ holds still ($0$ moving), `14 corners` $0$, `14 speed ratio`
+    $\le 1.155 \le 1.2$, `14 rho` $\le 0.684 \le 1.0$, `14 carriage`
+    $v_{\max} = 2.946\text{ m/s} \le \text{SERVO\_V\_MAX}$ ($3.0\text{ m/s}$)
+    and $a_{\max} = 2.90\,g \le 3.0\,g$.
+  - **Ruler 15**: `15 order` $21/21$ strokes pass ($\Delta t_\omega \in [569, 771]\text{ ms}$,
+    $\Delta t_\alpha \in [451, 754]\text{ ms}$), `15 shares` $21/21$ pass
+    (carriage $29.6\%$, shoulder $22.4\%$, elbow $47.7\%$, $0$ fails),
+    `15 tip accel` $p_{99} = 5.3\,g$ / $\max = 5.5\,g \le 10\,g$, `15 phases`
+    $40$ phases ($0$ short, $\min = 13.5\text{ frames} \ge 2.5$), `15 weight` ok.
+  - **Ruler 17**: `driven share = 1.0000`, leadscrew $1643.4\text{ rpm} \le 3000$,
+    tendon residual $0.0\text{ mm}$, gear/crank/backlash all green.
+  - **Ruler 23**: `23 tool` palm $\ge 8.8\text{ mm}$, `23 digits` $\ge 14.3\text{ mm}$
+    ($0$ penetrations across all 21 sweeps).
+  - **Rulers 25 & 26**: `25` $237/239$ as written / $0$ drops / expanded $0$
+    refusals, stems bit-identical; `26` all invariants pass on both assets.
+  - **Rebuilt assets**:
+    - `harness/assets/clockwork.glb`: `8d23949b49f0117bb94830b5f8c93cada1e63888613b3dcee8806a63894670f1`
+    - `harness/assets/clockwork_expanded.glb`: `9df00ad511656fa1e2a025feb4fa6a78a35175a70ff2a9a042a267dee4959347`
+
 ## 2026-10-29 — PLAYERS M8: Two-mallet holders
 
 Built the two-shaft Stevens-grip mallet holders (`bars_arm0`, `bars_arm1`) on

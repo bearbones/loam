@@ -114,16 +114,21 @@ def bodies(S, aid, P):
     """part -> (tracked point (N, 3), body points (N, m, 3), radius m) over the poses P."""
     kind = S.kind(aid); cfg = S.cfg(aid); felt = P['felt']
     o1 = np.asarray(cfg['o1'], float); o2 = np.asarray(cfg['o2'], float)
+    wrist, elbow = P['wrist'], P['elbow']
     if kind == 'mallet':
         tool = ((felt+[0, MALLET_R, 0])[:, None, :], MALLET_R)
     elif kind == 'pick':
         tool = (np.stack([felt, felt+(0.0, .14, -.12)], 1), .052)
+    elif kind == 'rake' and cfg.get('hand'):
+        tool = (np.stack([felt-(.165, 0, 0), felt+(.165, .24, -.18)], 1), .052)
+        return dict(tool=(felt,)+tool,
+                    wrist=(wrist, np.stack([wrist-(.105, 0, 0), wrist+o2+(.105, .19, -.14)], 1), BOSS_R),
+                    elbow=(elbow, np.stack([elbow-(.08, 0, 0), elbow+o1+(.08, .12, 0), elbow+o2+(.08, 0, -.10)], 1), BOSS_R))
     else:
         caps = arm_capsules(P, o1, o2, cfg.get('layers', default_layers(DEFAULT_SPEC)), DEFAULT_SPEC,
                             cfg.get('pinion', 'back'), drive_kind(cfg))[0]
         a, b, r = caps.get('head', caps['tool']) if kind == 'hammer' else caps['tool']
         tool = (np.stack([a, b], 1), float(r))
-    wrist, elbow = P['wrist'], P['elbow']
     return dict(tool=(felt,)+tool,
                 wrist=(wrist, np.stack([wrist, wrist+o2], 1), BOSS_R),
                 elbow=(elbow, np.stack([elbow, elbow+o1, elbow+o2], 1), BOSS_R))
