@@ -790,6 +790,14 @@ func _film_cards() -> void:
 	make.call([[spaced,58,Color("f1e3c6")],["a machine that plays its score",22,Color(.72,.76,.74)]],.6,4.6)
 	make.call([["composed, synthesised and built in code",22,Color(.72,.76,.74)],["L  O  A  M",34,Color("f1e3c6")]],score.total_s-4.2,score.total_s+1.0)
 
+func _smooth_rail_x(aid: String, t: float) -> float:
+	var sum := 0.0; var wsum := 0.0
+	for k in 17:
+		var f := float(k)/16.0*2.0-1.0
+		var w := .5+.5*cos(PI*f)
+		sum += motion.joint_origin(aid+"/carriage",t+f*1.6).x*w; wsum += w
+	return sum/maxf(wsum,1e-6)
+
 func _camera_at(t: float) -> void:
 	if film:
 		var c := director.camera_at(t)
@@ -801,42 +809,26 @@ func _camera_at(t: float) -> void:
 	var chosen := view
 	# --focus=<aid> overrides every view: frame one arm's own mechanism so a clip
 	# reads the carriage, the rack, the pawl and the tool rather than the room.
-	#
-	# An arm is about a metre from its carriage down to its tool, and a click
-	# close-up has to hold BOTH ends — the pawl riding the pinion at the top and
-	# the mallet's stroke at the bottom. So the frame covers the arm's own
-	# root-to-tip box with a margin and `--focus_span` is a MINIMUM width, not
-	# the answer: narrowing it past the arm's height only centres the shot
-	# tighter, it cannot crop the tool out.
-	#
-	# Which side to stand on is not free either. The arms work behind their
-	# instrument's string plane (see view 9), so the camera stands on the far
-	# side of the carriage from the instrument's centre — otherwise a pick arm's
-	# close-up is a picture of the strings it is hiding behind. `--focus_dir`
-	# overrides the direction when a shot wants a particular angle.
+	# Anchored on a static Y/Z frame and fixed distance, panning at most with
+	# smoothed rail X traversal so the camera never jerks with the tool's stroke.
 	if focus!="" and layout.get("arms",{}).has(focus):
 		var cfg: Dictionary=layout["arms"][focus]
-		var pose := motion.pose(focus,t)
+		var t_ref: float=fixed_time if shot!="" else (capture_start+.5*capture_seconds if capture_dir!="" else 0.0)
+		var pose := motion.pose(focus,t_ref)
 		var root: Vector3=pose["root"]; var tip: Vector3=pose["tip"]
-		target=(root+tip)/2.0
+		var rx := _smooth_rail_x(focus,t)
+		target=Vector3(rx,(root.y+tip.y)/2.0,(root.z+tip.z)/2.0)
 		var size := get_viewport().get_visible_rect().size
 		var aspect: float=size.x/maxf(size.y,1.0)
 		var tan_half: float=maxf(tan(deg_to_rad(camera.fov)/2.0),.001)
 		var half_w: float=maxf(focus_span,absf(root.x-tip.x)+.30)/2.0
 		var half_h: float=(absf(root.y-tip.y)+.30)/2.0
-		# --focus_at=tip (or root, or head — a hinged hammer's pin, HEAD_L above the
-		# tool frame's origin) drops the whole-arm box and frames ONE end of
-		# it, and then --focus_span is the frame's true width rather than a
-		# minimum: a hinged hammer's head is 200 mm of mechanism on the end of a
-		# 1.6 m arm, and no shot that holds the carriage can also show the check
-		# catch the rebound.
 		if focus_at!="":
-			target=tip if focus_at=="tip" else root
-			if focus_at=="head": target=motion.joint_origin(focus+"/head",t) if motion.has_joint(focus+"/head") else tip+Vector3(0,motion.head_length(focus),0)   # a hinged head's pin
+			target=Vector3(rx,tip.y,tip.z) if focus_at=="tip" else Vector3(rx,root.y,root.z)
+			if focus_at=="head":
+				var h0 := motion.joint_origin(focus+"/head",t_ref) if motion.has_joint(focus+"/head") else tip+Vector3(0,motion.head_length(focus),0)
+				target=Vector3(rx,h0.y,h0.z)
 			half_w=focus_span/2.0; half_h=focus_span/2.0
-		# The floor of 0.8 m is what keeps a whole-arm --focus shot outside the
-		# mechanism; a --focus_at close-up asks to be inside it, so it gets the
-		# camera's own near plane as its floor instead.
 		var distance: float=maxf(maxf(half_w/(tan_half*aspect),half_h/tan_half),.8 if focus_at=="" else .30)
 		var dir := focus_dir
 		if dir==Vector3.ZERO:
@@ -868,10 +860,12 @@ func _camera_at(t: float) -> void:
 	elif chosen==7: target=Vector3(0,1.95,0); pos=Vector3(0,1.95,6.6)
 	elif chosen==8: target=Vector3(-.9,.35,.2); pos=target+Vector3(1.3,.8,2.2)
 	elif chosen==9:
-		# Joint close-up: follow the second harp arm's elbow from behind the string plane.
+		# Joint close-up: anchored on the second harp arm's static elbow/wrist height,
+		# panning only along smoothed rail X from behind the string plane.
 		var aid: String="harp_arm1" if layout["arms"].has("harp_arm1") else layout["arms"].keys()[0]
-		var pose := motion.pose(aid,t)
-		target=(pose["elbow"]+pose["wrist"])/2; pos=target+Vector3(1.5,.45,-1.9)
+		var pose0 := motion.pose(aid,0.0)
+		var mid0: Vector3=(pose0["elbow"]+pose0["wrist"])/2.0
+		target=Vector3(_smooth_rail_x(aid,t),mid0.y,mid0.z); pos=target+Vector3(1.5,.45,-1.9)
 	elif chosen==10:
 		# String close-up: the most recently sounded unstruck string, seen from
 		# 45° off its pluck axis so both the bend and the blur read. The camera

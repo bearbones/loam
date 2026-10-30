@@ -14,8 +14,8 @@ extends RefCounted
 ## advance, so the camera may anticipate like an operator who has read the
 ## score): the camera leans with a phrase, it does not twitch with a click.
 
-const FOLLOW_S := .7
-const FOLLOW_TAPS := 9
+const FOLLOW_S := 1.6
+const FOLLOW_TAPS := 17
 
 var bake: MotionBake
 var layout: Dictionary
@@ -100,17 +100,30 @@ static func _dir(az_deg: float, el_deg: float) -> Vector3:
 	return Vector3(sin(az)*cos(el), sin(el), cos(az)*cos(el))
 
 
-## An arm's tool, smoothed: a triangular window FOLLOW_S either side of t.
-## The tool and the carriage are read as joints of the bake's table
-## (MotionBake.joint_origin: a pinned joint is its channel, the .tip and .root).
-func follow(aids: Array, t: float) -> Vector3:
-	var sum := Vector3.ZERO; var wsum := 0.0
+## Smoothed 1D carriage traversal along the rail (+X only) over a cosine window
+## FOLLOW_S either side of t. Vertical (Y) and depth (Z) camera anchors stay fixed
+## on the mechanism's static frame so the camera never bobs with an arm's stroke.
+func rail_x(aids: Array, t: float) -> float:
+	var sum := 0.0; var wsum := 0.0
 	for k in FOLLOW_TAPS:
 		var f := float(k)/float(FOLLOW_TAPS-1)*2.0-1.0
-		var w := 1.0-absf(f)*.8
+		var w := .5+.5*cos(PI*f)
 		for aid in aids:
-			sum += bake.joint_origin(aid+"/tool", t+f*FOLLOW_S)*w; wsum += w
-	return sum/wsum
+			sum += bake.joint_origin(aid+"/carriage", t+f*FOLLOW_S).x*w; wsum += w
+	return sum/maxf(wsum, 1e-6)
+
+
+## Legacy helper kept for external callers: returns the rail-anchored point at
+## the arm's static mid-work height (only X traverses the rail).
+func follow(aids: Array, t: float) -> Vector3:
+	var x := rail_x(aids, t)
+	var yz := Vector3.ZERO
+	for aid in aids:
+		var r := bake.joint_origin(aid+"/carriage", 0.0)
+		var p0 := bake.joint_origin(aid+"/tool", 0.0)
+		yz += Vector3(0.0, lerpf(r.y, p0.y, 0.75), lerpf(r.z, p0.z, 0.85))
+	yz /= maxf(float(aids.size()), 1.0)
+	return Vector3(x, yz.y, yz.z)
 
 
 func _center(mid: String, fallback: Vector3) -> Vector3:
@@ -129,23 +142,25 @@ func _wide_dark(u: float, _t: float) -> Dictionary:
 		"target": Vector3(0, 1.7, 0).lerp(Vector3(0, 2.15, 0), e), "fov": 38.0}
 
 
-## The first pick arm, close from behind and to its side: an arm reaches from
-## its carriage behind the machine forward to the strings, so its hand reads
-## in profile, the strings it plucks beyond it. The camera drifts in.
+## The first pick arm, close from behind and to its side: anchored on the harp's
+## static low-register string plane and the carriage's rail X (no vertical or
+## depth bobbing with the hand's pluck/raise). The camera drifts in smoothly.
 func _arm0_close(u: float, t: float) -> Dictionary:
 	var aid: String = "harp_arm0" if _has("harp_arm0") else str(bake.arms.keys()[0])
-	var target := follow([aid], t)
+	var c := _center("harp", Vector3(0, 2.05, 0))
+	var target := Vector3(rail_x([aid], t), 1.32, c.z-.22)
 	var az := lerpf(-128.0, -108.0, _ease(u))
 	return {"pos": target+_dir(az, 20.0)*lerpf(3.3, 2.7, _ease(u)), "target": target, "fov": 38.0}
 
 
 ## The low arm's run: high behind the machine's right side, orbiting round
-## behind it, aiming at the hand as it plays the strings.
+## behind it, anchored on the upper-register string plane with gentle rail X.
 func _arm2_run(u: float, t: float) -> Dictionary:
 	var aid: String = "harp_arm2" if _has("harp_arm2") else str(bake.arms.keys()[0])
-	var target := follow([aid], t)
+	var c := _center("harp", Vector3(0, 2.05, 0))
+	var target := Vector3(lerpf(0.45, rail_x([aid], t), 0.5), 2.12, c.z-.20)
 	var az := lerpf(118.0, 172.0, _ease(u)); var el := lerpf(30.0, 22.0, _ease(u))
-	return {"pos": target+_dir(az, el)*lerpf(3.6, 3.0, u), "target": target, "fov": 40.0}
+	return {"pos": target+_dir(az, el)*lerpf(3.6, 3.0, _ease(u)), "target": target, "fov": 40.0}
 
 
 ## The pulse: high over the harp, turning slowly, the three arms working below.
@@ -155,34 +170,35 @@ func _overhead(u: float, _t: float) -> Dictionary:
 	return {"pos": c+_dir(az, 68.0)*7.2, "target": c, "fov": 42.0}
 
 
-## The rake: from behind, turning round it, aiming at its hand between the lens
-## and the strings it sweeps.
+## The rake: from behind, turning round its static comb center (with at most a
+## gentle 20% rail drift along X) so the rake hand sweeps across a steady frame.
 func _rake_close(u: float, t: float) -> Dictionary:
 	var c := _center("rake", Vector3(-4.2, 2.65, .9))
-	var target := c.lerp(follow(["rake_arm0"], t), .6) if _has("rake_arm0") else c
+	var rx := lerpf(c.x, rail_x(["rake_arm0"], t), .20) if _has("rake_arm0") else c.x
+	var target := Vector3(rx, 2.05, c.z-.08)
 	var az := lerpf(222.0, 158.0, _ease(u))
 	return {"pos": target+_dir(az, 18.0)*3.4, "target": target, "fov": 42.0}
 
 
-## The mallets come in: low along the bars from the front, tracking both arms.
+## The mallets come in: low along the bars from the front, anchored on the bar
+## frame with a smooth pan along the carriages' rail X.
 func _bars_low(u: float, t: float) -> Dictionary:
 	var c := _center("bars", Vector3(4.5, 1.35, 1.2))
 	var arms: Array = []
 	for aid in ["bars_arm0", "bars_arm1"]: if _has(aid): arms.append(aid)
-	var aim := follow(arms, t) if not arms.is_empty() else c
-	var target := Vector3(lerpf(c.x, aim.x, .7), c.y+.35, c.z-.15)
+	var rx := lerpf(c.x, rail_x(arms, t), .45) if not arms.is_empty() else c.x
+	var target := Vector3(rx, c.y+.35, c.z-.15)
 	var off := Vector3(-.9, .15, 3.3).lerp(Vector3(-.4, .3, 2.7), _ease(u))
 	return {"pos": target+off, "target": target, "fov": 40.0}
 
 
 ## Behind the rail: a mallet arm's carriage, pinion and pawl riding the rack,
-## with the mallet dropping below.
+## anchored at the rail's static Y/Z height and traversing only along rail X.
 func _bars_ratchet(u: float, t: float) -> Dictionary:
 	var aid: String = "bars_arm0" if _has("bars_arm0") else str(bake.arms.keys()[0])
-	var tip := follow([aid], t)
-	var r := bake.joint_origin(aid+"/carriage", t)
-	var root := Vector3(tip.x, r.y, r.z)
-	var target := root.lerp(tip, .35)
+	var r0 := bake.joint_origin(aid+"/carriage", 0.0)
+	var p0 := bake.joint_origin(aid+"/tool", 0.0)
+	var target := Vector3(rail_x([aid], t), lerpf(r0.y, p0.y, .35), lerpf(r0.z, p0.z, .35))
 	var az := lerpf(208.0, 238.0, _ease(u))
 	return {"pos": target+_dir(az, 12.0)*2.25, "target": target, "fov": 42.0}
 
