@@ -55,6 +55,7 @@ uniform float contact_m = .006;
 varying float v_env;
 varying float v_theta;
 varying float v_grow;
+varying float v_px_diam;
 
 float node_value(float u, bool env) {
     float k = clamp(u, 0.0, 1.0) * float(NODES - 1);
@@ -77,9 +78,11 @@ void vertex() {
     // vertical focal length (negative under Godot's Vulkan projection, which
     // flips Y — hence abs); the tube's gauge is held to min_px of that
     vec4 axis_view = MODELVIEW_MATRIX * vec4(d * cross_axis, VERTEX.y, d, 1.0);
+    float res_scale = max(VIEWPORT_SIZE.y / 1080.0, 1.0);
     float world_per_px = 2.0 * max(-axis_view.z, .05) / (abs(PROJECTION_MATRIX[1][1]) * VIEWPORT_SIZE.y);
-    float r = max(radius, .5 * min_px * world_per_px);
+    float r = max(radius, .5 * min_px * res_scale * world_per_px);
     v_grow = 1.0 - radius / r;
+    v_px_diam = 2.0 * radius / max(world_per_px * res_scale, 1e-6);
     if (sheath) {
         float e = node_value(u, true);
         v_env = e;
@@ -112,8 +115,20 @@ void fragment() {
         METALLIC = 0.0; ROUGHNESS = .6; SPECULAR = .2;
         EMISSION = glow.rgb * mix(vec3(1.0), albedo.rgb, .5) * excitation * .8;
     } else {
+        // Pre-integrate across the cylinder cross-section when the wire is narrower
+        // than ~6 px on screen so scanline-to-scanline pixel centers do not jump
+        // across +/-60 deg cylinder normals and produce beaded zipper highlights.
+        float cyl_blend = smoothstep(2.8, 7.0, v_px_diam);
+        vec3 T_vs = normalize(TANGENT);
+        vec3 V_vs = normalize(VIEW);
+        vec3 n_ribbon = V_vs - T_vs * dot(V_vs, T_vs);
+        n_ribbon = dot(n_ribbon, n_ribbon) > 1e-5 ? normalize(n_ribbon) : vec3(0.0, 0.0, 1.0);
+        float center_weight = clamp(dot(normalize(NORMAL), n_ribbon), 0.0, 1.0);
+        float edge_profile = mix(smoothstep(0.0, 0.85, center_weight), 1.0, cyl_blend);
+        vec3 base_normal = normalize(mix(n_ribbon, normalize(NORMAL), cyl_blend));
+
         float tone = 1.0;
-        float rough = roughness;
+        float rough = mix(max(roughness, 0.42), roughness, cyl_blend);
         float metal = metallic;
         float spec = .7;
         vec3 back = vec3(0.0);
@@ -121,41 +136,40 @@ void fragment() {
         float wind = 0.0;
         if (family == 1) {
             // helical winding: fine periodic ridges catch the light as the wire
-            // turns. A turn narrower than a few pixels on screen would shimmer, so
-            // the ridges fade to their mean tone as they close up (fwidth of the
-            // turn count is turns per pixel), and the normal is only rocked while
-            // they are wide enough to see.
-            float turns = (offset_m + UV.x * length_m) * wind_pitch + UV.y;
-            float fade = 1.0 - smoothstep(.2, .45, fwidth(turns));
+            // turns. Fade well before the pixel Nyquist limit and when the wire
+            // itself is narrower than ~4 px on screen.
+            float turns = (offset_m + UV.x * length_m) * wind_pitch + UV.y * cyl_blend;
+            float fade = (1.0 - smoothstep(.06, .18, fwidth(turns))) * cyl_blend;
             float ridge = mix(.5, .5 + .5 * cos(turns * 6.2831853), fade);
             tone = .82 + .18 * ridge;
-            rough = roughness + .08 * (1.0 - ridge);
+            rough = rough + .08 * (1.0 - ridge);
             wind = sin(turns * 6.2831853) * fade;
         } else if (family == 2) {
             // gut: a slow helical grain from the twisted strands, matte, and
             // translucent enough that a string against the light glows at its edges
-            float twist = ((offset_m + UV.x * length_m) * strand_pitch + 2.0 * UV.y) * 6.2831853;
-            float gfade = 1.0 - smoothstep(.2, .45, fwidth(twist) / 6.2831853);
+            float twist = ((offset_m + UV.x * length_m) * strand_pitch + 2.0 * UV.y * cyl_blend) * 6.2831853;
+            float gfade = (1.0 - smoothstep(.06, .18, fwidth(twist) / 6.2831853)) * cyl_blend;
             float grain = mix(.5, .5 + .5 * cos(twist), gfade);
             tone = .92 + .08 * grain;
-            rough = .52 + .06 * grain;
+            rough = max(rough, .52) + .06 * grain;
             wind = sin(twist) * gfade * .5;
             metal = 0.0; spec = .35;
             back = albedo.rgb * .45; rim = .35;
         } else if (family == 3) {
             // nylon: clear and glossy, most of the light passes through
-            rough = .20; metal = 0.0; spec = .5;
+            rough = mix(0.36, .20, cyl_blend); metal = 0.0; spec = .5;
             back = albedo.rgb * .65; rim = .55;
         }
         // A thin wire in a dark studio would vanish as pure metal: keep a little
         // diffuse body so it reads, and let a sounding string light itself.
-        // A wire held at the minimum width is toned down by the coverage it lost.
-        float cover = 1.0 - .6 * v_grow;
+        // A wire held at the minimum width is toned down by the coverage it lost,
+        // and softened toward its cylinder silhouette edges.
+        float cover = (1.0 - .55 * v_grow) * (0.35 + 0.65 * edge_profile);
         // the hardware contact at each end: through an eyelet, over a pin
         float end_m = min(UV.x, 1.0 - UV.x) * length_m;
         float contact = 1.0 - .5 * (1.0 - smoothstep(0.0, contact_m, end_m));
         // the winding's ridges rock the normal along the wire
-        if (wind != 0.0) NORMAL = normalize(NORMAL + TANGENT * wind * .55);
+        NORMAL = wind != 0.0 ? normalize(base_normal + T_vs * wind * .55) : base_normal;
         ALBEDO = albedo.rgb * tone * cover * contact;
         METALLIC = metal * (1.0 - .35 * excitation);
         ROUGHNESS = rough;

@@ -59,6 +59,7 @@ var capture_start := 45.5
 var capture_seconds := 8.0
 var capture_fps := 30.0
 var capture_speed := 1.0         # score seconds a video second: 0.25 is quarter speed
+var capture_target_size := Vector2i.ZERO # final output size before SSAA upscaling
 var focus := ""                  # --focus=<aid>: frame that arm's mechanism, not the room
 var focus_span := 2.4            # metres of rail across the frame (a minimum)
 var focus_dir := Vector3.ZERO    # --focus_dir=x,y,z: stand-off direction; zero = derive it
@@ -258,10 +259,17 @@ func _ready() -> void:
 	# of the window: the root viewport renders at the content scale size and is
 	# only scaled to the window for display (captures read the viewport).
 	var size: PackedStringArray=option("size","").split("x",false)
+	var ssaa := maxi(int(option("ssaa","2" if (shot!="" or capture_dir!="") else "1")),1)
 	if size.size()==2:
+		capture_target_size=Vector2i(int(size[0]),int(size[1]))
 		get_window().content_scale_mode=Window.CONTENT_SCALE_MODE_VIEWPORT
 		get_window().content_scale_aspect=Window.CONTENT_SCALE_ASPECT_KEEP
-		get_window().content_scale_size=Vector2i(int(size[0]),int(size[1]))
+		get_window().content_scale_size=capture_target_size*ssaa
+	elif ssaa>1 and (shot!="" or capture_dir!=""):
+		capture_target_size=Vector2i(1600,900)
+		get_window().content_scale_mode=Window.CONTENT_SCALE_MODE_VIEWPORT
+		get_window().content_scale_aspect=Window.CONTENT_SCALE_ASPECT_KEEP
+		get_window().content_scale_size=capture_target_size*ssaa
 	print("CLOCKWORK: loaded ",score.events.size()," events, ",parts.size()," rigs; ",audio_mode," audio")
 
 ## The blow shakes the ASSEMBLY, not only the arm (docs/motion-design.md): the
@@ -312,7 +320,7 @@ func _make_string(sid: String) -> Node3D:
 	var holder := Node3D.new(); holder.name=sid+" string"
 	holder.transform=Transform3D(MotionBake.link_basis(a,b),a)
 	var colour := string_colour(s["mid"],midi,family)
-	var mesh := _wire_mesh(length,radius,48,10)
+	var mesh := _wire_mesh(length,radius,48,16)
 	for sheath in [false,true]:
 		var node := MeshInstance3D.new(); node.mesh=mesh
 		var mat := ShaderMaterial.new(); mat.shader=WIRE
@@ -767,13 +775,14 @@ func _film_frame(t: float) -> void:
 
 ## The title over the dark hall, and an end card over the ring-out.
 func _film_cards() -> void:
+	var ssaa := maxi(int(option("ssaa","2" if (OS.get_environment("SHOT")!="" or option("capture","")!="") else "1")),1)
 	var layer := CanvasLayer.new(); add_child(layer)
 	var make := func(lines: Array, t_in: float, t_out: float) -> void:
 		var box := VBoxContainer.new(); box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		box.alignment=BoxContainer.ALIGNMENT_CENTER; box.mouse_filter=Control.MOUSE_FILTER_IGNORE
 		for line in lines:
 			var label := Label.new(); label.text=line[0]; label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-			label.add_theme_font_size_override("font_size",int(line[1])); label.add_theme_color_override("font_color",line[2])
+			label.add_theme_font_size_override("font_size",int(line[1])*ssaa); label.add_theme_color_override("font_color",line[2])
 			box.add_child(label)
 		box.modulate.a=0.0; layer.add_child(box); film_cards.append([box,t_in,t_out])
 	var title: String=str(score.doc.get("name","The Chamber")).to_upper()
@@ -952,7 +961,10 @@ func _process(dt: float) -> void:
 		var count := roundi(capture_seconds*capture_fps/capture_speed)
 		if shot=="" and frame>=count: return
 		var path := shot if shot!="" else capture_dir.path_join("%05d.png" % frame)
-		get_viewport().get_texture().get_image().save_png(path)
+		var img := get_viewport().get_texture().get_image()
+		if capture_target_size!=Vector2i.ZERO and img.get_size()!=capture_target_size:
+			img.resize(capture_target_size.x,capture_target_size.y,Image.INTERPOLATE_LANCZOS)
+		img.save_png(path)
 		frame+=1
 		if shot!="" or frame>=count: get_tree().quit()
 

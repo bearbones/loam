@@ -58,74 +58,65 @@ def save(name, *channels):
 # ---------------------------------------------------------------------------
 # Fibres run along image X (+U); periodic warp avoids stiff ruled pinstripes.
 warp = 0.025 * np.sin(2 * np.pi * x) + 0.010 * np.sin(6 * np.pi * x + 3 * np.sin(2 * np.pi * y))
-long_grain = noise((1.5, 58))
+long_grain = noise((2.2, 58))
 broad = noise((22, 110))
-fine = noise((0.45, 20))
-micro_fibre = noise((0.35, 42))
+fine = noise((1.6, 24))
+micro_fibre = noise((1.4, 42))
 
 phase = (y + warp) * 2 * np.pi
-rings = np.sin(phase * 32 + 1.1 * broad) + 0.35 * np.sin(phase * 73 + 0.5 * long_grain)
+rings = np.sin(phase * 32 + 1.1 * broad) + 0.25 * np.sin(phase * 64 + 0.5 * long_grain)
 grain = unit(0.55 * rings + 0.75 * long_grain + 0.3 * broad)
 pores = np.clip((fine + long_grain * 0.3 - 1.15) * 0.65, 0.0, 1.0)
-rough = unit(0.5 * noise(1.2) + 0.4 * long_grain)
+rough = unit(0.5 * noise(2.2) + 0.4 * long_grain)
 save('walnut_data.png', grain, pores, rough)
 
 # Carved longitudinal fluting / hand-planed luthiery facets across V (image Y),
 # combined with earlywood/latewood ring ridges and deep sunken vessel pores.
 flute_phase = (y * 12.0 + 0.015 * broad + 0.005 * np.sin(2 * np.pi * x * 2.0)) * 2 * np.pi
 flute_wave = np.cos(flute_phase)
-grooves = np.sign(flute_wave) * (np.abs(flute_wave) ** 0.80)
-fine_reeding = 0.18 * np.cos(flute_phase * 2.0 + 0.35 * long_grain)
-ring_relief = 0.42 * normalize01(rings) + 0.20 * unit(micro_fibre, 0.22)
-pore_pits = (pores ** 1.30) * 0.58
+grooves = np.sign(flute_wave) * (np.abs(flute_wave) ** 0.85)
+fine_reeding = 0.14 * np.cos(flute_phase * 2.0 + 0.35 * long_grain)
+ring_relief = 0.38 * normalize01(rings) + 0.16 * unit(micro_fibre, 0.18)
+pore_pits = (pores ** 1.30) * 0.45
 
 # Composite wood substrate height in [0, 1]: proud lands/ridges -> 1, deep grooves/pores -> 0
 wood_height = normalize01(0.28 * (0.5 + 0.5 * grooves) + 0.10 * fine_reeding + ring_relief - pore_pits)
+wood_height = gaussian_filter(wood_height, (1.4, 1.8), mode='wrap')
 
 # Chatoyancy / fiddleback curl wave along X (+U) that tilts subsurface fibre reflections
 curl_phase = 2 * np.pi * (x * 10.0 + 0.08 * np.sin(2 * np.pi * y * 2.0) + 0.05 * broad)
-chatoyancy = np.clip(0.5 + 0.28 * np.sin(curl_phase) + 0.22 * grooves, 0.0, 1.0)
+chatoyancy = np.clip(0.5 + 0.24 * np.sin(curl_phase) + 0.20 * grooves, 0.0, 1.0)
 
 # Cavity ambient occlusion inside carved grooves and vessel pores
 laplacian = gaussian_filter(wood_height, 3.0, mode='wrap') - wood_height
-wood_ao = np.clip(1.0 - 1.35 * np.maximum(0.0, laplacian) - 0.42 * pores, 0.22, 1.0)
+wood_ao = np.clip(1.0 - 1.35 * np.maximum(0.0, laplacian) - 0.38 * pores, 0.25, 1.0)
 
-wnx, wny, wnz = normal_from_height(wood_height, strength=2.1)
+wnx, wny, wnz = normal_from_height(wood_height, strength=1.35)
 save('wood_normal.png', wnx, wny, wnz)
 save('wood_depth.png', wood_height, chatoyancy, wood_ao)
 
 # ---------------------------------------------------------------------------
 # 2. Anisotropic Brushed Metallics (metal_data, metal_normal, metal_depth)
 # ---------------------------------------------------------------------------
-patch = noise(34) * 0.6 + noise(8) * 0.25
-scratch = noise((0.5, 50)) * 0.65 + noise((0.6, 7)) * 0.25
-micro = noise(0.55)
-save('metal_data.png', unit(patch), unit(scratch), unit(micro))
+patch = noise(48) * 0.6 + noise(18) * 0.25
+scratch = noise((2.0, 72)) * 0.65 + noise((2.5, 24)) * 0.25
+micro = noise(3.0)
+save('metal_data.png', unit(patch, 0.10), unit(scratch, 0.10), unit(micro, 0.10))
 
-# Multi-scale directional brush striations along X (+U), with a subtle cross-honed
-# secondary pass so highlights shimmer realistically across curved metal links.
-brush_coarse = noise((0.65, 110))
-brush_med = noise((0.38, 56))
-brush_fine = noise((0.25, 32))
-# Slight +/- 4 deg cross-honing tracks (periodic on the 1024 torus)
-cross_a = np.sin(2 * np.pi * (32.0 * y + 2.0 * x) + 1.2 * noise((2.0, 28)))
-cross_b = np.sin(2 * np.pi * (48.0 * y - 3.0 * x) + 1.2 * noise((2.0, 28)))
-honing = 0.10 * (cross_a + 0.5 * cross_b)
+# Smooth directional brush striations along X (+U) without high-frequency pits/cross-hatch speckles.
+brush_coarse = noise((2.4, 140))
+brush_med = noise((1.8, 90))
+brush_fine = noise((1.4, 60))
 
-# Fine score lines and micro-pits
-score_lines = np.clip((np.abs(brush_med) - 1.45) * 0.75, 0.0, 1.0)
-micro_pits = np.clip((micro - 1.75) * 0.45, 0.0, 1.0)
-
-metal_height = normalize01(
-    0.42 * brush_coarse + 0.36 * brush_med + 0.24 * brush_fine + honing - 0.38 * score_lines - 0.20 * micro_pits
-)
+metal_height = normalize01(0.50 * brush_coarse + 0.32 * brush_med + 0.18 * brush_fine)
+metal_height = gaussian_filter(metal_height, (2.2, 4.0), mode='wrap')
 
 # Brush tangent perturbation / facet glint phase (G) and groove cavity AO (B)
-brush_flow = unit(0.55 * brush_fine + 0.25 * honing + 0.20 * noise((1.2, 20)), scale=0.16)
-metal_lap = gaussian_filter(metal_height, 2.0, mode='wrap') - metal_height
-metal_ao = np.clip(1.0 - 1.15 * np.maximum(0.0, metal_lap) - 0.28 * score_lines - 0.14 * unit(patch), 0.35, 1.0)
+brush_flow = unit(0.65 * brush_coarse + 0.35 * brush_med, scale=0.08)
+metal_lap = gaussian_filter(metal_height, 3.0, mode='wrap') - metal_height
+metal_ao = np.clip(1.0 - 0.65 * np.maximum(0.0, metal_lap) - 0.08 * unit(patch, 0.10), 0.55, 1.0)
 
-mnx, mny, mnz = normal_from_height(metal_height, strength=1.45)
+mnx, mny, mnz = normal_from_height(metal_height, strength=0.45)
 save('metal_normal.png', mnx, mny, mnz)
 save('metal_depth.png', metal_height, brush_flow, metal_ao)
 

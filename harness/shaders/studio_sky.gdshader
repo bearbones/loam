@@ -5,8 +5,10 @@ float panel(vec3 d,vec3 aim,float width,float height) {
     vec3 up=cross(right,aim);
     float forward=max(dot(d,aim),.001);
     vec2 uv=vec2(dot(d,right),dot(d,up))/forward;
-    return (1.0-smoothstep(width,width+.06,abs(uv.x))) *
-           (1.0-smoothstep(height,height+.06,abs(uv.y))) * step(.01,dot(d,aim));
+    // Soft feathered studio softbox gradient prevents normal-mapped surfaces from
+    // breaking into blotchy patches where reflection vectors cross a hard panel edge.
+    return (1.0-smoothstep(width*.35,width+.55,abs(uv.x))) *
+           (1.0-smoothstep(height*.35,height+.55,abs(uv.y))) * smoothstep(.0,.25,dot(d,aim));
 }
 void sky() {
     vec3 d=normalize(EYEDIR);
