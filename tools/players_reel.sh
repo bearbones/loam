@@ -98,7 +98,10 @@ capture() {                      # capture CLIP -> $out/clips/m<CLIP>.mp4
   local seconds; seconds=$(python3 -c "print(round($end-$start, 6))")
   local frames; frames=$(python3 -c "print(round($seconds*$fps/$speed))")
   local dir; dir=$(realpath -m "$out/frames/m$clip")
-  local flags=(--size="$size" --capture="$dir" --start="$start" --seconds="$seconds" --fps="$fps" --speed="$speed" --silent --clean)
+  local mp4; mp4=$(realpath -m "$out/clips/m$clip.mp4")
+  local cap_target="$mp4"
+  [[ ${KEEP_FRAMES:-0} == 1 ]] && cap_target="$dir"
+  local flags=(--size="$size" --capture="$cap_target" --crf="$crf" --start="$start" --seconds="$seconds" --fps="$fps" --speed="$speed" --silent --clean)
   [[ $shot == expanded:* ]] && { flags+=(--expanded); shot=${shot#expanded:}; }
   case $shot in
     film)    flags+=(--film) ;;
@@ -107,16 +110,21 @@ capture() {                      # capture CLIP -> $out/clips/m<CLIP>.mp4
     focus:*) flags+=(--camera=manual --focus="${shot#focus:}" --focus_span=2.4) ;;
     *) echo "players_reel: moment $n: unknown shot '$shot'" >&2; return 2 ;;
   esac
-  rm -rf "$dir"; mkdir -p "$dir"
+  rm -rf "$dir" "$mp4"
+  [[ ${KEEP_FRAMES:-0} == 1 ]] && mkdir -p "$dir"
   echo "players_reel: [$label] m$clip $start-$end s at ${speed}x ($frames frames): $what"
   if ! tools/offscreen.sh godot --path harness -- "${flags[@]}" >"$dir.log" 2>&1; then
     echo "players_reel: m$clip: godot failed; see $dir.log" >&2; tail -5 "$dir.log" >&2; return 1
   fi
-  local got; got=$(find "$dir" -name '*.png' | wc -l)
-  (( got == frames )) || { echo "players_reel: m$clip: $got frames, want $frames; see $dir.log" >&2; return 1; }
-  ffmpeg -hide_banner -loglevel error -y -framerate "$fps" -i "$dir/%05d.png" \
-    -c:v libx264 -preset medium -crf "$crf" -pix_fmt yuv420p -movflags +faststart "$out/clips/m$clip.mp4"
-  [[ ${KEEP_FRAMES:-0} == 1 ]] || rm -rf "$dir" "$dir.log"
+  if [[ ${KEEP_FRAMES:-0} == 1 ]]; then
+    local got; got=$(find "$dir" -name '*.png' | wc -l)
+    (( got == frames )) || { echo "players_reel: m$clip: $got frames, want $frames; see $dir.log" >&2; return 1; }
+    ffmpeg -hide_banner -loglevel error -y -framerate "$fps" -i "$dir/%05d.png" \
+      -c:v libx264 -preset medium -crf "$crf" -pix_fmt yuv420p -movflags +faststart "$mp4"
+  else
+    [[ -s $mp4 ]] || { echo "players_reel: m$clip: missing $mp4; see $dir.log" >&2; return 1; }
+    rm -f "$dir.log"
+  fi
 }
 
 failed=0
