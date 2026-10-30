@@ -130,25 +130,20 @@ func _wide_dark(u: float, _t: float) -> Dictionary:
 
 
 ## The first pick arm, close from behind and to its side: an arm reaches from
-## its carriage behind the machine forward to the strings, so it reads whole
+## its carriage behind the machine forward to the strings, so its hand reads
 ## in profile, the strings it plucks beyond it. The camera drifts in.
 func _arm0_close(u: float, t: float) -> Dictionary:
 	var aid: String = "harp_arm0" if _has("harp_arm0") else str(bake.arms.keys()[0])
-	var target := _arm_mid(aid, t)
+	var target := follow([aid], t)
 	var az := lerpf(-128.0, -108.0, _ease(u))
 	return {"pos": target+_dir(az, 20.0)*lerpf(3.3, 2.7, _ease(u)), "target": target, "fov": 38.0}
 
 
-## Halfway along an arm, carriage to tool, its tool smoothed (see follow).
-func _arm_mid(aid: String, t: float) -> Vector3:
-	return (bake.joint_origin(aid+"/carriage", t)).lerp(follow([aid], t), .55)
-
-
 ## The low arm's run: high behind the machine's right side, orbiting round
-## behind it, the arm reaching up from its low carriage to the strings.
+## behind it, aiming at the hand as it plays the strings.
 func _arm2_run(u: float, t: float) -> Dictionary:
 	var aid: String = "harp_arm2" if _has("harp_arm2") else str(bake.arms.keys()[0])
-	var target := _arm_mid(aid, t)
+	var target := follow([aid], t)
 	var az := lerpf(118.0, 172.0, _ease(u)); var el := lerpf(30.0, 22.0, _ease(u))
 	return {"pos": target+_dir(az, el)*lerpf(3.6, 3.0, u), "target": target, "fov": 40.0}
 
@@ -160,11 +155,11 @@ func _overhead(u: float, _t: float) -> Dictionary:
 	return {"pos": c+_dir(az, 68.0)*7.2, "target": c, "fov": 42.0}
 
 
-## The rake: from behind, turning round it, its arm between the lens and the
-## strings it sweeps.
+## The rake: from behind, turning round it, aiming at its hand between the lens
+## and the strings it sweeps.
 func _rake_close(u: float, t: float) -> Dictionary:
 	var c := _center("rake", Vector3(-4.2, 2.65, .9))
-	var target := c.lerp(_arm_mid("rake_arm0", t), .6) if _has("rake_arm0") else c
+	var target := c.lerp(follow(["rake_arm0"], t), .6) if _has("rake_arm0") else c
 	var az := lerpf(222.0, 158.0, _ease(u))
 	return {"pos": target+_dir(az, 18.0)*3.4, "target": target, "fov": 42.0}
 
@@ -195,8 +190,8 @@ func _bars_ratchet(u: float, t: float) -> Dictionary:
 ## Every mechanism at once, fully lit, orbiting slowly.
 func _wide_lit(u: float, _t: float) -> Dictionary:
 	var c := Vector3(.4, 1.7, -.2)
-	var az := lerpf(-22.0, 14.0, u)
-	return {"pos": c+_dir(az, 16.0)*lerpf(10.8, 10.0, u), "target": c, "fov": 42.0}
+	var az := lerpf(8.0, -8.0, u)
+	return {"pos": c+_dir(az, 16.0)*lerpf(10.6, 10.2, u), "target": c, "fov": 42.0}
 
 
 ## The coda: from close on the harp, pulling back and up as the music thins.

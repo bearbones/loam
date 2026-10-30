@@ -1,3 +1,36 @@
+## 2026-10-30 — PLAYERS M11: The film, the reel and the sign-off (awaiting operator sign-off)
+
+Aimed close shots at the playing hands/heads in `harness/film_director.gd`,
+re-exported `render/film/camera.json`, verified all M0..M11 rulers on both
+`chamber` and `expanded`, and rendered the full 13-clip M11 contrast reel and
+1080p film (`the-chamber.mp4`):
+
+- **Close-shot framing & wide orbit** (`harness/film_director.gd`,
+  `render/film/camera.json`):
+  - `_arm0_close` and `_arm2_run` now aim at the smoothed hand (`follow([aid], t)`)
+    instead of `_arm_mid(aid, t)`, and `_rake_close` aims at
+    `c.lerp(follow(["rake_arm0"], t), 0.6)`.
+  - Gently narrowed `_wide_lit`'s azimuth sweep (`+8° -> -8°`, distance
+    `10.6 -> 10.2 m`) so camera pan velocity does not add against `bars_arm1`
+    at $58.57\text{ s}$, $64.27\text{ s}$, and $68.20\text{ s}$.
+  - Re-exported `render/film/camera.json` (`2581` frames at $30.0\text{ fps}$,
+    $1920 \times 1080$, `KEEP_HEIGHT`).
+- **Ruler 2 (`screen`) & full gate (`M0..M11`)**:
+  - `2 screen` passes with `over = 0` ($\rho_{\text{px}} \le 1.0$) on all 6
+    arms: `harp_arm0` $\rho_{\max} = 0.602$, `harp_arm1` $\rho_{\max} = 0.553$,
+    `harp_arm2` $\rho_{\max} = 0.552$, `rake_arm0` $\rho_{\max} = 0.741$,
+    `bars_arm0` $\rho_{\max} = 0.936$, `bars_arm1` $\rho_{\max} = 0.987$.
+  - `2 screen jumps`: `jumps30 = 93 <= 150`, `px_max = 63.2 <= 80.0`,
+    `jumps30_44_68 = 67`, `pins_jumps30 = 59`.
+  - `python3 tools/test_players.py --gate=M0,M1,M2,M3,M4,M5,M6b,M7,M8,M9,M10,M11`
+    exits `0` (`GATE PASSED`) across all 26 rulers and all 18 invariants in
+    Ruler 26 on both `chamber` and `expanded`.
+- **Renders delivered**:
+  - Full 13-clip M11 reel (`m1`, `m2`, `m2q`, `m3`, `m4`, `m5`, `m6`, `m6q`,
+    `m7`, `m8`, `m9`, `m9q`, `m10`) at `render/players/m11/reel.mp4` and full
+    1080p film at `render/film/the-chamber.mp4` (`tools/render_film.sh`),
+    awaiting operator sign-off.
+
 ## 2026-10-30 — PLAYERS M10: Settles, phrase ends and the ending
 
 Retuned all contact and detent rings into the 30 fps legible band ($f \le 6\text{ Hz}$,
