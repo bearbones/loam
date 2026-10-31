@@ -316,6 +316,26 @@ def bake(score_path, manifest_path, asset=None, hz=240, verbose=print):
                 segs=[[float(v) for v in g] for g in sp_plan['segs']],
                 notes=sp_plan['notes'],
             )
+        hp_plan = rig.hand_plan(aid)
+        if hp_plan is not None:
+            from formlab.hand import hand_digit_knuckles
+            kn_map = cfg.get('hand', {}).get('knuckles') or {
+                d: [float(v) for v in vec]
+                for d, vec in hand_digit_knuckles(side_sign=rig.flip_sign(aid)).items()
+            }
+            arms[aid]['hand_pose'] = dict(
+                knuckles={d: [float(v) for v in vec] for d, vec in kn_map.items()},
+                notes=[
+                    dict(
+                        digit=str(n['digit']),
+                        t_place=float(n['t_place_decl']),
+                        t_pull=float(n['t_pull']),
+                        t_slip=float(n['t_slip']),
+                        t_close=float(n['t_close']),
+                    )
+                    for n in hp_plan.get('notes', [])
+                ],
+            )
         if rig.hammer(aid) or 'head' in cfg:
             hd = cfg.get('head') or {}
             if hd.get('length') is None or float(hd['length']) != head_l or [float(v) for v in hd.get('hinge', [])] != [0.0, head_l, 0.0]:

@@ -287,7 +287,7 @@ def arm_capsules(poses, o1, o2, layers, spec, mount='back', drive='rack'):
     r_bar = max(spec['width'], spec['depth'])/2; r_bar2 = r_bar*.8; outer = layers['outer']
     # The tool: contact point up to the swan neck's apex, then the shank into
     # its socket under the crosshead's lower boss (formlab.linkage.tool_mount).
-    tip = poses['tip']; socket = tool_mount(wrist[0]-tip[0], o2); base = wrist-socket
+    tip = poses['tip']; socket = tool_mount(wrist[0]-tip[0], o2); base = tip if drive == 'screw' else wrist-socket
     neck = shank_path([0, .07, 0], socket, count=25)
     apex = base+neck[12]; socket_end = base+socket-[0, .03, 0]
     caps = {
@@ -365,6 +365,7 @@ def arm_capsules(poses, o1, o2, layers, spec, mount='back', drive='rack'):
         ('lower2', 'elbowhead_web2'), ('lower2', 'wristhead_web'), ('lower2', 'elbowhead_web1'), ('lower2', 'shank'),
         ('elbowhead_web1', 'elbowhead_web2'), ('wristhead_web', 'shank'), ('upper', 'wristhead_web'),
         ('upper2', 'upper'), ('lower2', 'lower'), ('tool', 'shank'),
+        *([('lower', 'tool'), ('lower2', 'tool'), ('wristhead_web', 'tool')] if drive == 'screw' else []),
         # a hinged head hangs on the flange's own pin, and its three capsules
         # are one rigid body about that pin
         *[(a, b) for a in ('head', 'head_rod', 'head_tail') for b in ('head', 'head_rod', 'head_tail', 'tool') if a != b]]}

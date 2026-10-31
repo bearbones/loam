@@ -79,10 +79,15 @@ func apply(model: Node3D) -> void:
 			if title.contains("walnut") or title.contains("rosewood"):
 				var axis := 0
 				if label.contains("leg") or label.contains("bridge"): axis = 1
-				# Lacquered grooved walnut for carved frames, stands and benches
+				# Lacquered grooved walnut for carved stands and benches
 				replacement = surface(0, "28150d", "68472b", .36, axis, variant, {
 					"normal_strength": .85, "depth_scale": .012, "clearcoat": .88,
 					"clearcoat_roughness": .07, "groove_depth": .92})
+				# Rivendell carved pale white/alabaster stone for harp and rake frames, twisting branch tracery, and plinth bases
+				if label.begins_with("form_harp") or label.begins_with("harp ") or label.begins_with("form_rake") or label.begins_with("rake "):
+					replacement = surface(0, "867d6e", "dfd7c8", .38, axis, variant, {
+						"normal_strength": .92, "depth_scale": .014, "clearcoat": .42,
+						"clearcoat_roughness": .18, "groove_depth": .96})
 				# High-gloss lacquered rosewood for tuned bars and temple blocks
 				if title.contains("rosewood"):
 					replacement = surface(0, "2b100b", "7b452a", .30, 2, variant, {

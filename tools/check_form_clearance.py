@@ -30,7 +30,7 @@ results={}; failures=[]
 for style in ('carved','ribbed','shell'):
     trees=[]
     for obj in objects:
-        if obj['name'].endswith('_'+style) or obj['name'].endswith('_stand') or obj['name'].endswith('_soundboard') or obj['name'].endswith('_actionplate') or obj['name']=='harp_reference_hardware':
+        if obj['name'].endswith('_'+style) or obj['name'].endswith('_stand') or obj['name'].endswith('_soundboard') or obj['name'].endswith('_actionplate') or obj['name'].endswith('_tracery') or obj['name']=='harp_reference_hardware':
             tree=ClosedSurface(obj['vertices'],obj['faces'])
             trees.append((obj['name'],tree))
     best=1e9; worst=None; evaluated=0
@@ -53,7 +53,7 @@ for style in ('carved','ribbed','shell'):
     # (formlab.layout.neck_plan): the pin's axis at the neck's mid-depth is inside wood.
     seats=[]; through=[]
     for name,tree in trees:
-        if ('_harp_' in name or '_rake_' in name) and not name.endswith(('_soundboard','_actionplate')):
+        if ('_harp_' in name or '_rake_' in name) and not name.endswith(('_soundboard','_actionplate','_tracery')):
             mid='harp' if '_harp_' in name else 'rake'
             for sid,s in layout['strings'].items():
                 if s['mid']==mid:

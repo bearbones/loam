@@ -13,10 +13,10 @@ import json,sys
 from pathlib import Path
 import numpy as np
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from formlab.recipes import harp_frame,soundboard,action_plate,neck_faces,bar_frame,bench_frame,pack,STYLES
+from formlab.recipes import harp_frame,harp_tracery,soundboard,action_plate,neck_faces,bar_frame,bench_frame,pack,STYLES
 from formlab.layout import bar_frame_plan,bench_plan,bench_elements,neck_plan
 from formlab.linkage import parallelogram_arm,pick_tool,mallet_tool,hammer_tool,tool_mount
-from formlab.hand import hand_tool,HAND_SPEC
+from formlab.hand import hand_tool,hand_digit_knuckles,hand_digit_parts,HAND_SPEC
 from formlab.rig import Rig,HAMMER
 from formlab.clearance import choose_offset,report,cross_arm_clearance,pinion_mount,rail_keep_clear,bar_pair_separation,drive_kind
 from formlab.gantry import plan_gantries, rack as gantry_rack
@@ -36,9 +36,14 @@ for mid in ('harp','rake'):
         neck[sid]=neck_plan(layout['strings'][sid]['b'],f['face'],f['back'],discs=mid=='harp')
     for style in STYLES:
         pieces=harp_frame(elements,style)
+        p_mats=None if style=='ribbed' else ['wood']+['bronze']*(len(pieces)-1)
         objects.append(pack(f'form_{mid}_{style}',pieces,'brass' if style=='ribbed' else 'wood',
-            'geometric traditional frame with coved moulding'))
+            'geometric traditional frame with coved moulding',materials=p_mats))
         objects[-1]['finish']='profiled'; form_masses[objects[-1]['name']]=objects[-1]['mass_kg']
+    tr_pieces,tr_mats=harp_tracery(elements)
+    objects.append(pack(f'form_{mid}_tracery',tr_pieces,'wood',
+        'carved stone twisting branch boughs, crown capital, knee block and bronze vines',materials=tr_mats))
+    objects[-1]['finish']='profiled'; form_masses[objects[-1]['name']]=objects[-1]['mass_kg']
     objects.append(pack(f'form_{mid}_soundboard',soundboard(elements),'spruce','geometric inset soundboard'))
     objects[-1]['finish']='profiled'; form_masses[objects[-1]['name']]=objects[-1]['mass_kg']
     if mid=='harp':
@@ -102,19 +107,26 @@ if score_path.exists() and layout.get('arms'):
                 parts['splay_sector']=dict(pieces=w_drv['splay_sector'])
         elif cfg['kind']=='hammer':
             parts['hammer_cam']=dict(pieces=drives_lib.hammer_cam_pieces(rig.rest_angle(aid),rig.flip_sign(aid)))
-        elif cfg['kind']=='rake':
-            p_drv=drives_lib.pendulum_drive_pieces()
-            parts['wristhead']['pieces']=parts['wristhead']['pieces']+p_drv['wristhead']
-            parts['pendulum_arm']=dict(pieces=p_drv['pendulum_arm'])
-            parts['pendulum_sector']=dict(pieces=p_drv['pendulum_sector'])
-            parts['pendulum_pinion']=dict(pieces=p_drv['pendulum_pinion'])
+        elif cfg['kind'] in ('pick','rake'):
+            hc_drv=drives_lib.hand_carrier_pieces(drives_lib.hand_carrier_length(cfg))
+            parts['wrist_crank']=dict(pieces=hc_drv['wrist_crank'])
+            parts['wrist_rod']=dict(pieces=hc_drv['wrist_rod'])
+            s_sgn=1.0 if int(cfg.get('index',0))!=1 else -1.0
+            parts.update(hand_digit_parts(side_sign=s_sgn))
+            if cfg['kind']=='rake':
+                p_drv=drives_lib.pendulum_drive_pieces()
+                parts['wristhead']['pieces']=parts['wristhead']['pieces']+p_drv['wristhead']
+                parts['pendulum_arm']=dict(pieces=p_drv['pendulum_arm'])
+                parts['pendulum_sector']=dict(pieces=p_drv['pendulum_sector'])
+                parts['pendulum_pinion']=dict(pieces=p_drv['pendulum_pinion'])
         strings={sid:s for sid,s in layout['strings'].items() if s['mid']==cfg['mid']}
         rep=report(rig,aid,o1,o2,layers,spec,strings,poses=poses,mount=pmount,drive=drive); reports[aid]=rep
         material={'carriage':'steel','elbowhead':'steel','wristhead':'steel','shoulder':'steel','elbow':'steel','wrist':'steel',
                   'shoulder_sector':'brass','shoulder_pinion':'brass','elbow_crank':'steel','elbow_rod':'brass',
                   'wrist_shaft':'rose','wrist_crank':'steel','wrist_rod':'brass','hammer_cam':'brass',
                   'mallet2_head':'felt','mallet2_shaft':'rose','splay_sector':'brass',
-                  'pendulum_arm':'steel','pendulum_sector':'brass','pendulum_pinion':'brass'}
+                  'pendulum_arm':'steel','pendulum_sector':'brass','pendulum_pinion':'brass',
+                  'digit_thumb':'brass','digit_d2':'brass','digit_d3':'brass','digit_d4':'brass'}
         arm_masses={}
         for part,body in parts.items():
             if part in ('layers','spec'): continue
@@ -177,7 +189,9 @@ if score_path.exists() and layout.get('arms'):
             if rig._hand_digits(aid)>=2:
                 arms[aid]['hands']=2; layout['arms'][aid]['hands']=2
         elif kind in ('pick','rake'):
-            arms[aid]['hand']=dict(HAND_SPEC,side_sign=1.0 if int(cfg.get('index',0))!=1 else -1.0)
+            s_sgn=1.0 if int(cfg.get('index',0))!=1 else -1.0
+            kn_map=hand_digit_knuckles(side_sign=s_sgn)
+            arms[aid]['hand']=dict(HAND_SPEC,side_sign=s_sgn,knuckles={d:[round(float(v),5) for v in kv] for d,kv in kn_map.items()})
             layout['arms'][aid]['hand']=arms[aid]['hand']
             if kind=='rake':
                 arms[aid]['pendulum_l']=float(drives_lib.PENDULUM_DRIVE['arm_l'])

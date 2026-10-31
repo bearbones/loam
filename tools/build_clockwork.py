@@ -414,6 +414,9 @@ for aid,cfg in manifest['arms'].items():
             places.append(('pendulum_arm',wrist))
             places.append(('pendulum_sector',wrist))
             places.append(('pendulum_pinion',wrist+Vector(p_drv['pinion_origin'])))
+    if cfg.get('hand',{}).get('knuckles'):
+        for d_name,kn_vec in cfg['hand']['knuckles'].items():
+            places.append(('digit_'+d_name,tip+Vector(kn_vec)))
     # A hinged hammer's head hangs on the flange's pin, head_l above the tool
     # frame's origin (formlab.linkage.hammer_tool); Godot turns it about that
     # pin every frame. Without this it would sit at the file's origin.
@@ -439,6 +442,17 @@ for aid,cfg in manifest['arms'].items():
             cos_aw=max(-1.0,min(1.0,(rc_w*rc_w+d_wyz*d_wyz-l_wyz2)/max(2.0*rc_w*d_wyz,1e-9)))
             th_cw=math.atan2(d_w.y,d_w.z)+sgn_w*math.acos(cos_aw)
             wp1=Vector((wrist.x,wrist.y+rc_w*math.sin(th_cw),wrist.z+rc_w*math.cos(th_cw)))
+            link_list+=[('wrist_crank',wrist,wp1,Vector((0,0,0))),('wrist_rod',wp1,wp2,Vector((0,0,0)))]
+        wf_drv=cfg['drives'].get('wrist_flex',{})
+        if wf_drv.get('carrier_l') is not None:
+            cl_w=float(wf_drv['carrier_l'])
+            mo_w=wf_drv.get('mount_offset',[0.0,0.20,-0.10])
+            wp2=tip+Vector((float(mo_w[0]),float(mo_w[1]),float(mo_w[2])))
+            d_w=wp2-wrist; d_wyz=math.hypot(d_w.y,d_w.z)
+            h_w=math.sqrt(max(0.0,cl_w*cl_w-0.25*d_wyz*d_wyz))
+            uy_w=d_w.y/max(d_wyz,1e-9); uz_w=d_w.z/max(d_wyz,1e-9)
+            sgn_w=1.0 if (uz_w+2.0*uy_w)>=0.0 else -1.0
+            wp1=0.5*(wrist+wp2)+Vector((0.0,sgn_w*uz_w*h_w,-sgn_w*uy_w*h_w))
             link_list+=[('wrist_crank',wrist,wp1,Vector((0,0,0))),('wrist_rod',wp1,wp2,Vector((0,0,0)))]
     for part,a,b,o in link_list:
         x,y,z=arm_clearance.link_basis(np.array([a]),np.array([b]))

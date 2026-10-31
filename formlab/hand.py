@@ -176,10 +176,18 @@ def digit_chain(digit, knuckle, pad_target, mcp_curl=0.0, abduct=0.0, side_sign=
     curl_disp = c_dir * (lever * 0.55 * q1) + ab_vec
     pad_pos = p + curl_disp
     chord = pad_pos - k
-    # Intermediate PIP and DIP joints arch slightly above the knuckle-to-pad chord
-    arch = np.array([0.0, 0.008 + 0.006 * math.sin(q2), 0.006 * float(side_sign) * math.cos(q3)], dtype=float)
-    pip = k + 0.44 * chord + arch
-    dip = k + 0.76 * chord + 0.5 * arch
+    # Dorsal outward normal in the YZ flexion plane so the 3 phalanges form a clear,
+    # anatomically articulated convex dorsal arch (MCP -> PIP -> DIP -> pad):
+    n_dorsal = np.array([0.0, chord[2] * float(side_sign), -chord[1] * float(side_sign)], dtype=float)
+    nd_norm = float(np.linalg.norm(n_dorsal))
+    if nd_norm > 1e-6:
+        n_dorsal /= nd_norm
+        if n_dorsal[1] < 0.0:
+            n_dorsal = -n_dorsal
+    else:
+        n_dorsal = np.array([0.0, 0.55, 0.83 * float(side_sign)], dtype=float)
+    pip = k + 0.42 * chord + n_dorsal * (0.015 + 0.006 * math.sin(q2))
+    dip = k + 0.75 * chord + n_dorsal * (0.010 + 0.005 * math.sin(q3))
     return [k, pip, dip, pad_pos]
 
 
@@ -378,7 +386,7 @@ def build_hand_plan(rig, aid):
     if kind == 'rake':
         for i, s in enumerate(sched):
             e = s['event']
-            if e.get('kind') != 'roll' or not e.get('strings'):
+            if not e.get('strings'):
                 continue
             t = float(s['hit'])
             t_end = float(s['end'])
@@ -386,7 +394,13 @@ def build_hand_plan(rig, aid):
             sid = e['strings'][0]
             st_geo = rig.geometry['strings'][sid]
             cpt = np.asarray(rig.contact(sid, e.get('pick')), dtype=float)
-            up_dir = str(e.get('dir', 'up')) != 'down'
+            midis = e.get('midis', [])
+            if 'dir' in e:
+                up_dir = str(e.get('dir', 'up')) != 'down'
+            elif len(midis) >= 2:
+                up_dir = float(midis[-1]) >= float(midis[0])
+            else:
+                up_dir = (i % 2 == 0)
             finger = 1 if up_dir else 0
             digit = 'd2' if up_dir else 'thumb'
             win_lo = sid
@@ -562,87 +576,208 @@ def note_pad_at(n, u):
     return p_closed, q_stop
 
 
-def _build_digit_meshes(digit, kn, pad, mcp_curl=0.0, abduct=0.0, side_sign=1.0):
-    """Build 3D meshes for a single digit: horn distal pad (first piece if active),
-    brass phalanges (proximal, middle, distal bones), knuckle pin, and brass guide pulley.
+def hand_digit_knuckles(splay=0.0, side_sign=1.0):
+    """Return the 4 knuckle pivot vectors `{d: (3,)}` in tool-local coordinates
+    (origin `(0, 0, 0)` at active pad `d2`). Proportioned as a compact, cohesive
+    mechanical hand (`10.2 cm` across the 4 knuckles, centered below the wrist clevis
+    at `x = 0`), with knuckles arched along `y = 0.066 .. 0.078 m, z = -0.024 .. -0.036 m`
+    so the 3-phalanx fingers drop 70-98 mm to the strings."""
+    sp = float(splay)
+    sgn = float(side_sign)
+    return {
+        'd4': np.array([-0.054 - 0.012 * sp, 0.066, -0.034 * sgn], dtype=float),
+        'd3': np.array([-0.020 - 0.004 * sp, 0.072, -0.036 * sgn], dtype=float),
+        'd2': np.array([+0.014 + 0.004 * sp, 0.078, -0.036 * sgn], dtype=float),
+        'thumb': np.array([+0.048 + 0.012 * sp, 0.068, -0.024 * sgn], dtype=float),
+    }
+
+
+def hand_digit_rest_pads(splay=0.0, side_sign=1.0):
+    """Return the poised fingertip pad targets `{d: (3,)}` in tool-local space,
+    with active pad `d2` at the exact contact origin `(0, 0, 0)`."""
+    sp = float(splay)
+    sgn = float(side_sign)
+    return {
+        'd4': np.array([-0.052 - 0.014 * sp, 0.004, 0.005 * sgn], dtype=float),
+        'd3': np.array([-0.024 - 0.005 * sp, -0.003, 0.002 * sgn], dtype=float),
+        'd2': np.zeros(3, dtype=float),
+        'thumb': np.array([+0.042 + 0.014 * sp, 0.016, 0.010 * sgn], dtype=float),
+    }
+
+
+def _build_digit_meshes(digit, kn, pad, mcp_curl=0.0, abduct=0.0, side_sign=1.0, include_clevis=True):
+    """Build 3D meshes for a single digit: coaxial horn distal pad with brass ferrule,
+    tapered brass phalanges (proximal, middle, distal bones), clevis hinge pins & collars at
+    PIP/DIP (and MCP if `include_clevis`), raised palmar phalanx tendon guide eyelets, palmar
+    flexor tendon cable on the concave palmar side (`+n_palmar`), and coupled dorsal four-bar
+    extensor linkage (`1 : 0.70 : 0.55`) on the convex dorsal side (`-n_palmar`).
     """
     chain = digit_chain(digit, kn, pad, mcp_curl=mcp_curl, abduct=abduct, side_sign=side_sign)
     k_pt, pip_pt, dip_pt, p_pt = chain
-    r_b = HAND_SPEC['bone_r']
-    r_pad = HAND_SPEC['pad_r']
+    r_b = HAND_SPEC['bone_r'] * 1.38
+    r_pad = HAND_SPEC['pad_r'] * 1.14
 
-    # Rounded horn pad at the distal tip (6-8 mm wide = 7.2 mm diameter), bottom pole at p_pt
-    pad_mesh = capsule_pad(p_pt, np.array([0.0, 1.0, 0.0]), r_pad, HAND_SPEC['pad_l'], sides=24)
+    # Align the horn fingertip pad coaxially with the distal phalanx (p_pt -> dip_pt)
+    u_dist = dip_pt - p_pt
+    L_dist = float(np.linalg.norm(u_dist))
+    axis_up = u_dist / max(L_dist, 1e-9)
+    pad_l = min(0.018, L_dist * 0.54)
+    pad_mesh = capsule_pad(p_pt, axis_up, r_pad, pad_l, sides=24)
     pad_mesh.material = 'horn'
-    pad_top = p_pt + np.array([0.0, HAND_SPEC['pad_l'], 0.0])
+    pad_top = p_pt + axis_up * (pad_l * 0.88)
 
-    # Brass phalanges (proximal, middle, distal bones) and knuckle joints
-    prox_bone = rod(k_pt, pip_pt, r_b * 1.12, sides=18)
-    mid_bone = rod(pip_pt, dip_pt, r_b * 1.0, sides=18)
+    # Brass pad ferrule collar gripping the horn pad at its junction with the distal bone
+    ferrule_a = p_pt + axis_up * (pad_l * 0.62)
+    ferrule_b = p_pt + axis_up * (pad_l * 1.12)
+    pad_ferrule = rod(ferrule_a, ferrule_b, r_pad * 1.24, sides=20)
+
+    # Tapered brass phalanges (proximal, middle, distal bones) and clevis knuckle joints
+    prox_bone = rod(k_pt, pip_pt, r_b * 1.20, sides=18)
+    mid_bone = rod(pip_pt, dip_pt, r_b * 1.04, sides=18)
     dist_bone = rod(dip_pt, pad_top, r_b * 0.88, sides=18)
-    pip_joint = sphere(pip_pt, r_b * 1.25)
-    dip_joint = sphere(dip_pt, r_b * 1.15)
+    prox_hub = rod(k_pt - np.array([0.0052, 0.0, 0.0]), k_pt + np.array([0.0052, 0.0, 0.0]), r_b * 1.40, sides=18)
+    pip_joint = sphere(pip_pt, r_b * 1.35)
+    dip_joint = sphere(dip_pt, r_b * 1.22)
+    pip_pin = rod(pip_pt - np.array([0.0088, 0.0, 0.0]), pip_pt + np.array([0.0088, 0.0, 0.0]), r_b * 0.56, sides=14)
+    dip_pin = rod(dip_pt - np.array([0.0078, 0.0, 0.0]), dip_pt + np.array([0.0078, 0.0, 0.0]), r_b * 0.50, sides=14)
 
-    # Knuckle pin perpendicular to the string plane (along Y) and brass tendon pulley
-    pin_a = k_pt - np.array([0.0, 0.009, 0.0])
-    pin_b = k_pt + np.array([0.0, 0.009, 0.0])
-    kn_pin = rod(pin_a, pin_b, 0.0028, sides=16)
-    pulley = rod(
-        k_pt - np.array([0.0, HAND_SPEC['pulley_w'] * 0.5, 0.0]),
-        k_pt + np.array([0.0, HAND_SPEC['pulley_w'] * 0.5, 0.0]),
-        HAND_SPEC['pulley_r'],
-        sides=24,
+    pr = HAND_SPEC['pulley_r'] * 1.18
+    clevis_list = []
+    if include_clevis:
+        pw = HAND_SPEC['pulley_w']
+        kn_collar = rod(k_pt - np.array([0.010, 0.0, 0.0]), k_pt + np.array([0.010, 0.0, 0.0]), r_b * 1.50, sides=20)
+        kn_cheek_l = rod(k_pt + np.array([-0.0078, -0.008, -0.004]), k_pt + np.array([-0.0078, 0.009, 0.004]), 0.0038, sides=14)
+        kn_cheek_r = rod(k_pt + np.array([0.0078, -0.008, -0.004]), k_pt + np.array([0.0078, 0.009, 0.004]), 0.0038, sides=14)
+        kn_pin = rod(k_pt - np.array([0.0115, 0.0, 0.0]), k_pt + np.array([0.0115, 0.0, 0.0]), 0.0036, sides=16)
+        pulley = rod(k_pt - np.array([pw * 0.64, 0.0, 0.0]), k_pt + np.array([pw * 0.64, 0.0, 0.0]), pr, sides=24)
+        pulley_flange_l = rod(k_pt - np.array([pw * 0.72, 0.0, 0.0]), k_pt - np.array([pw * 0.44, 0.0, 0.0]), pr * 1.16, sides=24)
+        pulley_flange_r = rod(k_pt + np.array([pw * 0.44, 0.0, 0.0]), k_pt + np.array([pw * 0.72, 0.0, 0.0]), pr * 1.16, sides=24)
+        clevis_list = [kn_collar, kn_cheek_l, kn_cheek_r, kn_pin, pulley, pulley_flange_l, pulley_flange_r]
+
+    # Compute local dorsal (+n_dorsal, convex outside of the bend) and palmar (+n_palmar = -n_dorsal,
+    # concave inside of the bend facing the palm):
+    chord_v = p_pt - k_pt
+    n_dorsal = np.array([0.0, chord_v[2] * float(side_sign), -chord_v[1] * float(side_sign)], dtype=float)
+    n_norm = float(np.linalg.norm(n_dorsal))
+    if n_norm > 1e-6:
+        n_dorsal /= n_norm
+        if n_dorsal[1] < 0.0:
+            n_dorsal = -n_dorsal
+    else:
+        n_dorsal = np.array([0.0, 0.55, 0.83 * float(side_sign)], dtype=float)
+    n_palmar = -n_dorsal
+
+    # Palmar tendon guide standoffs & eyelets (+n_palmar) and dorsal extensor lugs (+n_dorsal):
+    m_prox = 0.5 * (k_pt + pip_pt)
+    m_mid = 0.5 * (pip_pt + dip_pt)
+    g_prox = m_prox + n_palmar * (r_b * 1.42)
+    g_pip = pip_pt + n_palmar * (r_b * 1.38)
+    g_mid = m_mid + n_palmar * (r_b * 1.32)
+    g_dip = dip_pt + n_palmar * (r_b * 1.26)
+    g_tip = ferrule_b + n_palmar * (r_pad * 1.08)
+    d_k = k_pt + n_dorsal * (r_b * 1.42)
+    d_pip = pip_pt + n_dorsal * (r_b * 1.36)
+    d_dip = dip_pt + n_dorsal * (r_b * 1.24)
+
+    prox_standoff = rod(m_prox - n_palmar * 0.001, g_prox, r_b * 0.40, sides=12)
+    prox_eyelet = rod(g_prox - np.array([0.0026, 0.0, 0.0]), g_prox + np.array([0.0026, 0.0, 0.0]), r_b * 0.46, sides=14)
+    pip_strut = rod(d_pip, g_pip, r_b * 0.40, sides=12)
+    mid_standoff = rod(m_mid - n_palmar * 0.001, g_mid, r_b * 0.36, sides=12)
+    mid_eyelet = rod(g_mid - np.array([0.0024, 0.0, 0.0]), g_mid + np.array([0.0024, 0.0, 0.0]), r_b * 0.42, sides=14)
+    dip_strut = rod(d_dip, g_dip, r_b * 0.36, sides=12)
+    tip_standoff = rod(ferrule_b - n_palmar * 0.001, g_tip, r_b * 0.34, sides=12)
+    k_dorsal_lug = rod(k_pt - n_dorsal * 0.001, d_k, r_b * 0.42, sides=12)
+
+    # Continuous palmar flexor tendon cable routed on the concave palmar side (+n_palmar)
+    c_r = HAND_SPEC['cable_r'] * 1.45
+    c_k = k_pt + n_palmar * (pr * 0.94)
+    u_c = (g_tip - c_k) / max(float(np.linalg.norm(g_tip - c_k)), 1e-9)
+    cable_1 = rod(c_k, g_prox + u_c * 0.0004, c_r, sides=10)
+    cable_2 = rod(g_prox - u_c * 0.0004, g_pip + u_c * 0.0004, c_r, sides=10)
+    cable_3 = rod(g_pip - u_c * 0.0004, g_mid + u_c * 0.0004, c_r, sides=10)
+    cable_4 = rod(g_mid - u_c * 0.0004, g_dip + u_c * 0.0004, c_r, sides=10)
+    cable_5 = rod(g_dip - u_c * 0.0004, g_tip, c_r, sides=10)
+
+    # Coupled dorsal four-bar extensor linkage (`1 : 0.70 : 0.55` ratio) on the convex dorsal (+n_dorsal) side
+    ext_prox = rod(d_k, d_pip + u_c * 0.0004, r_b * 0.36, sides=12)
+    ext_mid = rod(d_pip - u_c * 0.0004, d_dip, r_b * 0.34, sides=12)
+
+    brass_pieces = _tag(
+        [prox_bone, mid_bone, dist_bone, prox_hub, pad_ferrule, pip_joint, dip_joint, pip_pin, dip_pin]
+        + clevis_list
+        + [prox_standoff, prox_eyelet, pip_strut, mid_standoff, mid_eyelet, dip_strut, tip_standoff,
+           cable_1, cable_2, cable_3, cable_4, cable_5,
+           k_dorsal_lug, ext_prox, ext_mid],
+        'brass',
     )
-    brass_pieces = _tag([prox_bone, mid_bone, dist_bone, pip_joint, dip_joint, kn_pin, pulley], 'brass')
     return [pad_mesh], brass_pieces, chain
 
 
+def hand_digit_parts(splay=0.0, side_sign=1.0):
+    """Build the 4 articulated digit assemblies (`digit_thumb`, `digit_d2`, `digit_d3`,
+    `digit_d4`), each in its own knuckle-centered local frame (`origin = (0, 0, 0)` at
+    `knuckles[d]`), so Godot can pivot and curl each finger dynamically about its
+    knuckle hinge pin on every frame."""
+    knuckles = hand_digit_knuckles(splay, side_sign=side_sign)
+    pads = hand_digit_rest_pads(splay, side_sign=side_sign)
+    curls = {'d2': 0.0, 'thumb': 0.05, 'd3': 0.08, 'd4': 0.12}
+    out = {}
+    for d in DIGITS:
+        kn_zero = np.zeros(3, dtype=float)
+        pad_local = pads[d] - knuckles[d]
+        h_pcs, b_pcs, _ = _build_digit_meshes(
+            d,
+            kn_zero,
+            pad_local,
+            mcp_curl=curls[d],
+            abduct=0.18 if d == 'thumb' else 0.0,
+            side_sign=side_sign,
+            include_clevis=False,
+        )
+        out[f'digit_{d}'] = dict(pieces=h_pcs + b_pcs)
+    return out
+
+
 def hand_tool(mount, splay=0.0, wrist_flex=0.0, side_sign=1.0):
-    """Build the complete articulated harp hand tool (`<aid>__tool` and `<aid>__shank`)
-    hanging below `mount` (wrist pin in tool-local coordinates, origin at active pad d2).
+    """Build the articulated harp/rake hand palm frame (`<aid>__tool`) and blued-steel
+    wrist clevis yoke & swan shank (`<aid>__shank`) hanging below `mount` (wrist pin in
+    tool-local coordinates, origin at active pad `d2`).
 
     Piece order in `tool_pieces`:
-      - Piece 0: the active digit's horn pad (so `piece_materials[0] == 'horn'` matches
-        the horn-tip convention in `tools/test_linkage_tools.py`),
-      - Pieces 1..N: brass palm frame, oblique 32 deg knuckle bar, pivoted splay fan bar,
-        wrist-flex hinge pin & lug, all four digits' brass phalanges/pulleys/pads, and
-        the four wristhead tendon drums with coaxial return springs and tendon cables.
+      - Piece 0: 4 horn knuckle closing-stop bumper pads (`piece_materials[0] == 'horn'`),
+      - Pieces 1..N: sculpted brass carpal/metacarpal palm bridge (4 radial metacarpal struts,
+        arched knuckle bar, pivoted splay fan bar with 4 tie-links, 4 twin-cheek knuckle
+        clevis housings with hinge pins & grooved guide pulleys, wrist-flex hinge pin & crank,
+        and 4 dorsal tendon drums with coaxial return springs, fairlead sheaves, and cables).
+    The 4 articulated fingers (`<aid>__digit_thumb`, `<aid>__digit_d2`, `<aid>__digit_d3`,
+    `<aid>__digit_d4`) pivot directly inside the 4 knuckle clevis housings of `<aid>__tool`.
     """
     mount = np.asarray(mount, dtype=float)
-    kn_rels = knuckle_offsets(splay)
-    pad_rels = pad_rest_offsets(splay)
-    ref_rel = pad_rels['d2']
+    knuckles = hand_digit_knuckles(splay, side_sign=side_sign)
+    r_b = HAND_SPEC['bone_r'] * 1.38
 
-    # Active digit d2 has its contact pad at the origin (0, 0, 0)
-    # Non-playing digits are poised above the origin so the lowest point of the tool is (0, 0, 0)
-    horn_pads = []
-    all_brass = []
-    knuckles = {}
+    # Piece 0 ('horn'): 4 horn closing-stop bumper pads mounted on the palmar underside of
+    # each knuckle clevis where the proximal phalanx seats at full curl (no duplicate pad at (0,0,0)):
+    horn_pieces = []
+    clevis_brass = []
+    pw = HAND_SPEC['pulley_w']
+    pr = HAND_SPEC['pulley_r'] * 1.18
     for d in DIGITS:
-        kn = kn_rels[d] - ref_rel
-        # Ensure all non-active knuckles and pads stay above y = 0.004 m
-        if d != 'd2':
-            kn = np.array([kn[0], max(kn[1], 0.036), kn[2]], dtype=float)
-        knuckles[d] = kn
-        if d == 'd2':
-            pad = np.zeros(3, dtype=float)
-            curl = 0.0
-        else:
-            raw_pad = pad_rels[d] - ref_rel
-            pad = np.array([raw_pad[0], max(raw_pad[1] + 0.028, 0.008), 0.012 * float(side_sign)], dtype=float)
-            curl = 0.08
-        h_pcs, b_pcs, _ = _build_digit_meshes(d, kn, pad, mcp_curl=curl, abduct=0.15 if d == 'thumb' else 0.0, side_sign=side_sign)
-        if d == 'd2':
-            horn_pads.insert(0, h_pcs[0])
-        else:
-            horn_pads.append(h_pcs[0])
-        all_brass.extend(b_pcs)
+        k_pt = knuckles[d]
+        stop_pt = k_pt + np.array([0.0, -0.009, -0.007 * float(side_sign)], dtype=float)
+        horn_pieces.append(capsule_pad(stop_pt, np.array([0.0, 1.0, 0.0]), 0.0036, 0.006, sides=16))
+        kn_collar = rod(k_pt - np.array([0.010, 0.0, 0.0]), k_pt + np.array([0.010, 0.0, 0.0]), r_b * 1.50, sides=20)
+        kn_cheek_l = rod(k_pt + np.array([-0.0078, -0.008, -0.004]), k_pt + np.array([-0.0078, 0.009, 0.004]), 0.0038, sides=14)
+        kn_cheek_r = rod(k_pt + np.array([0.0078, -0.008, -0.004]), k_pt + np.array([0.0078, 0.009, 0.004]), 0.0038, sides=14)
+        kn_pin = rod(k_pt - np.array([0.0115, 0.0, 0.0]), k_pt + np.array([0.0115, 0.0, 0.0]), 0.0036, sides=16)
+        pulley = rod(k_pt - np.array([pw * 0.64, 0.0, 0.0]), k_pt + np.array([pw * 0.64, 0.0, 0.0]), pr, sides=24)
+        pulley_flange_l = rod(k_pt - np.array([pw * 0.72, 0.0, 0.0]), k_pt - np.array([pw * 0.44, 0.0, 0.0]), pr * 1.16, sides=24)
+        pulley_flange_r = rod(k_pt + np.array([pw * 0.44, 0.0, 0.0]), k_pt + np.array([pw * 0.72, 0.0, 0.0]), pr * 1.16, sides=24)
+        clevis_brass.extend([kn_collar, kn_cheek_l, kn_cheek_r, kn_pin, pulley, pulley_flange_l, pulley_flange_r])
 
-    # Combine all 4 horn pads into piece 0 (material = 'horn') so every digit has a horn pad
-    # and piece_materials[0] == 'horn', piece_materials[1:] == 'brass'.
     v_list, f_list, uv_list = [], [], []
     v_off = 0
-    for hp in horn_pads:
+    for hp in horn_pieces:
         v_list.append(hp.vertices)
         f_list.append(hp.faces + v_off)
         uv_list.append(hp.uv)
@@ -651,75 +786,152 @@ def hand_tool(mount, splay=0.0, wrist_flex=0.0, side_sign=1.0):
         np.vstack(v_list),
         np.vstack(f_list),
         np.vstack(uv_list),
-        horn_pads[0].path,
-        horn_pads[0].widths,
-        horn_pads[0].depths,
+        horn_pieces[0].path,
+        horn_pieces[0].widths,
+        horn_pieces[0].depths,
     )
     combined_horn.material = 'horn'
 
-    # Oblique brass palm front bar (32 deg across the string span) + pivoted splay fan bar
+    # Arched brass palm knuckle bar + pivoted splay fan bar across the 4 knuckles
+    from .sweep import sample_curve, sweep
     k_d4 = knuckles['d4']
+    k_d3 = knuckles['d3']
+    k_d2 = knuckles['d2']
     k_th = knuckles['thumb']
-    palm_bar = rod(k_d4, k_th, 0.0065, sides=20)
-    splay_bar = rod(
-        k_d4 + np.array([0.0, 0.010, 0.008]),
-        k_th + np.array([0.0, 0.010, 0.008]),
-        0.0050,
+    palm_bar = sweep(sample_curve([k_d4, k_d3, k_d2, k_th], 12), 0.0068, 0.0068, sides=18)
+    splay_off = np.array([0.0, 0.011, 0.008 * float(side_sign)], dtype=float)
+    splay_bar = sweep(sample_curve([k_d4 + splay_off, k_d3 + splay_off, k_d2 + splay_off, k_th + splay_off], 12), 0.0052, 0.0052, sides=16)
+
+    # Pivoted splay tie-links and bellcrank journals connecting each knuckle on palm_bar to splay_bar
+    splay_links = []
+    for d in DIGITS:
+        kd = knuckles[d]
+        sd = kd + splay_off
+        splay_links.append(rod(kd, sd, 0.0042, sides=14))
+        splay_links.append(sphere(sd, 0.0058))
+
+    # Carpal/wrist hinge pin (`wrist_pin_c`) positioned cleanly below the wristhead socket collar
+    # (`mount - [0, SOCKET_DEPTH, 0] = [0, 0.125, -0.10]`), so the socket collar never pokes into the palm:
+    wrist_pin_c = np.array([0.0, 0.098, -0.052], dtype=float)
+    carpal_hub = np.array([-0.002, 0.088, -0.044], dtype=float)
+    palm_mid = 0.5 * (k_d3 + k_d2)
+    palm_center = palm_mid + splay_off
+    splay_pivot = rod(
+        palm_center - np.array([0.0, 0.0, 0.011]),
+        palm_center + np.array([0.0, 0.0, 0.011]),
+        0.0058,
         sides=18,
     )
-    palm_center = 0.5 * (k_d4 + k_th) + np.array([0.0, 0.018, 0.010])
-    splay_pivot = rod(
-        palm_center - np.array([0.0, 0.0, 0.012]),
-        palm_center + np.array([0.0, 0.0, 0.012]),
-        0.0055,
-        sides=20,
-    )
+    palm_spine = rod(palm_mid, wrist_pin_c, 0.0068, sides=18)
+    splay_bridge = rod(palm_center, wrist_pin_c, 0.0054, sides=16)
 
-    # Side cheeks of the brass palm frame converging to the wrist-flex hinge pin at z=0
-    wrist_pin_c = np.array([0.0, HAND_SPEC['wrist_pin_y'], 0.0], dtype=float)
-    cheek_l = rod(k_d4, wrist_pin_c + np.array([-0.022, 0.0, 0.0]), 0.0055, sides=16)
-    cheek_r = rod(k_th, wrist_pin_c + np.array([0.022, 0.0, 0.0]), 0.0055, sides=16)
+    # Four radial brass metacarpal struts fanning from the carpal hub out to each knuckle clevis
+    metacarpals = []
+    for idx_m, d in enumerate(DIGITS):
+        mc_top = carpal_hub + np.array([(-1.5 + idx_m) * 0.013, 0.0, 0.0], dtype=float)
+        metacarpals.append(rod(knuckles[d], mc_top, 0.0056, sides=16))
+        metacarpals.append(sphere(mc_top, 0.0068))
+
+    # Outer carpal cheeks + mid cross-brace converging to the brass wrist-flex hinge bosses
+    cheek_l_top = wrist_pin_c + np.array([-0.024, 0.0, 0.0])
+    cheek_r_top = wrist_pin_c + np.array([0.024, 0.0, 0.0])
+    cheek_l = rod(k_d4, cheek_l_top, 0.0062, sides=16)
+    cheek_r = rod(k_th, cheek_r_top, 0.0062, sides=16)
+    cross_l = 0.52 * k_d4 + 0.48 * cheek_l_top
+    cross_r = 0.52 * k_th + 0.48 * cheek_r_top
+    palm_cross = rod(cross_l, cross_r, 0.0052, sides=16)
+    cross_boss_l = sphere(cross_l, 0.0066)
+    cross_boss_r = sphere(cross_r, 0.0066)
+
     wrist_pin = rod(
-        wrist_pin_c + np.array([-0.032, 0.0, 0.0]),
-        wrist_pin_c + np.array([0.032, 0.0, 0.0]),
-        0.0045,
+        wrist_pin_c + np.array([-0.038, 0.0, 0.0]),
+        wrist_pin_c + np.array([0.038, 0.0, 0.0]),
+        0.0056,
         sides=20,
     )
-    # Driven wrist-flex lug and visible crank link up toward the wristhead
-    lug_end = wrist_pin_c + np.array([0.0, 0.016, 0.022 * float(side_sign)], dtype=float)
-    wrist_lug = rod(wrist_pin_c, lug_end, 0.0040, sides=16)
-    crank_piv = np.array([0.0, max(wrist_pin_c[1] + 0.042, mount[1] - 0.065), 0.0], dtype=float)
-    crank_pin = crank_piv + np.array([0.0, 0.014, 0.022 * float(side_sign)], dtype=float)
-    wrist_crank = rod(crank_piv, crank_pin, 0.0045, sides=16)
-    wrist_rod = rod(lug_end, crank_pin, 0.0032, sides=14)
+    wrist_boss_l = sphere(cheek_l_top, 0.0084)
+    wrist_boss_r = sphere(cheek_r_top, 0.0084)
 
-    # Four tendon drums + coaxial return springs mounted on the wristhead / upper shank yoke
-    drum_y = wrist_pin_c[1] + 0.024
-    drum_z = 0.014 * float(side_sign)
-    drum_pieces = []
+    # Driven wrist-flex lug, coupler rod, and crank anchored to the wrist clevis
+    lug_end = wrist_pin_c + np.array([0.0, 0.009, 0.016 * float(side_sign)], dtype=float)
+    wrist_lug = rod(wrist_pin_c, lug_end, 0.0046, sides=16)
+    crank_piv = np.array([0.0, wrist_pin_c[1] + 0.015, wrist_pin_c[2] - 0.006], dtype=float)
+    crank_pin = crank_piv + np.array([0.0, 0.008, 0.016 * float(side_sign)], dtype=float)
+    wrist_crank = rod(crank_piv, crank_pin, 0.0048, sides=16)
+    wrist_rod = rod(lug_end, crank_pin, 0.0038, sides=14)
+    shank_at_crank = np.array([0.0, crank_piv[1], wrist_pin_c[2] - 0.014], dtype=float)
+    crank_bracket = rod(shank_at_crank, crank_piv, 0.0056, sides=16)
+    crank_hub = sphere(crank_piv, 0.0068)
+
+    # Four tendon drums + coaxial return springs on a shared dorsal carpal axle,
+    # routed through 4 fairlead guide sheaves on `palm_cross` directly to each knuckle pulley
+    drum_y = wrist_pin_c[1] + 0.008
+    drum_z = wrist_pin_c[2] + 0.013 * float(side_sign)
+    drum_axle_l = np.array([-0.034, drum_y, drum_z], dtype=float)
+    drum_axle_r = np.array([0.034, drum_y, drum_z], dtype=float)
+    drum_axle = rod(drum_axle_l, drum_axle_r, 0.0040, sides=18)
+    drum_strut_l = rod(wrist_pin_c + np.array([-0.026, 0.0, 0.0]), np.array([-0.026, drum_y, drum_z], dtype=float), 0.0048, sides=16)
+    drum_strut_r = rod(wrist_pin_c + np.array([0.026, 0.0, 0.0]), np.array([0.026, drum_y, drum_z], dtype=float), 0.0048, sides=16)
+    drum_pieces = [drum_axle, drum_strut_l, drum_strut_r]
+
+    u_fair = (0.14, 0.38, 0.62, 0.86)
     for idx, d in enumerate(DIGITS):
-        dx = (-1.5 + idx) * 0.022
+        dx = (-1.5 + idx) * 0.016
         dc = np.array([dx, drum_y, drum_z], dtype=float)
         drum = rod(
-            dc - np.array([HAND_SPEC['drum_w'] * 0.5, 0.0, 0.0]),
-            dc + np.array([HAND_SPEC['drum_w'] * 0.5, 0.0, 0.0]),
-            HAND_SPEC['drum_r'],
-            sides=24,
+            dc - np.array([HAND_SPEC['drum_w'] * 0.45, 0.0, 0.0]),
+            dc + np.array([HAND_SPEC['drum_w'] * 0.45, 0.0, 0.0]),
+            HAND_SPEC['drum_r'] * 0.90,
+            sides=22,
         )
         spring = rod(
-            dc + np.array([HAND_SPEC['drum_w'] * 0.5, 0.0, 0.0]),
-            dc + np.array([HAND_SPEC['drum_w'] * 0.95, 0.0, 0.0]),
-            HAND_SPEC['drum_r'] * 0.72,
-            sides=20,
+            dc + np.array([HAND_SPEC['drum_w'] * 0.45, 0.0, 0.0]),
+            dc + np.array([HAND_SPEC['drum_w'] * 0.82, 0.0, 0.0]),
+            HAND_SPEC['drum_r'] * 0.68,
+            sides=18,
         )
-        cable = rod(dc, knuckles[d], HAND_SPEC['cable_r'], sides=10)
-        drum_pieces.extend([drum, spring, cable])
+        uf = u_fair[idx]
+        c_pt = (1.0 - uf) * cross_l + uf * cross_r
+        f_pt = c_pt + np.array([0.0, 0.005, 0.006 * float(side_sign)], dtype=float)
+        f_standoff = rod(c_pt, f_pt, 0.0030, sides=12)
+        f_pulley = rod(f_pt - np.array([0.0030, 0.0, 0.0]), f_pt + np.array([0.0030, 0.0, 0.0]), 0.0044, sides=18)
+
+        k_pulley_top = knuckles[d] + np.array([0.0, HAND_SPEC['pulley_r'] * 1.12, 0.0])
+        cable_up = rod(dc, f_pt + np.array([0.0, 0.0035, 0.0]), HAND_SPEC['cable_r'] * 1.45, sides=10)
+        cable_dn = rod(f_pt + np.array([0.0, 0.0035, 0.0]), k_pulley_top, HAND_SPEC['cable_r'] * 1.45, sides=10)
+        drum_pieces.extend([drum, spring, f_standoff, f_pulley, cable_up, cable_dn])
 
     frame_pieces = _tag(
-        [palm_bar, splay_bar, splay_pivot, cheek_l, cheek_r, wrist_pin, wrist_lug, wrist_crank, wrist_rod] + drum_pieces,
+        clevis_brass
+        + [palm_bar, splay_bar, splay_pivot, palm_spine, splay_bridge,
+           cheek_l, cheek_r, palm_cross, cross_boss_l, cross_boss_r, wrist_pin, wrist_boss_l, wrist_boss_r,
+           wrist_lug, wrist_crank, wrist_rod, crank_bracket, crank_hub]
+        + metacarpals + splay_links + drum_pieces,
         'brass',
     )
-    tool_pieces = [combined_horn] + all_brass + frame_pieces
-    shank_start = (0.0, float(wrist_pin_c[1]), 0.0)
-    shank_pieces = swan_shank(shank_start, mount, 0.009, 0.012)
+    tool_pieces = [combined_horn] + frame_pieces
+
+    # Blued-steel twin-cheek wrist clevis fork (yoke) at the bottom of `<aid>__shank`,
+    # straddling the brass carpal bosses (`x = +-0.024`) on `wrist_pin_c` (`x = +-0.032`)
+    # and rising to `yoke_crown_c = [0, 0.114, -0.068]` strictly below the socket mouth `[0, 0.125, -0.10]`:
+    yoke_crown_c = np.array([0.0, 0.114, -0.068], dtype=float)
+    yoke_l_bot = wrist_pin_c + np.array([-0.032, 0.0, 0.0])
+    yoke_r_bot = wrist_pin_c + np.array([0.032, 0.0, 0.0])
+    yoke_l_top = yoke_crown_c + np.array([-0.028, 0.0, 0.0])
+    yoke_r_top = yoke_crown_c + np.array([0.028, 0.0, 0.0])
+    yoke_eye_l = ring(yoke_l_bot, 0.0056, 0.0105, 0.007, axis=np.array([1.0, 0.0, 0.0]), sides=20, corner=.3)
+    yoke_eye_r = ring(yoke_r_bot, 0.0056, 0.0105, 0.007, axis=np.array([1.0, 0.0, 0.0]), sides=20, corner=.3)
+    yoke_arm_l = rod(yoke_l_bot, yoke_l_top, 0.0062, sides=16)
+    yoke_arm_r = rod(yoke_r_bot, yoke_r_top, 0.0062, sides=16)
+    yoke_bridge = rod(yoke_l_top, yoke_r_top, 0.0070, sides=18)
+    yoke_boss_l = sphere(yoke_l_top, 0.0078)
+    yoke_boss_r = sphere(yoke_r_top, 0.0078)
+    yoke_hub = sphere(yoke_crown_c, 0.0105)
+
+    shank_start = tuple(float(v) for v in yoke_crown_c)
+    shank_pieces = swan_shank(shank_start, mount, 0.010, 0.013)
+    shank_pieces.extend(_tag([
+        yoke_eye_l, yoke_eye_r, yoke_arm_l, yoke_arm_r, yoke_bridge, yoke_boss_l, yoke_boss_r, yoke_hub,
+    ], 'steel'))
     return tool_pieces, shank_pieces
+

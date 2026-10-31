@@ -760,7 +760,7 @@ PENDULUM_DRIVE = dict(
 
 
 def pendulum_drive_pieces():
-    """Build the rake's 0.52 m pendulum forearm, driven brass sector gear, and
+    """Build the rake's 0.52 m pendulum forearm counter-mast, driven brass sector gear, and
     mating driver pinion on `wristhead` (pivoting about world Z at `pose["wrist"]`)."""
     PD = PENDULUM_DRIVE
     tc = PD['thickness']; zl = PD['z_layer']; al = PD['arm_l']
@@ -772,7 +772,8 @@ def pendulum_drive_pieces():
                     Z, (0, cd, 0), 18)
     m_can.material = 'steel'
 
-    # 2. Pendulum forearm (`<aid>__pendulum_arm`) from (0, 0, zl) to (0, -al, zl)
+    # 2. Pendulum counter-arm (`<aid>__pendulum_arm`) rising upward from (0, 0, zl) to (0, +al, zl)
+    #    above wristhead so it never hangs down through the hand or strings
     p_arm = []
     top_eye = ring((0, 0, zl), pr, er, tc, axis=Z, sides=28, corner=.3)
     top_eye.material = 'brass'
@@ -781,11 +782,11 @@ def pendulum_drive_pieces():
     top_pin.material = 'steel'
     p_arm.append(top_pin)
     u = np.linspace(0, 1, 18)[:, None]
-    pa = np.array([0., -er * .65, zl]); pb = np.array([0., -al + er * .65, zl])
+    pa = np.array([0., er * .65, zl]); pb = np.array([0., al - er * .65, zl])
     bar_m = sweep(pa + (pb - pa) * u, .009, .006, profile=rounded_rect(.35, 16))
     bar_m.material = 'steel'
     p_arm.append(bar_m)
-    bot_eye = ring((0, -al, zl), pr * .9, er * .9, tc, axis=Z, sides=28, corner=.3)
+    bot_eye = ring((0, al, zl), pr * .9, er * 1.15, tc * 1.2, axis=Z, sides=28, corner=.3)
     bot_eye.material = 'brass'
     p_arm.append(bot_eye)
 
@@ -805,6 +806,93 @@ def pendulum_drive_pieces():
     p_pin.append(pin_hub)
 
     return dict(wristhead=[m_can], pendulum_arm=p_arm, pendulum_sector=p_sec, pendulum_pinion=p_pin)
+
+
+def hand_carrier_length(cfg):
+    """Return the 2-link wrist-to-hand carrier link length `carrier_l` (m) for a
+    `pick` or `rake` arm so `2 * carrier_l` spans the maximum separation between
+    `pose["wrist"]` and `pose["tip"] + [0, 0.20, -0.10]` with clean margin."""
+    if cfg.get('kind') == 'rake':
+        return 0.18
+    idx = int(cfg.get('index', 0))
+    return (0.50, 0.38, 0.28)[min(max(idx, 0), 2)]
+
+
+def hand_carrier_knee(wrist, tip, carrier_l=0.50, mount_off=(0.0, 0.20, -0.10)):
+    """Compute the intermediate knee joint `K` (3,) connecting `W = wrist` to
+    `M = tip + mount_off` via two equal links of length `carrier_l` in the YZ plane,
+    arching upward (+Y) and backward (-Z, away from the string plane)."""
+    W = np.asarray(wrist, dtype=float)
+    M = np.asarray(tip, dtype=float) + np.asarray(mount_off, dtype=float)
+    dy = float(M[1] - W[1])
+    dz = float(M[2] - W[2])
+    d = math.hypot(dy, dz)
+    if d > 1e-6:
+        uy, uz = dy / d, dz / d
+    else:
+        uy, uz = 0.8, 0.6
+    sgn = 1.0 if (uz + 2.0 * uy) >= 0.0 else -1.0
+    ny, nz = sgn * uz, -sgn * uy
+    h = math.sqrt(max(0.0, float(carrier_l) ** 2 - 0.25 * d * d))
+    return np.array([W[0], 0.5 * (W[1] + M[1]) + ny * h, 0.5 * (W[2] + M[2]) + nz * h], dtype=float)
+
+
+def hand_carrier_pieces(carrier_l=0.50):
+    """Build the 2-link double-bar wrist-to-hand carrier linkage (`wrist_crank`
+    and `wrist_rod`, each of length `carrier_l` along +Y in its link frame)
+    bridging `pose["wrist"]` (`wristhead`) to `pose["tip"] + [0, 0.20, -0.10]`
+    (the top mounting socket of `<aid>__shank`) on `pick` and `rake` arms."""
+    L = float(carrier_l)
+    tc = 0.008
+    pr = 0.0075
+    er = 0.015
+    u = np.linspace(0.0, 1.0, 16)[:, None]
+    u_web = np.linspace(0.0, 1.0, 5)[:, None]
+
+    # 1. Proximal carrier link (`<aid>__wrist_crank`): twin parallel bars at x = +-0.022 m
+    crank = []
+    x_c = 0.022
+    for sx in (-x_c, x_c):
+        e0 = ring((sx, 0.0, 0.0), pr, er, tc, axis=X, sides=24, corner=.3)
+        e0.material = 'brass'
+        e1 = ring((sx, L, 0.0), pr, er * 0.92, tc, axis=X, sides=24, corner=.3)
+        e1.material = 'brass'
+        pa = np.array([sx, er * 0.6, 0.0]); pb = np.array([sx, L - er * 0.6, 0.0])
+        b_m = sweep(pa + (pb - pa) * u, tc * 0.45, 0.010, profile=rounded_rect(.35, 14))
+        b_m.material = 'steel'
+        crank.extend([e0, e1, b_m])
+    # Knee hinge pin, central journal spacer, and mid-span cross-web at y = 0.5 * L
+    k_pin = revolve([(0.0, -x_c - tc), (pr, -x_c - tc), (pr, x_c + tc), (0.0, x_c + tc)], X, (0.0, L, 0.0), 16)
+    k_pin.material = 'steel'
+    k_spacer = ring((0.0, L, 0.0), pr, er * 0.72, 0.016, axis=X, sides=20, corner=.3)
+    k_spacer.material = 'brass'
+    wa = np.array([-x_c, 0.5 * L, 0.0]); wb = np.array([x_c, 0.5 * L, 0.0])
+    c_web = sweep(wa + (wb - wa) * u_web, 0.005, 0.009, profile=rounded_rect(.3, 12))
+    c_web.material = 'brass'
+    crank.extend([k_pin, k_spacer, c_web])
+
+    # 2. Distal carrier link (`<aid>__wrist_rod`): twin parallel brass bars at x = +-0.014 m
+    rod_pcs = []
+    x_r = 0.014
+    for sx in (-x_r, x_r):
+        e0 = ring((sx, 0.0, 0.0), pr, er * 0.88, tc, axis=X, sides=24, corner=.3)
+        e0.material = 'brass'
+        e1 = ring((sx, L, 0.0), pr, er * 0.92, tc, axis=X, sides=24, corner=.3)
+        e1.material = 'brass'
+        pa = np.array([sx, er * 0.55, 0.0]); pb = np.array([sx, L - er * 0.55, 0.0])
+        b_m = sweep(pa + (pb - pa) * u, tc * 0.42, 0.009, profile=rounded_rect(.35, 14))
+        b_m.material = 'brass'
+        rod_pcs.extend([e0, e1, b_m])
+    # Distal clevis pin at y = L (mating with `<aid>__shank`'s clevis eye at `mount`)
+    d_pin = revolve([(0.0, -x_r - tc), (pr, -x_r - tc), (pr, x_r + tc), (0.0, x_r + tc)], X, (0.0, L, 0.0), 16)
+    d_pin.material = 'steel'
+    rod_pcs.append(d_pin)
+    rwa = np.array([-x_r, 0.5 * L, 0.0]); rwb = np.array([x_r, 0.5 * L, 0.0])
+    r_web = sweep(rwa + (rwb - rwa) * u_web, 0.0045, 0.008, profile=rounded_rect(.3, 12))
+    r_web.material = 'brass'
+    rod_pcs.append(r_web)
+
+    return dict(wrist_crank=crank, wrist_rod=rod_pcs)
 
 
 def manifest_drives(cfg):
@@ -879,7 +967,10 @@ def manifest_drives(cfg):
             from .hand import HAND_SPEC
         except ImportError:
             from hand import HAND_SPEC
-        out['wrist_flex'] = dict(HAND_SPEC['wrist_flex'])
+        wf = dict(HAND_SPEC['wrist_flex'])
+        wf['carrier_l'] = hand_carrier_length(cfg)
+        wf['mount_offset'] = [0.0, 0.20, -0.10]
+        out['wrist_flex'] = wf
         out['splay'] = dict(HAND_SPEC['splay'])
         out['tendons'] = dict(HAND_SPEC['tendon'])
         if kind == 'rake':

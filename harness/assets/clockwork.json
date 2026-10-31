@@ -1090,7 +1090,29 @@
             0.55
           ]
         },
-        "side_sign": 1.0
+        "side_sign": 1.0,
+        "knuckles": {
+          "d4": [
+            -0.054,
+            0.066,
+            -0.034
+          ],
+          "d3": [
+            -0.02,
+            0.072,
+            -0.036
+          ],
+          "d2": [
+            0.014,
+            0.078,
+            -0.036
+          ],
+          "thumb": [
+            0.048,
+            0.068,
+            -0.024
+          ]
+        }
       },
       "limits": {
         "shoulder": {
@@ -1168,7 +1190,13 @@
           "r_crank": 0.028,
           "r_lug": 0.028,
           "coupler_l": 0.062,
-          "lean_deg": 24.0
+          "lean_deg": 24.0,
+          "carrier_l": 0.5,
+          "mount_offset": [
+            0.0,
+            0.2,
+            -0.1
+          ]
         },
         "splay": {
           "kind": "pivoted_fan",
@@ -1202,8 +1230,14 @@
         "shoulder_pinion": 0.2113,
         "elbow_crank": 0.3172,
         "elbow_rod": 2.3889,
-        "tool": 1.2586,
-        "shank": 0.7756,
+        "wrist_crank": 1.3158,
+        "wrist_rod": 1.1281,
+        "digit_thumb": 0.1422,
+        "digit_d2": 0.1664,
+        "digit_d3": 0.1656,
+        "digit_d4": 0.1558,
+        "tool": 1.3588,
+        "shank": 0.835,
         "railhead": 130.0755,
         "gantry": 722.5385,
         "screw": 3.3407
@@ -1423,7 +1457,29 @@
             0.55
           ]
         },
-        "side_sign": -1.0
+        "side_sign": -1.0,
+        "knuckles": {
+          "d4": [
+            -0.054,
+            0.066,
+            0.034
+          ],
+          "d3": [
+            -0.02,
+            0.072,
+            0.036
+          ],
+          "d2": [
+            0.014,
+            0.078,
+            0.036
+          ],
+          "thumb": [
+            0.048,
+            0.068,
+            0.024
+          ]
+        }
       },
       "limits": {
         "shoulder": {
@@ -1501,7 +1557,13 @@
           "r_crank": 0.028,
           "r_lug": 0.028,
           "coupler_l": 0.062,
-          "lean_deg": 24.0
+          "lean_deg": 24.0,
+          "carrier_l": 0.38,
+          "mount_offset": [
+            0.0,
+            0.2,
+            -0.1
+          ]
         },
         "splay": {
           "kind": "pivoted_fan",
@@ -1535,8 +1597,14 @@
         "shoulder_pinion": 0.2113,
         "elbow_crank": 0.3172,
         "elbow_rod": 1.9073,
-        "tool": 1.2111,
-        "shank": 0.7756,
+        "wrist_crank": 1.0611,
+        "wrist_rod": 0.8964,
+        "digit_thumb": 0.1422,
+        "digit_d2": 0.1664,
+        "digit_d3": 0.1656,
+        "digit_d4": 0.1558,
+        "tool": 1.7104,
+        "shank": 0.835,
         "railhead": 295.6015,
         "gantry": 893.0498,
         "screw": 3.3407
@@ -1756,7 +1824,29 @@
             0.55
           ]
         },
-        "side_sign": 1.0
+        "side_sign": 1.0,
+        "knuckles": {
+          "d4": [
+            -0.054,
+            0.066,
+            -0.034
+          ],
+          "d3": [
+            -0.02,
+            0.072,
+            -0.036
+          ],
+          "d2": [
+            0.014,
+            0.078,
+            -0.036
+          ],
+          "thumb": [
+            0.048,
+            0.068,
+            -0.024
+          ]
+        }
       },
       "limits": {
         "shoulder": {
@@ -1834,7 +1924,13 @@
           "r_crank": 0.028,
           "r_lug": 0.028,
           "coupler_l": 0.062,
-          "lean_deg": 24.0
+          "lean_deg": 24.0,
+          "carrier_l": 0.28,
+          "mount_offset": [
+            0.0,
+            0.2,
+            -0.1
+          ]
         },
         "splay": {
           "kind": "pivoted_fan",
@@ -1868,8 +1964,14 @@
         "shoulder_pinion": 0.2113,
         "elbow_crank": 0.3172,
         "elbow_rod": 2.1481,
-        "tool": 1.2586,
-        "shank": 0.7756,
+        "wrist_crank": 0.8488,
+        "wrist_rod": 0.7033,
+        "digit_thumb": 0.1422,
+        "digit_d2": 0.1664,
+        "digit_d3": 0.1656,
+        "digit_d4": 0.1558,
+        "tool": 1.3588,
+        "shank": 0.835,
         "railhead": 318.6494,
         "gantry": 1103.1666,
         "screw": 3.3407
@@ -2087,7 +2189,29 @@
             0.55
           ]
         },
-        "side_sign": 1.0
+        "side_sign": 1.0,
+        "knuckles": {
+          "d4": [
+            -0.054,
+            0.066,
+            -0.034
+          ],
+          "d3": [
+            -0.02,
+            0.072,
+            -0.036
+          ],
+          "d2": [
+            0.014,
+            0.078,
+            -0.036
+          ],
+          "thumb": [
+            0.048,
+            0.068,
+            -0.024
+          ]
+        }
       },
       "pendulum_l": 0.52,
       "limits": {
@@ -2166,7 +2290,13 @@
           "r_crank": 0.028,
           "r_lug": 0.028,
           "coupler_l": 0.062,
-          "lean_deg": 24.0
+          "lean_deg": 24.0,
+          "carrier_l": 0.18,
+          "mount_offset": [
+            0.0,
+            0.2,
+            -0.1
+          ]
         },
         "splay": {
           "kind": "pivoted_fan",
@@ -2218,11 +2348,17 @@
         "shoulder_pinion": 0.2113,
         "elbow_crank": 0.3172,
         "elbow_rod": 2.6297,
-        "pendulum_arm": 0.9543,
+        "wrist_crank": 0.6365,
+        "wrist_rod": 0.5102,
+        "digit_thumb": 0.1422,
+        "digit_d2": 0.1664,
+        "digit_d3": 0.1656,
+        "digit_d4": 0.1558,
+        "pendulum_arm": 1.0152,
         "pendulum_sector": 0.7823,
         "pendulum_pinion": 0.2102,
-        "tool": 1.2586,
-        "shank": 0.7756,
+        "tool": 1.3588,
+        "shank": 0.835,
         "railhead": 132.58,
         "gantry": 168.3,
         "screw": 4.1026
@@ -4131,15 +4267,17 @@
   ],
   "score": "/home/scant/git/loam/render/chamber/score.json",
   "masses": {
-    "form_harp_carved": 546.352,
-    "form_harp_ribbed": 7256.2378,
-    "form_harp_shell": 526.6033,
-    "form_harp_soundboard": 0.7393,
+    "form_harp_carved": 602.4319,
+    "form_harp_ribbed": 6917.4577,
+    "form_harp_shell": 583.1503,
+    "form_harp_tracery": 1018.251,
+    "form_harp_soundboard": 9.7909,
     "form_harp_actionplate": 74.4582,
-    "form_rake_carved": 414.269,
-    "form_rake_ribbed": 5502.0095,
-    "form_rake_shell": 399.9456,
-    "form_rake_soundboard": 0.5748,
+    "form_rake_carved": 419.2777,
+    "form_rake_ribbed": 5229.9096,
+    "form_rake_shell": 405.3313,
+    "form_rake_tracery": 952.3261,
+    "form_rake_soundboard": 6.0378,
     "form_bars_stand": 93.43
   },
   "arm_checks": {
@@ -4275,11 +4413,13 @@
     "form_harp_carved",
     "form_harp_ribbed",
     "form_harp_shell",
+    "form_harp_tracery",
     "form_harp_soundboard",
     "form_harp_actionplate",
     "form_rake_carved",
     "form_rake_ribbed",
     "form_rake_shell",
+    "form_rake_tracery",
     "form_rake_soundboard",
     "form_bars_stand",
     "harp_arm0__carriage",
@@ -4296,6 +4436,12 @@
     "harp_arm0__shoulder_pinion",
     "harp_arm0__elbow_crank",
     "harp_arm0__elbow_rod",
+    "harp_arm0__wrist_crank",
+    "harp_arm0__wrist_rod",
+    "harp_arm0__digit_thumb",
+    "harp_arm0__digit_d2",
+    "harp_arm0__digit_d3",
+    "harp_arm0__digit_d4",
     "harp_arm0__tool",
     "harp_arm0__shank",
     "harp_arm1__carriage",
@@ -4312,6 +4458,12 @@
     "harp_arm1__shoulder_pinion",
     "harp_arm1__elbow_crank",
     "harp_arm1__elbow_rod",
+    "harp_arm1__wrist_crank",
+    "harp_arm1__wrist_rod",
+    "harp_arm1__digit_thumb",
+    "harp_arm1__digit_d2",
+    "harp_arm1__digit_d3",
+    "harp_arm1__digit_d4",
     "harp_arm1__tool",
     "harp_arm1__shank",
     "harp_arm2__carriage",
@@ -4328,6 +4480,12 @@
     "harp_arm2__shoulder_pinion",
     "harp_arm2__elbow_crank",
     "harp_arm2__elbow_rod",
+    "harp_arm2__wrist_crank",
+    "harp_arm2__wrist_rod",
+    "harp_arm2__digit_thumb",
+    "harp_arm2__digit_d2",
+    "harp_arm2__digit_d3",
+    "harp_arm2__digit_d4",
     "harp_arm2__tool",
     "harp_arm2__shank",
     "rake_arm0__carriage",
@@ -4344,6 +4502,12 @@
     "rake_arm0__shoulder_pinion",
     "rake_arm0__elbow_crank",
     "rake_arm0__elbow_rod",
+    "rake_arm0__wrist_crank",
+    "rake_arm0__wrist_rod",
+    "rake_arm0__digit_thumb",
+    "rake_arm0__digit_d2",
+    "rake_arm0__digit_d3",
+    "rake_arm0__digit_d4",
     "rake_arm0__pendulum_arm",
     "rake_arm0__pendulum_sector",
     "rake_arm0__pendulum_pinion",

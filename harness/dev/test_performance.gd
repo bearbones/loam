@@ -10,6 +10,7 @@ func felt_face(head: Node3D, head_l: float) -> Vector3:
 
 func check_scene() -> void:
 	var scene=load("res://performance.tscn").instantiate()
+	if scene.get_script()==null: push_error("performance.gd failed to compile"); quit(1); return
 	root.add_child(scene)
 	scene.playing=false
 	var failures: Array=[]
@@ -158,6 +159,25 @@ func check_scene() -> void:
 			for suffix in suffixes:
 				var node: Node3D=scene.model.find_child("form_"+aid+suffix,true,false)
 				if node==null or not node.visible: failures.append("rail "+suffix.substr(1)+" missing or hidden "+aid)
+			if String(cfg.get("kind","")) in ["pick","rake"]:
+				for d_key in ["thumb","d2","d3","d4"]:
+					var dpart: String="digit_"+d_key
+					if not scene.drive_parts[aid].has(dpart) or scene.drive_parts[aid][dpart]==null:
+						failures.append("missing articulated digit "+dpart+" on "+aid)
+				var hp_notes: Array=scene.motion.arms.get(aid,{}).get("hand_pose",{}).get("notes",[])
+				if hp_notes.is_empty():
+					failures.append("empty hand_pose notes on "+aid)
+				else:
+					var n0: Dictionary=hp_notes[0]
+					var dk0: String="digit_"+String(n0.get("digit","d2"))
+					scene.evaluate(-5.0)
+					var b_rest: Basis=scene.drive_parts[aid][dk0].global_basis
+					scene.evaluate(float(n0.get("t_close",0.1))+0.04)
+					var b_curl: Basis=scene.drive_parts[aid][dk0].global_basis
+					var rel_d: Basis=b_curl*b_rest.inverse()
+					var ang_d: float=acos(clampf((rel_d.x.x+rel_d.y.y+rel_d.z.z-1.0)*0.5,-1.0,1.0))
+					if ang_d<0.25:
+						failures.append("digit %s on %s did not curl at t_close (%.3f rad)" % [dk0,aid,ang_d])
 		# The click has a sound (docs/motion-design.md): every pawl carries a player
 		# on its roller with the synthesised sample, CLICK_DB under the instruments;
 		# a stepped arm clicks (where and how often is formlab.rig's, held by

@@ -33,6 +33,7 @@ var hcam_home: Dictionary = {}    # each hammer arm's lift cam imported basis
 var parm_home: Dictionary = {}    # each rake arm's pendulum forearm imported basis
 var psec_home: Dictionary = {}    # each rake arm's pendulum sector gear imported basis
 var ppin_home: Dictionary = {}    # each rake arm's pendulum driver pinion imported basis
+var digit_home: Dictionary = {}   # aid -> {digit_thumb, digit_d2, digit_d3, digit_d4 -> imported Basis}
 var sheath_active: Dictionary = {} # periodic-feature blur sheath hysteresis state (key -> bool)
 var stand_nodes: Dictionary = {}    # mid -> the instrument's stand and its imported home
 var shudder_nodes: Dictionary = {}  # aid -> the rail's bars and the gantry it stands on, and the sway pivot
@@ -192,7 +193,8 @@ func _ready() -> void:
 		# Carriage-mounted shoulder sector gear + driver pinion, four-bar elbow crank + coupler rod (M4),
 		# and M5 hinged mallet shaft + four-bar wrist crank and hammer lift cam (formlab.drives).
 		drive_parts[aid]={}
-		for dpart in ["shoulder_sector","shoulder_pinion","elbow_crank","elbow_rod","wrist_shaft","wrist_crank","wrist_rod","mallet2_head","mallet2_shaft","splay_sector","hammer_cam","pendulum_arm","pendulum_sector","pendulum_pinion"]:
+		digit_home[aid]={}
+		for dpart in ["shoulder_sector","shoulder_pinion","elbow_crank","elbow_rod","wrist_shaft","wrist_crank","wrist_rod","mallet2_head","mallet2_shaft","splay_sector","hammer_cam","pendulum_arm","pendulum_sector","pendulum_pinion","digit_thumb","digit_d2","digit_d3","digit_d4"]:
 			var dnode: Node3D=model.find_child(aid+"__"+dpart,true,false)
 			if dnode!=null:
 				drive_parts[aid][dpart]=dnode
@@ -205,6 +207,7 @@ func _ready() -> void:
 				elif dpart=="pendulum_arm": parm_home[aid]=dnode.basis
 				elif dpart=="pendulum_sector": psec_home[aid]=dnode.basis
 				elif dpart=="pendulum_pinion": ppin_home[aid]=dnode.basis
+				elif dpart.begins_with("digit_"): digit_home[aid][dpart]=dnode.basis
 	# The chamber's flywheel, its axle pulley, companion pinion and the belt pulley turn about z
 	# (formlab.layout.flywheel_plan); their imported bases are the unspun home.
 	for label in ["Chamber flywheel","Chamber hub","Chamber drive pulley","Chamber belt pulley"]:
@@ -253,7 +256,7 @@ func _ready() -> void:
 	var fd: PackedStringArray=option("focus_dir","").split(",",false)
 	if fd.size()==3: focus_dir=Vector3(float(fd[0]),float(fd[1]),float(fd[2]))
 	view=int(option("view","0"))
-	auto_camera=option("camera","auto")=="auto"
+	auto_camera=option("camera","manual" if option("view","")!="" else "auto")=="auto"
 	silent=OS.get_cmdline_user_args().has("--silent")
 	if shot!="": playing=false; time=fixed_time
 	if capture_dir!="":
@@ -479,7 +482,7 @@ func _set_form(style: String) -> void:
 	# variant and stays visible.
 	for node in model.find_children("form_*","Node3D",true,false):
 		var n := String(node.name)
-		node.visible=n.ends_with("_"+style) or n.ends_with("_stand") or n.ends_with("_soundboard") or n.ends_with("_actionplate") or n.ends_with("_gantry") or n.ends_with("_railhead") or n.ends_with("_screw") or n.ends_with("_rack")
+		node.visible=n.ends_with("_"+style) or n.ends_with("_stand") or n.ends_with("_soundboard") or n.ends_with("_actionplate") or n.ends_with("_tracery") or n.ends_with("_gantry") or n.ends_with("_railhead") or n.ends_with("_screw") or n.ends_with("_rack")
 
 func _environment() -> void:
 	look.light_rig(self)
@@ -692,6 +695,18 @@ func evaluate(t: float) -> void:
 				p["mallet2_shaft"].basis=Basis(Vector3.RIGHT,sgn_w*th_w)*m2shaft_home[aid]
 				p["splay_sector"].position=pose["tip"]+Vector3(0.0,0.055*cos(th_w)+sgn_w*0.50*sin(th_w),-0.055*sin(th_w)+sgn_w*0.50*cos(th_w))
 				p["splay_sector"].basis=Basis(Vector3.UP,splay_ang)*splay_home[aid]
+		elif p.has("wrist_crank") and p.has("wrist_rod"):
+			var wf_drv: Dictionary=cfg.get("drives",{}).get("wrist_flex",{})
+			var cl_w := float(wf_drv.get("carrier_l",0.50))
+			var mo_w := MotionBake.v(wf_drv.get("mount_offset",[0.0,0.20,-0.10]))
+			var p2_w: Vector3=pose["tip"]+mo_w
+			var d_w := p2_w-wrist; var d_wyz := Vector2(d_w.y,d_w.z).length()
+			var h_w := sqrt(maxf(0.0,cl_w*cl_w-0.25*d_wyz*d_wyz))
+			var uy_w := d_w.y/maxf(d_wyz,1e-9); var uz_w := d_w.z/maxf(d_wyz,1e-9)
+			var sgn_w := 1.0 if (uz_w+2.0*uy_w)>=0.0 else -1.0
+			var p1_w := 0.5*(wrist+p2_w)+Vector3(0.0,sgn_w*uz_w*h_w,-sgn_w*uy_w*h_w)
+			p["wrist_crank"].transform=Transform3D(MotionBake.link_basis(wrist,p1_w),wrist)
+			p["wrist_rod"].transform=Transform3D(MotionBake.link_basis(p1_w,p2_w),p1_w)
 		# Hammer lift cam (formlab.drives.HAMMER_CAM, M5):
 		if p.has("hammer_cam"):
 			var hc_drv: Dictionary=cfg.get("drives",{}).get("hinge",{})
@@ -711,6 +726,56 @@ func evaluate(t: float) -> void:
 			p["pendulum_sector"].basis=Basis(Vector3.BACK,th_pd)*psec_home[aid]
 			p["pendulum_pinion"].position=wrist+pin_o
 			p["pendulum_pinion"].basis=Basis(Vector3.BACK,ratio_pd*th_pd)*ppin_home[aid]
+		# Articulated 4-digit mechanical hand (formlab.hand, M6-M10):
+		if p.has("digit_d2"):
+			var hp: Dictionary=motion.arms.get(aid,{}).get("hand_pose",{})
+			var kns: Dictionary=hp.get("knuckles",cfg.get("hand",{}).get("knuckles",{}))
+			var is_rake := String(cfg.get("kind",""))=="rake"
+			var d_curls := {"thumb": 0.0, "d2": 0.0, "d3": 0.0, "d4": 0.0}
+			for n in hp.get("notes",[]):
+				var d_key := str(n.get("digit","d2"))
+				if not d_curls.has(d_key): continue
+				var t_pl := float(n.get("t_place",0.0))
+				var t_pu := float(n.get("t_pull",t_pl))
+				var t_sl := float(n.get("t_slip",t_pu+0.064))
+				var t_cl := float(n.get("t_close",t_sl+0.10))
+				if t>=t_pl-0.16 and t<t_pl:
+					var u_open := clampf((t-(t_pl-0.16))/0.16,0.0,1.0)
+					d_curls[d_key]=minf(float(d_curls[d_key]),-0.14*sin(PI*u_open))
+				elif t>=t_pu and t<=t_sl:
+					var u_pu := clampf((t-t_pu)/maxf(t_sl-t_pu,1e-6),0.0,1.0)
+					var s_pu := u_pu*u_pu*u_pu*(10.0+u_pu*(-15.0+6.0*u_pu))
+					d_curls[d_key]=maxf(float(d_curls[d_key]),0.24*s_pu)
+					if is_rake:
+						var order_r: Array = ["d2","d3","d4","thumb"] if d_key=="d2" else ["thumb","d2","d3","d4"]
+						for idx_r in range(order_r.size()):
+							var dk_r: String = order_r[idx_r]
+							var u_r := clampf((u_pu-0.16*float(idx_r))/0.52,0.0,1.0)
+							d_curls[dk_r]=maxf(float(d_curls[dk_r]),0.46*sin(PI*u_r))
+				elif t>t_sl and t<=t_cl:
+					var u_cl := clampf((t-t_sl)/maxf(t_cl-t_sl,1e-6),0.0,1.0)
+					var s_cl := u_cl*u_cl*u_cl*(10.0+u_cl*(-15.0+6.0*u_cl))
+					d_curls[d_key]=maxf(float(d_curls[d_key]),0.24+(0.610865-0.24)*s_cl)
+				elif t>t_cl and t<=t_cl+0.14:
+					d_curls[d_key]=maxf(float(d_curls[d_key]),0.610865)
+				elif t>t_cl+0.14 and t<t_cl+0.42:
+					var u_ret := clampf((t-(t_cl+0.14))/0.28,0.0,1.0)
+					var s_ret := u_ret*u_ret*u_ret*(10.0+u_ret*(-15.0+6.0*u_ret))
+					d_curls[d_key]=maxf(float(d_curls[d_key]),0.610865*(1.0-s_ret))
+			var max_curl := maxf(maxf(float(d_curls["thumb"]),float(d_curls["d2"])),maxf(float(d_curls["d3"]),float(d_curls["d4"])))
+			for d_key: String in ["thumb","d2","d3","d4"]:
+				var dpart: String="digit_"+d_key
+				if not p.has(dpart): continue
+				var kn_arr: Array=kns.get(d_key,[0.014,0.078,-0.036])
+				var kn_v := MotionBake.v(kn_arr)
+				var q_d := float(d_curls[d_key])
+				if q_d>=0.0 and max_curl>q_d:
+					q_d=lerpf(q_d,max_curl,0.18)
+				p[dpart].position=pose["tip"]+kn_v
+				var b_rot := Basis(Vector3.RIGHT,q_d)
+				if d_key=="thumb":
+					b_rot=Basis(Vector3(0.0,0.85,0.52).normalized(),0.32*q_d)*b_rot
+				p[dpart].basis=b_rot*digit_home[aid][dpart]
 	if flywheel_pinion!=null and layout.has("flywheel") and layout["flywheel"].has("mate"):
 		var spin: float=flywheel_angle(t)
 		var k: float=float(layout["flywheel"]["mate"]["ratio"])
