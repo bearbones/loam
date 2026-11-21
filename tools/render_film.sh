@@ -31,6 +31,9 @@ fps=${FPS:-$default_fps}; res=${RES:-1920x1080}; jobs=${JOBS:-3}; start=${START:
 launch=(tools/offscreen.sh); [[ ${ONSCREEN:-0} == 1 ]] && launch=()
 total=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["total_s"])' "$score")
 seconds=${LENGTH:-$total}
+# ffmpeg's duration parser requires a leading zero for subsecond windows.
+start=${start/#./0.}
+seconds=${seconds/#./0.}
 mkdir -p render/film "$(dirname "$out")"
 frames_dir=$(mktemp -d "$(realpath render/film)/frames.XXXXXXXX")
 # chunk boundaries on whole frames, so the cut is seamless
@@ -58,7 +61,12 @@ for c in "${chunks[@]}"; do
   printf "file '%s'\n" "$c" >> "$list_file"
 done
 echo "FILM: ${#chunks[@]} chunks ($n frames) at $fps fps, $res"
-ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i "$list_file" -ss "$start" -i "$audio" -t "$seconds" \
-  -c:v copy -c:a aac -b:a 256k -movflags +faststart -shortest "$out"
+ffmpeg -hide_banner -loglevel error -y -f concat -safe 0 -i "$list_file" -ss "$start" -i "$audio" -map 0:v:0 -map 1:a:0 -af "atrim=duration=$seconds" \
+  -c:v copy -c:a aac -b:a 256k -movflags +faststart "$out"
+# A stream-copy cut on audio EOF can discard reordered video packets. Trim
+# the audio alone and verify the complete score-time frame grid survived muxing.
+actual=$(ffmpeg -hide_banner -loglevel error -i "$out" -map 0:v:0 -c copy -f framecrc - |
+  awk -F, '$1 == 0 { n++ } END { print n+0 }')
+[[ $actual == "$n" ]] || { echo "FILM: expected $n frames, muxed $actual; chunks in $frames_dir" >&2; exit 1; }
 rm -rf "$frames_dir"
 echo "FILM: -> $out"
