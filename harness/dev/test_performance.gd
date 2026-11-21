@@ -131,10 +131,23 @@ func check_pillar_players(scene, failures: Array) -> void:
 		var spec: Dictionary = scene.layout["strings"][sid]
 		if spec["mid"]!="harp": continue
 		strings.append([MotionBake.v(spec["a"]),MotionBake.v(spec["b"]),scene.wire_motion[sid],.0035*pow(2.,(64.-float(spec["midi"]))/18.)])
-	var passive := INF
+	var target_strings := {}
+	for row in strings: target_strings[row[2]]=[row]
+	var minimum_gap := INF
+	var closure := INF
+	var pre_shape := 0.
+	var approach_curl := INF
+	var spread_angle := INF
+	var joint_opening := 0.
+	var seek_error := 0.
+	var rebound_gap := INF
+	var mesh_hits := 0
+	var near_side := INF
 	var arrays: Array = scene.pillar_players.values()
+	var probes := {}
 	var mutual := INF
 	for arm in arrays:
+		probes[arm] = finger_meshes(arm)
 		for n in arm.notes:
 			var d = arm.digits[n.digit]
 			scene.evaluate(n.time-.064)
@@ -144,8 +157,8 @@ func check_pillar_players(scene, failures: Array) -> void:
 			for sample in 9:
 				scene.evaluate(n.time-.064+.008*sample)
 				var wire: Vector3=n.base+n.wire.excursion_at(n.pick)
-				var touch: Vector3=d.pad.global_position+n.push*(n.gauge+arm.pad_radius)
-				pad_error=maxf(pad_error,touch.distance_to(wire))
+				var radius: float = n.gauge+arm.pad_radius
+				pad_error=maxf(pad_error,absf(d.pad.global_position.distance_to(wire)-radius))
 				wrist_travel=maxf(wrist_travel,plant.distance_to(arm.palm.global_position))
 				for hinge in [d.root,d.middle,d.distal]:
 					if hinge.global_basis.y.dot(Vector3.UP)<.99999:
@@ -161,12 +174,66 @@ func check_pillar_players(scene, failures: Array) -> void:
 			scene.evaluate(n.time+.058)
 			var delta: Vector3=d.pad.global_position-(n.base+n.wire.excursion_at(n.pick))
 			least_free=minf(least_free,Vector2(delta.x,delta.z).length()-arm.pad_radius-n.gauge)
+			n.wire.apply(n.time)
+			arm.apply(n.time)
+			var hold_distance: float = arm.palm.position.distance_to(d.pad.global_position)
+			arm.apply(n.closed_at)
+			closure=minf(closure,hold_distance-arm.palm.position.distance_to(d.pad.global_position))
+			n.wire.apply(n.align_at)
+			arm.apply(n.align_at)
+			var open_angle: float = absf(d.last_flex.z)
+			var thumb: Node3D = arm.digits[0].root
+			var index: Node3D = arm.digits[1].root
+			spread_angle = minf(spread_angle,thumb.global_basis.z.angle_to(index.global_basis.z))
+			var late: float = lerpf(n.align_at,n.touch_at,.80)
+			n.wire.apply(late)
+			arm.apply(late)
+			approach_curl=minf(approach_curl,absf(d.last_flex.z)-open_angle)
+			pre_shape=maxf(pre_shape,absf(d.last_flex.z-d.placed.z))
+			var seek_pose: Transform3D = d.pad.global_transform
+			n.wire.apply(n.time+.4)
+			arm.apply(n.time+.4)
+			n.wire.apply(late)
+			arm.apply(late)
+			seek_error=maxf(seek_error,d.pad.global_position.distance_to(seek_pose.origin))
+			# At the end of a slip the wire can rebound through its whole
+			# excursion within a video frame. Check the whole line of rebound,
+			# including its first instant, independently of oscillation phase.
+			for sample in 65:
+				var t: float = lerpf(n.time,n.clear_at,sample/64.)
+				n.wire.apply(t)
+				arm.apply(t)
+				mesh_hits+=finger_wire_hits(probes[arm],target_strings[n.wire])
+				var outside: Vector3 = n.push.cross(Vector3.UP)
+				if outside.dot(arm.frame.z)>0.: outside=-outside
+				rebound_gap=minf(rebound_gap,outside.dot(d.pad.global_position-n.base)-n.gauge-arm.pad_radius)
+			# Measure actual hinge rotations, signed into flexion for each digit.
+			# Independent joint clocks can open the middle link during a pluck.
+			var earlier: Vector3 = d.placed*d.sign_x
+			var extension := Vector3.ZERO
+			for step in 65:
+				var t: float = n.time-.064+step*.001
+				n.wire.apply(t)
+				arm.apply(t)
+				var signed_flex: Vector3 = d.last_flex*d.sign_x
+				extension+=(earlier-signed_flex).max(Vector3.ZERO)
+				earlier=signed_flex
+			joint_opening=maxf(joint_opening,maxf(extension.x,maxf(extension.y,extension.z)))
+			for sample in 121:
+				var t: float = lerpf(n.align_at,n.time,sample/120.)
+				n.wire.apply(t)
+				arm.apply(t)
+				mesh_hits+=finger_wire_hits(probes[arm],target_strings[n.wire])
+				var diff: Vector3 = d.pad.global_position-(n.base+n.wire.excursion_at(n.pick))
+				near_side=minf(near_side,-diff.dot(arm.frame.z))
+				minimum_gap=minf(minimum_gap,Vector2(diff.x,diff.z).length()-n.gauge-arm.pad_radius)
 			count+=1
 	for i in range(-60,ceili(scene.score.total_s*60.)):
 		scene.evaluate(i/60.)
 		for j in arrays.size():
 			var arm = arrays[j]
-			passive=minf(passive,passive_clearance(arm,strings,i/60.))
+			minimum_gap=minf(minimum_gap,rank_clearance(arm,strings))
+			mesh_hits+=finger_wire_hits(probes[arm],strings)
 			var root_point: Vector3=arm.upper.global_position
 			var elbow: Vector3=arm.lower.global_position
 			var wrist: Vector3=arm.palm.to_global(Vector3(0,0,-.063))
@@ -179,30 +246,67 @@ func check_pillar_players(scene, failures: Array) -> void:
 						var points:=Geometry3D.get_closest_points_between_segments(seg[0],seg[1],pair[0],pair[1])
 						mutual=minf(mutual,points[0].distance_to(points[1]))
 	print("  %d pillar plucks, mm: pad error %.3f, planted wrist travel %.3f, draw %.2f, post-release gap %.2f, knuckle gap %.2f, folded pad gap %.2f, arm closure error %.3f, link separation %.1f, fingertip curl %.1f deg" % [count,pad_error*1000.,wrist_travel*1000.,least_draw*1000.,least_free*1000.,knuckle*1000.,idle_gap*1000.,pin_error*1000.,mutual*1000.,rad_to_deg(least_curl)])
-	print("  passive pad clearance across the full harp %.2f mm" % (passive*1000.))
-	if passive<.005 or count==0 or pad_error>.00015 or wrist_travel>.0001 or least_draw<.009 or least_free<.003 or knuckle<.05 or idle_gap<.012 or pin_error>.0001 or mutual<.11 or least_curl<.30:
-		failures.append("pillar player failed contact, curl, clearance or fitted reach")
+	print("  full rank pad clearance %.4f mm, near side %.3f mm, rebound line clearance %.4f mm, mesh intersections %d" % [minimum_gap*1000.,near_side*1000.,rebound_gap*1000.,mesh_hits])
+	print("  minimum fingertip closure toward palm %.2f mm, pre-contact distal angle error %.4f degrees, opening under load %.3f degrees, seek error %.4f mm" % [closure*1000.,rad_to_deg(pre_shape),rad_to_deg(joint_opening),seek_error*1000.])
+	if spread_angle<.65 or approach_curl<.20 or pre_shape>.015 or joint_opening>deg_to_rad(1.) or closure<.035:
+		failures.append("harp hand failed to splay, pre-shape or close into the palm")
+	if minimum_gap<-.00010 or rebound_gap<-.0001 or near_side<.002 or mesh_hits>0:
+		failures.append("harp hand entered the wire during the stroke or transfer")
+	if count==0 or pad_error>.00015 or wrist_travel>.0001 or least_draw<.009 or least_free<.003 or knuckle<.05 or idle_gap<.012 or least_curl<.30:
+		failures.append("harp pad failed seated loading, clearance or release")
+	if pin_error>.0001 or mutual<.11 or seek_error>.00001:
+		failures.append("pillar arm reach or seek stability failed")
 
-# Check every finger against the whole rank during transfer, preparation
-# and return. Only the wire being played gets a contact window.
-func passive_clearance(arm, strings: Array, t: float) -> float:
+# The playing finger and wire are included in every sweep, during approach,
+# draw and recovery. Tangency has zero surface clearance.
+func rank_clearance(arm, strings: Array) -> float:
 	var gap := INF
 	for d in arm.digits:
-		var i: int=d.times.bsearch(t)
-		var prev=d.notes[i-1] if i>0 else null
-		var next=d.notes[i] if i<d.notes.size() else null
-		var tip: Vector3=d.pad.global_position
+		var tip: Vector3 = d.pad.global_position
 		for s in strings:
 			var a: Vector3=s[0]
 			var b: Vector3=s[1]
 			if absf(tip.x-a.x)>.13: continue
-			var wire=s[2]
-			if prev!=null and prev.wire==wire and t-prev.time<.11: continue
-			if next!=null and next.wire==wire and next.time-t<.15: continue
 			var u:=clampf((tip.y-a.y)/(b.y-a.y),0.,1.)
-			var point: Vector3=a.lerp(b,u)+wire.excursion_at(u)
+			var point: Vector3=a.lerp(b,u)+s[2].excursion_at(u)
 			gap=minf(gap,tip.distance_to(point)-float(s[3])-float(arm.pad_radius))
 	return gap
+
+func finger_meshes(arm) -> Array:
+	var probes := []
+	for d in arm.digits:
+		for part: MeshInstance3D in [d.root,d.middle,d.distal]:
+			probes.append([part,part.mesh.generate_triangle_mesh(),part.get_aabb()])
+	return probes
+
+# Intersect the actual imported finger links with longitudinal edges of the
+# shader's 16-sided tube. Split rays at the 48 rendered mesh rings. A 0.05 mm
+# inset distinguishes a grazing surface contact from entry into the material.
+func finger_wire_hits(probes: Array, strings: Array) -> int:
+	var hits := 0
+	for probe in probes:
+		var part: Node3D = probe[0]
+		var world_box: AABB = part.global_transform*probe[2]
+		if absf(world_box.get_center().z)>world_box.size.z*.5+.045: continue
+		var inv := part.global_transform.affine_inverse()
+		for s in strings:
+			var a: Vector3=s[0]
+			var b: Vector3=s[1]
+			if absf(world_box.get_center().x-a.x)>world_box.size.x*.5+.045: continue
+			var u := maxf(0.,(world_box.position.y-.001-a.y)/(b.y-a.y))
+			var end := minf(1.,(world_box.end.y+.001-a.y)/(b.y-a.y))
+			while u<end:
+				var stop := minf(end,(floori(u*48.+.000001)+1)/48.)
+				var p: Vector3=a.lerp(b,u)+s[2].excursion_at(u)
+				var q: Vector3=a.lerp(b,stop)+s[2].excursion_at(stop)
+				for edge in 16:
+					var angle := TAU*edge/16.
+					var offset := Vector3(cos(angle),0,sin(angle))*(float(s[3])-.00005)
+					if not probe[1].intersect_segment(inv*(p+offset),inv*(q+offset)).is_empty():
+						hits+=1
+						break
+				u=stop
+	return hits
 
 func check_mallets(scene, failures: Array) -> void:
 	var clearance:=INF

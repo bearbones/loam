@@ -39,6 +39,7 @@ var _front := WireFrame.new()
 var _back := WireFrame.new()
 var _ringing := false
 var _direction: Vector3
+var _hand_placed := false
 
 func bind(holder: Node3D, spec: Dictionary, hits: Array, score: ScoreDoc, arms: Dictionary = {}) -> void:
 	_direction = holder.basis * Vector3(2.0 if spec.get("mid") == "harp" else .35, 0, 1)
@@ -55,12 +56,21 @@ func bind(holder: Node3D, spec: Dictionary, hits: Array, score: ScoreDoc, arms: 
 		c.gain = float(e["amp"]) * .035
 		if spec.get("mid") == "harp" and e.get("kind", "pluck") == "pluck":
 			var mount: Dictionary = arms.get(e["actuator"],{}).get("pillar_player",{})
-			if not mount.is_empty():
-				_direction = holder.basis*Vector3(-2,0,1)
-				_wire.set_shader_parameter("cross_axis",-2.)
-				_blur.set_shader_parameter("cross_axis",-2.)
+			var amplitude := .016 + .008 * float(e["amp"])
+			if mount.is_empty():
+				c.release_m = amplitude / sqrt(5.)
+			else:
+				# A shared oblique line lets the high thumb oppose the fingers on
+				# the same wire. The scalar draw carries the individual stroke sign.
+				if not _hand_placed:
+					_hand_placed = true
+					_direction = holder.basis*Vector3(-6,0,1)
+					_wire.set_shader_parameter("cross_axis",-6.)
+					_blur.set_shader_parameter("cross_axis",-6.)
+				var opposition := -1. if int(e.get("finger",1))==0 else 1.
+				c.release_m = amplitude * float(mount["side"]) * opposition / sqrt(37.)
+				c.gain *= sqrt(5./37.)
 			c.omega = TAU*440.*pow(2.,(float(spec["midi"])-69.)/12.)
-			c.release_m = (.016 + .008 * float(e["amp"])) *float(mount.get("side",1.)) / sqrt(5.0)
 			var value = e.get("pick")
 			var pick := float(spec.get("pick",.5) if value==null else value)
 			c.tent.resize(NODES)
@@ -91,6 +101,8 @@ func last_contact(t: float) -> float:
 func apply(t: float) -> void:
 	var first := _times.bsearch(t - _tail)
 	var end := _times.bsearch(t + PULL_S, false)
+	if _hand_placed:
+		first = maxi(first,end-1)
 	if first == end and not _ringing:
 		return
 	_back.displacement.fill(0.0)
@@ -106,6 +118,15 @@ func apply(t: float) -> void:
 				_back.displacement[i] += pull * c.tent[i]
 		elif age <= MAX_TAIL_S and c.frames > 0:
 			_sample(c, age)
+	# A placed finger damps an earlier note on this same wire before the
+	# next draw. Fade during the seated hold to keep random seeks continuous.
+	if _hand_placed and end<_times.size():
+		var until_load := _times[end]-PULL_S-t
+		if until_load<.016:
+			var residual := smoothstep(0.,.016,until_load)
+			for i in NODES:
+				_back.displacement[i] *= residual
+				_back.envelope[i] *= residual
 	var peak := 0.0
 	for i in NODES:
 		var excursion := maxf(_back.envelope[i], absf(_back.displacement[i]))

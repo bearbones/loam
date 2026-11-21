@@ -179,13 +179,19 @@ The integration check measures each playing surface at onset, the draw and
 release of each harp pad, closure of the wrist carriers and mallet couplers,
 and felt-to-forearm clearance throughout the rebound.
 
-The bass, middle and treble hands each carry four fingers on string-parallel
-pins. The three phalanges turn in the plane across the wire. The horn pad
-catches the wire at the scored height, draws it for 64 ms with the palm
-planted and curls into the hand as the wire slips free. The saddle and the
-wrist remain connected at every pose, including while seeking through a rest.
 On the marimba an outboard telescoping stay
 supports the sliding two-stick holder through its stroke.
+
+### How the harp hands play
+
+The three forepillar arms play their assigned registers from opposite faces of the harp. The upper thumb opposes fingers two through four. Each digit has three rigid links and a rounded horn pad. Its pins run parallel to the strings. The wrist and elbow carry the open hand between notes, and the active digit supplies the stroke. A harpist's angled placement and closure into the palm are the reference for this division of work. [Philharmonia Orchestra, harp technique](https://philharmonia.co.uk/resources/instruments/harp/)
+
+1. **Travel and shape.** The hand opens into a gentle four-finger fan on the player's side of the rank. As it approaches, the active finger takes its rounded playing shape and its neighbours relax out of the way. The last part of the approach brings the corner of the pad onto the wire. The lift is shallower in a quick run. These machines place one scored digit at a time. Human harpists can also prepare several strings together when the interval fits the hand. [Harps & Harps, index-finger exercises](https://harps.com.au/how-to-play/) · [Josh Layne, four-finger placing exercise](https://harptuesday.com/ep235/)
+2. **Place and load.** The wrist settles as the pad reaches the wire at the scored height. It holds that position for the 64 ms draw. A repeated wire loses its residual vibration beneath the seated finger. The knuckle and fingertip joints articulate together as the horn loads the wire sideways. A thumb stroke draws in the opposite direction to a finger stroke. [Music Mark, harp curriculum](https://www.musicmark.org.uk/a-common-approach/wp-content/uploads/2023/03/A-Common-Approach-Harp.pdf)
+3. **Roll and release.** Contact migrates around the rounded pad during the final 15 ms of the draw. At the audible onset, the line of the wire's rebound is tangent to the horn. The finger can finish closing toward the palm while the wire rings freely. High-speed observations of concert harpists distinguish sticking from slipping before free vibration. The durations here are animation settings for the chamber's scale and horn pads. [Chadefaux and colleagues, measured finger and string trajectories](https://pubmed.ncbi.nlm.nih.gov/22280707/) · [Finger–string contact model](https://pubmed.ncbi.nlm.nih.gov/23556609/)
+4. **Close and recover.** The played digit follows through, the arm carries the hand clear, and only then do the fingers reopen for the next placement. The score determines how much time the player can spend on the raise. [Saul Davis Zlatkovsky, *Effortless Playing*](https://farrpublications.com/mnsotapedagogy/StringNotesIssues/SN_2005-09/Harp%20-%20Effortless%20Playing%20--%20Saul%20Davis%20Zlatkovsky.pdf)
+
+The integration test samples the approach and release of every note, checks the pad against the full line of rebound, and intersects the rendered wire edges with the imported finger meshes. It also checks the other strings during travel and restores a hand pose after an out-of-order seek.
 
 The [surface and lighting guide](clockwork-look.md) covers the runtime shaders,
 procedural texture rebuild, studio lighting and `--clean` beauty captures.
