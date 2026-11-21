@@ -3,7 +3,7 @@
 # camera and lighting directed from the score's cues) captured over the whole
 # piece and muxed with the master. Run from the repo root.
 #
-#   tools/render_film.sh [OUT.mp4]      env: ASSET=chamber|expanded FPS=30 RES=1920x1080 JOBS=3 START=0 LENGTH=<total_s> ONSCREEN=0
+#   tools/render_film.sh [OUT.mp4]      env: ASSET=chamber|expanded|drums FPS=30 RES=1920x1080 JOBS=3 START=0 LENGTH=<total_s> ONSCREEN=0
 #
 # On WSL2, offscreen.sh streams the native Windows GPU capture to ffmpeg.
 # Other hosts use a private Xvfb display unless ONSCREEN=1.
@@ -12,17 +12,24 @@
 # JOBS chunks rendered side by side and cut together frame-exact.
 set -euo pipefail
 asset_args=()
+default_fps=30
 case ${ASSET:-chamber} in
   chamber) score_dir=render/chamber; title=the-chamber ;;
   expanded) score_dir=render/clockwork; title=expanded-recital; asset_args=(--expanded) ;;
-  *) echo "ASSET must be chamber or expanded" >&2; exit 2 ;;
+  drums) score_dir=harness/assets; title=overcrank; default_fps=60; asset_args=(--drums "--view=${VIEW:-film}") ;;
+  *) echo "ASSET must be chamber, expanded or drums" >&2; exit 2 ;;
 esac
 out=${1:-render/film/$title.mp4}
 score=$score_dir/score.json
 audio=$score_dir/chamber.wav
-fps=${FPS:-30}; res=${RES:-1920x1080}; jobs=${JOBS:-3}; start=${START:-0}
+if [[ ${ASSET:-chamber} == drums ]]; then
+  score=harness/assets/overcrank.json
+  audio=harness/assets/overcrank.ogg
+  [[ ! -f render/overcrank/overcrank.wav ]] || audio=render/overcrank/overcrank.wav
+fi
+fps=${FPS:-$default_fps}; res=${RES:-1920x1080}; jobs=${JOBS:-3}; start=${START:-0}
 launch=(tools/offscreen.sh); [[ ${ONSCREEN:-0} == 1 ]] && launch=()
-total=$(python3 -c "import json;print(json.load(open('$score'))['total_s'])")
+total=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["total_s"])' "$score")
 seconds=${LENGTH:-$total}
 mkdir -p render/film "$(dirname "$out")"
 frames_dir=$(mktemp -d "$(realpath render/film)/frames.XXXXXXXX")

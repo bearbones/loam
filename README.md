@@ -134,3 +134,27 @@ for editable Blender models, captures and validation, [articulated
 arms](docs/articulated-arms.md) for the linkage recipes, clearance rulers and
 the planner's arm-width rule, and [the sound-suite
 backlog](docs/clockwork-todos.md) for scoped follow-up work.
+
+## Overcrank
+
+Run the drum feature from a checkout with Git LFS assets and Godot 4.7.
+
+```sh
+godot --headless --path harness --import
+godot --path harness -- --drums
+```
+
+The seated automaton plays a five-piece kit with two crashes, a ride and a pedal hi-hat. An original 148 BPM solo moves from an open-handed backbeat into a half-time break, sextuplet tom fills and a two-stick crash ending. The stick work takes its cue from Steve Moore’s showmanship. [The Mad Drummer](https://www.themaddrummer.com/)
+
+Space pauses or resumes. Home restarts. The default film follows the arrangement. Add `--view=wide` for one continuous audience view, `--view=heads` to watch the sticking from above, or `--view=pedals` to watch the footwork. The model, score and stereo audio ship with the demo.
+
+```sh
+python3 songs/overcrank.py                                  # rebuild the master, score and sampler kit
+blender -b -t 3 --python-exit-code 1 -P tools/build_drum_kit.py
+ASSET=drums tools/render_film.sh                            # 1080p60 with sound
+godot --headless --path harness -s dev/test_drum_recital.gd -- --silent
+```
+
+The model exports in a seated home pose for ordinary glTF viewers. In Godot, each scored hand strike lands the round hickory bead on a drumhead or on a measured point of the rocking cymbal. The bass beater and hi-hat clutch share the feet’s score. The stereo master combines Loam’s kick, snare and hat synthesis with finite-difference membranes and inharmonic cymbal modes.
+
+For a sampler or DAW, open `Overcrank.sfz` from `render/overcrank/overcrank-kit.zip`. It maps eleven articulations to General MIDI percussion keys, rotates three takes per articulation, and chokes the open hat on a close or pedal stroke. In Python, `loam.drumkit.hit("snare", velocity=.8, take=1)` returns a mono strike.

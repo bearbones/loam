@@ -84,7 +84,31 @@ def board_surface():
     Image.fromarray(np.uint8(data.clip(0,1)*255)).save(OUT/'board_surface.png')
 
 
+def hammered_bronze():
+    """A 24 cm tile of overlapping hand-hammered depressions in a bronze blank."""
+    rng=np.random.default_rng(291)
+    n=512
+    depth=np.zeros((n,n))
+    for _ in range(1100):
+        x,y=rng.integers(n,size=2)
+        rx,ry=rng.uniform(4,14,2)
+        angle=rng.uniform(0,np.pi)
+        radius=int(max(rx,ry)*1.9)+1
+        iy,ix=np.mgrid[-radius:radius+1,-radius:radius+1]
+        u=(ix*np.cos(angle)+iy*np.sin(angle))/rx
+        v=(-ix*np.sin(angle)+iy*np.cos(angle))/ry
+        d=u*u+v*v
+        loc=np.ix_((y+iy[:,0])%n,(x+ix[0,:])%n)
+        depth[loc]-=rng.uniform(.18,.54)*np.exp(-2.4*d)
+    depth=gaussian_filter(depth,.85,mode='wrap')
+    sheen=gaussian_filter(rng.normal(size=(n,n)),16.,mode='wrap')
+    sheen=np.clip(.5+.16*sheen/sheen.std(),0,1)
+    height=(depth-depth.min())/np.ptp(depth)
+    Image.fromarray(np.uint8(np.dstack((height,sheen))*255),'LA').save(OUT/'cymbal_hammer.png')
+
+
 if __name__=='__main__':
     furnace_glass()
     pitch_stamps()
     board_surface()
+    hammered_bronze()

@@ -1,6 +1,7 @@
 render/
 *.wav
 *.ogg
+!harness/assets/overcrank.ogg
 *.mp3
 __pycache__/
 harness/.godot/
