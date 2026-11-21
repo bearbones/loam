@@ -52,19 +52,22 @@ func _process(_delta: float) -> bool:
 
 func _export() -> void:
 	var repo := ProjectSettings.globalize_path("res://").path_join("..").simplify_path()
-	var out := repo.path_join("render/film/camera.json")
-	var asset := "clockwork"
+	var expanded := OS.get_cmdline_user_args().has("--expanded")
+	var out := repo.path_join("render/film/camera_expanded.json" if expanded else "render/film/camera.json")
+	var asset := "clockwork_expanded" if expanded else "clockwork"
+	var score_path := repo.path_join("render/clockwork/score.json") if expanded else ScoreDoc.default_path()
 	var fps := 30.0
 	var width := 1920; var height := 1080
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--out="): out=a.substr(6) if a.substr(6).is_absolute_path() else repo.path_join(a.substr(6))
+		elif a.begins_with("--score="): score_path = a.substr(8)
 		elif a.begins_with("--asset="): asset=a.substr(8)
 		elif a.begins_with("--fps="): fps=float(a.substr(6))
 		elif a.begins_with("--size="):
 			var wh := a.substr(7).split("x",false)
 			width=int(wh[0]); height=int(wh[1])
 	var score := ScoreDoc.new()
-	if not score.load(ScoreDoc.default_path()):
+	if not score.load(score_path):
 		printerr("CAMERA: ",score.errors); quit(1); return
 	var manifest_path := "res://assets/"+asset+".json"
 	var layout = JSON.parse_string(FileAccess.get_file_as_string(manifest_path))

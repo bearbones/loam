@@ -134,6 +134,7 @@ if score_path.exists() and layout.get('arms'):
             mats=[getattr(p,'material',material.get(part,'brass')) for p in body['pieces']]
             entry=pack(f'{aid}__{part}',body['pieces'],material.get(part,'brass'),'articulated link, local frame',materials=mats if len(set(mats))>1 else None)
             entry['finish']='profiled'; entry['local']=True; objects.append(entry); arm_masses[part]=entry['mass_kg']
+            if 'articulation' in body: entry['articulation']=body['articulation']
         # The tool hangs from the wrist crosshead's lower boss; the shank is built to reach it.
         mount=tool_mount(rig.wrist_offset(cfg),o2)
         kind=cfg['kind']; head_mats=None; head_info=None

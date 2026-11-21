@@ -33,12 +33,22 @@ var hcam_home: Dictionary = {}    # each hammer arm's lift cam imported basis
 var parm_home: Dictionary = {}    # each rake arm's pendulum forearm imported basis
 var psec_home: Dictionary = {}    # each rake arm's pendulum sector gear imported basis
 var ppin_home: Dictionary = {}    # each rake arm's pendulum driver pinion imported basis
-var digit_home: Dictionary = {}   # aid -> {digit_thumb, digit_d2, digit_d3, digit_d4 -> imported Basis}
 var sheath_active: Dictionary = {} # periodic-feature blur sheath hysteresis state (key -> bool)
 var stand_nodes: Dictionary = {}    # mid -> the instrument's stand and its imported home
 var shudder_nodes: Dictionary = {}  # aid -> the rail's bars and the gantry it stands on, and the sway pivot
 var strings: Dictionary = {}
-var hits: Dictionary = {}
+const StringMotion := preload("res://string_motion.gd")
+const HandMotion := preload("res://hand_motion.gd")
+var wire_motion: Dictionary = {}
+const StruckMotion := preload("res://struck_motion.gd")
+var struck_motion: Array[StruckMotion] = []
+var hand_motion: Dictionary = {}
+const PillarPlayer = preload("res://pillar_player.gd")
+var pillar_players: Dictionary = {}
+var harp_owner: Dictionary = {}
+const MalletGrip := preload("res://mallet_grip.gd")
+var mallet_grips: Dictionary = {}
+const INSPECTION_FOV := 43.0
 var camera: Camera3D
 var player := AudioStreamPlayer.new()
 var stem_players: Array = []
@@ -47,11 +57,8 @@ var playing := true
 var auto_camera := true
 var view := 0
 var form_style := "carved"
-var header: Label
-var footer: Label
-var track: TrackView
-var seek: HSlider
-var updating_seek := false
+const PerformanceHud := preload("res://performance_hud.gd")
+var hud: PerformanceHud
 var shot := ""
 var capture_dir := ""
 var frame := 0
@@ -65,6 +72,7 @@ var capture_srv: TCPServer = null
 var capture_tcp: StreamPeerTCP = null
 var capture_pid := -1
 var focus := ""                  # --focus=<aid>: frame that arm's mechanism, not the room
+var focus_pick: Variant = null
 var focus_span := 2.4            # metres of rail across the frame (a minimum)
 var focus_dir := Vector3.ZERO    # --focus_dir=x,y,z: stand-off direction; zero = derive it
 var focus_at := ""               # --focus_at=tip|root|head: frame THAT point, focus_span the true width
@@ -72,6 +80,7 @@ var fixed_time := 48.0
 var clock_started := false
 var silent := false
 var audio_mode := "master"
+var bass_string := ""
 var follow_sid := ""
 var follow_since := -1e9
 # The ratchet's click has a sound (docs/plans/pawl-follow-ups.md, item 2): one
@@ -89,10 +98,14 @@ const CLICK_VOICES := 4            # each click player's polyphony
 var click_stream: AudioStreamWAV
 var ride_stream: AudioStreamWAV    # the roller ticking over a tip: no drop, no thump
 var clicks: Dictionary = {}        # aid -> the arm's clicks, in time order
+var click_times: Dictionary = {}    # aid -> packed times for random-access seeks
 var click_players: Dictionary = {} # aid -> AudioStreamPlayer3D on the roller
 var wheel_players: Dictionary = {} # aid -> a mallet's freewheel player on the roller (AudioStreamPolyphonic)
 var click_next: Dictionary = {}    # aid -> index of the first click not yet played
 var prev_time := -1.0
+var _posed_time := -INF
+var _camera_view := -2
+var _camera_viewport := Vector2.ZERO
 # --film: the piece as a film (FilmDirector): a camera and a lighting arc
 # directed from the score's cues, no UI, a title and an end card.
 var film := false
@@ -131,13 +144,16 @@ func _ready() -> void:
 	if not motion.load(option("motion",MotionBake.path_for(score_path,asset)),score_path,manifest_path):
 		push_error(str(motion.errors)); get_tree().quit(1); return
 	film=OS.get_cmdline_user_args().has("--film")
-	if film: director.setup(motion,layout,score)
+	director.setup(motion,layout,score)
 	model=load("res://assets/"+asset+".glb").instantiate()
 	add_child(model)
-	look.apply(model)
+	look.apply(model,layout["strings"])
 	form_style=option("form","carved")
 	_set_form(form_style)
 	for aid in layout["arms"]:
+		if layout["arms"][aid].has("pillar_player"):
+			pillar_players[aid] = PillarPlayer.new()
+			continue
 		parts[aid]={}
 		for part in PART_NAMES:
 			parts[aid][part]=model.find_child(aid+"__"+part,true,false)
@@ -178,6 +194,9 @@ func _ready() -> void:
 			# sound comes from the pawl wherever the carriage is along its rail.
 			if click_stream==null: click_stream=click_sample(motion.constant("RING_HZ"),motion.constant("RING_TAU"))
 			clicks[aid]=motion.click_times(aid)
+			var times := PackedFloat64Array()
+			for click in clicks[aid]: times.append(click["t"])
+			click_times[aid] = times
 			var cp := AudioStreamPlayer3D.new()
 			cp.name="click"; cp.stream=click_stream; cp.volume_db=CLICK_DB
 			cp.attenuation_model=AudioStreamPlayer3D.ATTENUATION_DISABLED; cp.max_polyphony=CLICK_VOICES
@@ -193,8 +212,7 @@ func _ready() -> void:
 		# Carriage-mounted shoulder sector gear + driver pinion, four-bar elbow crank + coupler rod (M4),
 		# and M5 hinged mallet shaft + four-bar wrist crank and hammer lift cam (formlab.drives).
 		drive_parts[aid]={}
-		digit_home[aid]={}
-		for dpart in ["shoulder_sector","shoulder_pinion","elbow_crank","elbow_rod","wrist_shaft","wrist_crank","wrist_rod","mallet2_head","mallet2_shaft","splay_sector","hammer_cam","pendulum_arm","pendulum_sector","pendulum_pinion","digit_thumb","digit_d2","digit_d3","digit_d4"]:
+		for dpart in ["shoulder_sector","shoulder_pinion","elbow_crank","elbow_rod","wrist_shaft","wrist_crank","wrist_rod","wrist_guide","wrist_plunger","mallet2_head","mallet2_shaft","splay_sector","hammer_cam","pendulum_arm","pendulum_sector","pendulum_pinion","digit_thumb","digit_d2","digit_d3","digit_d4"]:
 			var dnode: Node3D=model.find_child(aid+"__"+dpart,true,false)
 			if dnode!=null:
 				drive_parts[aid][dpart]=dnode
@@ -207,7 +225,14 @@ func _ready() -> void:
 				elif dpart=="pendulum_arm": parm_home[aid]=dnode.basis
 				elif dpart=="pendulum_sector": psec_home[aid]=dnode.basis
 				elif dpart=="pendulum_pinion": ppin_home[aid]=dnode.basis
-				elif dpart.begins_with("digit_"): digit_home[aid][dpart]=dnode.basis
+		if drive_parts[aid].has("mallet2_head"):
+			var grip := MalletGrip.new()
+			grip.bind(parts[aid],model.find_child(aid+"__inner_slide",true,false),motion.arms[aid]["splay"])
+			mallet_grips[aid] = grip
+		if layout["arms"][aid]["kind"] in ["pick","rake"] and drive_parts[aid].has("wrist_rod"):
+			var hand := HandMotion.new()
+			hand.bind(drive_parts[aid], layout["arms"][aid], motion.arms[aid].get("hand_pose", {}))
+			hand_motion[aid] = hand
 	# The chamber's flywheel, its axle pulley, companion pinion and the belt pulley turn about z
 	# (formlab.layout.flywheel_plan); their imported bases are the unspun home.
 	for label in ["Chamber flywheel","Chamber hub","Chamber drive pulley","Chamber belt pulley"]:
@@ -221,7 +246,13 @@ func _ready() -> void:
 	# them) and own the click players.
 	rig=MotionRigScript.new()
 	if not rig.bind(motion,model): push_error(str(rig.errors)); get_tree().quit(1); return
+	var hits := {}
+	var low_midi := INF
 	for sid in layout["strings"]:
+		var spec: Dictionary = layout["strings"][sid]
+		if bass_string == "" or (spec["mid"] == "harp" and float(spec["midi"]) < low_midi):
+			bass_string = sid
+			if spec["mid"] == "harp": low_midi = float(spec["midi"])
 		hits[sid]=[]
 		if not layout["strings"][sid]["struck"]:
 			strings[sid]=_make_string(sid)
@@ -230,8 +261,25 @@ func _ready() -> void:
 		for k in range(e.get("strings",[]).size()):
 			var sid: String=e["strings"][k]
 			hits[sid].append({"t":ts[k],"event":e})
+			if pillar_players.has(e["actuator"]): harp_owner[sid]=e["actuator"]
+	for sid in strings:
+		var wire := StringMotion.new()
+		wire.bind(strings[sid], layout["strings"][sid], hits[sid], score, layout["arms"])
+		wire_motion[sid] = wire
+	for sid in layout["strings"]:
+		var spec: Dictionary = layout["strings"][sid]
+		if not spec["struck"]: continue
+		var suffix := " bell" if layout["mechanisms"][spec["mid"]]["material"]=="glass" else " bar"
+		var body := model.find_child(sid+suffix,true,false) as MeshInstance3D
+		if body == null or body.get_blend_shape_count()==0: continue
+		var voice := StruckMotion.new()
+		voice.bind(body,spec,hits[sid])
+		struck_motion.append(voice)
+	for aid in pillar_players:
+		pillar_players[aid].bind(model,aid,layout["arms"][aid],score.events,layout,wire_motion)
+	for aid in hand_motion:
+		hand_motion[aid].seat(parts[aid], aid, score.events, layout, wire_motion, motion)
 	_environment()
-	_ui()
 	add_child(player)
 	var master_path := score.dir.path_join("chamber.wav")
 	if FileAccess.file_exists(master_path):
@@ -253,6 +301,7 @@ func _ready() -> void:
 	focus=option("focus","")
 	focus_span=maxf(float(option("focus_span","2.4")),.1)
 	focus_at=option("focus_at","")
+	if option("focus_pick","")!="": focus_pick = float(option("focus_pick",""))
 	var fd: PackedStringArray=option("focus_dir","").split(",",false)
 	if fd.size()==3: focus_dir=Vector3(float(fd[0]),float(fd[1]),float(fd[2]))
 	view=int(option("view","0"))
@@ -276,7 +325,8 @@ func _ready() -> void:
 		get_window().content_scale_mode=Window.CONTENT_SCALE_MODE_VIEWPORT
 		get_window().content_scale_aspect=Window.CONTENT_SCALE_ASPECT_KEEP
 		get_window().content_scale_size=capture_target_size*ssaa
-	print("CLOCKWORK: loaded ",score.events.size()," events, ",parts.size()," rigs; ",audio_mode," audio")
+	_ui(ssaa if capture_target_size != Vector2i.ZERO else 1)
+	print("CLOCKWORK: loaded ",score.events.size()," events, ",parts.size()+pillar_players.size()," rigs; ",audio_mode," audio")
 
 ## The blow shakes the ASSEMBLY, not only the arm (docs/motion-design.md): the
 ## nodes the recoil bus moves, cached with their imported homes. A struck
@@ -308,7 +358,7 @@ func _assembly_nodes() -> void:
 		shudder_nodes[aid]={"bars":bars,"frame":frame,"pivot":pivot}
 
 const WIRE := preload("res://shaders/wire_string.gdshader")
-const STRING_NODES := 24
+const STRING_NODES := StringMotion.NODES
 
 ## A string is a static shaded tube along its own +Y (z = the pluck direction,
 ## world Z). The wire shader bends it each frame from the baked shape frames;
@@ -486,43 +536,46 @@ func _set_form(style: String) -> void:
 
 func _environment() -> void:
 	look.light_rig(self)
-	camera=Camera3D.new(); camera.fov=43; add_child(camera); camera.current=true
+	camera=Camera3D.new(); camera.fov=INSPECTION_FOV; add_child(camera); camera.current=true
 
-func _ui() -> void:
-	var canvas := CanvasLayer.new(); add_child(canvas)
-	canvas.visible=not (OS.get_cmdline_user_args().has("--clean") or film)
+func _ui(pixel_scale: int) -> void:
 	if film: _film_cards()
-	var root := Control.new(); root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT); root.mouse_filter=Control.MOUSE_FILTER_IGNORE; canvas.add_child(root)
-	header=Label.new(); header.position=Vector2(36,24); header.add_theme_font_size_override("font_size",25); root.add_child(header)
-	footer=Label.new(); footer.position=Vector2(36,64); footer.add_theme_color_override("font_color",Color(.7,.74,.72)); root.add_child(footer)
-	track=TrackView.new(); track.score=score; track.visible=false; track.position=Vector2(24,560); track.size=Vector2(1550,270); root.add_child(track)
-	seek=HSlider.new(); seek.min_value=-1; seek.max_value=score.total_s; seek.step=.001; root.add_child(seek)
-	get_viewport().size_changed.connect(_layout_ui)
-	_layout_ui()
-	seek.value_changed.connect(func(t):
-		if not updating_seek: _seek(t))
-
-func _layout_ui() -> void:
-	var size := get_viewport().get_visible_rect().size
-	seek.position=Vector2(36,size.y-38); seek.size=Vector2(size.x-72,22)
-	track.position=Vector2(24,size.y-290); track.size=Vector2(size.x-48,235)
+	if film or OS.get_cmdline_user_args().has("--clean"): return
+	var canvas := CanvasLayer.new()
+	add_child(canvas)
+	canvas.scale = Vector2.ONE * pixel_scale
+	hud = PerformanceHud.new()
+	canvas.add_child(hud)
+	var layout_hud := func():
+		hud.size = get_viewport().get_visible_rect().size / pixel_scale
+	layout_hud.call()
+	get_viewport().size_changed.connect(layout_hud)
+	hud.bind(score)
+	hud.seek_requested.connect(_seek)
+	hud.command_requested.connect(_command)
+	hud.camera_selected.connect(func(index: int):
+		auto_camera = index < 0
+		view = maxi(index, 0))
 
 func _seek(t: float) -> void:
 	time=clampf(t,-1,score.total_s); clock_started=false
+	follow_sid = ""
 	player.stop()
 	for p in stem_players: p.stop()
 	prev_time=time
 	for aid in clicks:
-		var i := 0
-		while i<clicks[aid].size() and float(clicks[aid][i]["t"])<=time: i+=1
-		click_next[aid]=i
+		var times: PackedFloat64Array = click_times[aid]
+		click_next[aid] = times.bsearch(time, false)
 
 ## Play every click that landed in (t0, t1]: the clock advanced from t0 to t1.
 ## A stepped click (and every hammer click) plays once on the click player; the
 ## frame's freewheel clicks play as one voice (click_frame, freewheel_voice).
 func _play_clicks(t0: float, t1: float) -> void:
 	for aid in clicks:
-		var f := click_frame(clicks[aid],click_next[aid],t0,t1)
+		var next: int = click_next[aid]
+		var times: PackedFloat64Array = click_times[aid]
+		if next >= times.size() or times[next] > t1: continue
+		var f := click_frame(clicks[aid],next,t0,t1)
 		click_next[aid]=f["next"]
 		for k in int(f["stepped"]): click_players[aid].play()
 		var v := freewheel_voice(int(f["drop"]),int(f["ride"]))
@@ -632,6 +685,12 @@ func evaluate(t: float) -> void:
 	# posed from the bake's joints table: formlab/kinematics.py holds each row and
 	# its law, MotionRig.apply writes the bound nodes.
 	rig.apply(t)
+	for voice in struck_motion:
+		voice.apply(t)
+	for sid in wire_motion:
+		wire_motion[sid].apply(t)
+	for aid in pillar_players:
+		pillar_players[aid].apply(t)
 	for aid in drive_parts:
 		var pose := motion.pose(aid,t)
 		var p: Dictionary=drive_parts[aid]
@@ -669,9 +728,22 @@ func evaluate(t: float) -> void:
 			var wr_drv: Dictionary=cfg.get("drives",{}).get("hinge",{})
 			var rc_w := float(wr_drv.get("r_crank",0.180)); var rf_w := float(wr_drv.get("r_lug",0.140)); var lr_w := float(wr_drv.get("coupler_l",0.220))
 			var sgn_w := motion.flip_sign(aid); var th_w := float(pose["head"])
-			p["wrist_shaft"].position=pose["tip"]
-			p["wrist_shaft"].basis=Basis(Vector3.RIGHT,sgn_w*th_w)*wshaft_home[aid]
-			var p2_w := Vector3(pose["tip"].x,pose["tip"].y-rf_w*sin(th_w),pose["tip"].z+sgn_w*rf_w*cos(th_w))
+			var stick := Basis(Vector3.RIGHT,sgn_w*th_w)
+			var face: Vector3 = pose["tip"]
+			if mallet_grips.has(aid):
+				var grip: MalletGrip = mallet_grips[aid]
+				grip.apply(t,face,th_w,sgn_w)
+				if p.has("wrist_guide"):
+					var cheek := Vector3(-.122,0,0)
+					p["wrist_guide"].transform=Transform3D(MotionBake.link_basis(wrist,grip.hinge),wrist+cheek)
+					p["wrist_plunger"].transform=Transform3D(MotionBake.link_basis(grip.hinge,wrist),grip.hinge+cheek)
+				stick = grip.swing_a
+				face = grip.head_a
+				p["mallet2_head"].transform = Transform3D(m2head_home[aid],grip.head_b)
+				p["mallet2_shaft"].transform = Transform3D(grip.swing_b*m2shaft_home[aid],grip.head_b)
+				p["splay_sector"].transform = Transform3D(Basis(Vector3.UP,grip.dial)*splay_home[aid],grip.hinge)
+			p["wrist_shaft"].transform = Transform3D(stick*wshaft_home[aid],face)
+			var p2_w := face+stick*Vector3(0,0,sgn_w*rf_w)
 			var d_w := p2_w-wrist; var d_wyz := Vector2(d_w.y,d_w.z).length()
 			var l_wyz2 := lr_w*lr_w-d_w.x*d_w.x
 			var cos_aw := clampf((rc_w*rc_w+d_wyz*d_wyz-l_wyz2)/maxf(2.0*rc_w*d_wyz,1e-9),-1.0,1.0)
@@ -679,34 +751,28 @@ func evaluate(t: float) -> void:
 			var p1_w := Vector3(wrist.x,wrist.y+rc_w*sin(th_cw),wrist.z+rc_w*cos(th_cw))
 			p["wrist_crank"].transform=Transform3D(MotionBake.link_basis(wrist,p1_w),wrist)
 			p["wrist_rod"].transform=Transform3D(MotionBake.link_basis(p1_w,p2_w),p1_w)
-			if p.has("mallet2_head") and p.has("mallet2_shaft") and p.has("splay_sector"):
-				var sp: Dictionary=motion.arms.get(aid,{}).get("splay",{})
-				var splay_dx := float(sp.get("dx_init",0.385714))
-				var dx_base := float(sp.get("dx_base",0.385714))
-				for g in sp.get("segs",[]):
-					if t>=float(g[0]):
-						var u_sp := clampf((t-float(g[0]))/maxf(float(g[1])-float(g[0]),1e-9),0.0,1.0)
-						var s345 := u_sp*u_sp*u_sp*(10.0+u_sp*(-15.0+6.0*u_sp))
-						splay_dx=float(g[3]) if t>=float(g[1]) else float(g[2])+(float(g[3])-float(g[2]))*s345
-				var splay_ang := (splay_dx-dx_base)/0.40
-				p["mallet2_head"].position=pose["tip"]+Vector3(splay_dx,0.0,0.0)
-				p["mallet2_head"].basis=m2head_home[aid]
-				p["mallet2_shaft"].position=pose["tip"]+Vector3(splay_dx,0.0,0.0)
-				p["mallet2_shaft"].basis=Basis(Vector3.RIGHT,sgn_w*th_w)*m2shaft_home[aid]
-				p["splay_sector"].position=pose["tip"]+Vector3(0.0,0.055*cos(th_w)+sgn_w*0.50*sin(th_w),-0.055*sin(th_w)+sgn_w*0.50*cos(th_w))
-				p["splay_sector"].basis=Basis(Vector3.UP,splay_ang)*splay_home[aid]
 		elif p.has("wrist_crank") and p.has("wrist_rod"):
 			var wf_drv: Dictionary=cfg.get("drives",{}).get("wrist_flex",{})
 			var cl_w := float(wf_drv.get("carrier_l",0.50))
 			var mo_w := MotionBake.v(wf_drv.get("mount_offset",[0.0,0.20,-0.10]))
-			var p2_w: Vector3=pose["tip"]+mo_w
-			var d_w := p2_w-wrist; var d_wyz := Vector2(d_w.y,d_w.z).length()
-			var h_w := sqrt(maxf(0.0,cl_w*cl_w-0.25*d_wyz*d_wyz))
-			var uy_w := d_w.y/maxf(d_wyz,1e-9); var uz_w := d_w.z/maxf(d_wyz,1e-9)
-			var sgn_w := 1.0 if (uz_w+2.0*uy_w)>=0.0 else -1.0
-			var p1_w := 0.5*(wrist+p2_w)+Vector3(0.0,sgn_w*uz_w*h_w,-sgn_w*uy_w*h_w)
-			p["wrist_crank"].transform=Transform3D(MotionBake.link_basis(wrist,p1_w),wrist)
-			p["wrist_rod"].transform=Transform3D(MotionBake.link_basis(p1_w,p2_w),p1_w)
+			var hand: HandMotion = hand_motion[aid]
+			var p2_w := hand.apply(t,pose["tip"])+mo_w
+			var pin := wrist+hand.swivel_offset
+			var line := p2_w-pin
+			var along := line.normalized()
+			# Swing the swivel's rest frame to the socket. Its outboard offset
+			# keeps this direction in the forward hemisphere at full fold.
+			var ref := hand.fold_direction
+			var axis := hand.swivel_axis
+			var bend := ref-(along+axis)*(along.dot(ref)/maxf(1.+along.dot(axis),1e-6))
+			if axis==Vector3.ZERO:
+				bend = Vector3(0,along.z,-along.y).normalized()
+				if along.z+2.*along.y<0.: bend = -bend
+			var height := sqrt(maxf(0.,cl_w*cl_w-.25*line.length_squared()))
+			var knee := .5*(pin+p2_w)+height*bend
+			var axle := bend.cross(along).normalized()
+			p["wrist_crank"].transform=Transform3D(MotionBake.link_basis(pin,knee,axle),pin)
+			p["wrist_rod"].transform=Transform3D(MotionBake.link_basis(knee,p2_w,axle),knee)
 		# Hammer lift cam (formlab.drives.HAMMER_CAM, M5):
 		if p.has("hammer_cam"):
 			var hc_drv: Dictionary=cfg.get("drives",{}).get("hinge",{})
@@ -726,108 +792,10 @@ func evaluate(t: float) -> void:
 			p["pendulum_sector"].basis=Basis(Vector3.BACK,th_pd)*psec_home[aid]
 			p["pendulum_pinion"].position=wrist+pin_o
 			p["pendulum_pinion"].basis=Basis(Vector3.BACK,ratio_pd*th_pd)*ppin_home[aid]
-		# Articulated 4-digit mechanical hand (formlab.hand, M6-M10):
-		if p.has("digit_d2"):
-			var hp: Dictionary=motion.arms.get(aid,{}).get("hand_pose",{})
-			var kns: Dictionary=hp.get("knuckles",cfg.get("hand",{}).get("knuckles",{}))
-			var is_rake := String(cfg.get("kind",""))=="rake"
-			var d_curls := {"thumb": 0.0, "d2": 0.0, "d3": 0.0, "d4": 0.0}
-			for n in hp.get("notes",[]):
-				var d_key := str(n.get("digit","d2"))
-				if not d_curls.has(d_key): continue
-				var t_pl := float(n.get("t_place",0.0))
-				var t_pu := float(n.get("t_pull",t_pl))
-				var t_sl := float(n.get("t_slip",t_pu+0.064))
-				var t_cl := float(n.get("t_close",t_sl+0.10))
-				if t>=t_pl-0.16 and t<t_pl:
-					var u_open := clampf((t-(t_pl-0.16))/0.16,0.0,1.0)
-					d_curls[d_key]=minf(float(d_curls[d_key]),-0.14*sin(PI*u_open))
-				elif t>=t_pu and t<=t_sl:
-					var u_pu := clampf((t-t_pu)/maxf(t_sl-t_pu,1e-6),0.0,1.0)
-					var s_pu := u_pu*u_pu*u_pu*(10.0+u_pu*(-15.0+6.0*u_pu))
-					d_curls[d_key]=maxf(float(d_curls[d_key]),0.24*s_pu)
-					if is_rake:
-						var order_r: Array = ["d2","d3","d4","thumb"] if d_key=="d2" else ["thumb","d2","d3","d4"]
-						for idx_r in range(order_r.size()):
-							var dk_r: String = order_r[idx_r]
-							var u_r := clampf((u_pu-0.16*float(idx_r))/0.52,0.0,1.0)
-							d_curls[dk_r]=maxf(float(d_curls[dk_r]),0.46*sin(PI*u_r))
-				elif t>t_sl and t<=t_cl:
-					var u_cl := clampf((t-t_sl)/maxf(t_cl-t_sl,1e-6),0.0,1.0)
-					var s_cl := u_cl*u_cl*u_cl*(10.0+u_cl*(-15.0+6.0*u_cl))
-					d_curls[d_key]=maxf(float(d_curls[d_key]),0.24+(0.610865-0.24)*s_cl)
-				elif t>t_cl and t<=t_cl+0.14:
-					d_curls[d_key]=maxf(float(d_curls[d_key]),0.610865)
-				elif t>t_cl+0.14 and t<t_cl+0.42:
-					var u_ret := clampf((t-(t_cl+0.14))/0.28,0.0,1.0)
-					var s_ret := u_ret*u_ret*u_ret*(10.0+u_ret*(-15.0+6.0*u_ret))
-					d_curls[d_key]=maxf(float(d_curls[d_key]),0.610865*(1.0-s_ret))
-			var max_curl := maxf(maxf(float(d_curls["thumb"]),float(d_curls["d2"])),maxf(float(d_curls["d3"]),float(d_curls["d4"])))
-			for d_key: String in ["thumb","d2","d3","d4"]:
-				var dpart: String="digit_"+d_key
-				if not p.has(dpart): continue
-				var kn_arr: Array=kns.get(d_key,[0.014,0.078,-0.036])
-				var kn_v := MotionBake.v(kn_arr)
-				var q_d := float(d_curls[d_key])
-				if q_d>=0.0 and max_curl>q_d:
-					q_d=lerpf(q_d,max_curl,0.18)
-				p[dpart].position=pose["tip"]+kn_v
-				var b_rot := Basis(Vector3.RIGHT,q_d)
-				if d_key=="thumb":
-					b_rot=Basis(Vector3(0.0,0.85,0.52).normalized(),0.32*q_d)*b_rot
-				p[dpart].basis=b_rot*digit_home[aid][dpart]
 	if flywheel_pinion!=null and layout.has("flywheel") and layout["flywheel"].has("mate"):
 		var spin: float=flywheel_angle(t)
 		var k: float=float(layout["flywheel"]["mate"]["ratio"])
 		flywheel_pinion.basis=Basis(Vector3(0,0,1),spin*k)*flywheel_pinion_home
-	for sid in strings:
-		var displacement := PackedFloat32Array(); displacement.resize(STRING_NODES)
-		var envelope := PackedFloat32Array(); envelope.resize(STRING_NODES)
-		for hit in hits[sid]:
-			var tau := t-float(hit["t"])
-			var e: Dictionary=hit["event"]
-			var is_harp := str(layout["strings"][sid].get("mid",""))=="harp" and str(e.get("kind","pluck"))=="pluck"
-			if is_harp and tau>=-0.064 and tau<0.0:
-				var w := (tau+0.064)/0.064
-				var d_rel := 0.016+0.008*float(e.get("amp",0.5))
-				var s_pull := (d_rel/sqrt(5.0))*(w*w*w*(4.0+w*(-4.5+1.5*w)))
-				var u_p := float(e.get("pick",layout["strings"][sid].get("pick",0.5)))
-				for i in STRING_NODES:
-					var u := float(i)/float(STRING_NODES-1)
-					var tent := (u/maxf(u_p,1e-6)) if u<=u_p else ((1.0-u)/maxf(1.0-u_p,1e-6))
-					displacement[i]+=s_pull*tent
-				continue
-			if tau<0 or tau>5 or e.get("shape")==null: continue
-			var gain := float(e["amp"])*.035
-			var values := score.shape_frame(e["shape"],tau)
-			if is_harp:
-				var d_rel := 0.016+0.008*float(e.get("amp",0.5))
-				var u_p := float(e.get("pick",layout["strings"][sid].get("pick",0.5)))
-				var fade_in := 1.0-exp(-tau/0.045)
-				var rel_decay := (d_rel/sqrt(5.0))*exp(-tau/0.085)
-				for i in mini(values.size(),STRING_NODES):
-					var u := float(i)/float(STRING_NODES-1)
-					var tent := (u/maxf(u_p,1e-6)) if u<=u_p else ((1.0-u)/maxf(1.0-u_p,1e-6))
-					displacement[i]+=rel_decay*tent+values[i]*gain*fade_in*0.25
-			else:
-				for i in mini(values.size(),STRING_NODES): displacement[i]+=values[i]*gain
-			# The sheath holds the peak excursion over the last 1/30 s — the
-			# eye integrates a few cycles of a wire, so the blur, not the instant.
-			var step := 1.0/float(score.clips[e["shape"]]["rate_hz"])
-			for k in range(1,5):
-				var past := score.shape_frame(e["shape"],tau-k*step)
-				for i in mini(past.size(),STRING_NODES): envelope[i]=maxf(envelope[i],absf(past[i]*gain))
-		var peak := 0.0
-		for i in STRING_NODES:
-			envelope[i]=maxf(envelope[i],absf(displacement[i])); peak=maxf(peak,envelope[i])
-		# A sounding string glows with its energy (a full-amplitude pluck peaks near 0.035 m).
-		var excitation := clampf(peak/.02,0.0,1.0)
-		for child in strings[sid].get_children():
-			var mat: ShaderMaterial=child.material_override
-			mat.set_shader_parameter("disp",displacement); mat.set_shader_parameter("envelope",envelope)
-			mat.set_shader_parameter("excitation",excitation)
-	var lamp: MeshInstance3D=model.find_child("chamber__lamp",true,false)
-	lamp.scale=Vector3.ONE
 	look.breathe(score.envelope_at("chamber",t))
 	if film: _film_frame(t)
 	_camera_at(t)
@@ -867,11 +835,40 @@ func _smooth_rail_x(aid: String, t: float) -> float:
 	return sum/maxf(wsum,1e-6)
 
 func _camera_at(t: float) -> void:
-	if film:
+	if focus=="repair" or pillar_players.has(focus):
+		var centre := Vector3(-1.38,.914,-1.46)
+		var axis := Vector3(-.35,1.,.52)
+		if pillar_players.has(focus):
+			var arm: PillarPlayer = pillar_players[focus]
+			centre = (arm.shoulder+arm.park)*.5
+			axis = Vector3(.34,.24,signf(arm.park.z))
+		if focus_dir!=Vector3.ZERO: axis=focus_dir
+		camera.fov=INSPECTION_FOV
+		var distance := .5*focus_span/tan(.5*deg_to_rad(camera.fov))
+		camera.look_at_from_position(centre+axis.normalized()*distance,centre,Vector3.UP)
+		return
+	if layout["strings"].has(focus):
+		var spec: Dictionary = layout["strings"][focus]
+		var centre := MotionBake.contact(layout,focus,focus_pick)
+		if spec["mid"]=="harp" and not pillar_players.is_empty():
+			# Keep the contact and its hand in frame in an inspection close-up.
+			var arm_id: String = harp_owner.get(focus,"")
+			if pillar_players.has(arm_id):
+				var side := signf(pillar_players[arm_id].park.z)
+				centre+=Vector3(0,.012,side*.050)
+		if spec["mid"]=="rake" or (spec["mid"]=="harp" and pillar_players.is_empty()): centre.y+=.037
+		if spec["mid"]=="bells": centre+=Vector3(0,-.18,.055)
+		camera.fov = INSPECTION_FOV
+		var standoff := .5*focus_span/tan(.5*deg_to_rad(camera.fov))
+		var axis := focus_dir.normalized() if focus_dir!=Vector3.ZERO else Vector3(.4,.32,1.).normalized()
+		camera.look_at_from_position(centre+axis*standoff,centre,Vector3.UP)
+		return
+	if film or (auto_camera and not layout["arms"].has(focus)):
 		var c := director.camera_at(t)
 		camera.fov=float(c["fov"])
 		camera.look_at_from_position(c["pos"],c["target"],Vector3.UP)
 		return
+	camera.fov = INSPECTION_FOV
 	var target := Vector3(0,1.55,.2)
 	var pos := Vector3(7.8,5.8,12.8)
 	var chosen := view
@@ -909,15 +906,9 @@ func _camera_at(t: float) -> void:
 			dir=(away.normalized()+Vector3(0,.18,0)).normalized()
 		camera.look_at_from_position(target+dir.normalized()*distance,target,Vector3.UP)
 		return
-	if auto_camera:
-		var cue := "wide-dark"
-		for c in score.cues:
-			if c["kind"]=="camera" and float(c["t"])<=t: cue=c.get("name","")
-		if cue in ["arm0-close","arm2-run"]: chosen=1
-		elif cue=="rake-close": chosen=2
-		elif cue=="bars-close": chosen=3
-		elif cue=="overhead": chosen=4
-	if chosen in [1,2,3]:
+	if chosen == 0:
+		target = Vector3(.45, .95, .2)
+	elif chosen in [1,2,3]:
 		var mid: String=["harp","rake","bars"][chosen-1]
 		target=MotionBake.v(layout["mechanisms"][mid]["center"])
 		if chosen in [1,2]: target.y=1.95 if chosen==1 else 1.55
@@ -928,23 +919,29 @@ func _camera_at(t: float) -> void:
 	elif chosen==7: target=Vector3(0,1.95,0); pos=Vector3(0,1.95,6.6)
 	elif chosen==8: target=Vector3(-.9,.35,.2); pos=target+Vector3(1.3,.8,2.2)
 	elif chosen==9:
-		# Joint close-up: anchored on the second harp arm's static elbow/wrist height,
-		# panning only along smoothed rail X from behind the string plane.
 		var aid: String="harp_arm1" if layout["arms"].has("harp_arm1") else layout["arms"].keys()[0]
-		var pose0 := motion.pose(aid,0.0)
-		var mid0: Vector3=(pose0["elbow"]+pose0["wrist"])/2.0
-		target=Vector3(_smooth_rail_x(aid,t),mid0.y,mid0.z); pos=target+Vector3(1.5,.45,-1.9)
-	elif chosen==10:
+		if pillar_players.has(aid):
+			var arm: PillarPlayer=pillar_players[aid]
+			target=arm.shoulder.lerp(arm.palm.position,.51)
+			pos=target+Vector3(.73,.38,1.92)
+		else:
+			var pose0 := motion.pose(aid,0.0)
+			var mid0: Vector3=(pose0["elbow"]+pose0["wrist"])/2.0
+			target=Vector3(_smooth_rail_x(aid,t),mid0.y,mid0.z)
+			pos=target+Vector3(1.5,.45,-1.9)
+	elif chosen==10 and not strings.is_empty():
 		# String close-up: the most recently sounded unstruck string, seen from
 		# 45° off its pluck axis so both the bend and the blur read. The camera
 		# latches for a while so a run of plucks does not throw it about.
-		var best_t := -1e9; var best_sid := ""
-		for sid in hits:
-			if layout["strings"][sid]["struck"]: continue
-			for hit in hits[sid]:
-				if float(hit["t"])<=t and float(hit["t"])>best_t: best_t=float(hit["t"]); best_sid=sid
-		if best_sid=="": best_sid=hits.keys()[0]
-		if follow_sid=="" or t<follow_since or t-follow_since>1.5: follow_sid=best_sid; follow_since=t
+		if follow_sid == "" or t < follow_since or t-follow_since > 1.5:
+			var best := -INF
+			follow_sid = ""
+			for sid in wire_motion:
+				var latest: float = wire_motion[sid].last_contact(t)
+				if latest > best or follow_sid == "":
+					best = latest
+					follow_sid = sid
+			follow_since = t
 		var s: Dictionary=layout["strings"][follow_sid]
 		var a := MotionBake.v(s["a"]); var b := MotionBake.v(s["b"])
 		target=a.lerp(b,.3); pos=target+Vector3(.85,.3,.85)
@@ -967,18 +964,17 @@ func _camera_at(t: float) -> void:
 		# mouths along the soundbox, looking down the feet line from the treble end.
 		var e: Vector3=MotionBake.v(layout["eyelets"]["harp07"]["centre"]) if layout.has("eyelets") and layout["eyelets"].has("harp07") else Vector3(0,1.45,0)
 		target=e+Vector3(-.15,.02,0); pos=e+Vector3(.85,.55,-.9)
-	elif chosen==16:
+	elif chosen==16 and bass_string != "":
 		# A wound bass string at arm's length: the harp's lowest string a hand above
 		# its eyelet, from the string side, for the winding, the highlight along the
 		# wire and the darkening at the hardware (shaders/wire_string.gdshader).
-		var low := ""; var low_midi := 1e9
-		for sid in layout["strings"]:
-			var s: Dictionary=layout["strings"][sid]
-			if s["mid"]=="harp" and float(s["midi"])<low_midi: low=sid; low_midi=float(s["midi"])
-		if low=="":
-			for sid in layout["strings"]: low=sid; break
-		var a: Vector3=MotionBake.v(layout["strings"][low]["a"]); var b: Vector3=MotionBake.v(layout["strings"][low]["b"])
+		var a := MotionBake.v(layout["strings"][bass_string]["a"])
+		var b := MotionBake.v(layout["strings"][bass_string]["b"])
 		target=a+(b-a)*.12; pos=target+Vector3(.16,.05,-.28)
+	elif chosen==17:
+		target=Vector3(-.16,1.37,.50); pos=target+Vector3(1.08,.35,1.86)
+	elif chosen==18:
+		target=Vector3(-.24,.52,-1.53); pos=target+Vector3(.78,.26,1.85)
 	elif chosen==15:
 		# The ratchet's mechanism: the first mallet arm's pinion from behind and
 		# below, with the roller detent pawl under it (formlab.pawl) and the rack above.
@@ -1006,14 +1002,17 @@ func _process(dt: float) -> void:
 	# (no audio) and --silent (no audio at all) stay quiet like the master does.
 	if playing and not silent and shot=="" and capture_dir=="": _play_clicks(prev_time,time)
 	prev_time=time
-	evaluate(time)
-	var section := "pre-roll"
-	for c in score.cues:
-		if c["kind"]=="section" and float(c["t"])<=time: section=c.get("name","")
-	header.text="L O A M    /    THE CLOCKWORK CHAMBER"
-	footer.text="%s   ·   %05.2f s   ·   %s frame   ·   %s\nSpace  play/pause    ← →  seek    Home  restart    C  camera    F  frame    T  score    M  master/stems    1–9  mute stems" % [section.to_upper(),time,form_style,audio_mode]
-	track.time=time; track.queue_redraw()
-	updating_seek=true; seek.value=time; updating_seek=false
+	var selected_view := -1 if auto_camera else view
+	var viewport_size := get_viewport().get_visible_rect().size
+	if time != _posed_time:
+		evaluate(time)
+		_posed_time = time
+	elif selected_view != _camera_view or viewport_size != _camera_viewport:
+		_camera_at(time)
+	_camera_view = selected_view
+	_camera_viewport = viewport_size
+	if hud != null:
+		hud.update_playback(time, playing, selected_view, form_style, audio_mode)
 	if shot!="" or capture_dir!="":
 		await RenderingServer.frame_post_draw
 		warmup_frames+=1
@@ -1098,24 +1097,31 @@ func _close_ffmpeg_stream() -> bool:
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo: return
-	match event.keycode:
+	_command(event.keycode)
+
+func _command(key: Key) -> void:
+	match key:
 		KEY_SPACE:
 			playing=not playing
-			_seek(time)
+			_seek(-1.0 if playing and time >= score.total_s else time)
 		KEY_HOME: _seek(-1)
 		KEY_LEFT: _seek(time-2)
 		KEY_RIGHT: _seek(time+2)
-		KEY_C: auto_camera=false; view=(view+1)%6
+		KEY_C: auto_camera=false; view=(view+1)%PerformanceHud.VIEWS.size()
 		KEY_F: _set_form(["carved","ribbed","shell"][( ["carved","ribbed","shell"].find(form_style)+1)%3])
 		KEY_A: auto_camera=true
-		KEY_T: track.visible=not track.visible
+		KEY_T:
+			if hud != null: hud.track.visible = not hud.track.visible
 		KEY_M:
 			audio_mode="stems" if audio_mode=="master" else "master"
 			if player.stream==null: audio_mode="stems"
 			_seek(time)
 		_:
-			if event.keycode>=KEY_1 and event.keycode<=KEY_9:
-				var index: int=event.keycode-KEY_1
+			if key>=KEY_1 and key<=KEY_9:
+				var index: int=key-KEY_1
 				if index<stem_players.size():
 					stem_players[index].volume_db=0 if stem_players[index].volume_db<-40 else -80
+					if hud != null:
+						hud.track.muted[score.stem_ids()[index]] = stem_players[index].volume_db < -40
+						hud.track.queue_redraw()
 					if audio_mode!="stems": audio_mode="stems"; _seek(time)

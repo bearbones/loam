@@ -32,9 +32,16 @@ run on a class cache from before it existed; run `godot --headless --path
 harness --import` after a fresh checkout and after pulling or merging a new
 `class_name` script, so the cache (and the editor) knows it.
 
-Performance keys: Space play/pause; Home restart with pre-roll; arrows seek;
-C cycle camera; F cycle frame form; A cue cameras; T score overlay; M master/dry stems; 1–9 mute
-stems. The slider scrubs. The 2D diagnostic retains Z/X track zoom and S capture.
+The transport shows elapsed time, the current section and a scrubber drawn from
+the score's stem envelopes. Vertical marks locate section changes. Use the camera
+menu to follow the score's moving shots or inspect any of the 17 fixed and
+tracking views. The adjacent buttons cycle the frame form, audition the master
+or dry stems, and open the annotated score.
+
+Space plays, pauses or replays. Home restarts with pre-roll and the arrow keys
+seek two seconds. C cycles inspection views, A resumes cue cameras, F changes
+the frame, T toggles the score, M switches the mix and 1–9 mute stems.
+The 2D diagnostic retains Z/X track zoom and S capture.
 
 See [the build guide](../docs/clockwork-build.md) for full rebuild commands,
 deterministic screenshots/video, animation details and verification limits.
@@ -46,3 +53,15 @@ The continuous carved frame is the default. Select `--form=ribbed` or
 The [joint milestone](../docs/seamless-form-joints.md) adds continuous contour transitions and tests for shared frame topology.
 
 The current [reference harp structure](../docs/reference-harp-structure.md) includes the pedal base and neck hardware. Review views 6/7/8 show the neck/front/base.
+
+Choose **Soundbox ports** or **Sympathetic chamber** in the camera menu to inspect the joinery and the wire bank. The expanded film cuts to the glass and temple-block benches during their phrases. Render it with `ASSET=expanded tools/render_film.sh` from the repository root.
+
+
+A fixed inspection camera can frame a string or struck body by its score ID.
+This command captures the bass hand at release.
+
+```sh
+SHOT=/tmp/loam-harp.png bash tools/offscreen.sh godot --path harness -- --expanded --focus=harp04 --focus_pick=.18 --focus_span=.24 --focus_dir=-.57,-.68,.93 --time=7.14 --silent --clean
+```
+
+The camera stays on the wire as the hand opens, plants, draws and closes. Use `--focus=harp_arm0 --focus_span=1.7` for the reach from the pillar, or `--focus=repair --focus_span=.57` for the butterfly keys in the cabinet lid.

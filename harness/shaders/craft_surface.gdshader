@@ -14,6 +14,10 @@ uniform vec4 dark_color : source_color = vec4(.12, .05, .025, 1.0);
 uniform vec4 light_color : source_color = vec4(.30, .15, .07, 1.0);
 uniform int finish_kind = 0; // 0 lacquered grooved wood, 1 brushed brass/bronze, 2 brushed steel, 3 felt, 4 enamel, 5 floor
 uniform int grain_axis = 0;
+uniform sampler2D punches : filter_linear_mipmap_anisotropic, repeat_disable;
+uniform vec3 centre;
+uniform vec3 span = vec3(1.);
+uniform float pitch = -1.;
 uniform bool use_sweep_uv = false;
 uniform float texture_scale = 1.0;
 uniform float seed_offset = 0.0;
@@ -76,7 +80,7 @@ vec2 pom_wood(vec2 uv, vec3 view_ts, float scale, vec2 ddx, vec2 ddy) {
         if (layer >= d) {
             float d_curr = d - layer;
             float d_prev = prev_depth - prev_layer;
-            float w = clamp(d_curr / max(abs(d_curr - d_prev), 1e-5), 0.0, 1.0);
+            float w = clamp(-d_curr / max(d_prev - d_curr, 1e-5), 0.0, 1.0);
             return mix(next_uv, curr_uv, w);
         }
         curr_uv = next_uv;
@@ -99,7 +103,7 @@ vec2 pom_metal(vec2 uv, vec3 view_ts, float scale, vec2 ddx, vec2 ddy) {
         if (layer >= d) {
             float d_curr = d - layer;
             float d_prev = prev_depth - prev_layer;
-            float w = clamp(d_curr / max(abs(d_curr - d_prev), 1e-5), 0.0, 1.0);
+            float w = clamp(-d_curr / max(d_prev - d_curr, 1e-5), 0.0, 1.0);
             return mix(next_uv, curr_uv, w);
         }
         curr_uv = next_uv;
@@ -183,6 +187,21 @@ void fragment() {
         // Blend substrate roughness with the glossy clearcoat lobe at grazing/specular angles
         float sub_rough = clamp(base_roughness + (grain.b - .5) * .11 + grain.g * .12 - flute * .02, .24, .62);
         ROUGHNESS = mix(sub_rough, max(clearcoat_roughness, 0.11), clamp(f_coat * 1.35 + clearcoat * .22, 0.0, .75));
+        if (pitch >= 0. && object_normal.y > .65) {
+            vec3 at=(object_position-centre)/span;
+            // The felt plays the centre. The makers stamp the free end,
+            // where a voicer can read it without slackening the cord.
+            vec2 die=vec2(.5+at.x*1.33,.5+(at.z-.32)*span.z/(span.x*.45));
+            float mask=step(0.,die.x)*step(die.x,1.)*step(0.,die.y)*step(die.y,1.);
+            vec2 cell=vec2(mod(pitch,8.),floor(pitch/8.));
+            float ink=texture(punches,(cell+clamp(die,.001,.999))/vec2(8.,16.)).r*mask;
+            vec2 mark=(object_position.xz-centre.xz)/vec2(.083,.108);
+            float wear=exp(-dot(mark,mark)*1.6)*(.64+.30*grain.r);
+            ALBEDO=mix(ALBEDO,ALBEDO*vec3(1.48,1.35,1.13),wear);
+            ALBEDO=mix(ALBEDO,vec3(.022,.010,.007),ink*.86);
+            ROUGHNESS=mix(ROUGHNESS,.28,wear)+.085*ink;
+            N_sub=normalize(mix(N_sub,N,.57*wear));
+        }
         METALLIC = 0.0;
         SPECULAR = mix(.36, .62, clearcoat);
         CLEARCOAT = clearcoat;
@@ -209,7 +228,7 @@ void fragment() {
         vec3 m_norm = textureGrad(metal_normal_map, base_uv, ddx, ddy).rgb * 2.0 - 1.0;
 
         // Gentle patina variation without blotchy contrast
-        float age = smoothstep(.35, .85, pat.r) * 0.45;
+        float age = smoothstep(.40, .62, pat.r);
         float groove_ao = mix(1.0, m_depth.b, .18 * mip_fade);
 
         // Anisotropic brush micro-ridge sheen across the bitangent
@@ -217,8 +236,8 @@ void fragment() {
         float aniso_band = sqrt(max(1.0 - b_dot_v * b_dot_v, 0.0));
         float brush_ridge = ((m_depth.r - .5) * .04 * mip_fade) + (aniso_band - .75) * .04 * anisotropy;
 
-        ALBEDO = mix(light_color.rgb, dark_color.rgb, age * .10) * clamp(1.0 + brush_ridge, .95, 1.05);
-        ROUGHNESS = clamp(base_roughness + age * .04 + (brush.g - .5) * .04 * mip_fade, .20, .54);
+        ALBEDO = mix(light_color.rgb, dark_color.rgb, age * .42) * clamp(1.0 + brush_ridge, .95, 1.05);
+        ROUGHNESS = clamp(base_roughness + age * .115 + (brush.g - .5) * .115 * mip_fade, .20, .54);
         METALLIC = finish_kind == 1 ? (.89 - age * .04) : .92;
         SPECULAR = .56;
 
@@ -227,12 +246,14 @@ void fragment() {
         AO = groove_ao;
         AO_LIGHT_AFFECT = .35;
 
-        vec2 mn_xy = m_norm.xy * normal_strength * 0.22 * mip_fade;
+        vec2 mn_xy = m_norm.xy * normal_strength * 0.47 * mip_fade;
         mapped_normal = normalize(T * mn_xy.x + B * mn_xy.y + N);
     } else if (finish_kind == 3) {
         // --- Pressed Wool Felt ---
         vec3 fibre = texture(fibre_map, vec2(p.x + p.z, p.y) * 22.0).rgb;
-        ALBEDO = mix(dark_color.rgb, light_color.rgb, fibre.r * .6 + .2);
+        float nap = smoothstep(-.22,.70,object_normal.y);
+        ALBEDO = mix(dark_color.rgb, light_color.rgb, fibre.r * .54 + .08 + nap*.29);
+        mapped_normal=normalize(N+.14*(T*(fibre.g-.5)+B*(fibre.b-.5)));
         ROUGHNESS = .95;
         METALLIC = 0.0;
         SPECULAR = .15;

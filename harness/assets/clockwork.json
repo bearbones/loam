@@ -1191,7 +1191,7 @@
           "r_lug": 0.028,
           "coupler_l": 0.062,
           "lean_deg": 24.0,
-          "carrier_l": 0.5,
+          "carrier_l": 0.62,
           "mount_offset": [
             0.0,
             0.2,
@@ -1230,12 +1230,12 @@
         "shoulder_pinion": 0.2113,
         "elbow_crank": 0.3172,
         "elbow_rod": 2.3889,
-        "wrist_crank": 1.3158,
-        "wrist_rod": 1.1281,
-        "digit_thumb": 0.1422,
-        "digit_d2": 0.1664,
-        "digit_d3": 0.1656,
-        "digit_d4": 0.1558,
+        "wrist_crank": 1.5705,
+        "wrist_rod": 1.3597,
+        "digit_thumb": 0.1404,
+        "digit_d2": 0.1646,
+        "digit_d3": 0.1638,
+        "digit_d4": 0.154,
         "tool": 1.3588,
         "shank": 0.835,
         "railhead": 130.0755,
@@ -1296,6 +1296,27 @@
         ],
         "starts": 12,
         "lead": 0.096
+      },
+      "pillar_player": {
+        "shoulder": [
+          -1.276,
+          1.39,
+          -0.36000000000000004
+        ],
+        "upper": 0.6,
+        "forearm": 0.56,
+        "side": -1.0,
+        "park": [
+          -0.74,
+          1.2,
+          -0.26
+        ],
+        "pole": [
+          -0.14,
+          -0.28,
+          -1.0
+        ],
+        "pad_radius": 0.0075
       }
     },
     "harp_arm1": {
@@ -1558,7 +1579,7 @@
           "r_lug": 0.028,
           "coupler_l": 0.062,
           "lean_deg": 24.0,
-          "carrier_l": 0.38,
+          "carrier_l": 0.52,
           "mount_offset": [
             0.0,
             0.2,
@@ -1597,12 +1618,12 @@
         "shoulder_pinion": 0.2113,
         "elbow_crank": 0.3172,
         "elbow_rod": 1.9073,
-        "wrist_crank": 1.0611,
-        "wrist_rod": 0.8964,
-        "digit_thumb": 0.1422,
-        "digit_d2": 0.1664,
-        "digit_d3": 0.1656,
-        "digit_d4": 0.1558,
+        "wrist_crank": 1.3582,
+        "wrist_rod": 1.1667,
+        "digit_thumb": 0.1404,
+        "digit_d2": 0.1646,
+        "digit_d3": 0.1638,
+        "digit_d4": 0.154,
         "tool": 1.7104,
         "shank": 0.835,
         "railhead": 295.6015,
@@ -1663,6 +1684,27 @@
         ],
         "starts": 12,
         "lead": 0.096
+      },
+      "pillar_player": {
+        "shoulder": [
+          -1.276,
+          2.03,
+          0.5800000000000001
+        ],
+        "upper": 0.91,
+        "forearm": 0.87,
+        "side": 1.0,
+        "park": [
+          -0.16,
+          1.72,
+          0.26
+        ],
+        "pole": [
+          -0.14,
+          0.33,
+          1.0
+        ],
+        "pad_radius": 0.0075
       }
     },
     "harp_arm2": {
@@ -1925,7 +1967,7 @@
           "r_lug": 0.028,
           "coupler_l": 0.062,
           "lean_deg": 24.0,
-          "carrier_l": 0.28,
+          "carrier_l": 0.5,
           "mount_offset": [
             0.0,
             0.2,
@@ -1964,12 +2006,12 @@
         "shoulder_pinion": 0.2113,
         "elbow_crank": 0.3172,
         "elbow_rod": 2.1481,
-        "wrist_crank": 0.8488,
-        "wrist_rod": 0.7033,
-        "digit_thumb": 0.1422,
-        "digit_d2": 0.1664,
-        "digit_d3": 0.1656,
-        "digit_d4": 0.1558,
+        "wrist_crank": 1.3158,
+        "wrist_rod": 1.1281,
+        "digit_thumb": 0.1404,
+        "digit_d2": 0.1646,
+        "digit_d3": 0.1638,
+        "digit_d4": 0.154,
         "tool": 1.3588,
         "shank": 0.835,
         "railhead": 318.6494,
@@ -2030,6 +2072,27 @@
         ],
         "starts": 12,
         "lead": 0.096
+      },
+      "pillar_player": {
+        "shoulder": [
+          -1.276,
+          2.68,
+          -0.36000000000000004
+        ],
+        "upper": 1.17,
+        "forearm": 1.14,
+        "side": -1.0,
+        "park": [
+          0.56,
+          2.28,
+          -0.26
+        ],
+        "pole": [
+          -0.14,
+          0.12,
+          -1.0
+        ],
+        "pad_radius": 0.0075
       }
     },
     "rake_arm0": {
@@ -2350,10 +2413,10 @@
         "elbow_rod": 2.6297,
         "wrist_crank": 0.6365,
         "wrist_rod": 0.5102,
-        "digit_thumb": 0.1422,
-        "digit_d2": 0.1664,
-        "digit_d3": 0.1656,
-        "digit_d4": 0.1558,
+        "digit_thumb": 0.1404,
+        "digit_d2": 0.1646,
+        "digit_d3": 0.1638,
+        "digit_d4": 0.154,
         "pendulum_arm": 1.0152,
         "pendulum_sector": 0.7823,
         "pendulum_pinion": 0.2102,
@@ -2602,7 +2665,7 @@
           "shaft_l": 0.5,
           "r_crank": 0.18,
           "r_lug": 0.14,
-          "coupler_l": 0.22,
+          "coupler_l": 0.29,
           "x_shaft": -0.032,
           "x_crank": 0.038,
           "x_rod": 0.048
@@ -2634,17 +2697,20 @@
         "elbow_rod": 2.6297,
         "wrist_shaft": 0.4177,
         "wrist_crank": 0.3064,
-        "wrist_rod": 0.2804,
+        "wrist_rod": 0.3576,
         "mallet2_head": 0.2794,
         "mallet2_shaft": 0.4177,
-        "splay_sector": 1.3835,
+        "splay_sector": 0.2859,
         "tool": 0.2794,
-        "shank": 0.9767,
+        "shank": 2.3868,
         "pawl": 0.9786,
         "roller": 0.2366,
         "railhead": 121.3961,
         "rack": 55.7933,
-        "gantry": 579.8316
+        "gantry": 579.8316,
+        "inner_slide": 0.9909,
+        "wrist_guide": 2.4961,
+        "wrist_plunger": 1.5993
       },
       "gantry": {
         "ends": [
@@ -2868,7 +2934,7 @@
           "shaft_l": 0.5,
           "r_crank": 0.18,
           "r_lug": 0.14,
-          "coupler_l": 0.22,
+          "coupler_l": 0.29,
           "x_shaft": -0.032,
           "x_crank": 0.038,
           "x_rod": 0.048
@@ -2900,17 +2966,20 @@
         "elbow_rod": 2.6297,
         "wrist_shaft": 0.4177,
         "wrist_crank": 0.3064,
-        "wrist_rod": 0.2804,
+        "wrist_rod": 0.3576,
         "mallet2_head": 0.2794,
         "mallet2_shaft": 0.4177,
-        "splay_sector": 1.3835,
+        "splay_sector": 0.2859,
         "tool": 0.2794,
-        "shank": 0.9767,
+        "shank": 2.3868,
         "pawl": 0.9786,
         "roller": 0.2366,
         "railhead": 121.3961,
         "rack": 55.7933,
-        "gantry": 657.2005
+        "gantry": 657.2005,
+        "inner_slide": 0.9909,
+        "wrist_guide": 2.4961,
+        "wrist_plunger": 1.5993
       },
       "gantry": {
         "ends": [
@@ -4561,15 +4630,6 @@
     "bars_arm1__shank",
     "bars_arm1__pawl",
     "bars_arm1__roller",
-    "form_harp_arm0_railhead",
-    "form_harp_arm0_gantry",
-    "form_harp_arm0_screw",
-    "form_harp_arm1_railhead",
-    "form_harp_arm1_gantry",
-    "form_harp_arm1_screw",
-    "form_harp_arm2_railhead",
-    "form_harp_arm2_gantry",
-    "form_harp_arm2_screw",
     "form_rake_arm0_railhead",
     "form_rake_arm0_gantry",
     "form_rake_arm0_screw",

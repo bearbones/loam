@@ -234,7 +234,9 @@ def arm_rows(rig, aid, hdr, channels=()):
               origin=dict(mean=[_vec([e['x_col'], e['foot_y'], e['mast_z']]) for e in ends]),
               value=_value(dict(channel=f'{aid}.sway')), driver=dict(kind='recoil'))
         body(w, f'form_{aid}_gantry', 'world', optional=True); body(w, f'form_{aid}_railhead', 'world', optional=True)
-    return J, B
+    # The pillar player reads the score directly. The reference trajectory
+    # remains available to timing inspectors and older camera scripts.
+    return J, [] if cfg.get('pillar_player') else B
 
 def mechanism_rows(mid, channels=()):
     """A mechanism's stand: it thumps vertically under its blows (the

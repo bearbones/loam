@@ -124,8 +124,10 @@ hard. Standing rules, each earned by a wrong measurement:
 
 ## Clockwork performance
 
-The harness now opens a modeled 3D performance with score-driven mechanical
-rigs. `godot --path harness -- --expanded` adds glass bells and temple blocks
+The harness opens The Chamber in a circular recital hall, with carved alabaster
+harps, score-driven mechanical players and moving cue cameras. The transport
+shows the piece's dynamics and section changes. Scrub the score or choose a
+close-up to watch the fingers, strings and mallets at work. `godot --path harness -- --expanded` adds glass bells and temple blocks
 (after `python3 songs/clockwork.py`). The original diagnostic is available as
 `godot --path harness res://main.tscn`. See [the build guide](docs/clockwork-build.md)
 for editable Blender models, captures and validation, [articulated

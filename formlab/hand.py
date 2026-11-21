@@ -710,6 +710,20 @@ def _build_digit_meshes(digit, kn, pad, mcp_curl=0.0, abduct=0.0, side_sign=1.0,
            k_dorsal_lug, ext_prox, ext_mid],
         'brass',
     )
+    # Each rigid part travels with one phalanx. Cable spans terminate on the
+    # common pins. The horn and its ferrule share the distal segment.
+    for index, pieces in enumerate((
+            [prox_bone, prox_hub, pip_joint, pip_pin, prox_standoff, prox_eyelet,
+             cable_1, cable_2, k_dorsal_lug, ext_prox, *clevis_list],
+            [mid_bone, dip_joint, dip_pin, pip_strut, mid_standoff, mid_eyelet,
+             cable_3, cable_4, ext_mid],
+            [dist_bone, pad_ferrule, pad_mesh, dip_strut, tip_standoff, cable_5])):
+        for piece in pieces:
+            piece.phalanx = index
+    for pin in (pip_pin,dip_pin,prox_hub):
+        pin.material='steel'
+    for guide in (cable_1,cable_2,cable_3,cable_4,cable_5,prox_eyelet,mid_eyelet):
+        guide.material='bronze'
     return [pad_mesh], brass_pieces, chain
 
 
@@ -725,7 +739,7 @@ def hand_digit_parts(splay=0.0, side_sign=1.0):
     for d in DIGITS:
         kn_zero = np.zeros(3, dtype=float)
         pad_local = pads[d] - knuckles[d]
-        h_pcs, b_pcs, _ = _build_digit_meshes(
+        h_pcs, b_pcs, chain = _build_digit_meshes(
             d,
             kn_zero,
             pad_local,
@@ -734,7 +748,9 @@ def hand_digit_parts(splay=0.0, side_sign=1.0):
             side_sign=side_sign,
             include_clevis=False,
         )
-        out[f'digit_{d}'] = dict(pieces=h_pcs + b_pcs)
+        out[f'digit_{d}'] = dict(pieces=h_pcs + b_pcs, articulation=dict(
+            pivots=[v.tolist() for v in chain[:3]], groups=[p.phalanx for p in h_pcs+b_pcs],
+            pad=h_pcs[0].vertices[0].tolist()))
     return out
 
 

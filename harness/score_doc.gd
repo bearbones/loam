@@ -64,6 +64,9 @@ func load(p: String) -> bool:
 			errors.append("missing stem %s" % wp)
 	var envs: Dictionary = doc.get("envelopes", {})
 	env_hz = float(envs.get("rate_hz", 50.0))
+	if not is_finite(env_hz) or env_hz <= 0.0:
+		errors.append("invalid stem envelope rate in %s" % p)
+		return false
 	for mid in envs.get("stems", {}):
 		envelopes[mid] = PackedFloat32Array(envs["stems"][mid])
 	var sh: Dictionary = doc.get("shapes", {})
@@ -78,6 +81,14 @@ func load(p: String) -> bool:
 				errors.append("shapes.f32 holds %d floats, header says %d"
 						% [shapes.size(), int(sh.get("total_floats", -1))])
 			for c in sh.get("clips", []):
+				var offset := int(c.get("offset", -1))
+				var stride := int(c.get("nodes", 0))
+				var count := int(c.get("frames", -1))
+				var rate := float(c.get("rate_hz", 0.0))
+				if (offset < 0 or offset > shapes.size() or stride <= 0 or count < 0
+						or count > (shapes.size()-offset)/stride or not is_finite(rate) or rate <= 0.0):
+					errors.append("invalid shape clip %s in %s" % [c.get("id", "?"), sp])
+					continue
 				clips[c["id"]] = c
 	return errors.is_empty()
 

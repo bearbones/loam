@@ -105,7 +105,7 @@ WRIST_DRIVE = dict(
     shaft_l=.50,
     r_crank=.180,
     r_lug=.140,
-    coupler_l=.220,
+    coupler_l=.290,
     x_shaft=-.032,
     x_crank=.038,
     x_rod=.048,
@@ -810,12 +810,12 @@ def pendulum_drive_pieces():
 
 def hand_carrier_length(cfg):
     """Return the 2-link wrist-to-hand carrier link length `carrier_l` (m) for a
-    `pick` or `rake` arm so `2 * carrier_l` spans the maximum separation between
-    `pose["wrist"]` and `pose["tip"] + [0, 0.20, -0.10]` with clean margin."""
+    `pick` or `rake` arm sized for the travel from the outboard wrist swivel
+    to the seated palm, including a reach to the far string of its window."""
     if cfg.get('kind') == 'rake':
         return 0.18
     idx = int(cfg.get('index', 0))
-    return (0.50, 0.38, 0.28)[min(max(idx, 0), 2)]
+    return (0.62, 0.52, 0.50)[min(max(idx, 0), 2)]
 
 
 def hand_carrier_knee(wrist, tip, carrier_l=0.50, mount_off=(0.0, 0.20, -0.10)):

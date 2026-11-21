@@ -1,6 +1,6 @@
 # Clockwork Chamber
 
-The current performance uses editable Blender models and rigid mechanical pivots, exported as GLB; Godot plays the performance back from a motion bake of `formlab.rig` (below) at any requested time. There is no physics simulation or MIDI inference. The default is exposed clockwork: walnut structures, satin brass linkages and carriages, dark steel joints, felt mallets and brass plectra on swan-neck shanks.
+The current performance uses editable Blender models and rigid mechanical pivots, exported as GLB; Godot plays the performance back from a motion bake of `formlab.rig` (below) at any requested time. There is no physics simulation or MIDI inference. The default is exposed clockwork: walnut structures, satin brass linkages and carriages, dark steel joints, felt mallets and articulated hands with horn fingertips.
 
 ## Build and play
 
@@ -115,7 +115,7 @@ docstring is the format's normative spec; in short:
 
 ## Playback and inspection
 
-Space pauses/resumes; Home starts a one-second pre-roll so the first contact has an approach. Left/right seek two seconds. The bottom slider scrubs. C cycles wide, harp, rake, bars, overhead and expansion views. Two inspection views follow the action for stills and clips: `--view=9` sits behind the string plane on the second harp arm's elbow (knuckle pins, crossheads, parallel bars) and `--view=10` frames the most recently plucked string from 45° off its pluck axis, latching for 1.5 s so a run of plucks does not throw it about; `--view=11` is a fixed close-up of the bar frame's treble end (rails, cord posts, resonator mouths); `--view=12` looks at the harp's neck from the string side, where the action plate, discs, bridge and tuning pins are; `--view=13` is the flywheel drive beside the harp (plummer blocks, pedestals, the belt to the cabinet's end); `--view=14` looks down the harp's string feet from the string side, where the eyelets sit on the ferrule mouths along the soundbox. A restores cue-directed cameras. T shows the existing annotated score. M switches the finished master and dry stems; 1–9 mute/unmute dry stems and select that audition mode. The default master is `chamber.wav` next to the score. Playback stops at the end rather than drifting past the tail.
+Space pauses/resumes; Home starts a one-second pre-roll so the first contact has an approach. Left/right seek two seconds. The envelope display scrubs through the full score and marks its section boundaries. The camera menu and C cycle through the ensemble, instrument and inspection views. Two inspection views follow the action for stills and clips: `--view=9` frames the middle harp arm from its pillar bearing to its palm and `--view=10` frames the most recently plucked string from 45° off its pluck axis, latching for 1.5 s so a run of plucks does not throw it about; `--view=11` is a fixed close-up of the bar frame's treble end (rails, cord posts, resonator mouths); `--view=12` looks at the harp's neck from the string side, where the action plate, discs, bridge and tuning pins are; `--view=13` is the flywheel drive beside the harp (plummer blocks, pedestals, the belt to the cabinet's end); `--view=14` looks down the harp's string feet from the string side, where the eyelets sit on the ferrule mouths along the soundbox. A restores cue-directed cameras. T shows the existing annotated score. M switches the finished master and dry stems; 1–9 mute/unmute dry stems and select that audition mode. The default master is `chamber.wav` next to the score. Playback stops at the end rather than drifting past the tail.
 
 ```sh
 SHOT=/tmp/chamber.png godot --path harness -- --camera=manual --view=0 --time=48
@@ -128,7 +128,7 @@ Capture samples deterministic score times; it does not record wall-clock frame d
 
 ## The film
 
-`--film` plays the piece as a film: `harness/film_director.gd` (`FilmDirector`) turns the score's camera cues into moving shots and a lighting arc, with no UI, a title card over the dark opening and an end card over the ring-out. Each cue is a move, not a fixed view: a push out of the dark, the first pick arm in profile from behind (an arm reaches from its carriage behind the machine forward to the strings, so it reads whole from the side, never through the strings), an orbit round the low arm's run, the harp overhead, the rake from behind, the mallets low along the bars, the ratchet from behind the rail two bars into their entry, the whole machine lit, a pullback, and a last look from behind. Shots that follow an arm aim at its tool smoothed ±0.7 s, so the camera leans with a phrase and does not twitch with a click. The light comes up from black as the harp unfolds alone, is full when every mechanism plays (`wide-lit`) and goes back to black through the ring-out.
+`--film` plays the piece as a film: `harness/film_director.gd` (`FilmDirector`) turns the score's camera cues into moving shots and a lighting arc, with no UI, a title card over the dark opening and an end card over the ring-out. Playback uses the same moving shots in auto camera mode. The bass and treble harp close-ups approach from opposite sides inside the gantry line, followed by the overhead harp, the rake, the bars and the ratchet. The camera opens out for the ensemble and the ring-out. A following shot holds its height and depth on the working plane and pans with the carriage along its rail, smoothed over 1.6 seconds on either side of the current frame. The light comes up from black as the harp unfolds alone, is full when every mechanism plays (`wide-lit`) and goes back to black through the ring-out.
 
 The director is a pure function of score time, so `tools/render_film.sh` renders the piece in parallel chunks (`JOBS=3`) at 1920×1080 / 30 fps and cuts them together frame-exact with the master. The harness uses the Compatibility renderer, so there is no depth of field.
 
@@ -139,13 +139,14 @@ godot --path harness -- --film --size=960x540 --capture=/tmp/f --start=0 --secon
 
 ## Motion contract
 
-- Carriages travel on separate rails spanning each arm's reach window. Links retain their lengths through analytic IK. Each rail's bars end in a rail head on a tapered steel mast (bracketed back or out where a neighbour is in the way); rails are obstacles to the other arms in the rail search. See [articulated arms](articulated-arms.md#rail-gantries).
+- The rake and percussion carriages travel on separate rails spanning each arm's reach window. Links retain their lengths through analytic IK. Each rail's bars end in a rail head on a tapered steel mast (bracketed back or out where a neighbour is in the way); rails are obstacles to the other arms in the rail search. See [articulated arms](articulated-arms.md#rail-gantries).
 - A carriage rides its bars on two bushings tied by a cheek plate, and its pinion rolls on a rack (teeth phase-locked to travel) on one of four mounts — behind, above, below or in front of the carriage — chosen per arm by measuring the drive against the arm's own motion (`pinion` in the manifest). See [the carriage and its drive](articulated-arms.md#the-carriage-and-its-drive).
 - Travel, anticipation, contact, sweep and recovery are evaluated from exported intervals; a tool rests over its last actual contact, including its pick offset. There is no timer-dependent animation state to become stale after seeking.
 - Rakes traverse their ordered contact positions and cross each string at its own time, `loam.motion_timing.string_times(ev)` (mirrored by `ScoreDoc.string_times`): `t + onsets[index]` for a roll that carries onsets (the chamber's, from PLAYERS M2), else `t + index * spread_s`, including reverse sweeps.
-- The tool's origin is its contact point. The wrist pin is at `tip + wrist_offset` from the manifest (picks/rakes 0.20 m above and 0.10 m behind the string, mallets 0.28 m above — the height the plectrum or felt, ferrule, shank, socket and boss need); the elbow bends per the manifest's `bend` ("back" for plucked/raked arms, "up" for mallets). Speaking lengths are scaled uniformly by three; the harp and rake string positions come from the score's own neck fan (`Mechanism.fan`); plucked elements are upright, struck elements lie horizontally.
-- Arms are double parallelograms posed from the same IK: every crosshead and tool stays upright, the parallel bars ride at the manifest's `o1`/`o2` offsets. See [articulated arms](articulated-arms.md).
-- Original string clips are superposed after all recent contacts, so overlapping ring-outs remain visible. Strings are shaded tubes bent by the clip in a vertex shader, with a translucent sheath for the recent peak excursion, strung by register as a harp is (wound wire below C4, translucent gut through the middle, nylon from C5; C red, F dark — see [articulated-arms.md](articulated-arms.md)). A sounding string glows with its energy (emission from the peak excursion of the last 1/30 s, tinted by the wire's own colour), and the bend and sheath carry a 35 % cross-axis component — a plucked wire precesses into an ellipse — so vibration reads from a camera in front of the string plane, not only edge-on. Displacement is exaggerated for inspection. A string never drops below 1.6 px on screen: the shader holds a sub-pixel wire at that width and tones it down by the coverage it lost, so the treble strings stay continuous lines in the wide shots. It remains the existing FD approximation, not a reconstruction of the audible Karplus–Strong waveform. Bars have a small illustrative spring response; the chamber indicator follows its stem envelope.
+- Three shoulders are clamped to the harp’s forepillar. A walnut upper arm and forearm reach from each fixed shoulder to a wrist ball. The middle player approaches from the opposite face. Each palm lands behind its assigned note before the horn pad makes contact. Speaking lengths are scaled uniformly by three; the harp and rake string positions come from the score's own neck fan (`Mechanism.fan`); plucked elements are upright, struck elements lie horizontally.
+- The two marimba sticks pivot independently. The active felt head lands on the scored bar while the other rises about its hinge. A telescoping cross-slide sets their spacing. Hinged hammers strike the glass shoulders and wooden tongues with their felt faces.
+- Rail-mounted arms are double parallelograms posed from the same IK: every crosshead and tool stays upright, the parallel bars ride at the manifest's `o1`/`o2` offsets. See [articulated arms](articulated-arms.md).
+- Original string clips are superposed after all recent contacts, so overlapping ring-outs remain visible. Strings are shaded tubes bent by the clip in a vertex shader, with a translucent sheath for the recent peak excursion, strung by register as a harp is (wound wire below C4, translucent gut through the middle, nylon from C5; C red, F dark — see [articulated-arms.md](articulated-arms.md)). A sounding string glows with its energy (emission from the peak excursion of the last 1/30 s, tinted by the wire's own colour), and the bend and sheath carry a 35 % cross-axis component — a plucked wire precesses into an ellipse — so vibration reads from a camera in front of the string plane, not only edge-on. Displacement is exaggerated for inspection. A string never drops below 1.6 px on screen: the shader holds a sub-pixel wire at that width and tones it down by the coverage it lost, so the treble strings stay continuous lines in the wide shots. It remains the existing FD approximation, not a reconstruction of the audible Karplus–Strong waveform. A scored impulse excites the bar, tongue or glass shell’s authored bending mode; the chamber indicator follows its stem envelope.
 - Swept-volume clearance is checked at build time (self, cross-arm, strings, scene boxes) and the score planner keeps arms of one mechanism `arm_clearance` apart along their axis at every moment; motor acceleration limits remain a follow-up in `clockwork-todos.md`.
 
 ## Appearance directions
@@ -155,6 +156,7 @@ The delivered version implements **exposed clockwork**. The same pivots could la
 ## Verification
 
 ```sh
+python3 tools/test_acoustic_bodies.py
 godot --headless --path harness -s dev/test_load.gd
 godot --headless --path harness -s dev/test_clockwork.gd
 godot --headless --path harness -s dev/test_load.gd -- --score=/absolute/repo/render/clockwork/score.json
@@ -171,11 +173,19 @@ godot --headless --path harness -s dev/test_performance.gd
 godot --headless --path harness -s dev/test_performance.gd -- --expanded
 ```
 
-Verified on Godot 4.7 / Blender 4.0.2: original 247 events, 331 contacts,
-6 rigs; expanded 315 events, 399 contacts, 9 rigs. Maximum mathematical
-link error was 0.000000429 m; no unreachable target over either full
-86-second performance. Both added stems had onset recall 1.0. The six-second
-review clips have 180 frames at 30 fps, H.264 video and AAC master audio.
+The default scores contain 239 events and 323 contacts in the chamber
+arrangement, and 307 events and 391 contacts in the expanded arrangement.
+The integration check measures each playing surface at onset, the draw and
+release of each harp pad, closure of the wrist carriers and mallet couplers,
+and felt-to-forearm clearance throughout the rebound.
+
+The bass, middle and treble hands each carry four fingers on string-parallel
+pins. The three phalanges turn in the plane across the wire. The horn pad
+catches the wire at the scored height, draws it for 64 ms with the palm
+planted and curls into the hand as the wire slips free. The saddle and the
+wrist remain connected at every pose, including while seeking through a rest.
+On the marimba an outboard telescoping stay
+supports the sliding two-stick holder through its stroke.
 
 The [surface and lighting guide](clockwork-look.md) covers the runtime shaders,
 procedural texture rebuild, studio lighting and `--clean` beauty captures.

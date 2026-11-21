@@ -34,7 +34,7 @@ ASSETS = {
     'chamber': dict(manifest=ROOT/'harness/assets/clockwork.json', score=ROOT/'render/chamber/score.json',
                     camera=ROOT/'render/film/camera.json'),
     'expanded': dict(manifest=ROOT/'harness/assets/clockwork_expanded.json', score=ROOT/'render/clockwork/score.json',
-                     camera=None),
+                     camera=ROOT/'render/film/camera_expanded.json'),
 }
 
 @dataclass

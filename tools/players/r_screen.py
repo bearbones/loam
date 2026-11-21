@@ -39,7 +39,7 @@ and the largest, over the piece and in 44-68 s, under the current camera and,
 when render/players/before/camera.json exists (the camera frozen at M0 with
 the before reel: tools/players_reel.sh before), under that one too.
 
-The expanded asset has no film, so no camera: n/a.
+Each arrangement uses the camera exported from its own film.
 """
 import hashlib, json, sys
 from pathlib import Path
@@ -104,7 +104,7 @@ def stale(S, doc):
     """Why camera.json no longer matches what it was exported from, or ''."""
     why = []
     if doc.get('score_sha256') and doc['score_sha256'] != _sha(S.score_path): why.append('score')
-    bin_path = Path(S.score_path).parent/'clockwork.motion.bin'
+    bin_path = Path(S.score_path).parent/(Path(S.manifest_path).stem+'.motion.bin')
     if doc.get('bake_sha256') and bin_path.exists() and doc['bake_sha256'] != _sha(bin_path): why.append('bake')
     if doc.get('director_sha256') and doc['director_sha256'] != _sha(ROOT/'harness/film_director.gd'): why.append('film_director.gd')
     return ', '.join(why)
@@ -178,8 +178,8 @@ def jumps(S, m, part='tool'):
 def screen(S):
     doc = S.camera()
     if doc is None:
-        why = 'the expanded asset has no film, so no film camera' if S.camera_path is None else \
-              f'no {Path(S.camera_path).relative_to(ROOT)}: run godot --headless --path harness -s dev/export_camera.gd'
+        flag = ' -- --expanded' if S.asset == 'expanded' else ''
+        why = f'missing film camera: run godot --headless --path harness -s dev/export_camera.gd{flag}'
         return [Result(2, 'screen', 'all', {}, None, why)]
     cam = Camera(doc)
     probe = cam.check_probes()
@@ -221,7 +221,7 @@ def screen(S):
     out.append(Result(2, 'screen jumps', 'all', v, INFO,
                       f'tool point, px a frame on the 1920x1080 film, same shot, on screen; window {WINDOW[0]:g}-{WINDOW[1]:g} s; current camera'
                       +(f' (STALE: {old})' if old else '')))
-    if FROZEN.exists() and FROZEN.resolve() != Path(S.camera_path).resolve():
+    if S.asset == 'chamber' and FROZEN.exists() and FROZEN.resolve() != Path(S.camera_path).resolve():
         frozen = json.loads(FROZEN.read_text())
         if frozen.get('frames') != doc.get('frames'):
             out.append(Result(2, 'screen jumps M0 camera', 'all', jumps(S, measure(S, Camera(frozen))), INFO,

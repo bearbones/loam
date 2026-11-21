@@ -153,7 +153,9 @@ func _rows_in(motion: MotionBake, lo: float, hi: float, into: Array) -> void:
 
 func run() -> void:
 	var expanded := OS.get_cmdline_user_args().has("--expanded")
-	var scene: PerformanceScript = load("res://performance.tscn").instantiate()
+	var instance: Node = load("res://performance.tscn").instantiate()
+	if instance.get_script() == null: push_error("performance.gd failed to compile"); quit(1); return
+	var scene: PerformanceScript = instance
 	root.add_child(scene)
 	scene.playing = false
 	var failures: Array = []

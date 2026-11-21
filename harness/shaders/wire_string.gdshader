@@ -86,17 +86,21 @@ void vertex() {
     if (sheath) {
         float e = node_value(u, true);
         v_env = e;
-        // elliptical lens: wide along Z (the pluck), the minor axis across X
-        VERTEX.x = cos(theta) * (r * 1.15 + e * cross_axis);
-        VERTEX.z = sin(theta) * (r + e);
+        vec2 draw = vec2(cross_axis,1.);
+        float stretch = length(draw);
+        draw /= stretch;
+        vec2 across = vec2(-draw.y,draw.x);
+        // During free flight the exposure covers the draw plane about the
+        // resting wire. Its transverse width remains the gauge of the string.
+        VERTEX.xz = draw*cos(theta)*(r+max(e,0.)*stretch)+across*sin(theta)*r;
     } else {
         v_env = 0.0;
         // the mesh ring is (radius cos, y, radius sin): rebuild it at the held gauge
         VERTEX.x = cos(theta) * r;
         VERTEX.z = sin(theta) * r;
+        VERTEX.xz += d*vec2(cross_axis,1.);
     }
-    VERTEX.z += d;
-    VERTEX.x += d * cross_axis;
+
     // tilt the ring normal with the local slope of the bent wire
     vec3 n = NORMAL;
     NORMAL = normalize(vec3(n.x - du * cross_axis * n.y, n.y - du * n.z, n.z));
@@ -106,14 +110,15 @@ void vertex() {
 }
 
 void fragment() {
+    float distant = 1.0-smoothstep(1.6,6.,v_px_diam);
     if (sheath) {
         // denser near the turning points (a sinusoid dwells there), soft in the middle
         float edge = abs(sin(v_theta));
-        float a = smoothstep(.0008, .004, v_env) * (.14 + .34 * edge * edge);
+        float a = smoothstep(.0008, .004, v_env) * (.065 + .19 * edge * edge);
         ALBEDO = albedo.rgb;
-        ALPHA = a * (1.0 - .6 * v_grow);
+        ALPHA = a * (1.0 - .6 * v_grow) * radius / (radius+v_env*length(vec2(cross_axis,1.)));
         METALLIC = 0.0; ROUGHNESS = .6; SPECULAR = .2;
-        EMISSION = glow.rgb * mix(vec3(1.0), albedo.rgb, .5) * excitation * .8;
+        EMISSION = glow.rgb * mix(vec3(1.0), albedo.rgb, .5) * excitation * .34*distant;
     } else {
         // Pre-integrate across the cylinder cross-section when the wire is narrower
         // than ~6 px on screen so scanline-to-scanline pixel centers do not jump
@@ -171,13 +176,13 @@ void fragment() {
         // the winding's ridges rock the normal along the wire
         NORMAL = wind != 0.0 ? normalize(base_normal + T_vs * wind * .55) : base_normal;
         ALBEDO = albedo.rgb * tone * cover * contact;
-        METALLIC = metal * (1.0 - .35 * excitation);
+        METALLIC = metal * (1.0 - .35 * excitation*distant);
         ROUGHNESS = rough;
         SPECULAR = spec * cover * contact;
         ANISOTROPY = aniso; ANISOTROPY_FLOW = vec2(1.0, 0.0);
         BACKLIGHT = back * cover * contact;
         RIM = rim * cover * contact; RIM_TINT = .7;
         // tinted by the wire's own colour so a red C stays red when it sings
-        EMISSION = (glow.rgb * mix(vec3(1.0), albedo.rgb, .65) * (excitation * excitation) * 1.1 + albedo.rgb * .06 * contact) * cover;
+        EMISSION = (glow.rgb * mix(vec3(1.0), albedo.rgb, .65) * (excitation * excitation) * mix(.045,1.1,distant) + albedo.rgb * .06 * contact) * cover;
     }
 }

@@ -6,13 +6,27 @@ extends Control
 ## lines, the stem envelope as a grey fill, and the playhead. The
 ## picture loam's Score.plot draws, live.
 
-var score: ScoreDoc
+class Lane:
+	var id: String
+	var events: Array = []
+	var onsets := PackedFloat64Array()
+	var colors: Dictionary
+	var envelope: ArrayMesh
+	var low := INF
+	var high := -INF
+
+var _lanes: Array[Lane] = []
+var score: ScoreDoc:
+	set(value):
+		score = value
+		_bind_score()
+		queue_redraw()
 var time: float = 0.0
 var zoom_s: float = 24.0          # seconds across the view
 var muted: Dictionary = {}
-const PALETTE := [Color(0.12, 0.47, 0.71), Color(1.0, 0.50, 0.05),
-		Color(0.17, 0.63, 0.17), Color(0.84, 0.15, 0.16),
-		Color(0.58, 0.40, 0.74), Color(0.55, 0.34, 0.29)]
+const PALETTE := [Color("#7ccbc0"), Color("#dfad74"), Color("#a9afdf"),
+		Color("#dc8d88"), Color("#abc58b"), Color("#aa9cca")]
+const BACKGROUND := Color("#0c1c20")
 const LANE_GAP := 6.0
 const LEFT := 64.0
 
@@ -28,64 +42,90 @@ func _actuator_colors(mid: String) -> Dictionary:
 	return out
 
 
+func _bind_score() -> void:
+	_lanes.clear()
+	if score == null: return
+	clip_contents = true
+	var by_id := {}
+	for mid in score.stem_ids():
+		var lane := Lane.new()
+		lane.id = mid
+		lane.colors = _actuator_colors(mid)
+		if score.envelopes.has(mid):
+			lane.envelope = _envelope_mesh(score.envelopes[mid], score.env_hz)
+		by_id[mid] = lane
+		_lanes.append(lane)
+	for event in score.events:
+		var lane: Lane = by_id.get(event["mech"])
+		if lane == null: continue
+		lane.events.append(event)
+		for pitch in event.get("midis", []):
+			lane.low = minf(lane.low, pitch)
+			lane.high = maxf(lane.high, pitch)
+	for lane in _lanes:
+		lane.events.sort_custom(func(a, b): return a["t"] < b["t"])
+		for event in lane.events:
+			lane.onsets.append(event["t"])
+		if lane.low == INF: lane.low = 0.0; lane.high = 0.0
+		lane.low -= 1.0
+		lane.high += 1.0
+
+## One immutable strip in seconds × amplitude. Pan and zoom change only the
+## draw transform. Silent stretches are valid degenerate strip triangles.
+static func _envelope_mesh(samples: PackedFloat32Array, rate: float) -> ArrayMesh:
+	if samples.size() < 2: return null
+	var points := PackedVector2Array()
+	points.resize(2*samples.size())
+	for i in samples.size():
+		var x := float(i)/rate
+		points[2*i] = Vector2(x, 0.0)
+		points[2*i+1] = Vector2(x, samples[i])
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = points
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLE_STRIP, arrays)
+	return mesh
+
 func _draw() -> void:
 	if score == null:
 		return
 	var font := ThemeDB.fallback_font
-	var ids := score.stem_ids()
 	var w := size.x
 	var h := size.y
-	var lane_h: float = (h - LANE_GAP * (ids.size() + 1)) / float(maxi(ids.size(), 1))
+	var lane_h: float = (h - 32.0 - LANE_GAP * (_lanes.size() + 1)) / float(maxi(_lanes.size(), 1))
 	var t0 := clampf(time - zoom_s * 0.35, 0.0, maxf(score.total_s - zoom_s, 0.0))
 	var t1 := t0 + zoom_s
 	var px_per_s := (w - LEFT) / zoom_s
-	draw_rect(Rect2(0, 0, w, h), Color(0.09, 0.09, 0.1))
-	var y := LANE_GAP
-	for mid in ids:
+	draw_rect(Rect2(0, 0, w, h), BACKGROUND)
+	if lane_h <= 0.0 or w <= LEFT: return
+	var y := 26.0 + LANE_GAP
+	for data in _lanes:
+		var mid := data.id
 		var lane := Rect2(LEFT, y, w - LEFT, lane_h)
 		var dim: bool = muted.get(mid, false)
-		draw_rect(lane, Color(0.13, 0.13, 0.15) if not dim else Color(0.11, 0.11, 0.12))
-		# envelope fill
-		if score.envelopes.has(mid):
-			var pts := PackedVector2Array()
-			pts.append(Vector2(LEFT, y + lane_h))
-			var e: PackedFloat32Array = score.envelopes[mid]
-			var i0 := maxi(int(t0 * score.env_hz), 0)
-			var i1 := mini(int(t1 * score.env_hz) + 1, e.size())
-			for i in range(i0, i1):
-				var x := LEFT + (float(i) / score.env_hz - t0) * px_per_s
-				pts.append(Vector2(x, y + lane_h - e[i] * lane_h * 0.9))
-			pts.append(Vector2(LEFT + (float(i1) / score.env_hz - t0) * px_per_s, y + lane_h))
-			if pts.size() >= 3:
-				draw_colored_polygon(pts, Color(0.3, 0.3, 0.33, 0.55 if not dim else 0.2))
-		# events
-		var evs: Array = []
-		var lo := 1e9
-		var hi := -1e9
-		for e in score.events:
-			if e["mech"] != mid:
-				continue
-			evs.append(e)
-			for m in e.get("midis", []):
-				lo = minf(lo, float(m))
-				hi = maxf(hi, float(m))
-		if evs.size() > 0:
-			lo -= 1.0
-			hi += 1.0
-			var cols := _actuator_colors(mid)
-			for e in evs:
+		draw_rect(lane, Color("#172d31") if not dim else Color("#122326"))
+		if data.envelope != null:
+			var transform := Transform2D(Vector2(px_per_s, 0), Vector2(0, -lane_h*.9),
+					Vector2(LEFT-t0*px_per_s, y+lane_h))
+			draw_mesh(data.envelope, null, transform, Color("#2b5052") if not dim else Color("#1a3134"))
+			draw_rect(Rect2(0,y,LEFT,lane_h), BACKGROUND)
+		var lo := data.low
+		var hi := data.high
+		var cols := data.colors
+		if not data.events.is_empty():
+			for index in range(data.onsets.bsearch(t0), data.onsets.bsearch(t1, false)):
+				var e: Dictionary = data.events[index]
 				var t: float = float(e["t"])
 				var tf: float = float(e.get("t_free", t))
 				var tm: float = float(e.get("t_move", t))
-				if t < t0 or t > t1:
-					continue
 				var c: Color = cols.get(e.get("actuator"), Color(0.6, 0.6, 0.6))
 				if dim:
 					c.a = 0.3
 				var midis: Array = e.get("midis", [])
 				var ym: float = y + lane_h * (1.0 - ((float(midis[0]) if midis.size() > 0 else (lo + hi) * 0.5) - lo) / (hi - lo))
 				if e.get("actuator") != null:
-					var x_m := LEFT + (tm - t0) * px_per_s
+					var x_m := maxf(LEFT, LEFT + (tm - t0) * px_per_s)
 					var x_t := LEFT + (t - t0) * px_per_s
 					var x_f := LEFT + (tf - t0) * px_per_s
 					draw_line(Vector2(x_m, ym), Vector2(x_t, ym), Color(c, c.a * 0.45), 4.0)

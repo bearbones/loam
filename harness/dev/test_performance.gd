@@ -8,6 +8,246 @@ func _init() -> void:
 func felt_face(head: Node3D, head_l: float) -> Vector3:
 	return head.global_position+head.global_basis*Vector3(0,-head_l,0)
 
+# Scrubbing out of a contact window must clear both uploaded buffers. Returning
+# to the same frame must reproduce its samples independently of the last seek.
+func check_wire_seek(scene, failures: Array) -> void:
+	for event in scene.score.events:
+		if event["mech"] != "harp" or event.get("shape") == null: continue
+		var wire: Node3D = scene.strings[event["strings"][0]]
+		var mat: ShaderMaterial = wire.get_child(0).material_override
+		var t := float(event["t"]) - .022
+		scene.evaluate(t)
+		var pull: PackedFloat32Array = mat.get_shader_parameter("disp")
+		var rest := PackedFloat32Array()
+		rest.resize(scene.STRING_NODES)
+		if pull.size() != rest.size() or pull == rest:
+			failures.append("harp pre-pull missing before first contact")
+		t = float(event["t"]) + .075
+		scene.evaluate(t)
+		var expected: PackedFloat32Array = mat.get_shader_parameter("disp")
+		var envelope: PackedFloat32Array = mat.get_shader_parameter("envelope")
+		scene.evaluate(-1.0)
+		var quiet: PackedFloat32Array = mat.get_shader_parameter("envelope")
+		if quiet != rest or wire.get_child(1).visible:
+			failures.append("a string kept ringing after a backwards seek into pre-roll")
+		scene.evaluate(t)
+		if not wire.get_child(1).visible or mat.get_shader_parameter("disp") != expected or mat.get_shader_parameter("envelope") != envelope:
+			failures.append("returning to a string contact changed the motion or blur")
+		return
+
+# Sweep the visible link ends. At the parked pose the wrist and palm socket
+# used to coincide, allowing the folded knee to invert between two frames.
+func check_wrist_travel(scene, failures: Array) -> void:
+	var last := {}
+	var step := 0.
+	var error := 0.
+	var nearest := INF
+	var links: Array[Node3D] = []
+	var lengths := PackedFloat32Array()
+	for aid in scene.hand_motion:
+		if scene.layout["arms"][aid]["mid"]!="harp": continue
+		for part in ["wrist_crank","wrist_rod"]:
+			links.append(scene.drive_parts[aid][part])
+			lengths.append(scene.layout["arms"][aid]["drives"]["wrist_flex"]["carrier_l"])
+	for frame in range(-60,ceili(scene.score.total_s*60.)):
+		scene.evaluate(frame/60.)
+		for aid in scene.hand_motion:
+			var rod: Node3D = scene.drive_parts[aid]["wrist_rod"]
+			var crank: Node3D = scene.drive_parts[aid]["wrist_crank"]
+			var cfg: Dictionary = scene.layout["arms"][aid]["drives"]["wrist_flex"]
+			var l := float(cfg["carrier_l"])
+			var socket: Vector3 = scene.parts[aid]["tool"].global_position+MotionBake.v(cfg["mount_offset"])
+			error = maxf(error,rod.to_global(Vector3.UP*l).distance_to(socket))
+			error = maxf(error,crank.to_global(Vector3.UP*l).distance_to(rod.global_position))
+			var pin: Node3D = scene.parts[aid]["wristhead"].get_node(aid+"__carrier_seat")
+			error = maxf(error,pin.global_position.distance_to(crank.global_position))
+			if last.has(aid): step = maxf(step,rod.global_position.distance_to(last[aid]))
+			last[aid] = rod.global_position
+		for i in links.size():
+			var p := links[i].global_position
+			var q := p+links[i].global_basis.y*lengths[i]
+			for j in range((i/2+1)*2,links.size()):
+				var a := links[j].global_position
+				var b := a+links[j].global_basis.y*lengths[j]
+				var pair := Geometry3D.get_closest_points_between_segments(p,q,a,b)
+				nearest = minf(nearest,pair[0].distance_to(pair[1]))
+	if nearest<.040: failures.append("harp wrist links cross: %.2f mm between centre lines" % (nearest*1000.))
+	# Limit the inter-frame chord as well as the pin error. A full inversion
+	# can cover a link diameter while still satisfying both closure equations.
+	if step>.27 or error>.0001:
+		failures.append("wrist carriage sweep: peak frame travel %.4f m, pin error %.6f m" % [step,error])
+	print("  wrist carriers: peak %.3f m/frame at 60 Hz, worst pin error %.4f mm" % [step,error*1000.])
+
+func check_plucks(scene, failures: Array) -> void:
+	if not scene.pillar_players.is_empty():
+		check_pillar_players(scene,failures)
+		return
+	var count := 0
+	var largest_wrist := 0.
+	var least_draw := INF
+	var least_curl := INF
+	var least_free := INF
+	for e in scene.score.events:
+		if e["mech"]!="harp": continue
+		var aid: String=e["actuator"]
+		var sid: String=e["strings"][0]
+		var d: String=["thumb","d2","d3","d4"][int(e["finger"])]
+		var finger: Node3D=scene.drive_parts[aid]["digit_"+d]
+		var pad: Node3D=finger.find_child(aid+"__pad_"+d,true,false)
+		var joint: Node3D=pad.get_parent()
+		var palm: Node3D=scene.parts[aid]["tool"]
+		if finger.get_parent()!=palm or joint.get_parent().get_parent()!=finger:
+			failures.append("disconnected phalanx "+aid+"/"+d); return
+		var t:=float(e["t"])
+		scene.evaluate(t-.064)
+		var planted:=palm.global_position
+		var caught:=pad.global_position
+		var open:=joint.basis.get_rotation_quaternion()
+		scene.evaluate(t)
+		largest_wrist=maxf(largest_wrist,planted.distance_to(palm.global_position))
+		least_draw=minf(least_draw,caught.distance_to(pad.global_position))
+		least_curl=minf(least_curl,open.angle_to(joint.basis.get_rotation_quaternion()))
+		scene.evaluate(t+.058)
+		var line:=MotionBake.contact(scene.layout,sid,e["pick"])
+		line+=scene.wire_motion[sid].excursion_at(float(e["pick"]))
+		least_free=minf(least_free,pad.global_position.distance_to(line))
+		count+=1
+	print("  %d harp plucks: least draw %.2f mm, distal turn %.1f deg, separation after slip %.2f mm, peak wrist travel %.3f mm" % [count,1000*least_draw,rad_to_deg(least_curl),least_free*1000,largest_wrist*1000])
+	if least_draw<.009 or least_curl<.20 or largest_wrist>.001 or least_free<.003:
+		failures.append("harp failed to load and release with a planted hand")
+
+func check_pillar_players(scene, failures: Array) -> void:
+	var count := 0
+	var pin_error := 0.
+	var pad_error := 0.
+	var wrist_travel := 0.
+	var least_draw := INF
+	var least_curl := INF
+	var least_free := INF
+	var knuckle := INF
+	var idle_gap := INF
+	var strings: Array = []
+	for sid in scene.strings:
+		var spec: Dictionary = scene.layout["strings"][sid]
+		if spec["mid"]!="harp": continue
+		strings.append([MotionBake.v(spec["a"]),MotionBake.v(spec["b"]),scene.wire_motion[sid],.0035*pow(2.,(64.-float(spec["midi"]))/18.)])
+	var passive := INF
+	var arrays: Array = scene.pillar_players.values()
+	var mutual := INF
+	for arm in arrays:
+		for n in arm.notes:
+			var d = arm.digits[n.digit]
+			scene.evaluate(n.time-.064)
+			var plant: Vector3=arm.palm.global_position
+			var start: Vector3=d.pad.global_position
+			var placed: Quaternion=d.distal.basis.get_rotation_quaternion()
+			for sample in 9:
+				scene.evaluate(n.time-.064+.008*sample)
+				var wire: Vector3=n.base+n.wire.excursion_at(n.pick)
+				var touch: Vector3=d.pad.global_position+n.push*(n.gauge+arm.pad_radius)
+				pad_error=maxf(pad_error,touch.distance_to(wire))
+				wrist_travel=maxf(wrist_travel,plant.distance_to(arm.palm.global_position))
+				for hinge in [d.root,d.middle,d.distal]:
+					if hinge.global_basis.y.dot(Vector3.UP)<.99999:
+						failures.append("finger pin tilted across speaking wire"); return
+				var k: Vector3=d.root.global_position-wire
+				knuckle=minf(knuckle,Vector2(k.x,k.z).length()-.013-n.gauge)
+				for inactive in arm.digits:
+					if inactive==d: continue
+					var relative: Vector3=inactive.pad.global_position-wire
+					idle_gap=minf(idle_gap,Vector2(relative.x,relative.z).length()-arm.pad_radius-n.gauge)
+			least_draw=minf(least_draw,start.distance_to(d.pad.global_position))
+			least_curl=minf(least_curl,placed.angle_to(d.distal.basis.get_rotation_quaternion()))
+			scene.evaluate(n.time+.058)
+			var delta: Vector3=d.pad.global_position-(n.base+n.wire.excursion_at(n.pick))
+			least_free=minf(least_free,Vector2(delta.x,delta.z).length()-arm.pad_radius-n.gauge)
+			count+=1
+	for i in range(-60,ceili(scene.score.total_s*60.)):
+		scene.evaluate(i/60.)
+		for j in arrays.size():
+			var arm = arrays[j]
+			passive=minf(passive,passive_clearance(arm,strings,i/60.))
+			var root_point: Vector3=arm.upper.global_position
+			var elbow: Vector3=arm.lower.global_position
+			var wrist: Vector3=arm.palm.to_global(Vector3(0,0,-.063))
+			pin_error=maxf(pin_error,root_point.distance_to(arm.shoulder))
+			pin_error=maxf(pin_error,elbow.distance_to(arm.upper.to_global(Vector3.UP*arm.l1)))
+			pin_error=maxf(pin_error,wrist.distance_to(arm.lower.to_global(Vector3.UP*arm.l2)))
+			for other in arrays.slice(j+1):
+				for seg in [[root_point,elbow],[elbow,wrist]]:
+					for pair in [[other.shoulder,other.lower.global_position],[other.lower.global_position,other.palm.to_global(Vector3(0,0,-.063))]]:
+						var points:=Geometry3D.get_closest_points_between_segments(seg[0],seg[1],pair[0],pair[1])
+						mutual=minf(mutual,points[0].distance_to(points[1]))
+	print("  %d pillar plucks, mm: pad error %.3f, planted wrist travel %.3f, draw %.2f, post-release gap %.2f, knuckle gap %.2f, folded pad gap %.2f, arm closure error %.3f, link separation %.1f, fingertip curl %.1f deg" % [count,pad_error*1000.,wrist_travel*1000.,least_draw*1000.,least_free*1000.,knuckle*1000.,idle_gap*1000.,pin_error*1000.,mutual*1000.,rad_to_deg(least_curl)])
+	print("  passive pad clearance across the full harp %.2f mm" % (passive*1000.))
+	if passive<.005 or count==0 or pad_error>.00015 or wrist_travel>.0001 or least_draw<.009 or least_free<.003 or knuckle<.05 or idle_gap<.012 or pin_error>.0001 or mutual<.11 or least_curl<.30:
+		failures.append("pillar player failed contact, curl, clearance or fitted reach")
+
+# Check every finger against the whole rank during transfer, preparation
+# and return. Only the wire being played gets a contact window.
+func passive_clearance(arm, strings: Array, t: float) -> float:
+	var gap := INF
+	for d in arm.digits:
+		var i: int=d.times.bsearch(t)
+		var prev=d.notes[i-1] if i>0 else null
+		var next=d.notes[i] if i<d.notes.size() else null
+		var tip: Vector3=d.pad.global_position
+		for s in strings:
+			var a: Vector3=s[0]
+			var b: Vector3=s[1]
+			if absf(tip.x-a.x)>.13: continue
+			var wire=s[2]
+			if prev!=null and prev.wire==wire and t-prev.time<.11: continue
+			if next!=null and next.wire==wire and next.time-t<.15: continue
+			var u:=clampf((tip.y-a.y)/(b.y-a.y),0.,1.)
+			var point: Vector3=a.lerp(b,u)+wire.excursion_at(u)
+			gap=minf(gap,tip.distance_to(point)-float(s[3])-float(arm.pad_radius))
+	return gap
+
+func check_mallets(scene, failures: Array) -> void:
+	var clearance:=INF
+	var closure:=0.
+	var overlap:=INF
+	# The felt fits inside a 62 mm sphere. Each oriented mesh box encloses
+	# the complete forging, including the bosses beyond the nominal pins.
+	for frame in range(-120,ceili(scene.score.total_s*120.)+1):
+		scene.evaluate(frame/120.)
+		for aid in scene.mallet_grips:
+			var p: Dictionary=scene.drive_parts[aid]
+			var arm: Dictionary=scene.parts[aid]
+			var h: Dictionary=scene.layout["arms"][aid]["drives"]["hinge"]
+			var lug: Vector3=p.wrist_shaft.to_global(Vector3(h.x_rod,0,scene.motion.flip_sign(aid)*h.r_lug))
+			closure=maxf(closure,p.wrist_rod.to_global(Vector3(h.x_rod,h.coupler_l,0)).distance_to(lug))
+			var span: float=p.wrist_guide.global_position.distance_to(p.wrist_plunger.global_position)
+			overlap=minf(overlap,.405+.414-span)
+			for head in [arm.tool,p.mallet2_head]:
+				var centre: Vector3=head.to_global(head.mesh.get_aabb().get_center())
+				for node in [arm.lower,arm.lower2,arm.wrist,arm.wristhead,p.wrist_crank,p.wrist_rod,p.wrist_guide,p.wrist_plunger]:
+					var bb: AABB=node.mesh.get_aabb()
+					var c: Vector3=node.to_local(centre)
+					clearance=minf(clearance,c.distance_to(c.clamp(bb.position,bb.end))-.062)
+	print("  120 Hz mallet sweep: minimum felt clearance %.2f mm, worst coupler pin error %.3f mm, minimum guide overlap %.1f mm" % [clearance*1000,closure*1000,overlap*1000])
+	if clearance<.002 or closure>.00015 or overlap<.02: failures.append("mallet clearance or drive closure failed")
+
+func check_struck_surfaces(scene, failures: Array) -> void:
+	var seen := {}
+	for e in scene.score.events:
+		var sid: String = e["strings"][0]
+		if seen.has(sid) or not scene.layout["strings"][sid]["struck"]: continue
+		seen[sid] = true
+		var spec: Dictionary = scene.layout["strings"][sid]
+		var body := scene.model.find_child(sid+(" bell" if spec["mid"]=="bells" else " bar"),true,false) as MeshInstance3D
+		if body==null or body.get_blend_shape_count()!=1:
+			failures.append("missing acoustic mode on "+sid)
+			continue
+		var freq := 440.*pow(2.,(float(spec["midi"])-69.)/12.)
+		var t := float(e["t"])+.25/freq
+		scene.evaluate(t)
+		var struck := body.get_blend_shape_value(0)
+		scene.evaluate(-2.)
+		if absf(struck)<.00005 or body.get_blend_shape_value(0)!=0.:
+			failures.append("voiced surface failed impulse or reset on "+sid)
+
 func check_scene() -> void:
 	var scene=load("res://performance.tscn").instantiate()
 	if scene.get_script()==null: push_error("performance.gd failed to compile"); quit(1); return
@@ -24,17 +264,46 @@ func check_scene() -> void:
 			for k in range(e["strings"].size()):
 				var t: float=ts[k]
 				scene.evaluate(t)
-				var tool: Node3D=scene.parts[e["actuator"]]["tool"]
-				var hw: bool=e.get("window_lo")!=null and e["strings"].size()==1
-				var target: Vector3=MotionBake.contact(scene.layout,str(e["window_lo"]) if hw else str(e["strings"][k]),null if hw else e.get("pick"))
-				if tool.global_position.distance_to(target)>.00001: failures.append("rendered tool misses contact")
-				# A hinged hammer strikes with its head, not its tool: the flange's origin is
-				# still the contact point, but what must land there is the felt face on the
-				# flipping head, whose mesh carries it at (0,-HEAD_L,0) in the head's own frame.
-				if scene.motion.hammer(e["actuator"]):
-					var head: Node3D=scene.parts[e["actuator"]].get("head")
-					if head==null: failures.append("hammer arm has no rendered head "+str(e["actuator"]))
-					elif felt_face(head,scene.motion.head_length(e["actuator"])).distance_to(target)>.00001: failures.append("rendered felt face misses contact")
+				var aid: String = e["actuator"]
+				var sid: String = e["strings"][k]
+				if scene.pillar_players.has(aid):
+					contacts+=1   # every pad checked throughout its draw below
+					continue
+				var tool: Node3D = scene.parts[aid]["tool"]
+				var target := MotionBake.contact(scene.layout,sid,e.get("pick"))
+				var point := tool.global_position
+				if scene.hand_motion.has(aid):
+					var digit: String = ["thumb","d2","d3","d4"][int(e.get("finger",1))]
+					if e["mech"]=="rake":
+						var up: bool = e.get("dir","up" if e["midis"][-1]>=e["midis"][0] else "down")!="down"
+						digit = "d2" if up else "thumb"
+					var pad: Node3D = scene.drive_parts[aid]["digit_"+digit].find_child(aid+"__pad_"+digit,true,false)
+					point = pad.global_position
+					target += scene.wire_motion[sid].excursion_at(float(e["pick"]))
+					var carrier: Node3D = scene.drive_parts[aid]["wrist_rod"]
+					var drive: Dictionary = scene.layout["arms"][aid]["drives"]["wrist_flex"]
+					var socket := tool.global_position+MotionBake.v(drive["mount_offset"])
+					if carrier.to_global(Vector3.UP*float(drive["carrier_l"])).distance_to(socket)>.0001:
+						failures.append("%s wrist carrier misses its palm socket at %.3f" % [aid,t])
+					if e["mech"]=="harp":
+						scene.evaluate(t-.032)
+						var draw := MotionBake.contact(scene.layout,sid,e["pick"])
+						draw += scene.wire_motion[sid].excursion_at(float(e["pick"]))
+						if pad.global_position.distance_to(draw)>.0001:
+							failures.append("%s fingertip lost the string during the pull at %.3f" % [aid,t])
+				elif scene.mallet_grips.has(aid):
+					var other: Node3D = scene.drive_parts[aid]["mallet2_head"]
+					var second := int(e.get("finger",0))==1
+					point = other.global_position if second else tool.global_position
+					var idle := tool if second else other
+					if idle.global_position.y<target.y+.055:
+						failures.append("%s idle mallet landed at %.3f" % [aid,t])
+				elif scene.motion.hammer(aid):
+					var head: Node3D=scene.parts[aid].get("head")
+					if head==null: failures.append("hammer arm has no rendered head "+aid)
+					else: point = felt_face(head,scene.motion.head_length(aid))
+				if point.distance_to(target)>.0001:
+					failures.append("%s playing surface misses %s by %.2f mm at %.3f" % [aid,sid,point.distance_to(target)*1000.,t])
 				contacts+=1
 		for aid in scene.parts:
 			var upper: MeshInstance3D=scene.parts[aid]["upper"]
@@ -404,6 +673,11 @@ func check_scene() -> void:
 			var want: float=fmod(TAU/4.0*ratio,TAU); if want>PI: want=TAU-want
 			if absf(pq.get_angle()-want)>.01 or absf(absf(pq.get_axis().z)-1.0)>.0001 or signf(pq.get_axis().z*pq.get_angle())!=signf(wq.get_axis().z*wq.get_angle()) and want<PI-.01: failures.append("belt pulley does not turn with the flywheel by the pulleys' ratio")
 			if wheel.global_position.distance_to(MotionBake.v(f["centre"]))>.001: failures.append("flywheel off its planned centre")
+	check_plucks(scene, failures)
+	check_mallets(scene, failures)
+	check_wire_seek(scene, failures)
+	check_struck_surfaces(scene, failures)
+	check_wrist_travel(scene, failures)
 	# The wire shader holds a sub-pixel string at a minimum on-screen width by
 	# rebuilding the ring from UV.y, so the mesh's ring convention is pinned here.
 	var probe: ArrayMesh=scene._wire_mesh(1.0,.01,2,8); var pv: PackedVector3Array=probe.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
@@ -418,6 +692,6 @@ func check_scene() -> void:
 		if line.begins_with("render_mode"): render_line=line
 	if not ("depth_prepass_alpha" in render_line): failures.append("wire shader draws no depth prepass: the tube's far wall shows through as a ring band")
 	if not ("cull_disabled" in render_line): failures.append("wire shader culls back faces: the blur sheath loses its far wall")
-	print("  integrated GLB: %d tool contacts; %d rigs" % [contacts,scene.parts.size()])
+	print("  integrated GLB: %d tool contacts; %d rigs" % [contacts,scene.parts.size()+scene.pillar_players.size()])
 	print("PERFORMANCE: PASS" if failures.is_empty() else str(failures))
 	quit(0 if failures.is_empty() else 1)

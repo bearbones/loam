@@ -20,6 +20,8 @@ const FOLLOW_TAPS := 17
 var bake: MotionBake
 var layout: Dictionary
 var total_s: float = 86.0
+var bass_phrase := Vector3.ZERO
+var pluck_centre := Vector3.ZERO
 var shots: Array = []      # [{t0, t1, name, fn: Callable(u, t) -> {pos, target, fov, focus}}]
 var light_keys: Array = [] # [[t, exposure, key, fill, rim, fog]]
 
@@ -31,6 +33,13 @@ func setup(b: MotionBake, lay: Dictionary, score: ScoreDoc) -> void:
 		if c["kind"] == "camera": cue_t[c["name"]] = float(c["t"])
 	var bar := 60.0/float(score.doc.get("bpm", 84.0))*4.0
 	var t := func(name: String, fallback: float) -> float: return float(cue_t.get(name, fallback))
+	var count := 0
+	bass_phrase = Vector3.ZERO
+	for e in score.events:
+		if e["actuator"]=="harp_arm0" and float(e["t"])<=4*bar:
+			bass_phrase += MotionBake.contact(lay,e["strings"][0],e.get("pick"))
+			count += 1
+	bass_phrase = bass_phrase/maxi(1,count)
 	var cuts := [
 		["wide-dark", t.call("wide-dark", 0.0), _wide_dark],
 		["arm0-close", t.call("arm0-close", 2*bar), _arm0_close],
@@ -45,6 +54,19 @@ func setup(b: MotionBake, lay: Dictionary, score: ScoreDoc) -> void:
 		["pullback", t.call("pullback", 24*bar), _pullback],
 		["all-arms", t.call("all-arms", 27.5*bar), _all_arms],
 	]
+	for e in score.events:
+		var onset := float(e["t"])
+		if e["actuator"]!="harp_arm0" or int(e.get("finger",0))!=3: continue
+		if onset<cuts[1][1]+.55 or onset+.65>=cuts[2][1]: continue
+		pluck_centre=MotionBake.contact(lay,e["strings"][0],e.get("pick"))+Vector3(0,.012,-.050)
+		cuts.append(["finger-pluck",onset-.40,_finger_pluck])
+		cuts.append(["arm0-return",onset+.62,_arm0_close])
+		break
+	if lay["mechanisms"].has("bells") and lay["mechanisms"].has("blocks"):
+		cuts.append(["glass-answer",10*bar,_bell_bench])
+		cuts.append(["escapement",22*bar,_block_bench])
+	cuts.sort_custom(func(a,b): return a[1]<b[1])
+	shots.clear()
 	for i in cuts.size():
 		var t1: float = cuts[i+1][1] if i+1 < cuts.size() else total_s
 		shots.append({"name": cuts[i][0], "t0": cuts[i][1], "t1": t1, "fn": cuts[i][2]})
@@ -142,25 +164,25 @@ func _wide_dark(u: float, _t: float) -> Dictionary:
 		"target": Vector3(0, 1.7, 0).lerp(Vector3(0, 2.15, 0), e), "fov": 38.0}
 
 
-## The first pick arm, close from behind and to its side: anchored on the harp's
-## static low-register string plane and the carriage's rail X (no vertical or
-## depth bobbing with the hand's pluck/raise). The camera drifts in smoothly.
-func _arm0_close(u: float, t: float) -> Dictionary:
-	var aid: String = "harp_arm0" if _has("harp_arm0") else str(bake.arms.keys()[0])
-	var c := _center("harp", Vector3(0, 2.05, 0))
-	var target := Vector3(rail_x([aid], t), 1.32, c.z-.22)
-	var az := lerpf(-128.0, -108.0, _ease(u))
-	return {"pos": target+_dir(az, 20.0)*lerpf(3.3, 2.7, _ease(u)), "target": target, "fov": 38.0}
+## Frame the opening bass notes together so the wrist can cross between them.
+func _arm0_close(u: float, _t: float) -> Dictionary:
+	var target := bass_phrase+Vector3(0,.057,-.04)
+	var az := lerpf(-133.,-144.,_ease(u))
+	return {"pos":target+_dir(az,12.)*lerpf(1.64,1.22,_ease(u)),"target":target,"fov":38.0}
 
 
-## The low arm's run: high behind the machine's right side, orbiting round
-## behind it, anchored on the upper-register string plane with gentle rail X.
-func _arm2_run(u: float, t: float) -> Dictionary:
-	var aid: String = "harp_arm2" if _has("harp_arm2") else str(bake.arms.keys()[0])
-	var c := _center("harp", Vector3(0, 2.05, 0))
-	var target := Vector3(lerpf(0.45, rail_x([aid], t), 0.5), 2.12, c.z-.20)
-	var az := lerpf(118.0, 172.0, _ease(u)); var el := lerpf(30.0, 22.0, _ease(u))
-	return {"pos": target+_dir(az, el)*lerpf(3.6, 3.0, _ease(u)), "target": target, "fov": 40.0}
+func _finger_pluck(u: float, _t: float) -> Dictionary:
+	var off := Vector3(-.57,-.68,.93).normalized()*lerpf(.48,.42,_ease(u))
+	return {"pos":pluck_centre+off,"target":pluck_centre,"fov":34.}
+
+## Keep the fixed bearing and treble wrist in the same moving shot.
+func _arm2_run(u: float, _t: float) -> Dictionary:
+	var c := _center("harp",Vector3(0,2.1,0))
+	var root := MotionBake.v(layout["arms"]["harp_arm2"]["pillar_player"]["shoulder"]) if layout["arms"].get("harp_arm2",{}).has("pillar_player") else c
+	var target := root.lerp(Vector3(.54,2.26,-.08),lerpf(.40,.59,_ease(u)))
+	var dir := Vector3(lerpf(.48,.32,_ease(u)),.25,-1.).normalized()
+	return {"pos":target+dir*lerpf(3.28,2.40,_ease(u)),"target":target,"fov":40.}
+
 
 
 ## The pulse: high over the harp, turning slowly, the three arms working below.
@@ -175,9 +197,9 @@ func _overhead(u: float, _t: float) -> Dictionary:
 func _rake_close(u: float, t: float) -> Dictionary:
 	var c := _center("rake", Vector3(-4.2, 2.65, .9))
 	var rx := lerpf(c.x, rail_x(["rake_arm0"], t), .20) if _has("rake_arm0") else c.x
-	var target := Vector3(rx, 2.05, c.z-.08)
+	var target := Vector3(rx, 1.68, c.z-.08)
 	var az := lerpf(222.0, 158.0, _ease(u))
-	return {"pos": target+_dir(az, 18.0)*3.4, "target": target, "fov": 42.0}
+	return {"pos": target+_dir(az, 16.0)*3.7, "target": target, "fov": 42.0}
 
 
 ## The mallets come in: low along the bars from the front, anchored on the bar
@@ -189,6 +211,7 @@ func _bars_low(u: float, t: float) -> Dictionary:
 	var rx := lerpf(c.x, rail_x(arms, t), .45) if not arms.is_empty() else c.x
 	var target := Vector3(rx, c.y+.35, c.z-.15)
 	var off := Vector3(-.9, .15, 3.3).lerp(Vector3(-.4, .3, 2.7), _ease(u))
+	if layout["mechanisms"].has("blocks"): off += Vector3(.48,.18,0)
 	return {"pos": target+off, "target": target, "fov": 40.0}
 
 
@@ -223,3 +246,13 @@ func _all_arms(u: float, _t: float) -> Dictionary:
 	var c := Vector3(.4, 1.8, -.6)
 	var az := lerpf(212.0, 196.0, u)
 	return {"pos": c+_dir(az, 28.0)*lerpf(9.0, 10.5, u), "target": c, "fov": 44.0}
+
+## The rear benches sit just behind the harp. Shoot along the bench so the
+## struck crown and the shell mouth appear in the same frame.
+func _bell_bench(u: float,_t: float) -> Dictionary:
+	var c := _center("bells",Vector3.ZERO)+Vector3(.04,-.05,0)
+	return {"target":c,"pos":c+_dir(lerpf(-22.,-10.,_ease(u)),13.)*2.55,"fov":39.}
+
+func _block_bench(u: float,_t: float) -> Dictionary:
+	var c := _center("blocks",Vector3.ZERO)+Vector3(0,-.015,0)
+	return {"target":c,"pos":c+_dir(lerpf(25.,36.,_ease(u)),19.)*2.05,"fov":37.}

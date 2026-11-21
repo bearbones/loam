@@ -19,6 +19,7 @@ out = ROOT/'harness/assets'
 sys.path.insert(0,str(ROOT/'tools'))
 from blender_forms import make_form
 sys.path.insert(0,str(ROOT/'formlab'))
+from acoustic_bodies import jointed_digit
 from layout import string_endpoints,bar_frame_plan,board_z,harp_base_plan,bench_plan,bench_elements,flywheel_plan,spoke_centre,spoke_section,eyelet_plan,pin_wrap,BAR,BENCH,BELL,BOARD,NECK,FLYWHEEL,EYELET
 # formlab.rig / clearance / layout_search are numpy-only (no SciPy) so they run here too.
 import rig as arm_rig, clearance as arm_clearance, layout_search, gear as tooth_profile
@@ -140,20 +141,6 @@ def gear(n,p,r_tip,teeth=16,spokes=None,boss=None):
     if spokes:   # the casting's pieces were laid out in world space: the wheel turns about its centre
         bpy.context.scene.cursor.location=vec(p); bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
     return o
-def bell(n,p):
-    # Hollow spun bell: wall profile down to an open lip and back up inside.
-    profile=[(.025,.12),(.075,.08),(.08,-.03),(.11,-.2),(.155,-.31),(.14,-.315),(.095,-.2),(.065,-.03),(.06,.065),(.025,.09)]
-    vertices=[]; faces=[]; count=48
-    for r,y in profile:
-        for k in range(count):
-            a=math.tau*k/count; vertices.append(tuple(vec((p[0]+r*math.cos(a),p[1]+y,p[2]+r*math.sin(a)))))
-    for j in range(len(profile)-1):
-        for k in range(count):
-            a=j*count+k; b=j*count+(k+1)%count; faces.append((a,b,b+count,a+count))
-    mesh=bpy.data.meshes.new(n); mesh.from_pydata(vertices,[],faces); mesh.update()
-    o=bpy.data.objects.new(n,mesh); bpy.context.collection.objects.link(o); o.data.materials.append(glass)
-    for poly in mesh.polygons: poly.use_smooth=True
-    return o
 manifest={'harp_display_length_scale':1.7,'pedal_animation':'static reference hardware','model':name+'.glb','strings':{},'arms':{},'mechanisms':{},'gears':[]}
 # The stage reaches back to z -4.7 so the bell rails' gantries stand on it, not over its edge.
 box('Stage',(0,-.18,-.675),(13,.32,8.05),black,.12)
@@ -174,15 +161,7 @@ for m in score['instrument']['mechanisms']:
     for i,s in enumerate(m['strings']):
         sx=x+s['pos'][0]*3; sy=base_y+s['pos'][1]*3; sz=z+s['pos'][2]*3; length=s['length']*3
         a,b=string_endpoints(m,s)
-        if struck:
-            if m['material']=='glass':
-                bell(s['id']+' bell',(sx,sy-.12,sz))
-                cyl(s['id']+' crown',(sx,sy-.0225,sz),.12,.045,brass)
-            else:
-                box(s['id']+' bar',(sx,sy-BAR['thick']/2,sz),(min(.24,span/len(m['strings'])*.7),BAR['thick'],length),rose)
-                if m['material']=='wood':
-                    box(s['id']+' slit',(sx,sy+.001,sz+.07),(.19,.006,.018),black,.002)
-        else:
+        if not struck:
             # Anchored at the foot only, where the string leaves the soundbox through a
             # flanged brass eyelet on the mouth of the recipe's ferrule
             # (formlab.layout.eyelet_plan); the top runs on to the neck's action, bridge
@@ -207,8 +186,6 @@ for m in score['instrument']['mechanisms']:
             for p,q in zip(posts[:-1],posts[1:]):
                 beam(f'{mid} {side} cord',(p['x'],plan['cord_y'],p['z']),(q['x'],plan['cord_y'],q['z']),.006,black)
         for r in plan['resonators']:
-            cyl(r['id']+' resonator',(r['x'],r['top']-r['length']/2,r['z']),r['radius'],r['length'],brass)
-            cyl(r['id']+' resonator mouth',(r['x'],r['top']-.002,r['z']),r['radius']*.82,.008,black)
             cyl(r['id']+' resonator stop',(r['x'],r['top']-r['length']+.015,r['z']),r['radius']*1.06,.03,brass)
         bank=plan['bank']; beam(mid+' resonator bank',(bank['x'][0],bank['y'],bank['z']),(bank['x'][1],bank['y'],bank['z']),.018,steel)
         for e in plan['ends']:
@@ -260,7 +237,6 @@ for m in score['instrument']['mechanisms']:
         xs=[manifest['strings'][sid]['a'][0] for sid in act['reach']]
         manifest['arms'][aid]={'mid':mid,'kind':act['kind'],'index':k,'reach_x':[min(xs),max(xs)]}
 # The sympathetic chamber is a resonant body, with an envelope-driven pressure gauge.
-box('Chamber cabinet',(0,.49,-1.6),(3.6,.85,.65),wood,.09)
 for i in range(23):
     box('Chamber grille',(-1.58+i*.144,.5,-1.26),(.045,.61,.05),brass,.012)
 text('Chamber name','L O A M   /   THE CHAMBER',(0,.18,-1.21),.11)
@@ -385,8 +361,18 @@ for sid,n in forms.get('neck',{}).items():
 # Geometry variants share anchors and are selected in Godot with --form or F.
 form_colliders=[]
 for entry in forms['objects']:
-    obj,collider=make_form(entry,{'brass':brass,'wood':wood,'spruce':spruce,'steel':steel,'felt':felt,'horn':horn,'bronze':bronze,'rose':rose})
+    palette={'brass':brass,'wood':wood,'spruce':spruce,'steel':steel,'felt':felt,'horn':horn,'bronze':bronze,'rose':rose}
+    if 'articulation' in entry:
+        jointed_digit(entry,palette)
+        continue
+    obj,collider=make_form(entry,palette)
     if not entry.get('local'): form_colliders.append(collider)
+# The panel's actual front rings set the staved back's edge. The distal
+# pole is vertex zero of the horn cup in its own digit frame.
+from acoustic_bodies import build as build_acoustic_bodies, place_carrier
+boards = {e['name'].split('_')[1]: e['pieces'][0]['vertices'] for e in forms['objects']
+          if e['name'].endswith('_soundboard')}
+build_acoustic_bodies(manifest, score, boards)
 # Assemble the articulated rigs at their home poses in the editable Blender file.
 # Godot re-poses them every frame from the motion bake of this same Rig (formlab/bake.py).
 P=Matrix(((1,0,0),(0,0,-1),(0,1,0)))   # Godot axes -> Blender axes, as vec()
@@ -406,7 +392,8 @@ for aid,cfg in manifest['arms'].items():
                 dx0=float(cfg['drives'].get('splay',{}).get('dx_base',0.385714))
                 places.append(('mallet2_head',tip+Vector((dx0,0,0))))
                 places.append(('mallet2_shaft',tip+Vector((dx0,0,0))))
-                places.append(('splay_sector',tip+Vector((0,0.055,float(R.flip_sign(aid))*0.50))))
+                hinge = tip+Vector((0,0.055,float(R.flip_sign(aid))*0.50))
+                places.extend([('splay_sector',hinge),('shank',hinge),('inner_slide',hinge+Vector((dx0,0,0)))])
         elif h_drv.get('kind')=='cam':
             places.append(('hammer_cam',tip+Vector(h_drv['cam_origin'])))
         p_drv=cfg['drives'].get('pendulum',{})
@@ -416,7 +403,9 @@ for aid,cfg in manifest['arms'].items():
             places.append(('pendulum_pinion',wrist+Vector(p_drv['pinion_origin'])))
     if cfg.get('hand',{}).get('knuckles'):
         for d_name,kn_vec in cfg['hand']['knuckles'].items():
-            places.append(('digit_'+d_name,tip+Vector(kn_vec)))
+            digit=bpy.data.objects[aid+'__digit_'+d_name]
+            digit.parent=bpy.data.objects[aid+'__tool']
+            digit.location=vec(kn_vec)
     # A hinged hammer's head hangs on the flange's pin, head_l above the tool
     # frame's origin (formlab.linkage.hammer_tool); Godot turns it about that
     # pin every frame. Without this it would sit at the file's origin.
@@ -443,17 +432,15 @@ for aid,cfg in manifest['arms'].items():
             th_cw=math.atan2(d_w.y,d_w.z)+sgn_w*math.acos(cos_aw)
             wp1=Vector((wrist.x,wrist.y+rc_w*math.sin(th_cw),wrist.z+rc_w*math.cos(th_cw)))
             link_list+=[('wrist_crank',wrist,wp1,Vector((0,0,0))),('wrist_rod',wp1,wp2,Vector((0,0,0)))]
+            if cfg.get('hands',0)>=2:
+                stay_offset=Vector((-.122,0,0))
+                link_list += [('wrist_guide',wrist,hinge,stay_offset),('wrist_plunger',hinge,wrist,stay_offset)]
         wf_drv=cfg['drives'].get('wrist_flex',{})
         if wf_drv.get('carrier_l') is not None:
             cl_w=float(wf_drv['carrier_l'])
             mo_w=wf_drv.get('mount_offset',[0.0,0.20,-0.10])
             wp2=tip+Vector((float(mo_w[0]),float(mo_w[1]),float(mo_w[2])))
-            d_w=wp2-wrist; d_wyz=math.hypot(d_w.y,d_w.z)
-            h_w=math.sqrt(max(0.0,cl_w*cl_w-0.25*d_wyz*d_wyz))
-            uy_w=d_w.y/max(d_wyz,1e-9); uz_w=d_w.z/max(d_wyz,1e-9)
-            sgn_w=1.0 if (uz_w+2.0*uy_w)>=0.0 else -1.0
-            wp1=0.5*(wrist+wp2)+Vector((0.0,sgn_w*uz_w*h_w,-sgn_w*uy_w*h_w))
-            link_list+=[('wrist_crank',wrist,wp1,Vector((0,0,0))),('wrist_rod',wp1,wp2,Vector((0,0,0)))]
+            place_carrier(aid,wrist,wp2,cl_w)
     for part,a,b,o in link_list:
         x,y,z=arm_clearance.link_basis(np.array([a]),np.array([b]))
         B=Matrix(((x[0][0],y[0][0],z[0][0]),(x[0][1],y[0][1],z[0][1]),(x[0][2],y[0][2],z[0][2])))
@@ -470,6 +457,11 @@ form_colliders.append(dict(name='harp_reference_hardware',vertices=hardware_vert
 manifest['forms']=['carved','ribbed','shell']
 manifest['form_objects']=[e['name'] for e in forms['objects']]
 (ROOT/'render/form-study/collision_meshes.json').write_text(json.dumps(form_colliders,separators=(',',':')))
+# Replace the three harp reference mechanisms with the pillar players.
+from pillar_players import build as build_pillar_players
+from chamber_timber import build as build_chamber_timber
+build_pillar_players(manifest)
+build_chamber_timber(manifest)
 # Save an editable home assembly and a portable runtime mesh assembly.
 bpy.ops.export_scene.gltf(filepath=str(out/(name+'.glb')),export_format='GLB',export_yup=True,export_apply=True)
 for obj in bpy.data.objects:

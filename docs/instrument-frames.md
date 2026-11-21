@@ -8,6 +8,24 @@ rules as the pipeline implements them (`formlab/layout.py` `bar_frame_plan`,
 `formlab/recipes.py` `bar_frame`, hardware in `tools/build_clockwork.py`,
 checks in `tools/test_bar_frame.py`).
 
+## Sounding bodies
+
+Both harps carry a walnut back over the spruce panel. Three oval access ports
+open into the cavity. The curved end blocks close it and four narrow spruce
+inlays follow its length. Inspection view 17 faces the back.
+
+Each rosewood marimba bar has a graduated underside arch and two drilled
+suspension bores. Its brass resonator opens below the bar and closes at a
+stopper. The temple blocks have a hollow chamber and side kerfs that free the
+striking tongue. On the bell bench, the glass skirts decrease in diameter
+with pitch. A felt seat and crown hardware hold each bell by its central
+post, leaving a glass shoulder under the hammer.
+
+The sympathetic cabinet has a recessed sound opening with paired wires on
+two spruce pinblocks behind the grille. Inspection view 18 looks through
+the bars to the bridge pins. The exported bodies and their openings can be
+checked directly with `python3 tools/test_acoustic_bodies.py`.
+
 ## The bar frame
 
 A free-free bar's fundamental mode has its nodes 22.4 % in from each end

@@ -4,7 +4,10 @@ extends RefCounted
 const SURFACE = preload("res://shaders/craft_surface.gdshader")
 const GLASS = preload("res://shaders/smoked_glass.gdshader")
 const SKY_SHADER = preload("res://shaders/studio_sky.gdshader")
+const STONE = preload("res://shaders/alabaster.gdshader")
+const HALL = preload("res://shaders/recital_hall.gdshader")
 var cache: Dictionary = {}
+var _sweep_materials: Dictionary = {}
 var grain: Texture2D
 var wood_normal: Texture2D
 var wood_depth: Texture2D
@@ -54,7 +57,22 @@ func surface(kind: int, dark: String, light: String, rough: float, axis := 0, va
 	cache[key] = m
 	return m
 
-func apply(model: Node3D) -> void:
+var boards: Dictionary = {}
+
+func timber(name: String, dark: String, light: String, rings: float, oil: float, vessel: float) -> ShaderMaterial:
+	if boards.has(name): return boards[name]
+	var m := ShaderMaterial.new()
+	m.shader = preload("res://shaders/timber.gdshader")
+	m.set_shader_parameter("workshop",preload("res://assets/textures/board_surface.png"))
+	m.set_shader_parameter("heartwood",Color(dark))
+	m.set_shader_parameter("sapwood",Color(light))
+	m.set_shader_parameter("ring_pitch",rings)
+	m.set_shader_parameter("oil",oil)
+	m.set_shader_parameter("vessel",vessel)
+	boards[name] = m
+	return m
+
+func apply(model: Node3D, elements: Dictionary = {}) -> void:
 	grain = load("res://assets/textures/walnut_data.png")
 	wood_normal = load("res://assets/textures/wood_normal.png")
 	wood_depth = load("res://assets/textures/wood_depth.png")
@@ -62,7 +80,13 @@ func apply(model: Node3D) -> void:
 	metal_normal = load("res://assets/textures/metal_normal.png")
 	metal_depth = load("res://assets/textures/metal_depth.png")
 	fibre = load("res://assets/textures/felt_data.png")
-	var glass := ShaderMaterial.new(); glass.shader = GLASS; glass.set_shader_parameter("tint", Color("709f88"))
+	var stone := ShaderMaterial.new()
+	stone.shader = STONE
+	stone.set_shader_parameter("mineral_map", metal)
+	var glass := ShaderMaterial.new()
+	glass.shader = GLASS
+	glass.set_shader_parameter("tint", Color("68a48b"))
+	glass.set_shader_parameter("cords",preload("res://assets/textures/glass_cords.png"))
 	lamp_material = StandardMaterial3D.new()
 	lamp_material.albedo_color = Color("d0aa65"); lamp_material.roughness = .22
 	lamp_material.emission_enabled = true; lamp_material.emission = Color("f4ae51")
@@ -76,28 +100,17 @@ func apply(model: Node3D) -> void:
 			var label := String(mesh_node.name).to_lower()
 			var variant := int(String(mesh_node.name).hash() % 7)
 			var replacement: Material
-			if title.contains("walnut") or title.contains("rosewood"):
-				var axis := 0
-				if label.contains("leg") or label.contains("bridge"): axis = 1
-				# Lacquered grooved walnut for carved stands and benches
-				replacement = surface(0, "28150d", "68472b", .36, axis, variant, {
-					"normal_strength": .85, "depth_scale": .012, "clearcoat": .88,
-					"clearcoat_roughness": .07, "groove_depth": .92})
-				# Rivendell carved pale white/alabaster stone for harp and rake frames, twisting branch tracery, and plinth bases
-				if label.begins_with("form_harp") or label.begins_with("harp ") or label.begins_with("form_rake") or label.begins_with("rake "):
-					replacement = surface(0, "867d6e", "dfd7c8", .38, axis, variant, {
-						"normal_strength": .92, "depth_scale": .014, "clearcoat": .42,
-						"clearcoat_roughness": .18, "groove_depth": .96})
-				# High-gloss lacquered rosewood for tuned bars and temple blocks
-				if title.contains("rosewood"):
-					replacement = surface(0, "2b100b", "7b452a", .30, 2, variant, {
-						"normal_strength": .72, "depth_scale": .009, "clearcoat": .94,
-						"clearcoat_roughness": .05, "groove_depth": .68})
+			if title.contains("rosewood"):
+				replacement = timber(title,"38160f","a96b41",.0046,.85,1.)
+			elif title.contains("walnut"):
+				if not label.contains("soundbox") and (label.begins_with("form_harp") or label.begins_with("harp ") or label.begins_with("form_rake") or label.begins_with("rake ")):
+					replacement = stone
+				else:
+					replacement = timber(title,"362018","a58255",.0054,.70,.82)
+			elif title=="spruce interior":
+				replacement = timber(title,"4a3323","ad8a5c",.0028,.03,.30)
 			elif title.contains("spruce"):
-				# Satin-varnished fine-reeded soundboard spruce
-				replacement = surface(0, "957344", "dcc396", .40, 0, variant, {
-					"normal_strength": .60, "depth_scale": .007, "clearcoat": .58,
-					"clearcoat_roughness": .14, "groove_depth": .50})
+				replacement = timber(title,"977349","e4cda0",.0031,.55,.20)
 			elif title.contains("bronze"):   # a bearing metal: pinker, finely turned phosphor bronze
 				replacement = surface(1, "6b452a", "b08a5c", .33, 0, variant, {
 					"normal_strength": .58, "depth_scale": .0045, "anisotropy": .76})
@@ -119,9 +132,25 @@ func apply(model: Node3D) -> void:
 				replacement = surface(4, "121b1e", "2c393b", .39)
 			else:
 				push_warning("No craft finish for imported material " + title); continue
-			if label.begins_with("form_") and replacement is ShaderMaterial:
-				replacement = replacement.duplicate()
-				replacement.set_shader_parameter("use_sweep_uv", true)
+			if label.begins_with("form_") and replacement is ShaderMaterial and replacement.shader == SURFACE:
+				if not _sweep_materials.has(replacement):
+					var swept: ShaderMaterial = replacement.duplicate()
+					swept.set_shader_parameter("use_sweep_uv", true)
+					_sweep_materials[replacement] = swept
+				replacement = _sweep_materials[replacement]
+			if label=="chamber cabinet" and title.contains("walnut"):
+				var casework: ShaderMaterial = replacement.duplicate()
+				casework.set_shader_parameter("case_lid",true)
+				replacement=casework
+			var sid := label.get_slice(" ",0)
+			if elements.has(sid) and (label==sid+" bar" or label==sid+" bell"):
+				var marked: ShaderMaterial = replacement.duplicate()
+				var box := mesh_node.mesh.get_aabb()
+				marked.set_shader_parameter("centre",box.get_center())
+				marked.set_shader_parameter("span",box.size)
+				marked.set_shader_parameter("pitch",float(elements[sid]["midi"]))
+				marked.set_shader_parameter("punches",preload("res://assets/textures/pitch_stamps.png"))
+				replacement = marked
 			mesh_node.set_surface_override_material(index, replacement)
 			counts[title] = int(counts.get(title, 0)) + 1
 	print("CRAFT MATERIALS: ", counts, "; ", cache.size(), " shared variants")
@@ -141,40 +170,67 @@ func light_rig(parent: Node3D) -> void:
 	env.ssao_enabled = true; env.ssao_radius = .28; env.ssao_intensity = 1.4; env.ssao_detail = .5
 	parent.add_child(world)
 	var key := DirectionalLight3D.new(); key.name = "Warm large key"
-	key.rotation_degrees = Vector3(-48, -32, 0); key.light_color = Color("fff0d8"); key.light_energy = 1.3
+	key.rotation_degrees = Vector3(-52, -48, 0); key.light_color = Color("ffecd3"); key.light_energy = 1.3
 	key.light_angular_distance = 1.5; key.shadow_enabled = true; key.shadow_bias = .035; key.shadow_normal_bias = .8
 	key.shadow_blur = 2.0; key.shadow_opacity = .88; key.directional_shadow_blend_splits = true
 	key.directional_shadow_max_distance = 32; parent.add_child(key); key_light = key
 	var fill := OmniLight3D.new(); fill.name = "Cool soft fill"; fill.position = Vector3(-5, 4, 5)
-	fill.omni_range = 18; fill.light_color = Color("afcde8"); fill.light_energy = 1.2; parent.add_child(fill); fill_light = fill
+	fill.omni_range = 18; fill.light_color = Color("99cce4"); fill.light_energy = 1.2; parent.add_child(fill); fill_light = fill
 	var rim := OmniLight3D.new(); rim.name = "Amber rim"; rim.position = Vector3(2, 5, -4)
-	rim.omni_range = 15; rim.light_color = Color("ffd7a0"); rim.light_energy = 2.0; parent.add_child(rim); rim_light = rim
-	var floor := MeshInstance3D.new(); floor.name = "Studio floor"
-	floor.mesh = cyclorama()
-	floor.position.y = -.565; floor.material_override = surface(5, "0b1216", "151f24", .9)
-	parent.add_child(floor)
+	rim.omni_range = 15; rim.light_color = Color("ffc080"); rim.light_energy = 2.0; parent.add_child(rim); rim_light = rim
+	var hall := MeshInstance3D.new()
+	hall.name = "Recital hall"
+	hall.mesh = cyclorama()
+	hall.position.y = -.565
+	hall.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var lining := ShaderMaterial.new()
+	lining.shader = HALL
+	lining.set_shader_parameter("stone_map", metal)
+	hall.material_override = lining
+	parent.add_child(hall)
 	parent.get_viewport().msaa_3d = Viewport.MSAA_4X
 
 func breathe(value: float) -> void:
 	if lamp_material != null: lamp_material.emission_energy_multiplier = .08 + minf(value * 2.0, .6)
 
 func cyclorama() -> ArrayMesh:
-	# A continuous floor-to-wall curve removes the distracting ground-plane horizon.
-	var rows: Array = [Vector3(0, 0, 60), Vector3(0, 0, -12)]
-	var normals: Array = [Vector3.UP, Vector3.UP]
-	for i in range(1, 25):
-		var angle := i * PI / 48.0
-		rows.append(Vector3(0, 7 * (1 - cos(angle)), -12 - 7 * sin(angle)))
-		normals.append(Vector3(0, cos(angle), sin(angle)))
-	rows.append(Vector3(0, 60, -19)); normals.append(Vector3.BACK)
-	var vertices := PackedVector3Array(); var ns := PackedVector3Array(); var indices := PackedInt32Array()
-	for i in rows.size():
-		vertices.append(rows[i] + Vector3(-60, 0, 0)); vertices.append(rows[i] + Vector3(60, 0, 0))
-		ns.append(normals[i]); ns.append(normals[i])
-		if i < rows.size() - 1:
-			var k := i * 2
-			indices.append_array(PackedInt32Array([k, k + 3, k + 1, k, k + 2, k + 3]))
-	var arrays: Array = []; arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = vertices; arrays[Mesh.ARRAY_NORMAL] = ns; arrays[Mesh.ARRAY_INDEX] = indices
-	var mesh := ArrayMesh.new(); mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	# Revolve the floor and cove as a single interior surface so the reverse
+	# camera angles see the same hall and the stage can cast real shadows.
+	const SIDES := 132
+	const BAYS := 22
+	var profile := PackedVector2Array([Vector2(17.25, 0)])
+	var angles := PackedFloat32Array([0.0])
+	for i in range(1, 17):
+		var a := PI*.5*i/16.0
+		profile.append(Vector2(17.25+.75*sin(a), .75*(1.0-cos(a))))
+		angles.append(a)
+	profile.append(Vector2(18, 30))
+	angles.append(PI*.5)
+	var points := PackedVector3Array([Vector3.ZERO])
+	var normals := PackedVector3Array([Vector3.UP])
+	var uv := PackedVector2Array([Vector2.ZERO])
+	var indices := PackedInt32Array()
+	for row in profile.size():
+		var start := points.size()
+		for i in SIDES+1:
+			var u := float(i)/SIDES
+			var radial := Vector3(sin(TAU*u), 0, cos(TAU*u))
+			points.append(radial*profile[row].x + Vector3.UP*profile[row].y)
+			normals.append(Vector3.UP*cos(angles[row])-radial*sin(angles[row]))
+			uv.append(Vector2(u*BAYS, profile[row].y))
+			if i == SIDES: continue
+			var a := start+i
+			if row == 0:
+				indices.append_array([0, a+1, a])
+			else:
+				var b := a-SIDES-1
+				indices.append_array([b,b+1,a, b+1,a+1,a])
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = points
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uv
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return mesh

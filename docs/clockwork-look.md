@@ -7,14 +7,19 @@ Godot by `harness/clockwork_look.gd` and `harness/shaders/`.
 
 ## Surfaces
 
-- **Lacquered grooved walnut and rosewood:** directional grain, carved longitudinal
-  flutes/grooves, end-grain concentric rings, subsurface chatoyancy, deep vessel
-  pore relief, and a dual-layer glossy clearcoat/lacquer response. View rays
-  refract through the clear lacquer coat ($n \approx 1.49$) via Parallax Occlusion
-  Mapping (POM) onto the normal-mapped grooved wood substrate below, with
-  Beer–Lambert warm amber absorption in the deeper grooves and pores while a
-  smooth top clearcoat lobe reflects studio panels above. Long boards, upright
-  members and sounding bars use different grain axes and clearcoat gloss levels.
+- **Walnut, rosewood and spruce.** Each sawn member has its own metre-scale
+  grain frame. The same growth rings bend past knots on the face and turn
+  across the end grain. Open vessels, shallow dents and scraper tracks carry
+  relief. The raised edges polish where hands rub them. The felt polishes the
+  centre of a sounding bar and leaves its die-stamped pitch legible near the end.
+- **Casework.** Seven back planks fit between the cabinet cheeks. A drying
+  split in the lid runs under two inset rosewood butterfly keys. The repaired
+  area has been re-oiled and the front lip is worn from lifting. The front
+  rails show their tenon ends and the marimba bearer has drawbore pegs.
+- **Carved alabaster.** The pale harp and rake frames share a stone material.
+  Soft calcite bands and narrow honey-colored seams run through the cross
+  sections of the carvings. The shader samples the low-frequency patina
+  channel at two scales to break up the deposits.
 - **Brushed brass and phosphor bronze:** a muted champagne brass base (and warmer,
   pinker phosphor bronze for bearings and plummer blocks), light recessed patina,
   multi-scale directional brushed micro-grooves with parallax depth, tangent-space
@@ -24,28 +29,30 @@ Godot by `harness/clockwork_look.gd` and `harness/shaders/`.
   honed striations distinguish rails, leadscrews, joints and picks from the brass
   links and carriages.
 - **Felt:** warm ivory fiber detail with high roughness and soft edge scattering.
-- **Glass bells:** tinted transparency and stronger reflections at grazing
-  angles, with a depth prepass. This is a lightweight glass approximation;
-  it does not simulate refraction or caustics.
+- **Glass bells:** each skirt has a slightly oval section, wheel-cut flutes and a
+  dressed lip. A periodic height field carries winding glass cords and seed
+  bubbles through the highlights. The pitch stamp is frosted into the front
+  wall. A slender turned arbor rises from a screwed flange to a lock ring and
+  a felt-isolated crown.
 - **Stage:** charcoal enamel with subtle surface texture. The chamber indicator
   changes warm emission with the stem envelope instead of expanding.
 
-The shared surface shader samples object coordinates (or authored sweep UVs on
+The metal, horn and felt surface shader samples object coordinates (or authored sweep UVs on
 profiled `form_*` frames), builds an orthonormal view-space tangent basis
 aligned with the grain/brush axis, and combines Parallax Occlusion Mapping
 with pre-baked tangent-space normal maps and surface-gradient micro-relief so
 textures remain attached to moving links without displacing mesh geometry or
-altering tool clearances. All tool positions, mesh dimensions and score timing
-remain unchanged.
+altering tool clearances.
 
 ## Texture sources
 
-Seven original 1024 × 1024 tileable PNGs are generated deterministically from
-seeded numerical noise and periodic central-difference height fields. There are
-no downloaded assets or external texture licenses.
+The timber shader reads longitudinal and cross-section distances from UV0 and UV2. Vertex colors locate each point within the board for edge wear. The finish map covers 32 cm at its native scale. The glass map
+packs two surface slopes, wall relief and seed-bubble coverage into RGBA.
+The grayscale stamp atlas contains one impression for each MIDI pitch.
 
 | File in `harness/assets/textures/` | R | G | B |
 | --- | --- | --- | --- |
+| `board_surface.png` | open vessels | dents and scraper marks | oil variation (alpha carries fine fibers) |
 | `walnut_data.png` | grain | pores | roughness variation |
 | `wood_normal.png` | tangent normal $n_x$ | bitangent normal $n_y$ | surface normal $n_z$ |
 | `wood_depth.png` | composite groove + pore height | flute & chatoyancy wave | groove/pore cavity AO |
@@ -64,6 +71,7 @@ Rebuild with:
 
 ```sh
 python3 tools/build_surface_textures.py
+python3 tools/build_workshop_textures.py
 godot --headless --path harness --editor --import --quit
 ```
 
@@ -71,8 +79,11 @@ godot --headless --path harness --editor --import --quit
 
 A warm key, cool fill and amber rim separate the structures. A procedural sky
 supplies broad studio-panel reflections without placing bright panels in the
-camera view. A continuous curved backdrop catches the stage shadow without a
-hard horizon. Moderate ambient occlusion, filtered shadows, filmic tonemapping,
+camera view. A circular recital hall surrounds the stage. A continuous slate floor and
+coved wall receive its shadows from every camera angle. Paired brass rings
+surround the dais. Fluted arched bays and hooded amber sconces repeat around
+the perimeter. The hall uses one mesh and one material. The sconces' glow and
+wall wash are shaded into the bays. Moderate ambient occlusion, filtered shadows, filmic tonemapping,
 light fog and 4× MSAA complete the scene on the existing GL Compatibility
 renderer. The sky is static: no time-driven texture or lighting changes can
 interfere with deterministic score capture.

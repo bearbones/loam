@@ -1049,6 +1049,10 @@ class Rig:
             return felt+wo
         gate = quintic((t-home_end)/.25)
         sigma = self.flip_sign(aid); c_y = .38; c_z = .72
+        # The two-stick wrist lifts with the felt throughout the rebound. A
+        # lagging wrist used to sweep its spindle through the raised stick.
+        # Retain a small weight transfer to the wrist crank during the blow.
+        follow = .94 if cfg.get('hands', 0) >= 2 and kind == 'mallet' else 0.
         yc = float(st.yc.ev(t)); zc = float(st.zc.ev(t))
         rec = self.recoil(aid, t)
         for n in st.notes:
@@ -1059,9 +1063,11 @@ class Rig:
                 kc = 0.0 if self.hammer(aid) else .55
                 w_pd = _v([felt[0], yc+wo[1]+c_y*h_a*f_sh+rec[1],
                            zc+wo[2]+sigma*c_z*h_a*f_el+kc*sigma*c_y*h_a*(f_sh-f_el)+rec[2]])
+                w_pd[1] += follow*(felt[1]+wo[1]+.052-w_pd[1])
                 return (1.0-gate)*(felt+wo)+gate*w_pd
         h = max(0.0, float(st.h(t)))
         w_pd = _v([felt[0], yc+wo[1]+c_y*h+rec[1], zc+wo[2]+sigma*c_z*h+rec[2]])
+        w_pd[1] += follow*(felt[1]+wo[1]+.052-w_pd[1])
         return (1.0-gate)*(felt+wo)+gate*w_pd
 
     def pose(self, aid, t):
