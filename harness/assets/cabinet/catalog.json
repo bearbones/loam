@@ -1,0 +1,2713 @@
+[
+  {
+    "id": "oud",
+    "title": "Mothwing Oud",
+    "family": "Short-necked lute",
+    "history": "A moth rosette guards the spruce face. A new dark rib interrupts the old bowl.",
+    "pitches": [
+      48,
+      50,
+      51,
+      55,
+      57,
+      58,
+      60,
+      62
+    ],
+    "bpm": 101,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.264356,
+        "velocity": 0.89
+      },
+      {
+        "t": 0.84703,
+        "lane": 3,
+        "duration": 0.264356,
+        "velocity": 0.7683
+      },
+      {
+        "t": 1.144059,
+        "lane": 4,
+        "duration": 0.396535,
+        "velocity": 0.6868
+      },
+      {
+        "t": 1.589604,
+        "lane": 3,
+        "duration": 0.132178,
+        "velocity": 0.7552
+      },
+      {
+        "t": 1.738119,
+        "lane": 2,
+        "duration": 0.264356,
+        "velocity": 0.9151
+      },
+      {
+        "t": 2.035149,
+        "lane": 1,
+        "duration": 0.264356,
+        "velocity": 0.733
+      },
+      {
+        "t": 2.332178,
+        "lane": 0,
+        "duration": 0.528713,
+        "velocity": 0.7295
+      },
+      {
+        "t": 2.926238,
+        "lane": 3,
+        "duration": 0.264356,
+        "velocity": 0.7084
+      },
+      {
+        "t": 3.223267,
+        "lane": 5,
+        "duration": 0.264356,
+        "velocity": 0.9625
+      },
+      {
+        "t": 3.520297,
+        "lane": 7,
+        "duration": 0.264356,
+        "velocity": 0.6888
+      },
+      {
+        "t": 3.817327,
+        "lane": 6,
+        "duration": 0.264356,
+        "velocity": 0.7672
+      },
+      {
+        "t": 4.114356,
+        "lane": 4,
+        "duration": 0.396535,
+        "velocity": 0.6801
+      },
+      {
+        "t": 4.559901,
+        "lane": 3,
+        "duration": 0.132178,
+        "velocity": 0.9791
+      },
+      {
+        "t": 4.708416,
+        "lane": 1,
+        "duration": 0.264356,
+        "velocity": 0.685
+      },
+      {
+        "t": 5.005446,
+        "lane": 0,
+        "duration": 0.793069,
+        "velocity": 0.7577
+      }
+    ],
+    "duration": 7.4
+  },
+  {
+    "id": "nyckelharpa",
+    "title": "Courier’s Nyckelharpa",
+    "family": "Swedish keyed fiddle",
+    "history": "Waxed maple keys run under a split rail secured with two brass staples.",
+    "pitches": [
+      55,
+      57,
+      59,
+      60,
+      62,
+      64,
+      66,
+      67
+    ],
+    "bpm": 108,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.494444,
+        "velocity": 0.89
+      },
+      {
+        "t": 1.105556,
+        "lane": 2,
+        "duration": 0.247222,
+        "velocity": 0.7683
+      },
+      {
+        "t": 1.383333,
+        "lane": 3,
+        "duration": 0.247222,
+        "velocity": 0.6868
+      },
+      {
+        "t": 1.661111,
+        "lane": 4,
+        "duration": 0.494444,
+        "velocity": 0.7552
+      },
+      {
+        "t": 2.216667,
+        "lane": 2,
+        "duration": 0.247222,
+        "velocity": 0.9151
+      },
+      {
+        "t": 2.494444,
+        "lane": 1,
+        "duration": 0.247222,
+        "velocity": 0.733
+      },
+      {
+        "t": 2.772222,
+        "lane": 0,
+        "duration": 0.247222,
+        "velocity": 0.7295
+      },
+      {
+        "t": 3.05,
+        "lane": 2,
+        "duration": 0.247222,
+        "velocity": 0.7084
+      },
+      {
+        "t": 3.327778,
+        "lane": 4,
+        "duration": 0.247222,
+        "velocity": 0.9625
+      },
+      {
+        "t": 3.605556,
+        "lane": 6,
+        "duration": 0.247222,
+        "velocity": 0.6888
+      },
+      {
+        "t": 3.883333,
+        "lane": 7,
+        "duration": 0.494444,
+        "velocity": 0.7672
+      },
+      {
+        "t": 4.438889,
+        "lane": 4,
+        "duration": 0.494444,
+        "velocity": 0.6801
+      },
+      {
+        "t": 4.994444,
+        "lane": 2,
+        "duration": 0.247222,
+        "velocity": 0.9791
+      },
+      {
+        "t": 5.272222,
+        "lane": 0,
+        "duration": 0.741667,
+        "velocity": 0.685
+      }
+    ],
+    "duration": 7.6
+  },
+  {
+    "id": "koto",
+    "title": "Rain-Chart Koto",
+    "family": "Japanese bridged zither",
+    "history": "Thirteen ivory-coloured bridges cast long shadows across a rain-marked board.",
+    "pitches": [
+      50,
+      51,
+      55,
+      57,
+      58,
+      62,
+      63,
+      67,
+      69,
+      70,
+      74,
+      75,
+      79
+    ],
+    "bpm": 92,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.580435,
+        "velocity": 0.89
+      },
+      {
+        "t": 0.55,
+        "lane": 4,
+        "duration": 0.580435,
+        "velocity": 0.89
+      },
+      {
+        "t": 1.202174,
+        "lane": 2,
+        "duration": 0.290217,
+        "velocity": 0.7683
+      },
+      {
+        "t": 1.528261,
+        "lane": 4,
+        "duration": 0.290217,
+        "velocity": 0.6868
+      },
+      {
+        "t": 1.854348,
+        "lane": 5,
+        "duration": 0.580435,
+        "velocity": 0.7552
+      },
+      {
+        "t": 2.506522,
+        "lane": 7,
+        "duration": 0.290217,
+        "velocity": 0.9151
+      },
+      {
+        "t": 2.832609,
+        "lane": 9,
+        "duration": 0.290217,
+        "velocity": 0.733
+      },
+      {
+        "t": 3.158696,
+        "lane": 12,
+        "duration": 0.290217,
+        "velocity": 0.7295
+      },
+      {
+        "t": 3.484783,
+        "lane": 10,
+        "duration": 0.290217,
+        "velocity": 0.7084
+      },
+      {
+        "t": 3.81087,
+        "lane": 8,
+        "duration": 0.580435,
+        "velocity": 0.9625
+      },
+      {
+        "t": 4.463043,
+        "lane": 6,
+        "duration": 0.290217,
+        "velocity": 0.6888
+      },
+      {
+        "t": 4.78913,
+        "lane": 5,
+        "duration": 0.290217,
+        "velocity": 0.7672
+      },
+      {
+        "t": 5.115217,
+        "lane": 2,
+        "duration": 0.580435,
+        "velocity": 0.6801
+      },
+      {
+        "t": 5.115217,
+        "lane": 7,
+        "duration": 0.580435,
+        "velocity": 0.6801
+      },
+      {
+        "t": 5.767391,
+        "lane": 0,
+        "duration": 0.870652,
+        "velocity": 0.9791
+      }
+    ],
+    "duration": 8.233333333333333
+  },
+  {
+    "id": "kora",
+    "title": "Ferryman’s Kora",
+    "family": "West African bridge harp",
+    "history": "The hide carries two lines of old tacks beside the ferryman’s brass tally rings.",
+    "pitches": [
+      48,
+      50,
+      52,
+      55,
+      57,
+      60,
+      62,
+      64
+    ],
+    "bpm": 115,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.232174,
+        "velocity": 0.89
+      },
+      {
+        "t": 0.55,
+        "lane": 4,
+        "duration": 0.232174,
+        "velocity": 0.89
+      },
+      {
+        "t": 0.81087,
+        "lane": 2,
+        "duration": 0.232174,
+        "velocity": 0.7683
+      },
+      {
+        "t": 1.071739,
+        "lane": 5,
+        "duration": 0.232174,
+        "velocity": 0.6868
+      },
+      {
+        "t": 1.332609,
+        "lane": 1,
+        "duration": 0.232174,
+        "velocity": 0.7552
+      },
+      {
+        "t": 1.593478,
+        "lane": 3,
+        "duration": 0.232174,
+        "velocity": 0.9151
+      },
+      {
+        "t": 1.593478,
+        "lane": 6,
+        "duration": 0.232174,
+        "velocity": 0.9151
+      },
+      {
+        "t": 1.854348,
+        "lane": 2,
+        "duration": 0.232174,
+        "velocity": 0.733
+      },
+      {
+        "t": 2.115217,
+        "lane": 7,
+        "duration": 0.232174,
+        "velocity": 0.7295
+      },
+      {
+        "t": 2.376087,
+        "lane": 4,
+        "duration": 0.232174,
+        "velocity": 0.7084
+      },
+      {
+        "t": 2.636957,
+        "lane": 0,
+        "duration": 0.232174,
+        "velocity": 0.9625
+      },
+      {
+        "t": 2.636957,
+        "lane": 5,
+        "duration": 0.232174,
+        "velocity": 0.9625
+      },
+      {
+        "t": 2.897826,
+        "lane": 3,
+        "duration": 0.232174,
+        "velocity": 0.6888
+      },
+      {
+        "t": 3.158696,
+        "lane": 6,
+        "duration": 0.232174,
+        "velocity": 0.7672
+      },
+      {
+        "t": 3.419565,
+        "lane": 1,
+        "duration": 0.232174,
+        "velocity": 0.6801
+      },
+      {
+        "t": 3.680435,
+        "lane": 2,
+        "duration": 0.464348,
+        "velocity": 0.9791
+      },
+      {
+        "t": 3.680435,
+        "lane": 7,
+        "duration": 0.464348,
+        "velocity": 0.9791
+      },
+      {
+        "t": 4.202174,
+        "lane": 4,
+        "duration": 0.232174,
+        "velocity": 0.685
+      },
+      {
+        "t": 4.463043,
+        "lane": 0,
+        "duration": 0.696522,
+        "velocity": 0.7577
+      }
+    ],
+    "duration": 6.733333333333333
+  },
+  {
+    "id": "dulcimer",
+    "title": "Heather Mountain Dulcimer",
+    "family": "Appalachian fretted zither",
+    "history": "A copper swallow and two heart-shaped ports flank a polished melody rail.",
+    "pitches": [
+      50,
+      52,
+      54,
+      55,
+      57,
+      59,
+      60,
+      62
+    ],
+    "bpm": 104,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.513462,
+        "velocity": 0.89
+      },
+      {
+        "t": 1.126923,
+        "lane": 2,
+        "duration": 0.256731,
+        "velocity": 0.7683
+      },
+      {
+        "t": 1.415385,
+        "lane": 3,
+        "duration": 0.256731,
+        "velocity": 0.6868
+      },
+      {
+        "t": 1.703846,
+        "lane": 4,
+        "duration": 0.513462,
+        "velocity": 0.7552
+      },
+      {
+        "t": 2.280769,
+        "lane": 4,
+        "duration": 0.256731,
+        "velocity": 0.9151
+      },
+      {
+        "t": 2.569231,
+        "lane": 2,
+        "duration": 0.256731,
+        "velocity": 0.733
+      },
+      {
+        "t": 2.857692,
+        "lane": 3,
+        "duration": 0.385096,
+        "velocity": 0.7295
+      },
+      {
+        "t": 3.290385,
+        "lane": 2,
+        "duration": 0.128365,
+        "velocity": 0.7084
+      },
+      {
+        "t": 3.434615,
+        "lane": 1,
+        "duration": 0.256731,
+        "velocity": 0.9625
+      },
+      {
+        "t": 3.723077,
+        "lane": 0,
+        "duration": 0.256731,
+        "velocity": 0.6888
+      },
+      {
+        "t": 4.011538,
+        "lane": 4,
+        "duration": 0.256731,
+        "velocity": 0.7672
+      },
+      {
+        "t": 4.3,
+        "lane": 6,
+        "duration": 0.256731,
+        "velocity": 0.6801
+      },
+      {
+        "t": 4.588462,
+        "lane": 7,
+        "duration": 0.513462,
+        "velocity": 0.9791
+      },
+      {
+        "t": 5.165385,
+        "lane": 0,
+        "duration": 0.513462,
+        "velocity": 0.685
+      }
+    ],
+    "duration": 7.233333333333333
+  },
+  {
+    "id": "shakuhachi",
+    "title": "Root Lantern",
+    "family": "Japanese end-blown flute",
+    "history": "A split above the root end has been lashed shut beneath a small moon charm.",
+    "pitches": [
+      62,
+      65,
+      67,
+      69,
+      72,
+      74
+    ],
+    "bpm": 76,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 1.053947,
+        "velocity": 0.89
+      },
+      {
+        "t": 2.128947,
+        "lane": 1,
+        "duration": 0.351316,
+        "velocity": 0.6868
+      },
+      {
+        "t": 2.523684,
+        "lane": 2,
+        "duration": 1.053947,
+        "velocity": 0.7552
+      },
+      {
+        "t": 3.707895,
+        "lane": 3,
+        "duration": 0.702632,
+        "velocity": 0.9151
+      },
+      {
+        "t": 4.497368,
+        "lane": 2,
+        "duration": 0.351316,
+        "velocity": 0.733
+      },
+      {
+        "t": 4.892105,
+        "lane": 1,
+        "duration": 0.351316,
+        "velocity": 0.7295
+      },
+      {
+        "t": 5.681579,
+        "lane": 4,
+        "duration": 0.702632,
+        "velocity": 0.9625
+      },
+      {
+        "t": 6.471053,
+        "lane": 3,
+        "duration": 0.351316,
+        "velocity": 0.6888
+      },
+      {
+        "t": 6.865789,
+        "lane": 0,
+        "duration": 1.053947,
+        "velocity": 0.7672
+      }
+    ],
+    "duration": 9.533333333333333
+  },
+  {
+    "id": "siku",
+    "title": "Cloud Stair Siku",
+    "family": "Andean paired panpipes",
+    "history": "Woven red bindings hold mismatched replacement cane in two answering ranks.",
+    "pitches": [
+      60,
+      62,
+      64,
+      65,
+      67,
+      69,
+      71,
+      72
+    ],
+    "bpm": 118,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.226271,
+        "velocity": 0.89
+      },
+      {
+        "t": 0.804237,
+        "lane": 1,
+        "duration": 0.226271,
+        "velocity": 0.7683
+      },
+      {
+        "t": 1.058475,
+        "lane": 2,
+        "duration": 0.226271,
+        "velocity": 0.6868
+      },
+      {
+        "t": 1.312712,
+        "lane": 3,
+        "duration": 0.226271,
+        "velocity": 0.7552
+      },
+      {
+        "t": 1.566949,
+        "lane": 4,
+        "duration": 0.339407,
+        "velocity": 0.9151
+      },
+      {
+        "t": 1.948305,
+        "lane": 5,
+        "duration": 0.113136,
+        "velocity": 0.733
+      },
+      {
+        "t": 2.075424,
+        "lane": 6,
+        "duration": 0.226271,
+        "velocity": 0.7295
+      },
+      {
+        "t": 2.329661,
+        "lane": 7,
+        "duration": 0.226271,
+        "velocity": 0.7084
+      },
+      {
+        "t": 2.583898,
+        "lane": 5,
+        "duration": 0.226271,
+        "velocity": 0.9625
+      },
+      {
+        "t": 2.838136,
+        "lane": 6,
+        "duration": 0.226271,
+        "velocity": 0.6888
+      },
+      {
+        "t": 3.092373,
+        "lane": 4,
+        "duration": 0.226271,
+        "velocity": 0.7672
+      },
+      {
+        "t": 3.34661,
+        "lane": 3,
+        "duration": 0.226271,
+        "velocity": 0.6801
+      },
+      {
+        "t": 3.600847,
+        "lane": 2,
+        "duration": 0.452542,
+        "velocity": 0.9791
+      },
+      {
+        "t": 4.109322,
+        "lane": 1,
+        "duration": 0.226271,
+        "velocity": 0.685
+      },
+      {
+        "t": 4.363559,
+        "lane": 0,
+        "duration": 0.678814,
+        "velocity": 0.7577
+      }
+    ],
+    "duration": 6.633333333333334
+  },
+  {
+    "id": "sheng",
+    "title": "Reed Citadel",
+    "family": "Chinese free-reed mouth organ",
+    "history": "A dark windchest carries a little skyline of reed towers and gilt pipe shoes.",
+    "pitches": [
+      55,
+      58,
+      60,
+      62,
+      65,
+      67,
+      70,
+      72
+    ],
+    "bpm": 88,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.606818,
+        "velocity": 0.89
+      },
+      {
+        "t": 0.55,
+        "lane": 3,
+        "duration": 0.606818,
+        "velocity": 0.89
+      },
+      {
+        "t": 1.231818,
+        "lane": 1,
+        "duration": 0.606818,
+        "velocity": 0.7683
+      },
+      {
+        "t": 1.231818,
+        "lane": 4,
+        "duration": 0.606818,
+        "velocity": 0.7683
+      },
+      {
+        "t": 1.913636,
+        "lane": 2,
+        "duration": 0.910227,
+        "velocity": 0.6868
+      },
+      {
+        "t": 1.913636,
+        "lane": 5,
+        "duration": 0.910227,
+        "velocity": 0.6868
+      },
+      {
+        "t": 2.936364,
+        "lane": 3,
+        "duration": 0.303409,
+        "velocity": 0.7552
+      },
+      {
+        "t": 3.277273,
+        "lane": 3,
+        "duration": 0.606818,
+        "velocity": 0.9151
+      },
+      {
+        "t": 3.277273,
+        "lane": 6,
+        "duration": 0.606818,
+        "velocity": 0.9151
+      },
+      {
+        "t": 3.959091,
+        "lane": 4,
+        "duration": 0.606818,
+        "velocity": 0.733
+      },
+      {
+        "t": 3.959091,
+        "lane": 7,
+        "duration": 0.606818,
+        "velocity": 0.733
+      },
+      {
+        "t": 4.640909,
+        "lane": 2,
+        "duration": 0.606818,
+        "velocity": 0.7295
+      },
+      {
+        "t": 4.640909,
+        "lane": 5,
+        "duration": 0.606818,
+        "velocity": 0.7295
+      },
+      {
+        "t": 5.322727,
+        "lane": 0,
+        "duration": 0.910227,
+        "velocity": 0.7084
+      },
+      {
+        "t": 5.322727,
+        "lane": 3,
+        "duration": 0.910227,
+        "velocity": 0.7084
+      }
+    ],
+    "duration": 7.833333333333333
+  },
+  {
+    "id": "uilleann",
+    "title": "Night-Watch Pipes",
+    "family": "Irish bellows-blown pipes",
+    "history": "The oxblood bag has a stitched patch. Three collared drones share its stock.",
+    "pitches": [
+      62,
+      64,
+      66,
+      67,
+      69,
+      71,
+      73,
+      74
+    ],
+    "bpm": 116,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.345259,
+        "velocity": 0.89
+      },
+      {
+        "t": 0.937931,
+        "lane": 1,
+        "duration": 0.115086,
+        "velocity": 0.7683
+      },
+      {
+        "t": 1.067241,
+        "lane": 2,
+        "duration": 0.230172,
+        "velocity": 0.6868
+      },
+      {
+        "t": 1.325862,
+        "lane": 4,
+        "duration": 0.230172,
+        "velocity": 0.7552
+      },
+      {
+        "t": 1.584483,
+        "lane": 3,
+        "duration": 0.230172,
+        "velocity": 0.9151
+      },
+      {
+        "t": 1.843103,
+        "lane": 2,
+        "duration": 0.230172,
+        "velocity": 0.733
+      },
+      {
+        "t": 2.101724,
+        "lane": 1,
+        "duration": 0.230172,
+        "velocity": 0.7295
+      },
+      {
+        "t": 2.360345,
+        "lane": 0,
+        "duration": 0.230172,
+        "velocity": 0.7084
+      },
+      {
+        "t": 2.618966,
+        "lane": 4,
+        "duration": 0.345259,
+        "velocity": 0.9625
+      },
+      {
+        "t": 3.006897,
+        "lane": 5,
+        "duration": 0.115086,
+        "velocity": 0.6888
+      },
+      {
+        "t": 3.136207,
+        "lane": 6,
+        "duration": 0.230172,
+        "velocity": 0.7672
+      },
+      {
+        "t": 3.394828,
+        "lane": 7,
+        "duration": 0.230172,
+        "velocity": 0.6801
+      },
+      {
+        "t": 3.653448,
+        "lane": 4,
+        "duration": 0.460345,
+        "velocity": 0.9791
+      },
+      {
+        "t": 4.17069,
+        "lane": 2,
+        "duration": 0.230172,
+        "velocity": 0.685
+      },
+      {
+        "t": 4.42931,
+        "lane": 0,
+        "duration": 0.690517,
+        "velocity": 0.7577
+      }
+    ],
+    "duration": 6.7
+  },
+  {
+    "id": "serpent",
+    "title": "Vesper Serpent",
+    "family": "European bass wind",
+    "history": "Copper splints follow the leathered bends. The bell bears a repaired lip.",
+    "pitches": [
+      38,
+      41,
+      43,
+      45,
+      46,
+      48,
+      50
+    ],
+    "bpm": 82,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.976829,
+        "velocity": 0.89
+      },
+      {
+        "t": 1.647561,
+        "lane": 2,
+        "duration": 0.32561,
+        "velocity": 0.7683
+      },
+      {
+        "t": 2.013415,
+        "lane": 3,
+        "duration": 0.65122,
+        "velocity": 0.6868
+      },
+      {
+        "t": 2.745122,
+        "lane": 1,
+        "duration": 0.65122,
+        "velocity": 0.7552
+      },
+      {
+        "t": 3.476829,
+        "lane": 4,
+        "duration": 0.32561,
+        "velocity": 0.9151
+      },
+      {
+        "t": 3.842683,
+        "lane": 3,
+        "duration": 0.32561,
+        "velocity": 0.733
+      },
+      {
+        "t": 4.208537,
+        "lane": 2,
+        "duration": 0.65122,
+        "velocity": 0.7295
+      },
+      {
+        "t": 4.940244,
+        "lane": 5,
+        "duration": 0.32561,
+        "velocity": 0.7084
+      },
+      {
+        "t": 5.306098,
+        "lane": 6,
+        "duration": 0.32561,
+        "velocity": 0.9625
+      },
+      {
+        "t": 5.671951,
+        "lane": 0,
+        "duration": 1.302439,
+        "velocity": 0.6888
+      }
+    ],
+    "duration": 8.633333333333333
+  },
+  {
+    "id": "balafon",
+    "title": "Orchard Balafon",
+    "family": "West African gourd-resonated keys",
+    "history": "Individually tied slats sit over wax-rimmed buzzing gourds.",
+    "pitches": [
+      53,
+      55,
+      57,
+      60,
+      62,
+      65,
+      67,
+      69
+    ],
+    "bpm": 122,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.218852,
+        "velocity": 0.89
+      },
+      {
+        "t": 0.795902,
+        "lane": 3,
+        "duration": 0.218852,
+        "velocity": 0.7683
+      },
+      {
+        "t": 1.041803,
+        "lane": 2,
+        "duration": 0.109426,
+        "velocity": 0.6868
+      },
+      {
+        "t": 1.164754,
+        "lane": 4,
+        "duration": 0.109426,
+        "velocity": 0.7552
+      },
+      {
+        "t": 1.287705,
+        "lane": 1,
+        "duration": 0.218852,
+        "velocity": 0.9151
+      },
+      {
+        "t": 1.533607,
+        "lane": 5,
+        "duration": 0.218852,
+        "velocity": 0.733
+      },
+      {
+        "t": 1.779508,
+        "lane": 2,
+        "duration": 0.218852,
+        "velocity": 0.7295
+      },
+      {
+        "t": 2.02541,
+        "lane": 6,
+        "duration": 0.218852,
+        "velocity": 0.7084
+      },
+      {
+        "t": 2.271311,
+        "lane": 3,
+        "duration": 0.218852,
+        "velocity": 0.9625
+      },
+      {
+        "t": 2.517213,
+        "lane": 0,
+        "duration": 0.218852,
+        "velocity": 0.6888
+      },
+      {
+        "t": 2.517213,
+        "lane": 4,
+        "duration": 0.218852,
+        "velocity": 0.6888
+      },
+      {
+        "t": 2.763115,
+        "lane": 7,
+        "duration": 0.218852,
+        "velocity": 0.7672
+      },
+      {
+        "t": 3.009016,
+        "lane": 5,
+        "duration": 0.109426,
+        "velocity": 0.6801
+      },
+      {
+        "t": 3.131967,
+        "lane": 4,
+        "duration": 0.109426,
+        "velocity": 0.9791
+      },
+      {
+        "t": 3.254918,
+        "lane": 2,
+        "duration": 0.218852,
+        "velocity": 0.685
+      },
+      {
+        "t": 3.50082,
+        "lane": 3,
+        "duration": 0.437705,
+        "velocity": 0.7577
+      },
+      {
+        "t": 3.50082,
+        "lane": 6,
+        "duration": 0.437705,
+        "velocity": 0.7577
+      },
+      {
+        "t": 3.992623,
+        "lane": 1,
+        "duration": 0.218852,
+        "velocity": 0.702
+      },
+      {
+        "t": 4.238525,
+        "lane": 0,
+        "duration": 0.656557,
+        "velocity": 0.9465
+      }
+    ],
+    "duration": 6.466666666666667
+  },
+  {
+    "id": "mbira",
+    "title": "Bottle-Star Mbira",
+    "family": "Southern African lamellophone",
+    "history": "Thumb-polished tongues share the board with a row of loose bottle-cap buzzers.",
+    "pitches": [
+      48,
+      55,
+      60,
+      62,
+      64,
+      67,
+      69,
+      72
+    ],
+    "bpm": 110,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.242727,
+        "velocity": 0.89
+      },
+      {
+        "t": 0.55,
+        "lane": 4,
+        "duration": 0.242727,
+        "velocity": 0.89
+      },
+      {
+        "t": 0.822727,
+        "lane": 2,
+        "duration": 0.242727,
+        "velocity": 0.7683
+      },
+      {
+        "t": 1.095455,
+        "lane": 5,
+        "duration": 0.242727,
+        "velocity": 0.6868
+      },
+      {
+        "t": 1.368182,
+        "lane": 1,
+        "duration": 0.242727,
+        "velocity": 0.7552
+      },
+      {
+        "t": 1.640909,
+        "lane": 3,
+        "duration": 0.242727,
+        "velocity": 0.9151
+      },
+      {
+        "t": 1.640909,
+        "lane": 6,
+        "duration": 0.242727,
+        "velocity": 0.9151
+      },
+      {
+        "t": 1.913636,
+        "lane": 2,
+        "duration": 0.242727,
+        "velocity": 0.733
+      },
+      {
+        "t": 2.186364,
+        "lane": 7,
+        "duration": 0.242727,
+        "velocity": 0.7295
+      },
+      {
+        "t": 2.459091,
+        "lane": 5,
+        "duration": 0.242727,
+        "velocity": 0.7084
+      },
+      {
+        "t": 2.731818,
+        "lane": 0,
+        "duration": 0.242727,
+        "velocity": 0.9625
+      },
+      {
+        "t": 2.731818,
+        "lane": 3,
+        "duration": 0.242727,
+        "velocity": 0.9625
+      },
+      {
+        "t": 3.004545,
+        "lane": 4,
+        "duration": 0.242727,
+        "velocity": 0.6888
+      },
+      {
+        "t": 3.277273,
+        "lane": 6,
+        "duration": 0.242727,
+        "velocity": 0.7672
+      },
+      {
+        "t": 3.55,
+        "lane": 2,
+        "duration": 0.242727,
+        "velocity": 0.6801
+      },
+      {
+        "t": 3.822727,
+        "lane": 1,
+        "duration": 0.485455,
+        "velocity": 0.9791
+      },
+      {
+        "t": 3.822727,
+        "lane": 5,
+        "duration": 0.485455,
+        "velocity": 0.9791
+      },
+      {
+        "t": 4.368182,
+        "lane": 0,
+        "duration": 0.485455,
+        "velocity": 0.685
+      },
+      {
+        "t": 4.368182,
+        "lane": 4,
+        "duration": 0.485455,
+        "velocity": 0.685
+      }
+    ],
+    "duration": 6.4
+  },
+  {
+    "id": "tabla",
+    "title": "Caravan Tabla",
+    "family": "North Indian drum pair",
+    "history": "Replacement tuning blocks sit under stretched straps. Each skin carries a dark loading patch.",
+    "pitches": [
+      38,
+      44,
+      55,
+      60,
+      62,
+      65
+    ],
+    "bpm": 112,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.238393,
+        "velocity": 0.89
+      },
+      {
+        "t": 0.817857,
+        "lane": 3,
+        "duration": 0.238393,
+        "velocity": 0.7683
+      },
+      {
+        "t": 1.085714,
+        "lane": 4,
+        "duration": 0.119196,
+        "velocity": 0.6868
+      },
+      {
+        "t": 1.219643,
+        "lane": 4,
+        "duration": 0.119196,
+        "velocity": 0.7552
+      },
+      {
+        "t": 1.353571,
+        "lane": 1,
+        "duration": 0.238393,
+        "velocity": 0.9151
+      },
+      {
+        "t": 1.621429,
+        "lane": 2,
+        "duration": 0.238393,
+        "velocity": 0.733
+      },
+      {
+        "t": 1.889286,
+        "lane": 5,
+        "duration": 0.238393,
+        "velocity": 0.7295
+      },
+      {
+        "t": 2.157143,
+        "lane": 0,
+        "duration": 0.238393,
+        "velocity": 0.7084
+      },
+      {
+        "t": 2.157143,
+        "lane": 3,
+        "duration": 0.238393,
+        "velocity": 0.7084
+      },
+      {
+        "t": 2.425,
+        "lane": 4,
+        "duration": 0.238393,
+        "velocity": 0.9625
+      },
+      {
+        "t": 2.692857,
+        "lane": 1,
+        "duration": 0.119196,
+        "velocity": 0.6888
+      },
+      {
+        "t": 2.826786,
+        "lane": 2,
+        "duration": 0.119196,
+        "velocity": 0.7672
+      },
+      {
+        "t": 2.960714,
+        "lane": 4,
+        "duration": 0.119196,
+        "velocity": 0.6801
+      },
+      {
+        "t": 3.094643,
+        "lane": 3,
+        "duration": 0.119196,
+        "velocity": 0.9791
+      },
+      {
+        "t": 3.228571,
+        "lane": 0,
+        "duration": 0.238393,
+        "velocity": 0.685
+      },
+      {
+        "t": 3.496429,
+        "lane": 5,
+        "duration": 0.238393,
+        "velocity": 0.7577
+      },
+      {
+        "t": 3.764286,
+        "lane": 3,
+        "duration": 0.119196,
+        "velocity": 0.702
+      },
+      {
+        "t": 3.898214,
+        "lane": 4,
+        "duration": 0.119196,
+        "velocity": 0.9465
+      },
+      {
+        "t": 4.032143,
+        "lane": 2,
+        "duration": 0.238393,
+        "velocity": 0.7259
+      },
+      {
+        "t": 4.3,
+        "lane": 0,
+        "duration": 0.476786,
+        "velocity": 0.7117
+      },
+      {
+        "t": 4.3,
+        "lane": 3,
+        "duration": 0.476786,
+        "velocity": 0.7117
+      }
+    ],
+    "duration": 6.333333333333333
+  },
+  {
+    "id": "kulintang",
+    "title": "Tide-Clock Kulintang",
+    "family": "Southern Philippine gong row",
+    "history": "Eight bossed gongs hang on a cord bed. Their patina breaks at the worn striking spots.",
+    "pitches": [
+      55,
+      57,
+      60,
+      62,
+      63,
+      65,
+      67,
+      70
+    ],
+    "bpm": 119,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.22437,
+        "velocity": 0.89
+      },
+      {
+        "t": 0.802101,
+        "lane": 2,
+        "duration": 0.22437,
+        "velocity": 0.7683
+      },
+      {
+        "t": 1.054202,
+        "lane": 1,
+        "duration": 0.22437,
+        "velocity": 0.6868
+      },
+      {
+        "t": 1.306303,
+        "lane": 4,
+        "duration": 0.22437,
+        "velocity": 0.7552
+      },
+      {
+        "t": 1.558403,
+        "lane": 3,
+        "duration": 0.112185,
+        "velocity": 0.9151
+      },
+      {
+        "t": 1.684454,
+        "lane": 5,
+        "duration": 0.112185,
+        "velocity": 0.733
+      },
+      {
+        "t": 1.810504,
+        "lane": 2,
+        "duration": 0.22437,
+        "velocity": 0.7295
+      },
+      {
+        "t": 2.062605,
+        "lane": 6,
+        "duration": 0.22437,
+        "velocity": 0.7084
+      },
+      {
+        "t": 2.314706,
+        "lane": 4,
+        "duration": 0.22437,
+        "velocity": 0.9625
+      },
+      {
+        "t": 2.566807,
+        "lane": 7,
+        "duration": 0.336555,
+        "velocity": 0.6888
+      },
+      {
+        "t": 2.944958,
+        "lane": 5,
+        "duration": 0.112185,
+        "velocity": 0.7672
+      },
+      {
+        "t": 3.071008,
+        "lane": 4,
+        "duration": 0.22437,
+        "velocity": 0.6801
+      },
+      {
+        "t": 3.323109,
+        "lane": 2,
+        "duration": 0.22437,
+        "velocity": 0.9791
+      },
+      {
+        "t": 3.57521,
+        "lane": 3,
+        "duration": 0.22437,
+        "velocity": 0.685
+      },
+      {
+        "t": 3.57521,
+        "lane": 6,
+        "duration": 0.22437,
+        "velocity": 0.685
+      },
+      {
+        "t": 3.827311,
+        "lane": 1,
+        "duration": 0.22437,
+        "velocity": 0.7577
+      },
+      {
+        "t": 4.079412,
+        "lane": 0,
+        "duration": 0.673109,
+        "velocity": 0.702
+      }
+    ],
+    "duration": 6.333333333333333
+  },
+  {
+    "id": "udu",
+    "title": "River-Mouth Udu",
+    "family": "Nigerian clay vessel drum",
+    "history": "A pale slip spiral winds past the side port and a laced repair at the shoulder.",
+    "pitches": [
+      40,
+      47,
+      55,
+      59,
+      64
+    ],
+    "bpm": 99,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.539394,
+        "velocity": 0.89
+      },
+      {
+        "t": 1.156061,
+        "lane": 2,
+        "duration": 0.269697,
+        "velocity": 0.7683
+      },
+      {
+        "t": 1.459091,
+        "lane": 3,
+        "duration": 0.269697,
+        "velocity": 0.6868
+      },
+      {
+        "t": 1.762121,
+        "lane": 1,
+        "duration": 0.404545,
+        "velocity": 0.7552
+      },
+      {
+        "t": 2.216667,
+        "lane": 4,
+        "duration": 0.134848,
+        "velocity": 0.9151
+      },
+      {
+        "t": 2.368182,
+        "lane": 2,
+        "duration": 0.269697,
+        "velocity": 0.733
+      },
+      {
+        "t": 2.671212,
+        "lane": 0,
+        "duration": 0.269697,
+        "velocity": 0.7295
+      },
+      {
+        "t": 2.974242,
+        "lane": 3,
+        "duration": 0.134848,
+        "velocity": 0.7084
+      },
+      {
+        "t": 3.125758,
+        "lane": 2,
+        "duration": 0.134848,
+        "velocity": 0.9625
+      },
+      {
+        "t": 3.277273,
+        "lane": 4,
+        "duration": 0.269697,
+        "velocity": 0.6888
+      },
+      {
+        "t": 3.580303,
+        "lane": 1,
+        "duration": 0.539394,
+        "velocity": 0.7672
+      },
+      {
+        "t": 4.186364,
+        "lane": 2,
+        "duration": 0.269697,
+        "velocity": 0.6801
+      },
+      {
+        "t": 4.489394,
+        "lane": 0,
+        "duration": 0.809091,
+        "velocity": 0.9791
+      }
+    ],
+    "duration": 6.9
+  },
+  {
+    "id": "hardanger",
+    "title": "Frostvein Fiddle",
+    "family": "Norwegian Hardanger fiddle",
+    "history": "Four understrings disappear beneath the board. A leaf scroll rises from its pegbox.",
+    "pitches": [
+      57,
+      59,
+      61,
+      62,
+      64,
+      66,
+      68,
+      69
+    ],
+    "bpm": 102,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.523529,
+        "velocity": 0.89
+      },
+      {
+        "t": 0.55,
+        "lane": 4,
+        "duration": 0.523529,
+        "velocity": 0.89
+      },
+      {
+        "t": 1.138235,
+        "lane": 2,
+        "duration": 0.261765,
+        "velocity": 0.7683
+      },
+      {
+        "t": 1.432353,
+        "lane": 3,
+        "duration": 0.261765,
+        "velocity": 0.6868
+      },
+      {
+        "t": 1.726471,
+        "lane": 4,
+        "duration": 0.523529,
+        "velocity": 0.7552
+      },
+      {
+        "t": 2.314706,
+        "lane": 6,
+        "duration": 0.261765,
+        "velocity": 0.9151
+      },
+      {
+        "t": 2.608824,
+        "lane": 7,
+        "duration": 0.261765,
+        "velocity": 0.733
+      },
+      {
+        "t": 2.902941,
+        "lane": 5,
+        "duration": 0.392647,
+        "velocity": 0.7295
+      },
+      {
+        "t": 3.344118,
+        "lane": 4,
+        "duration": 0.130882,
+        "velocity": 0.7084
+      },
+      {
+        "t": 3.491176,
+        "lane": 3,
+        "duration": 0.261765,
+        "velocity": 0.9625
+      },
+      {
+        "t": 3.785294,
+        "lane": 2,
+        "duration": 0.261765,
+        "velocity": 0.6888
+      },
+      {
+        "t": 4.079412,
+        "lane": 1,
+        "duration": 0.523529,
+        "velocity": 0.7672
+      },
+      {
+        "t": 4.667647,
+        "lane": 0,
+        "duration": 0.785294,
+        "velocity": 0.6801
+      },
+      {
+        "t": 4.667647,
+        "lane": 4,
+        "duration": 0.785294,
+        "velocity": 0.6801
+      }
+    ],
+    "duration": 7.033333333333333
+  },
+  {
+    "id": "gurdy",
+    "title": "Candlewheel Gurdy",
+    "family": "European wheel fiddle",
+    "history": "A patched wheel cover leaves the rosined rim and eccentric crank visible.",
+    "pitches": [
+      55,
+      57,
+      58,
+      60,
+      62,
+      63,
+      65,
+      67
+    ],
+    "bpm": 113,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.472566,
+        "velocity": 0.89
+      },
+      {
+        "t": 1.080973,
+        "lane": 1,
+        "duration": 0.236283,
+        "velocity": 0.7683
+      },
+      {
+        "t": 1.34646,
+        "lane": 2,
+        "duration": 0.236283,
+        "velocity": 0.6868
+      },
+      {
+        "t": 1.611947,
+        "lane": 4,
+        "duration": 0.236283,
+        "velocity": 0.7552
+      },
+      {
+        "t": 1.877434,
+        "lane": 3,
+        "duration": 0.236283,
+        "velocity": 0.9151
+      },
+      {
+        "t": 2.14292,
+        "lane": 2,
+        "duration": 0.472566,
+        "velocity": 0.733
+      },
+      {
+        "t": 2.673894,
+        "lane": 5,
+        "duration": 0.236283,
+        "velocity": 0.7295
+      },
+      {
+        "t": 2.939381,
+        "lane": 4,
+        "duration": 0.236283,
+        "velocity": 0.7084
+      },
+      {
+        "t": 3.204867,
+        "lane": 7,
+        "duration": 0.472566,
+        "velocity": 0.9625
+      },
+      {
+        "t": 3.735841,
+        "lane": 4,
+        "duration": 0.236283,
+        "velocity": 0.6888
+      },
+      {
+        "t": 4.001327,
+        "lane": 2,
+        "duration": 0.236283,
+        "velocity": 0.7672
+      },
+      {
+        "t": 4.266814,
+        "lane": 1,
+        "duration": 0.236283,
+        "velocity": 0.6801
+      },
+      {
+        "t": 4.532301,
+        "lane": 0,
+        "duration": 0.70885,
+        "velocity": 0.9791
+      }
+    ],
+    "duration": 6.833333333333333
+  },
+  {
+    "id": "armonica",
+    "title": "Tideglass Armonica",
+    "family": "Spindle-mounted glass bowls",
+    "history": "Sea-green nested rims share a brass axle with a chipped flywheel.",
+    "pitches": [
+      60,
+      62,
+      63,
+      65,
+      67,
+      68,
+      70,
+      72
+    ],
+    "bpm": 77,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 1.04026,
+        "velocity": 0.89
+      },
+      {
+        "t": 0.55,
+        "lane": 4,
+        "duration": 1.04026,
+        "velocity": 0.89
+      },
+      {
+        "t": 1.718831,
+        "lane": 2,
+        "duration": 0.346753,
+        "velocity": 0.7683
+      },
+      {
+        "t": 2.108442,
+        "lane": 1,
+        "duration": 0.693506,
+        "velocity": 0.6868
+      },
+      {
+        "t": 2.108442,
+        "lane": 5,
+        "duration": 0.693506,
+        "velocity": 0.6868
+      },
+      {
+        "t": 2.887662,
+        "lane": 3,
+        "duration": 1.04026,
+        "velocity": 0.7552
+      },
+      {
+        "t": 2.887662,
+        "lane": 6,
+        "duration": 1.04026,
+        "velocity": 0.7552
+      },
+      {
+        "t": 4.056494,
+        "lane": 4,
+        "duration": 0.346753,
+        "velocity": 0.9151
+      },
+      {
+        "t": 4.446104,
+        "lane": 7,
+        "duration": 0.693506,
+        "velocity": 0.733
+      },
+      {
+        "t": 5.225325,
+        "lane": 2,
+        "duration": 0.693506,
+        "velocity": 0.7295
+      },
+      {
+        "t": 5.225325,
+        "lane": 5,
+        "duration": 0.693506,
+        "velocity": 0.7295
+      },
+      {
+        "t": 6.004545,
+        "lane": 0,
+        "duration": 1.04026,
+        "velocity": 0.7084
+      },
+      {
+        "t": 6.004545,
+        "lane": 4,
+        "duration": 1.04026,
+        "velocity": 0.7084
+      }
+    ],
+    "duration": 8.666666666666666
+  },
+  {
+    "id": "bandoneon",
+    "title": "Quayside Bandoneon",
+    "family": "South American tango concertina",
+    "history": "Worn button caps and copper corner guards flank a patched wine-red bellows.",
+    "pitches": [
+      50,
+      53,
+      55,
+      57,
+      58,
+      60,
+      62,
+      65
+    ],
+    "bpm": 108,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.370833,
+        "velocity": 0.89
+      },
+      {
+        "t": 0.55,
+        "lane": 3,
+        "duration": 0.370833,
+        "velocity": 0.89
+      },
+      {
+        "t": 1.105556,
+        "lane": 2,
+        "duration": 0.247222,
+        "velocity": 0.6868
+      },
+      {
+        "t": 1.383333,
+        "lane": 3,
+        "duration": 0.247222,
+        "velocity": 0.7552
+      },
+      {
+        "t": 1.661111,
+        "lane": 1,
+        "duration": 0.494444,
+        "velocity": 0.9151
+      },
+      {
+        "t": 1.661111,
+        "lane": 4,
+        "duration": 0.494444,
+        "velocity": 0.9151
+      },
+      {
+        "t": 2.216667,
+        "lane": 2,
+        "duration": 0.247222,
+        "velocity": 0.733
+      },
+      {
+        "t": 2.494444,
+        "lane": 0,
+        "duration": 0.247222,
+        "velocity": 0.7295
+      },
+      {
+        "t": 2.772222,
+        "lane": 3,
+        "duration": 0.370833,
+        "velocity": 0.7084
+      },
+      {
+        "t": 2.772222,
+        "lane": 6,
+        "duration": 0.370833,
+        "velocity": 0.7084
+      },
+      {
+        "t": 3.188889,
+        "lane": 5,
+        "duration": 0.123611,
+        "velocity": 0.9625
+      },
+      {
+        "t": 3.327778,
+        "lane": 4,
+        "duration": 0.247222,
+        "velocity": 0.6888
+      },
+      {
+        "t": 3.605556,
+        "lane": 2,
+        "duration": 0.247222,
+        "velocity": 0.7672
+      },
+      {
+        "t": 3.883333,
+        "lane": 1,
+        "duration": 0.494444,
+        "velocity": 0.6801
+      },
+      {
+        "t": 3.883333,
+        "lane": 5,
+        "duration": 0.494444,
+        "velocity": 0.6801
+      },
+      {
+        "t": 4.438889,
+        "lane": 0,
+        "duration": 0.741667,
+        "velocity": 0.9791
+      },
+      {
+        "t": 4.438889,
+        "lane": 3,
+        "duration": 0.741667,
+        "velocity": 0.9791
+      }
+    ],
+    "duration": 6.766666666666667
+  },
+  {
+    "id": "handpan",
+    "title": "Eclipse Handpan",
+    "family": "Tuned steel shell",
+    "history": "Hammer scars surround seven blue-black tone fields and a bright central dome.",
+    "pitches": [
+      50,
+      57,
+      58,
+      60,
+      62,
+      64,
+      65,
+      69
+    ],
+    "bpm": 96,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.55625,
+        "velocity": 0.89
+      },
+      {
+        "t": 1.175,
+        "lane": 2,
+        "duration": 0.278125,
+        "velocity": 0.7683
+      },
+      {
+        "t": 1.4875,
+        "lane": 4,
+        "duration": 0.278125,
+        "velocity": 0.6868
+      },
+      {
+        "t": 1.8,
+        "lane": 1,
+        "duration": 0.278125,
+        "velocity": 0.7552
+      },
+      {
+        "t": 2.1125,
+        "lane": 5,
+        "duration": 0.278125,
+        "velocity": 0.9151
+      },
+      {
+        "t": 2.425,
+        "lane": 3,
+        "duration": 0.55625,
+        "velocity": 0.733
+      },
+      {
+        "t": 3.05,
+        "lane": 7,
+        "duration": 0.278125,
+        "velocity": 0.7295
+      },
+      {
+        "t": 3.3625,
+        "lane": 6,
+        "duration": 0.278125,
+        "velocity": 0.7084
+      },
+      {
+        "t": 3.675,
+        "lane": 4,
+        "duration": 0.278125,
+        "velocity": 0.9625
+      },
+      {
+        "t": 3.9875,
+        "lane": 2,
+        "duration": 0.278125,
+        "velocity": 0.6888
+      },
+      {
+        "t": 4.3,
+        "lane": 3,
+        "duration": 0.55625,
+        "velocity": 0.7672
+      },
+      {
+        "t": 4.3,
+        "lane": 5,
+        "duration": 0.55625,
+        "velocity": 0.7672
+      },
+      {
+        "t": 4.925,
+        "lane": 0,
+        "duration": 0.834375,
+        "velocity": 0.6801
+      }
+    ],
+    "duration": 7.366666666666666
+  },
+  {
+    "id": "magnetar",
+    "title": "Magnetar Flux Organ",
+    "family": "Shipboard field synthesizer",
+    "history": "Verdigris creeps under three wound field coils. Their armatures still turn.",
+    "pitches": [
+      38,
+      45,
+      50,
+      53,
+      57,
+      60,
+      62,
+      65
+    ],
+    "bpm": 93,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.574194,
+        "velocity": 0.89
+      },
+      {
+        "t": 1.195161,
+        "lane": 1,
+        "duration": 0.287097,
+        "velocity": 0.7683
+      },
+      {
+        "t": 1.517742,
+        "lane": 2,
+        "duration": 0.287097,
+        "velocity": 0.6868
+      },
+      {
+        "t": 1.840323,
+        "lane": 3,
+        "duration": 0.574194,
+        "velocity": 0.7552
+      },
+      {
+        "t": 1.840323,
+        "lane": 5,
+        "duration": 0.574194,
+        "velocity": 0.7552
+      },
+      {
+        "t": 2.485484,
+        "lane": 2,
+        "duration": 0.574194,
+        "velocity": 0.9151
+      },
+      {
+        "t": 3.130645,
+        "lane": 4,
+        "duration": 0.287097,
+        "velocity": 0.733
+      },
+      {
+        "t": 3.453226,
+        "lane": 6,
+        "duration": 0.287097,
+        "velocity": 0.7295
+      },
+      {
+        "t": 3.775806,
+        "lane": 5,
+        "duration": 0.574194,
+        "velocity": 0.7084
+      },
+      {
+        "t": 3.775806,
+        "lane": 7,
+        "duration": 0.574194,
+        "velocity": 0.7084
+      },
+      {
+        "t": 4.420968,
+        "lane": 3,
+        "duration": 0.574194,
+        "velocity": 0.9625
+      },
+      {
+        "t": 5.066129,
+        "lane": 0,
+        "duration": 0.86129,
+        "velocity": 0.6888
+      },
+      {
+        "t": 5.066129,
+        "lane": 2,
+        "duration": 0.86129,
+        "velocity": 0.6888
+      }
+    ],
+    "duration": 7.533333333333333
+  },
+  {
+    "id": "periapsis",
+    "title": "Periapsis Ribbon",
+    "family": "Navigation ribbon synthesizer",
+    "history": "A ceramic shuttle rides a polished copper ribbon between two calibration stops.",
+    "pitches": [
+      48,
+      50,
+      54,
+      55,
+      59,
+      62,
+      66,
+      67
+    ],
+    "bpm": 107,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.748598,
+        "velocity": 0.89
+      },
+      {
+        "t": 1.391121,
+        "lane": 2,
+        "duration": 0.249533,
+        "velocity": 0.7683
+      },
+      {
+        "t": 1.671495,
+        "lane": 3,
+        "duration": 0.499065,
+        "velocity": 0.6868
+      },
+      {
+        "t": 2.232243,
+        "lane": 5,
+        "duration": 0.249533,
+        "velocity": 0.7552
+      },
+      {
+        "t": 2.512617,
+        "lane": 7,
+        "duration": 0.249533,
+        "velocity": 0.9151
+      },
+      {
+        "t": 2.792991,
+        "lane": 6,
+        "duration": 0.374299,
+        "velocity": 0.733
+      },
+      {
+        "t": 3.213551,
+        "lane": 4,
+        "duration": 0.124766,
+        "velocity": 0.7295
+      },
+      {
+        "t": 3.353738,
+        "lane": 3,
+        "duration": 0.499065,
+        "velocity": 0.7084
+      },
+      {
+        "t": 3.914486,
+        "lane": 1,
+        "duration": 0.249533,
+        "velocity": 0.9625
+      },
+      {
+        "t": 4.19486,
+        "lane": 0,
+        "duration": 0.748598,
+        "velocity": 0.6888
+      }
+    ],
+    "duration": 6.533333333333333
+  },
+  {
+    "id": "choir",
+    "title": "Vacuum Choir",
+    "family": "Valve-formant synthesizer",
+    "history": "Amber cathodes glow through smoked envelopes. One valve wears a replacement cage.",
+    "pitches": [
+      53,
+      55,
+      56,
+      58,
+      60,
+      61,
+      63,
+      65
+    ],
+    "bpm": 84,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.953571,
+        "velocity": 0.89
+      },
+      {
+        "t": 0.55,
+        "lane": 4,
+        "duration": 0.953571,
+        "velocity": 0.89
+      },
+      {
+        "t": 1.621429,
+        "lane": 2,
+        "duration": 0.635714,
+        "velocity": 0.7683
+      },
+      {
+        "t": 1.621429,
+        "lane": 5,
+        "duration": 0.635714,
+        "velocity": 0.7683
+      },
+      {
+        "t": 2.335714,
+        "lane": 3,
+        "duration": 0.953571,
+        "velocity": 0.6868
+      },
+      {
+        "t": 2.335714,
+        "lane": 6,
+        "duration": 0.953571,
+        "velocity": 0.6868
+      },
+      {
+        "t": 3.407143,
+        "lane": 4,
+        "duration": 0.635714,
+        "velocity": 0.7552
+      },
+      {
+        "t": 3.407143,
+        "lane": 7,
+        "duration": 0.635714,
+        "velocity": 0.7552
+      },
+      {
+        "t": 4.121429,
+        "lane": 5,
+        "duration": 0.317857,
+        "velocity": 0.9151
+      },
+      {
+        "t": 4.478571,
+        "lane": 3,
+        "duration": 0.317857,
+        "velocity": 0.733
+      },
+      {
+        "t": 4.835714,
+        "lane": 1,
+        "duration": 0.635714,
+        "velocity": 0.7295
+      },
+      {
+        "t": 4.835714,
+        "lane": 4,
+        "duration": 0.635714,
+        "velocity": 0.7295
+      },
+      {
+        "t": 5.55,
+        "lane": 0,
+        "duration": 0.953571,
+        "velocity": 0.7084
+      },
+      {
+        "t": 5.55,
+        "lane": 3,
+        "duration": 0.953571,
+        "velocity": 0.7084
+      }
+    ],
+    "duration": 8.133333333333333
+  },
+  {
+    "id": "cryotape",
+    "title": "Cryotape Echoplex",
+    "family": "Coolant-fed tape synthesizer",
+    "history": "Spliced oxide tape crosses three heads beneath a frost-scarred coolant reservoir.",
+    "pitches": [
+      45,
+      48,
+      50,
+      52,
+      55,
+      57,
+      60,
+      64
+    ],
+    "bpm": 113,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.354425,
+        "velocity": 0.89
+      },
+      {
+        "t": 0.94823,
+        "lane": 2,
+        "duration": 0.118142,
+        "velocity": 0.7683
+      },
+      {
+        "t": 1.080973,
+        "lane": 4,
+        "duration": 0.236283,
+        "velocity": 0.6868
+      },
+      {
+        "t": 1.611947,
+        "lane": 5,
+        "duration": 0.472566,
+        "velocity": 0.9151
+      },
+      {
+        "t": 2.14292,
+        "lane": 3,
+        "duration": 0.236283,
+        "velocity": 0.733
+      },
+      {
+        "t": 2.408407,
+        "lane": 1,
+        "duration": 0.236283,
+        "velocity": 0.7295
+      },
+      {
+        "t": 2.673894,
+        "lane": 0,
+        "duration": 0.236283,
+        "velocity": 0.7084
+      },
+      {
+        "t": 2.939381,
+        "lane": 6,
+        "duration": 0.236283,
+        "velocity": 0.9625
+      },
+      {
+        "t": 3.204867,
+        "lane": 7,
+        "duration": 0.354425,
+        "velocity": 0.6888
+      },
+      {
+        "t": 3.603097,
+        "lane": 5,
+        "duration": 0.118142,
+        "velocity": 0.7672
+      },
+      {
+        "t": 3.735841,
+        "lane": 3,
+        "duration": 0.472566,
+        "velocity": 0.6801
+      },
+      {
+        "t": 4.266814,
+        "lane": 0,
+        "duration": 0.70885,
+        "velocity": 0.9791
+      }
+    ],
+    "duration": 6.566666666666666
+  },
+  {
+    "id": "pulsar",
+    "title": "Pulsar Navigation Loom",
+    "family": "Optical pattern synthesizer",
+    "history": "Punched brass stars pass a reader lamp. A mended drive belt keeps the chart in time.",
+    "pitches": [
+      43,
+      50,
+      55,
+      58,
+      60,
+      62,
+      65,
+      67
+    ],
+    "bpm": 129,
+    "events": [
+      {
+        "t": 0.55,
+        "lane": 0,
+        "duration": 0.103488,
+        "velocity": 0.89
+      },
+      {
+        "t": 0.666279,
+        "lane": 2,
+        "duration": 0.103488,
+        "velocity": 0.7683
+      },
+      {
+        "t": 0.782558,
+        "lane": 1,
+        "duration": 0.206977,
+        "velocity": 0.6868
+      },
+      {
+        "t": 1.015116,
+        "lane": 4,
+        "duration": 0.103488,
+        "velocity": 0.7552
+      },
+      {
+        "t": 1.131395,
+        "lane": 3,
+        "duration": 0.103488,
+        "velocity": 0.9151
+      },
+      {
+        "t": 1.247674,
+        "lane": 2,
+        "duration": 0.206977,
+        "velocity": 0.733
+      },
+      {
+        "t": 1.480233,
+        "lane": 5,
+        "duration": 0.206977,
+        "velocity": 0.7295
+      },
+      {
+        "t": 1.712791,
+        "lane": 1,
+        "duration": 0.103488,
+        "velocity": 0.7084
+      },
+      {
+        "t": 1.82907,
+        "lane": 6,
+        "duration": 0.103488,
+        "velocity": 0.9625
+      },
+      {
+        "t": 1.945349,
+        "lane": 3,
+        "duration": 0.206977,
+        "velocity": 0.6888
+      },
+      {
+        "t": 2.177907,
+        "lane": 7,
+        "duration": 0.206977,
+        "velocity": 0.7672
+      },
+      {
+        "t": 2.410465,
+        "lane": 0,
+        "duration": 0.206977,
+        "velocity": 0.6801
+      },
+      {
+        "t": 2.410465,
+        "lane": 4,
+        "duration": 0.206977,
+        "velocity": 0.6801
+      },
+      {
+        "t": 2.643023,
+        "lane": 2,
+        "duration": 0.103488,
+        "velocity": 0.9791
+      },
+      {
+        "t": 2.759302,
+        "lane": 5,
+        "duration": 0.103488,
+        "velocity": 0.685
+      },
+      {
+        "t": 2.875581,
+        "lane": 6,
+        "duration": 0.206977,
+        "velocity": 0.7577
+      },
+      {
+        "t": 3.10814,
+        "lane": 1,
+        "duration": 0.206977,
+        "velocity": 0.702
+      },
+      {
+        "t": 3.340698,
+        "lane": 3,
+        "duration": 0.413953,
+        "velocity": 0.9465
+      },
+      {
+        "t": 3.340698,
+        "lane": 7,
+        "duration": 0.413953,
+        "velocity": 0.9465
+      },
+      {
+        "t": 3.805814,
+        "lane": 0,
+        "duration": 0.62093,
+        "velocity": 0.7259
+      }
+    ],
+    "duration": 6.0
+  }
+]

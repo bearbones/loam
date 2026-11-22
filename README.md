@@ -8,6 +8,16 @@ Grown inside [MARROW] (a Godot game whose every sound is synthesized
 in code); spun off to its own repo 2026-07-30 at the director's word,
 then grown sixteen modules in one night of play.
 
+## The Wayfarer’s Cabinet
+
+Play twenty acoustic instruments and five imaginary shipboard synthesizers
+in the Godot gallery with `godot --path harness -- --cabinet`. Each has a
+solo, an animated GLB, a Python voice and an SFZ patch. The models carry
+details you can inspect in motion, from the koto’s thirteen picking levers
+to the reader and rotating star chart on the Pulsar Navigation Loom.
+[Instrument list, controls and composition guide](docs/wayfarers-cabinet.md) ·
+[Recital and downloadable instruments](https://github.com/bearbones/loam/releases/tag/wayfarers-cabinet-2026-11-22)
+
 ## The library
 
 The engine (`loam/__init__.py`): `Loop` (the seamless canvas —

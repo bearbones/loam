@@ -100,6 +100,9 @@ var director := FilmDirector.new()
 var film_cards: Array = []   # [Control, t_in, t_out]
 
 func _ready() -> void:
+	if OS.get_cmdline_user_args().has("--cabinet") or option("instrument","")!="":
+		get_tree().call_deferred("change_scene_to_file","res://cabinet_recital.tscn")
+		return
 	if OS.get_cmdline_user_args().has("--drums"):
 		get_tree().call_deferred("change_scene_to_file","res://drum_recital.tscn")
 		return
