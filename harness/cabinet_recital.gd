@@ -40,6 +40,8 @@ var running := false
 var silent := false
 var auto_next := true
 var view := "recital"
+var azimuth := 0.
+var isolated := false
 var eye: Vector3
 var centre: Vector3
 var detail: Vector3
@@ -62,8 +64,11 @@ func _ready() -> void:
 		if index<0:
 			push_error("Unknown cabinet instrument: "+key);get_tree().quit(2);return
 	auto_next=key==""
-	var room: PackedScene=load("res://assets/cabinet_room.glb")
-	add_child(room.instantiate())
+	isolated=OS.get_cmdline_user_args().has("--isolated")
+	azimuth=deg_to_rad(float(option("azimuth","0")))
+	if not isolated:
+		var room: PackedScene=load("res://assets/cabinet_room.glb")
+		add_child(room.instantiate())
 	var light:=Look.new()
 	light.light_rig(self)
 	light.env.ambient_light_energy=.39
@@ -78,7 +83,16 @@ func _ready() -> void:
 	bench_light.light_color=Color("ffe7c7");bench_light.light_energy=3.1
 	bench_light.spot_range=4.5;bench_light.spot_angle=39.;bench_light.spot_angle_attenuation=.74
 	add_child(bench_light)
-	bench_light.look_at_from_position(Vector3(-1.10,2.4,1.35),Vector3(0,.41,0))
+	var lamp_position:=Vector3(-1.10,2.4,1.35)
+	if isolated:
+		lamp_position=lamp_position.rotated(Vector3.UP,azimuth)
+	bench_light.look_at_from_position(lamp_position,Vector3(0,.41,0))
+	if option("light","")=="raking":
+		light.key_light.rotation_degrees=Vector3(-16,-74,0)
+		light.key_light.light_color=Color("fff1db")
+		light.key_light.light_energy=1.45
+		light.env.ambient_light_energy=.31
+		bench_light.light_energy=.65
 	camera.near=.025;camera.fov=34.
 	add_child(camera);camera.current=true
 	add_child(audio)
@@ -156,7 +170,7 @@ func _select(which: int) -> void:
 	var layout: Dictionary=layouts[key]
 	var lo:=MotionBake.v(layout.lo);var hi:=MotionBake.v(layout.hi);var size:=hi-lo
 	model.position.y=-lo.y
-	if key in SEATS:
+	if key in SEATS and not isolated:
 		model.position.y+=.075
 		_cradle(SEATS[key],lo.z-.045)
 	centre=(hi+lo)*.5+model.position
@@ -190,11 +204,15 @@ func evaluate(t: float) -> void:
 	var f:=clampf(t/duration,0.,1.)
 	var focus:=0.
 	if view=="detail": focus=1.
-	elif view=="recital":focus=smoothstep(.45,.80,f)*.76
+	elif view=="recital":focus=smoothstep(.33,.84,f)
 	var target:=centre.lerp(detail,focus*.86)
 	var direction:=eye.rotated(Vector3.UP,.15*sin(f*PI*1.35-.4))
 	if view=="wide":direction=eye
-	camera.look_at_from_position(target+direction*distance*lerpf(1.,.71,focus),target,Vector3.UP)
+	direction=direction.rotated(Vector3.UP,azimuth)
+	if view=="macro":
+		camera.look_at_from_position(detail+direction*distance*.40,detail,Vector3.UP)
+		return
+	camera.look_at_from_position(target+direction*distance*lerpf(1.,.55 if view=="recital" else .71,focus),target,Vector3.UP)
 
 func _process(dt: float) -> void:
 	if animator==null:return

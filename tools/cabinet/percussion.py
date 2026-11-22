@@ -1,9 +1,11 @@
 """Tuned bodies, hand percussion, rotating glass and bellows."""
 
 import numpy as np
+from scipy.interpolate import PchipInterpolator
 
 from .fittings import binding, constellation, feet, hammer, plectrum
 from .mesh import TAU, O, V, X, Y, Z
+from .panels import circle, panel
 from .winds import pallet, pierced
 
 
@@ -43,11 +45,23 @@ def balafon(asset):
                 (0.276, 0.026),
                 (0.24, 0.026),
             ],
-            "maple" if i % 3 else "ochre",
+            "gourd",
             36,
             False,
         )
         m.ring([x, 0.267 + i * 0.016, r * 0.76], Z, 0.025, 0.004, "ochre")
+        mouth = V([x, 0.374 + i * 0.016, 0])
+        for side in [-1, 1]:
+            m.tube(
+                [
+                    mouth + [side * 0.031, -0.016, 0],
+                    mouth + [side * 0.041, 0.001, 0],
+                    [x + side * 0.041, 0.469, -0.168],
+                ],
+                0.0045,
+                "cord",
+                8,
+            )
         leaf = V([x, 0.201 + i * 0.016, r * 0.976])
         m.tube(
             [
@@ -126,9 +140,12 @@ def mbira(asset):
             root = V([x, 0.282, 0.295])
             m.rod([x, 0.218, 0.295], root, 0.007, "bronze")
             plectrum(asset, root, tip, [i % 8], Y)
-    m.rod([-0.305, 0.293, -0.122], [0.307, 0.293, -0.122], 0.012, "brass")
-    for x in [-0.285, 0.285]:
-        m.rod([x, 0.222, -0.122], [x, 0.294, -0.122], 0.012, "iron")
+    # The raised and low banks need separate clamp heights.
+    for x0, x1, height in [(-0.30, -0.037, 0.307), (-0.024, 0.30, 0.269)]:
+        m.rod([x0, height, -0.122], [x1, height, -0.122], 0.010, "brass")
+        for x in [x0, x1]:
+            m.rod([x, 0.221, -0.122], [x, height, -0.122], 0.007, "iron")
+    m.rod([-0.277, 0.285, -0.048], [-0.039, 0.285, -0.048], 0.011, "iron")
     for j, x in enumerate(np.linspace(-0.25, 0.25, 7)):
         p = asset.part("Loose cap " + str(len(asset.nodes)), [x, 0.245, -0.262])
         p.turn(
@@ -173,9 +190,10 @@ def tabla(asset):
         )
         for a in np.arange(16) * TAU / 16:
             d = X * np.cos(a) + Z * np.sin(a)
-            e = X * np.cos(a + 0.08) + Z * np.sin(a + 0.08)
+            e = X * np.cos(a + TAU / 32) + Z * np.sin(a + TAU / 32)
+            next_d = X * np.cos(a + TAU / 16) + Z * np.sin(a + TAU / 16)
             # Both runs follow the curved shell and bear on the gatta blocks.
-            for bottom, upper in [(d, e), (e, d)]:
+            for bottom, upper in [(d, e), (next_d, e)]:
                 strap = [
                     c
                     + ((1 - level / h) * bottom + (level / h) * upper)
@@ -264,24 +282,31 @@ def kulintang(asset):
         x = (i - 3.5) * 0.29
         r = 0.145 - i * 0.005
         p = asset.part("Bossed gong " + str(i + 1), [x, 0.358, 0])
-        p.turn(
-            O,
-            Y,
-            [
-                (-0.048, r * 0.91),
-                (-0.035, r),
-                (0.009, r * 0.965),
-                (0.030, r * 0.75),
-                (0.041, r * 0.33),
-                (0.060, r * 0.24),
-                (0.071, r * 0.17),
-                (0.073, 0.005),
-            ],
-            "bronze",
-            56,
-        )
+        profile = [
+            (-0.048, r * 0.91),
+            (-0.035, r),
+            (0.009, r * 0.965),
+            (0.030, r * 0.75),
+            (0.041, r * 0.33),
+            (0.060, r * 0.24),
+            (0.071, r * 0.17),
+            (0.073, 0.005),
+        ]
+        inner = [
+            (h - (0.0035 if j >= 2 else 0.0), max(0.002, rad - 0.004))
+            for j, (h, rad) in enumerate(profile)
+        ]
+        p.turn(O, Y, profile, "bronze", 56, False)
+        p.turn(O, Y, inner[::-1], "bronze", 56, False)
+        p.turn(O, Y, [inner[0], profile[0]], "bronze", 56, False)
+        for height, rad in [profile[-1], inner[-1]]:
+            a = np.linspace(0, TAU, 57)
+            ring = np.c_[rad * np.cos(a), a * 0 + height, -rad * np.sin(a)]
+            p.cap(ring, Y if height == profile[-1][0] else -Y, "bronze")
+        heights, radii = np.array(profile[2:][::-1]).T
         for f in [0.43, 0.75, 0.91]:
-            p.ring([0, 0.043 - 0.034 * f, 0], Y, r * f, 0.002, "brass")
+            seat = np.interp(r * f, radii, heights)
+            p.ring([0, seat + 0.00025, 0], Y, r * f, 0.00135, "brass")
         for side in [-1, 1]:
             m.tube(
                 [
@@ -313,14 +338,15 @@ def udu(asset):
         (0.78, 0.092),
         (0.799, 0.093),
     ]
+    curve = PchipInterpolator(*np.array(profile).T)
     pierced(m, O, profile, [(0, 0.39, 0.071)], "clay", 0.018)
     m.ring([0, 0.799, 0], Y, 0.085, 0.009, "glaze")
     for y, r in [(0.11, 0.215), (0.135, 0.23), (0.553, 0.18), (0.566, 0.159)]:
-        m.ring([0, y, 0], Y, r, 0.005, "ivory")
+        m.ring([0, y, 0], Y, float(curve(y)) + 0.001, 0.0038, "ivory")
     angle = np.linspace(-2.4, 2.8, 71)
     for j in range(2):
         h = 0.228 + j * 0.022 + 0.020 * np.sin(angle * 4)
-        rr = np.interp(h, *np.array(profile).T)
+        rr = curve(h)
         m.tube(
             np.c_[(rr + 0.004) * np.sin(angle), h, (rr + 0.004) * np.cos(angle)],
             0.004,
@@ -329,7 +355,7 @@ def udu(asset):
         )
     for i in range(5):
         y = 0.43 + i * 0.023
-        r = np.interp(y, *np.array(profile).T)
+        r = curve(y)
         a = 1.08 + 0.06 * i
         m.tube(
             [
@@ -342,12 +368,16 @@ def udu(asset):
             8,
         )
     m.ring([0, 0.03, 0], Y, 0.105, 0.022, "wine")
-    pallet(asset, [0, 0.39, 0.288], 0.067, Z, [0, 1])
+    pallet(asset, [0, 0.39, float(curve(0.39))], 0.067, Z, [0, 1])
     pallet(asset, [0, 0.792, 0], 0.072, Y, [2, 3, 4])
 
 
 def handpan(asset):
     m = asset.fixed
+    lip = 0.387
+    arch = PchipInterpolator(
+        [0, 0.10, 0.19, 0.281, 0.35, lip], [0.380, 0.377, 0.354, 0.318, 0.275, 0.231]
+    )
     m.turn(
         O,
         Y,
@@ -357,35 +387,71 @@ def handpan(asset):
             (0.11, 0.296),
             (0.18, 0.367),
             (0.219, 0.386),
-            (0.231, 0.387),
-            (0.275, 0.35),
-            (0.318, 0.281),
-            (0.354, 0.19),
-            (0.377, 0.100),
-            (0.380, 0.010),
+            (0.231, lip),
         ],
-        "navy",
-        80,
+        "tempered",
+        96,
+        False,
     )
-    m.ring([0, 0.225, 0], Y, 0.388, 0.008, "bronze", 80)
+    m.ring([0, 0.225, 0], Y, 0.388, 0.006, "bronze", 96)
     m.ring([0, 0.048, 0], Y, 0.112, 0.020, "leather")
-    for i in range(8):
-        a = i * TAU / 7
-        c = (
-            V([0.248 * np.cos(a), 0.325, 0.248 * np.sin(a)])
-            if i < 7
-            else V([0, 0.380, 0])
+    centres = [
+        np.array([0.248 * np.cos(a), 0.248 * np.sin(a)]) for a in np.arange(7) * TAU / 7
+    ] + [np.zeros(2)]
+    radii = [(0.073, 0.060)] * 7 + [(0.082, 0.082)]
+    edges = [circle(*c, *size, n=48) for c, size in zip(centres, radii)]
+
+    def normal(xz, height):
+        eps = 0.00005
+        dx = (height(xz + [eps, 0]) - height(xz - [eps, 0])) / (2 * eps)
+        dz = (height(xz + [0, eps]) - height(xz - [0, eps])) / (2 * eps)
+        normals = np.c_[-dx, np.ones(len(xz)), -dz]
+        return normals / np.linalg.norm(normals, axis=1)[:, None]
+
+    def top(xz):
+        return arch(np.linalg.norm(xz, axis=1))
+
+    def skin(mesh, xz, faces, height):
+        points = np.c_[xz[:, 0], height(xz), xz[:, 1]]
+        mesh.parts["tempered"].append(
+            (points, normal(xz, height), xz / 0.28, faces[:, ::-1])
         )
-        size = 0.069 if i < 7 else 0.081
-        p = asset.part("Hammered tone island " + str(i + 1), c)
-        p.ball(O, [size, 0.020, size * 0.83], "tin" if i == 7 else "navy", 32)
-        p.ring(O, Y, size * 0.87, 0.0035, "bronze", 40)
-        p.ball([0, 0.010, 0], [size * 0.55, 0.025, size * 0.50], "iron", 24)
-        asset.drive(p, "ring", X, 0.070, [i])
-        direction = V([np.cos(a), 0, np.sin(a)]) if i < 7 else -Z
-        root = direction * (0.41 if i < 7 else 0.34) + Y * (0.34 if i < 7 else 0.45)
+
+    points, faces, rims = panel(circle(0, 0, lip, n=96), edges, spacing=0.019)
+    skin(m, points, faces, top)
+    for i, (c, size, boundary) in enumerate(zip(centres, radii, rims[1:])):
+        p = asset.part("Hammered tone field " + str(i + 1), O)
+
+        def envelope(xz, c=c, size=size):
+            return np.maximum(0, 1 - np.sum(((xz - c) / size) ** 2, axis=1))
+
+        def pressed(xz, env=envelope):
+            w = env(xz)
+            return top(xz) - 0.010 * w**2 + 0.028 * w**6
+
+        def vibrating(xz, h=pressed, env=envelope):
+            return h(xz) - 0.0016 * env(xz) ** 3
+
+        def morph(points, norm, h=vibrating, env=envelope):
+            xz = points[:, [0, 2]]
+            return -0.0016 * env(xz)[:, None] ** 3 * Y, normal(xz, h) - norm
+
+        xz, faces, _ = panel(boundary, [], spacing=0.006, pins=[c])
+        skin(p, xz, faces, pressed)
+        p.morph = morph
+        asset.drive(p, "flex", Y, 1.0, [i])
+        direction = V([c[0], 0, c[1]]) / 0.248 if i < 7 else -Z
+        root = direction * (0.41 if i < 7 else 0.34) + Y * (0.34 if i < 7 else 0.48)
         m.rod(direction * 0.368 + Y * 0.223, root, 0.008, "bronze")
-        hammer(asset, root, c + Y * 0.035, [i], skin="leather", radius=0.018)
+        target = V([c[0], pressed(c[None, :])[0], c[1]])
+        hammer(
+            asset,
+            root,
+            target,
+            [i],
+            radius=0.018,
+            normal=normal(c[None, :], pressed)[0],
+        )
     for i in range(5):
         a = i * 0.034
         m.ball([0.386 * np.sin(a), 0.231, 0.386 * np.cos(a)], 0.005, "brass", 12)
@@ -428,7 +494,14 @@ def armonica(asset):
         spindle.ring(
             [x + 0.138, 0, 0], X, r - 0.003, 0.004, "ivory" if i % 3 else "brass"
         )
-        spindle.ball([x + 0.127, r * 0.98, 0], 0.008, "ice", 12)
+        spindle.turn(
+            [x, 0, 0],
+            X,
+            [(-0.007, 0.019), (0.002, 0.036), (0.012, 0.036)],
+            "leather",
+            22,
+        )
+        spindle.ball([x + 0.104, r * 0.913, 0], [0.0025, 0.0031, 0.0035], "glass", 12)
     asset.drive(spindle, "spin", X, 1, rate=2.7)
     for i, j in enumerate([0, 2, 4, 5, 7, 9, 11, 12]):
         x = -0.77 + 0.184 + j * 0.088 + 0.138
@@ -452,7 +525,9 @@ def bandoneon(asset):
         w = 0.219 if i % 2 else 0.247
         yy = np.sign(np.cos(a)) * np.abs(np.cos(a)) ** 0.31 * w
         zz = np.sign(np.sin(a)) * np.abs(np.sin(a)) ** 0.31 * w * 0.92
-        profile.append(np.c_[x + 0 * a, yy, zz])
+        section = np.c_[x + 0 * a, yy, zz]
+        section[-1] = section[0]
+        profile.append(section)
     folds.surface(profile, "wine")
     for i in range(0, 29, 2):
         folds.tube(profile[i], 0.004, "leather", 7)

@@ -4,6 +4,7 @@ import numpy as np
 from scipy.interpolate import PchipInterpolator
 
 from .mesh import TAU, O, V, X, Y, Z, unit
+from .panels import panel
 
 
 def rows_body(m, c, profile, mat, sections=54):
@@ -19,7 +20,7 @@ def rows_body(m, c, profile, mat, sections=54):
     m.cap(rows[-1], Y, mat)
 
 
-def soundbox(m, profile, depth, wood="walnut", face="spruce"):
+def soundbox(m, profile, depth, wood="walnut", face="spruce", holes=(), lute=False):
     h, w = np.array(profile).T
     y = np.linspace(h[0], h[-1], 51)
     radius = PchipInterpolator(h, w)(y)
@@ -33,16 +34,65 @@ def soundbox(m, profile, depth, wood="walnut", face="spruce"):
     def rim(scale, z):
         return centre + (outline - centre) * scale + z * Z
 
-    for z0, z1, s0, s1, mat in [
-        (-depth, -depth * 0.82, 0.44, 0.73, wood),
-        (-depth * 0.82, -depth * 0.36, 0.73, 0.97, wood),
-        (-depth * 0.36, -0.018, 0.97, 1.0, wood),
-        (-0.018, -0.008, 1.0, 1.0, "ivory"),
-        (-0.008, 0, 1.0, 0.992, face),
-    ]:
-        m.surface([rim(s0, z0), rim(s1, z1)], mat)
-    m.cap(rim(0.992, 0), Z, face)
-    m.cap(rim(0.44, -depth), -Z, wood)
+    if lute:
+        # Alternate sawn staves meet at real seams on an elliptical bowl.
+        for i in range(13):
+            angles = np.linspace(i * np.pi / 13, (i + 1) * np.pi / 13, 6)
+            grid = np.stack(
+                [
+                    np.c_[
+                        r * np.cos(angles),
+                        np.full_like(angles, yy),
+                        -0.008 - depth * (r / max(radius)) ** 0.78 * np.sin(angles),
+                    ]
+                    for yy, r in zip(y, radius)
+                ]
+            )
+            m.surface(grid, "walnut" if i % 2 == 0 else "rose", flip=True)
+            if i:
+                m.tube(grid[:, 0], 0.0017, "maple", 7)
+        m.surface([rim(1, -0.008), rim(0.992, 0)], "ivory")
+        for j, yy in [(0, y[0]), (-1, y[-1])]:
+            rr = radius[j]
+            a = np.linspace(0, np.pi, 49)
+            edge = np.c_[
+                rr * np.cos(a),
+                np.full_like(a, yy),
+                -0.008 - depth * (rr / max(radius)) ** 0.78 * np.sin(a),
+            ]
+            m.cap(np.vstack([edge, edge[0]]), Y if j < 0 else -Y, wood)
+    else:
+        for z0, z1, s0, s1, mat in [
+            (-depth, -depth * 0.82, 0.44, 0.73, wood),
+            (-depth * 0.82, -depth * 0.36, 0.73, 0.97, wood),
+            (-depth * 0.36, -0.018, 0.97, 1.0, wood),
+            (-0.018, -0.008, 1.0, 1.0, "ivory"),
+            (-0.008, 0, 1.0, 0.992, face),
+        ]:
+            m.surface([rim(s0, z0), rim(s1, z1)], mat)
+        back = rim(0.44, -depth)[:-1]
+        half = len(back) // 2
+        m.surface(np.stack([back[:half], back[half:][::-1]], axis=1), wood)
+    face_rim = rim(0.992, 0)[:-1]
+    if holes:
+        xy, tri, rings = panel(face_rim[:, :2], holes)
+        pts = np.c_[xy, np.zeros(len(xy))]
+        m.parts[face].append((pts, np.broadcast_to(Z, pts.shape), xy / 0.28, tri))
+        for contour in rings[1:]:
+            edge = np.c_[contour, np.zeros(len(contour))]
+            edge = np.vstack([edge, edge[0]])
+            m.surface([edge, edge - 0.006 * Z], "walnut")
+        # A dark inner back is visible through the pierced soundboard.
+        backing = rim(0.85, -depth * 0.35)[:-1]
+        h = len(backing) // 2
+        m.surface(
+            np.stack([backing[:h], backing[h:][::-1]], axis=1), "ebony", flip=True
+        )
+    else:
+        half = len(face_rim) // 2
+        m.surface(
+            np.stack([face_rim[:half], face_rim[half:][::-1]], axis=1), face, flip=True
+        )
     m.tube(rim(0.958, 0.002), 0.0038, "bronze", 7)
     return outline
 
@@ -71,15 +121,19 @@ def binding(m, c, axis, r, width, mat="cord"):
             (-width * 0.42, r),
             (width * 0.42, r),
             (width / 2, r * 0.97),
+            (width / 2, r * 0.92),
+            (-width / 2, r * 0.92),
+            (-width / 2, r * 0.97),
         ],
         mat,
         32,
+        False,
     )
     for at in [-0.43, 0, 0.43]:
         m.ring(c + axis * width * at, axis, r, 0.0028, "bronze", 32)
 
 
-def wire(asset, a, b, lanes, material="silver", radius=0.003, draw=X):
+def wire(asset, a, b, lanes, material="silver", radius=0.003, draw=X, travel=0.007):
     a, b = V(a), V(b)
     mid = (a + b) / 2
     for j, end in enumerate((a, b)):
@@ -88,13 +142,13 @@ def wire(asset, a, b, lanes, material="silver", radius=0.003, draw=X):
         direction = unit(mid - end)
         axis = unit(np.cross(direction, draw))
         asset.drive(
-            part, "pluck", axis, 0.007 / max(0.1, np.linalg.norm(mid - end)), lanes
+            part, "pluck", axis, travel / max(0.1, np.linalg.norm(mid - end)), lanes
         )
 
 
-def hammer(asset, root, contact, lanes, skin="leather", radius=0.035):
+def hammer(asset, root, contact, lanes, skin="leather", radius=0.035, normal=Y):
     root, contact = V(root), V(contact)
-    head = contact + radius * Y
+    head = contact + radius * normal
     delta = head - root
     axis = unit(np.cross(delta, Y))
     m = asset.fixed
@@ -107,19 +161,35 @@ def hammer(asset, root, contact, lanes, skin="leather", radius=0.035):
     )
     part = asset.part(f"Beater {len(asset.nodes) + 1}", root)
     part.rod(O, delta, 0.009, "maple", 0.006)
-    part.ball(delta, radius, skin, 22)
+    part.ball(delta, radius, skin, 22, pole=normal)
     asset.drive(part, "strike", axis, -0.38, lanes, rest=0.38)
 
 
-def plectrum(asset, root, tip, lanes, clear=Z):
+def plectrum(asset, root, tip, lanes, clear=Z, blade_span=0.0):
     root, tip = V(root), V(tip)
     direction = unit(tip - root)
     axis = unit(np.cross(direction, clear))
     m = asset.fixed
-    m.turn(root, axis, [(-0.014, 0.016), (0.014, 0.016)], "bronze", 16)
+    width = 0.006 if blade_span else 0.014
+    m.turn(root, axis, [(-width, 0.012), (width, 0.012)], "bronze", 16)
     part = asset.part(f"Horn pick {len(asset.nodes) + 1}", root)
-    part.rod(O, (tip - root) * 0.67, 0.008, "bronze", 0.006, n=10)
-    part.rod((tip - root) * 0.64, tip - root, 0.011, "ivory", 0.002, n=9)
+    part.rod(O, (tip - root) * 0.67, 0.0055, "bronze", 0.004, n=10)
+    part.rod(
+        (tip - root) * 0.64,
+        tip - root,
+        0.006 if blade_span else 0.009,
+        "ivory",
+        0.0018,
+        n=9,
+    )
+    if blade_span:
+        part.rod(
+            tip - root - X * blade_span,
+            tip - root + X * blade_span,
+            0.0018,
+            "ivory",
+            n=10,
+        )
     asset.drive(part, "pick", axis, -0.41, lanes, rest=0.41)
 
 
@@ -271,8 +341,19 @@ def shop_stamp(m, centre, u, v, serial):
 
 
 def cable(m, points, mat="black", r=0.012):
-    from scipy.interpolate import CubicSpline
 
     pts = V(points)
-    u = np.linspace(0, 1, len(pts))
-    m.tube(CubicSpline(u, pts)(np.linspace(0, 1, 64)), r, mat, 10)
+    # Round each actual bend. A spline through the terminals can turn back
+    # inside a short mounting foot before entering the bearing.
+    curve = [pts[0]]
+    for i in range(1, len(pts) - 1):
+        a, b, c = pts[i - 1 : i + 2]
+        incoming = unit(a - b)
+        outgoing = unit(c - b)
+        trim = 0.35 * min(np.linalg.norm(a - b), np.linalg.norm(c - b))
+        left = b + incoming * trim
+        right = b + outgoing * trim
+        for t in np.linspace(0, 1, 9):
+            curve.append((1 - t) ** 2 * left + 2 * t * (1 - t) * b + t * t * right)
+    curve.append(pts[-1])
+    m.tube(curve, r, mat, 10)

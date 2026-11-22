@@ -1,16 +1,15 @@
 """Portable Y-up glTF geometry for the cabinet, in metres. Batch fixed fittings by finish."""
 
+import itertools
 import json
 import math
 import struct
 from collections import defaultdict
-from functools import lru_cache
-from io import BytesIO
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
-from scipy.ndimage import gaussian_filter
+
+from .finishes import paint, paint_face
 
 ROOT = Path(__file__).resolve().parents[2]
 X = np.array([1.0, 0, 0])
@@ -43,6 +42,8 @@ MATERIALS = {
     "teal": ("286f6e", 0.26, 0.36, "enamel"),
     "navy": ("30445a", 0.33, 0.34, "enamel"),
     "ochre": ("c5943f", 0.16, 0.41, "enamel"),
+    "tempered": ("454e62", 0.9, 0.35, "steel"),
+    "gourd": ("bb8851", 0, 0.58, "gourd"),
     "clay": ("b76b50", 0, 0.66, "ceramic"),
     "glaze": ("578d86", 0.13, 0.29, "ceramic"),
     "glass": ("84c5be", 0.16, 0.18, "glass"),
@@ -55,68 +56,6 @@ MATERIALS = {
     "moulding": ("433328", 0, 0.56, "timber"),
     "aged trim": ("71593b", 0.44, 0.48, "metal"),
 }
-
-
-@lru_cache(None)
-def maps(stock):
-    # A seamless, metric surface field. Height supplies the actual tangent
-    # normals; pores, scores and worn lacquer also vary roughness.
-    n = 512
-    rng = np.random.default_rng(27 + sum(map(ord, stock)))
-    y, x = np.mgrid[:n, :n] / n
-    noise = rng.normal(size=(n, n))
-
-    def field(sig):
-        a = gaussian_filter(rng.normal(size=(n, n)), sig, mode="wrap")
-        return a / max(a.std(), 1e-8)
-
-    blot = field(16)
-    fine = field(1.3)
-    if stock in ("timber", "cane"):
-        warp = 0.016 * np.sin(TAU * y) + 0.011 * field(29)
-        rings = (
-            0.5 + 0.5 * np.cos(TAU * (x * 15 + warp * 7 + 0.17 * np.sin(TAU * 2 * x)))
-        ) ** 3
-        pores = np.maximum(0, field((7, 0.9)) - 0.62)
-        h = 0.14 * rings + 0.16 * field((18, 1.5)) - 0.22 * pores + 0.04 * fine
-        col = 0.89 - 0.11 * rings + 0.024 * blot - 0.048 * pores
-    elif stock in ("baize", "panel"):
-        h = 0.07 * fine + 0.035 * noise
-        col = 0.93 + 0.016 * blot + 0.012 * fine
-    elif stock in ("metal", "enamel"):
-        filemarks = field((0.8, 18))
-        dents = np.maximum(0, field(4) - 0.7)
-        scores = np.maximum(0, filemarks - 1.45)
-        h = 0.20 * blot - 0.43 * dents - 0.38 * scores + 0.11 * fine
-        col = 0.88 + 0.054 * blot - 0.085 * dents - 0.09 * scores
-    elif stock in ("linen", "leather", "skin"):
-        weave = np.cos(TAU * x * 48) * np.cos(TAU * y * 46)
-        h = 0.22 * fine + 0.18 * noise + 0.35 * weave * (stock == "linen") + 0.12 * blot
-        col = 0.87 + 0.056 * blot + 0.04 * fine + 0.06 * weave * (stock == "linen")
-    else:
-        h = (
-            0.19 * fine
-            + 0.16 * blot
-            + 0.12 * np.cos(TAU * y * 21) * (stock == "ceramic")
-        )
-        col = 0.89 + 0.039 * blot + 0.036 * fine
-    col = np.clip(col, 0.4, 1)
-    stain = np.clip(blot - 0.35, 0, 2) * (0.042 if stock == "metal" else 0.019)
-    color = np.dstack([col - stain, col - 0.7 * stain, col - 0.3 * stain])
-    dx = (np.roll(h, -1, 1) - np.roll(h, 1, 1)) * 0.49
-    dy = (np.roll(h, -1, 0) - np.roll(h, 1, 0)) * 0.49
-    normals = np.dstack([-dx, dy, np.ones_like(h)])
-    normals = normals / np.linalg.norm(normals, axis=2)[:, :, None] * 0.5 + 0.5
-    rough = np.clip(0.84 + 0.075 * blot + 0.06 * fine, 0.48, 1)
-    orm = np.dstack([np.ones_like(h), rough, np.ones_like(h)])
-    imgs = []
-    for array in (color, normals, orm):
-        stream = BytesIO()
-        Image.fromarray(np.uint8(np.clip(array, 0, 1) * 255 + 0.5)).save(
-            stream, "JPEG", quality=87, subsampling=0
-        )
-        imgs.append(stream.getvalue())
-    return imgs
 
 
 def unit(p):
@@ -160,8 +99,9 @@ def tangents(points, normals, uv, faces):
 class Mesh:
     def __init__(self):
         self.parts = defaultdict(list)
+        self.morph = None
 
-    def surface(self, rows, mat, tile=0.28, flip=False):
+    def surface(self, rows, mat, tile=0.28, flip=False, along_u=False):
         a = V(rows)
         h, w = a.shape[:2]
         dp = np.gradient(a, axis=1)
@@ -170,14 +110,17 @@ class Mesh:
         if np.allclose(a[:, 0], a[:, -1]):
             norm[:, 0] = norm[:, -1] = norm[:, 0] + norm[:, -1]
         norm /= np.maximum(1e-12, np.linalg.norm(norm, axis=2)[:, :, None])
-        # Each section keeps its circumference and each stave its length in
-        # material coordinates. Enlarging a body increases its number of grains.
-        u = np.cumsum(np.linalg.norm(np.diff(a, axis=1), axis=2), axis=1)
-        v = np.cumsum(np.linalg.norm(np.diff(a, axis=0), axis=2), axis=0)
-        uv = (
-            np.stack((np.pad(u, ((0, 0), (1, 0))), np.pad(v, ((1, 0), (0, 0)))), axis=2)
-            / tile
+        # Fixed longitude prevents grain from spiralling as a turned part
+        # widens. Each section is still parameterised by distance along it.
+        u = np.pad(
+            np.cumsum(np.linalg.norm(np.diff(a, axis=1), axis=2), axis=1),
+            ((0, 0), (1, 0)),
         )
+        u *= np.mean(u[:, -1]) / np.maximum(u[:, -1, None], 1e-10)
+        v = np.r_[0, np.cumsum(np.linalg.norm(np.diff(a, axis=0), axis=2).mean(axis=1))]
+        uv = np.stack([u, np.broadcast_to(v[:, None], u.shape)], axis=2) / tile
+        if along_u:
+            uv = uv[:, :, ::-1]
         i = (np.arange(h - 1)[:, None] * w + np.arange(w - 1)[None, :]).ravel()
         faces = np.stack([i, i + 1, i + w, i + 1, i + w + 1, i + w], axis=1).reshape(
             -1, 3
@@ -227,18 +170,20 @@ class Mesh:
         r2 = r if r2 is None else r2
         self.turn(a, b - a, [(0, r), (length, r2)], mat, n)
 
-    def ball(self, c, size, mat, n=32):
+    def ball(self, c, size, mat, n=32, pole=Y):
         c = V(c)
         size = np.broadcast_to(size, (3,))
         a = np.linspace(0, TAU, n + 1)
-        circle = np.stack([np.cos(a), 0 * a, -np.sin(a)], axis=1)
+        axis = unit(V(pole))
+        u, v = axes(axis)
+        circle = np.cos(a)[:, None] * u + np.sin(a)[:, None] * v
         rows = [
-            c + size * (np.cos(lat) * circle + np.sin(lat) * Y)
+            c + size * (np.cos(lat) * circle + np.sin(lat) * axis)
             for lat in np.linspace(-1.566, 1.566, max(10, n // 2))
         ]
         self.surface(rows, mat)
-        self.cap(rows[0], -Y, mat)
-        self.cap(rows[-1], Y, mat)
+        self.cap(rows[0], -axis, mat)
+        self.cap(rows[-1], axis, mat)
 
     def ring(self, c, axis, r, t, mat, n=48):
         c = V(c)
@@ -256,18 +201,58 @@ class Mesh:
 
     def tube(self, points, r, mat, n=12):
         pts = V(points)
-        directions = np.gradient(pts, axis=0)
-        u, _ = axes(directions[0])
-        a = np.linspace(0, TAU, n + 1)
-        rows = []
-        for pt, dr in zip(pts, directions):
-            dr = unit(dr)
-            u = unit(u - dr * np.dot(dr, u))
-            v = np.cross(dr, u)
-            rows.append(pt + r * (np.cos(a)[:, None] * u + np.sin(a)[:, None] * v))
-        self.surface(rows, mat)
-        self.cap(rows[0], -unit(directions[0]), mat)
-        self.cap(rows[-1], unit(directions[-1]), mat)
+        pts = pts[np.r_[True, np.linalg.norm(np.diff(pts, axis=0), axis=1) > 1e-7]]
+        if len(pts) < 2:
+            return
+        closed = np.linalg.norm(pts[-1] - pts[0]) < 1e-6
+        if closed:
+            pts = pts[:-1]
+        delta = np.roll(pts, -1, axis=0) - pts
+        spacing = np.linalg.norm(delta, axis=1)
+        outgoing = delta / np.maximum(spacing[:, None], 1e-12)
+        incoming = np.roll(outgoing, 1, axis=0)
+        if not closed:
+            incoming[0] = outgoing[0]
+            outgoing[-1] = incoming[-1]
+        directions = incoming + outgoing
+        directions /= np.maximum(np.linalg.norm(directions, axis=1)[:, None], 1e-12)
+        # Carry the section frame by the minimum rotation between tangents.
+        # Join periodic sweeps with one matching ring and no overlapping end caps.
+        path = np.vstack([directions, directions[0]]) if closed else directions
+        u = axes(path[0])[0]
+        frames = [u]
+        for prev, cur in itertools.pairwise(path):
+            v = np.cross(prev, cur)
+            u = (
+                u
+                + np.cross(v, u)
+                + np.cross(v, np.cross(v, u)) / max(1e-8, 1 + np.dot(prev, cur))
+            )
+            u = unit(u - cur * np.dot(u, cur))
+            frames.append(u)
+        u = np.array(frames)
+        if closed:
+            twist = np.arctan2(
+                np.dot(path[0], np.cross(u[-1], u[0])), np.dot(u[-1], u[0])
+            )
+            angle = twist * np.r_[0, np.cumsum(spacing)] / sum(spacing)
+            u = (
+                u * np.cos(angle[:, None]) + np.cross(path, u) * np.sin(angle[:, None])
+            )[:-1]
+        v = np.cross(directions, u)
+        theta = np.linspace(0, TAU, n + 1)
+        # In tight engraving corners the cut narrows before the turn.
+        bend = np.sqrt(np.maximum(0, (1 - (incoming * outgoing).sum(axis=1)) * 0.5))
+        reach = np.minimum(spacing, np.roll(spacing, 1))
+        radii = np.minimum(r, 0.42 * reach / np.maximum(bend, 1e-6))
+        rows = pts[:, None, :] + radii[:, None, None] * (
+            u[:, None, :] * np.cos(theta)[None, :, None]
+            + v[:, None, :] * np.sin(theta)[None, :, None]
+        )
+        self.surface(np.concatenate([rows, rows[:1]]) if closed else rows, mat)
+        if not closed:
+            self.cap(rows[0], -directions[0], mat)
+            self.cap(rows[-1], directions[-1], mat)
 
     def case(self, c, size, mat, r=0.035):
         # Rolled corner returns and chamfered upper/lower edges.
@@ -293,7 +278,9 @@ class Mesh:
                         ]
                     )
             rows.append(np.vstack([points, points[0]]))
-        self.surface(rows, mat)
+        self.surface(
+            rows, mat, along_u=MATERIALS[mat][3] == "timber" and max(w, d) > h * 1.25
+        )
         self.cap(rows[0], -Y, mat)
         self.cap(rows[-1], Y, mat)
 
@@ -310,20 +297,25 @@ class Mesh:
             n=6,
         )
 
-    def rosette(self, c, axis, r, petals=8):
+    def rosette(self, c, axis, r, petals=8, pierced=False):
         c = V(c)
         axis = unit(V(axis))
         u, v = axes(axis)
-        self.turn(c, axis, [(-0.004, r), (0.001, r)], "ebony")
+        if not pierced:
+            self.turn(c, axis, [(-0.004, r), (0.001, r)], "ebony")
+        else:
+            for a in np.arange(petals) * TAU / petals:
+                dr = u * np.cos(a) + v * np.sin(a)
+                self.rod(c + dr * r * 0.25, c + dr * r * 0.96, r * 0.026, "walnut", n=7)
         for rr in [r * 0.95, r * 0.84, r * 0.28]:
             self.ring(c + axis * 0.004, axis, rr, r * 0.024, "brass")
         a = np.linspace(0, TAU, 65)
-        radius = r * (0.55 + 0.25 * np.cos(petals * a))
+        radius = r * (0.56 + 0.20 * np.cos(petals * a))
         self.tube(
             c
             + axis * 0.006
             + (np.cos(a)[:, None] * u + np.sin(a)[:, None] * v) * radius[:, None],
-            r * 0.028,
+            r * 0.018,
             "maple",
             7,
         )
@@ -422,53 +414,56 @@ class Asset:
             return len(doc["accessors"]) - 1
 
         mats = {}
-        images = {}
 
-        def material(name):
-            if name in mats:
-                return mats[name]
-            hexcolor, metal, rough, stock = MATERIALS[name]
-            if stock not in images:
-                ids = []
-                for k, blob in enumerate(maps(stock)):
-                    image = len(doc["images"])
-                    doc["images"].append(
-                        {
-                            "name": f"{stock} {('surface', 'relief', 'roughness')[k]}",
-                            "mimeType": "image/jpeg",
-                            "bufferView": block(blob),
-                        }
-                    )
-                    doc["textures"].append({"source": image})
-                    ids.append(len(doc["textures"]) - 1)
-                images[stock] = ids
-            base, norm, orm = images[stock]
-            rgb = [
-                ((int(hexcolor[i : i + 2], 16) / 255 + 0.055) / 1.055) ** 2.4
-                for i in (0, 2, 4)
-            ]
+        def material(name, featured):
+            identity = (name, featured)
+            if identity in mats:
+                return mats[identity]
+            color, metal, rough, stock = MATERIALS[name]
+            label = f"{self.key} {name}" if featured else name
+            maps = paint(
+                self.key if featured else "", name, color, metal, rough, stock, featured
+            )
+            ids = []
+            for i, blob in enumerate(maps):
+                image = len(doc["images"])
+                doc["images"].append(
+                    {
+                        "name": label + " " + ("albedo", "normal", "surface")[i],
+                        "mimeType": "image/jpeg" if i == 0 else "image/png",
+                        "bufferView": block(blob),
+                    }
+                )
+                doc["textures"].append({"source": image})
+                ids.append(image)
             pbr = {
-                "baseColorFactor": rgb + [1.0],
-                "baseColorTexture": {"index": base},
-                "metallicFactor": metal,
-                "roughnessFactor": rough,
-                "metallicRoughnessTexture": {"index": orm},
+                "baseColorTexture": {"index": ids[0]},
+                "metallicRoughnessTexture": {"index": ids[2]},
+                "metallicFactor": 1.0,
+                "roughnessFactor": 1.0,
             }
             entry = {
-                "name": name,
+                "name": label,
                 "pbrMetallicRoughness": pbr,
-                "normalTexture": {"index": norm, "scale": 0.72},
+                "normalTexture": {"index": ids[1]},
+                "occlusionTexture": {"index": ids[2], "strength": 0.55},
                 "doubleSided": True,
             }
             if stock == "lamp":
-                entry["emissiveFactor"] = [float(x) * 0.68 for x in rgb]
+                entry["emissiveFactor"] = [
+                    (int(color[j : j + 2], 16) / 255) ** 2.2 * 0.68 for j in [0, 2, 4]
+                ]
             if stock == "glass":
-                # Leave the far rim legible in viewers without transmission.
-                pbr["baseColorFactor"][-1] = 0.59
+                pbr["baseColorFactor"] = [
+                    1.0,
+                    1.0,
+                    1.0,
+                    0.29 if name == "glass" else 0.43,
+                ]
                 entry["alphaMode"] = "BLEND"
-            mats[name] = len(doc["materials"])
+            mats[identity] = len(doc["materials"])
             doc["materials"].append(entry)
-            return mats[name]
+            return mats[identity]
 
         lo = np.full(3, np.inf)
         hi = -lo
@@ -481,7 +476,29 @@ class Asset:
                 ancestor = self.parents[ancestor]
                 world += self.nodes[ancestor - 1][1]
             prim = []
-            for mat, parts in mesh.parts.items():
+            coatings = defaultdict(list)
+            for stock, parts in mesh.parts.items():
+                finish = paint_face(self.key, stock, name)
+                for p, n, uv, f in parts:
+                    featured = finish is not None and finish.fits(p, n)
+                    if featured:
+                        uv = finish.uv(p + world)
+                        if finish.plane == "y-turn":
+                            crossing = np.ptp(uv[f, 0], axis=1) > 0.5
+                            if np.any(crossing):
+                                seams = f[crossing].copy()
+                                low = uv[seams, 0] < 0.5
+                                verts, indices = np.unique(
+                                    seams[low], return_inverse=True
+                                )
+                                seams[low] = len(p) + indices
+                                f = f.copy()
+                                f[crossing] = seams
+                                p = np.vstack([p, p[verts]])
+                                n = np.vstack([n, n[verts]])
+                                uv = np.vstack([uv, uv[verts] + [1, 0]])
+                    coatings[stock, featured].append((p, n, uv, f))
+            for (mat, featured), parts in coatings.items():
                 vv, nn, uv, ff = zip(*parts)
                 offsets = np.cumsum([0] + [len(a) for a in vv[:-1]])
                 faces = np.concatenate([f + k for f, k in zip(ff, offsets)])
@@ -505,11 +522,25 @@ class Asset:
                             ),
                         },
                         "indices": accessor(faces.ravel(), "SCALAR", True, 34963),
-                        "material": material(mat),
+                        "material": material(mat, featured),
                     }
                 )
+                if mesh.morph is not None:
+                    displacement, normal_change = mesh.morph(pts, normals)
+                    prim[-1]["targets"] = [
+                        {
+                            "POSITION": accessor(
+                                displacement, "VEC3", target=34962, bounds=True
+                            ),
+                            "NORMAL": accessor(normal_change, "VEC3", target=34962),
+                        }
+                    ]
             assert prim, name
             doc["meshes"].append({"name": name, "primitives": prim})
+            if mesh.morph is not None:
+                doc["meshes"][-1].update(
+                    weights=[0.0], extras={"targetNames": ["Diaphragm"]}
+                )
             doc["nodes"].append(
                 {"name": name, "mesh": i, "translation": pivot.tolist()}
             )
@@ -524,6 +555,10 @@ class Asset:
             )
             # The exported instrument also has a usable resting pose in
             # viewers with playback disabled. Unused keys retain that pose.
+            if tr["lanes"] is not None:
+                doc["nodes"][tr["node"]].setdefault("extras", {})[
+                    "playingPositions"
+                ] = list(tr["lanes"])
             doc["nodes"][tr["node"]][channel] = values[0].tolist()
             if np.allclose(values, values[0], rtol=0, atol=1e-8):
                 continue
@@ -531,7 +566,8 @@ class Asset:
                 {
                     "input": accessor(times, "SCALAR", bounds=True),
                     "output": accessor(
-                        values, "VEC4" if channel == "rotation" else "VEC3"
+                        values,
+                        {"rotation": "VEC4", "weights": "SCALAR"}.get(channel, "VEC3"),
                     ),
                     "interpolation": "LINEAR",
                 }

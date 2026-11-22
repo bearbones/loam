@@ -73,9 +73,9 @@ def coil(m, c, axis, r, length, n, mat="copper"):
 
 def magnetar(asset):
     m = asset.fixed
-    console(m, [0, 0.14, 0], [1.30, 0.20, 0.64], "teal")
+    console(m, [0, 0.14, 0], [1.94, 0.20, 0.64], "teal")
     for i, (x, r, h) in enumerate(
-        [(-0.42, 0.235, 0.61), (0, 0.303, 0.68), (0.42, 0.209, 0.59)]
+        [(-0.65, 0.235, 0.61), (0, 0.303, 0.68), (0.62, 0.209, 0.59)]
     ):
         c = V([x, h, 0])
         m.turn(
@@ -115,7 +115,7 @@ def magnetar(asset):
         ],
         "wine",
     )
-    for x in [-0.47, -0.38, 0.38, 0.47]:
+    for x in [-0.71, -0.60, 0.57, 0.68]:
         knob(m, [x, 0.268, 0.225], 0.023)
 
 
@@ -144,8 +144,8 @@ def periapsis(asset):
             ]
         )
     m.surface(section, "navy")
-    m.cap(section[0], -X, "rose")
-    m.cap(section[-1], X, "rose")
+    m.cap(section[0], V([-np.cos(a[0]), 0, np.sin(a[0])]), "rose")
+    m.cap(section[-1], V([np.cos(a[-1]), 0, -np.sin(a[-1])]), "rose")
     for dr, mat, rr in [
         (-0.12, "brass", 0.006),
         (0, "copper", 0.016),
@@ -170,6 +170,8 @@ def periapsis(asset):
         "ivory",
     )
     p.ball([0, 0.039, r], [0.030, 0.027, 0.036], "ice")
+    p.rod([0, 0.033, r], [0, 0.004, r], 0.005, "bronze", n=12)
+    p.turn([0, 0.009, r], Z, [(-0.015, 0.009), (0.015, 0.009)], "bronze", 24)
     asset.drive(p, "selector", Y, 1.80, rest=-0.90, rate=7)
     for side in [-1, 1]:
         c = path(side * 1.01, r)
@@ -221,10 +223,22 @@ def choir(asset):
                 )
         knob(m, [x, 0.277, 0.179], 0.036)
     for i, x in enumerate(np.linspace(-0.34, 0.34, 8)):
-        p = asset.part("Formant shutter " + str(i), [x, 0.152, 0.326])
-        p.case(O, [0.07, 0.078, 0.012], "bronze", 0.005)
-        p.case([0, 0, -0.009], [0.047, 0.062, 0.008], "amber", 0.005)
-        asset.drive(p, "key", Y, 1.06, [i])
+        # A fixed lamp sits behind an outward-opening, edge-hinged shutter.
+        m.case([x, 0.152, 0.320], [0.063, 0.072, 0.009], "ebony", 0.004)
+        m.case([x, 0.152, 0.326], [0.052, 0.060, 0.005], "amber", 0.003)
+        root = V([x - 0.037, 0.152, 0.334])
+        for sign in [-1, 1]:
+            m.turn(
+                root + Y * sign * 0.043,
+                Y,
+                [(-0.006, 0.009), (0.006, 0.009)],
+                "brass",
+                16,
+            )
+        p = asset.part("Formant shutter " + str(i), root)
+        p.case([0.035, 0, 0], [0.070, 0.077, 0.006], "bronze", 0.003)
+        p.rod([0, -0.036, 0], [0, 0.036, 0], 0.006, "iron")
+        asset.drive(p, "key", Y, -1.15, [i])
     for x in [-0.50, 0.50]:
         lamp(m, [x, 0.151, 0.322], Z, 0.024)
     cable(
@@ -241,25 +255,19 @@ def choir(asset):
 
 def reel(asset, c, r, name, rate):
     p = asset.part(name, c)
+    # Slotted flanges let the observer see both the wound pack and the tape exit.
+    for z in [-0.040, 0.040]:
+        p.ring(Z * z, Z, r - 0.006, 0.006, "tin", 64)
+        for a in np.arange(5) * TAU / 5:
+            d = V([np.cos(a), np.sin(a), 0])
+            p.rod(d * 0.036 + Z * z, d * (r - 0.007) + Z * z, 0.011, "iron", 0.006)
     p.turn(
         O,
         Z,
-        [
-            (-0.047, r * 0.90),
-            (-0.037, r),
-            (-0.031, r),
-            (-0.028, r * 0.70),
-            (0.035, r * 0.70),
-            (0.038, r),
-            (0.046, r),
-        ],
-        "iron",
-        56,
+        [(-0.035, r * 0.69), (-0.028, r * 0.72), (0.028, r * 0.72), (0.035, r * 0.69)],
+        "leather",
+        64,
     )
-    for a in np.arange(5) * TAU / 5:
-        d = V([np.cos(a), np.sin(a), 0])
-        p.rod(d * 0.043 + Z * 0.047, d * r * 0.94 + Z * 0.047, 0.015, "maple", 0.010)
-        p.ball(d * r * 0.54 + Z * 0.050, [0.017, 0.017, 0.004], "ebony", 16)
     p.turn(O, Z, [(0.047, 0.041), (0.062, 0.045), (0.066, 0.028)], "brass", 20)
     asset.drive(p, "spin", Z, 1, rate=rate)
 
@@ -276,19 +284,51 @@ def cryotape(asset):
             "Oxide reel " + str(i + 1),
             2.7 if i == 0 else 3.31,
         )
-    pts = [
-        [-0.53, 0.467, 0.087],
-        [-0.512, 0.358, 0.087],
-        [-0.36, 0.269, 0.087],
-        [-0.19, 0.250, 0.087],
-        [0.01, 0.279, 0.087],
-        [0.234, 0.384, 0.087],
-        [0.242, 0.467, 0.087],
-    ]
-    m.tube(pts, 0.006, "leather", 8)
+    # The flat tape leaves each pack tangentially, wraps two guide rollers,
+    # and runs on the head faces with a free return path between the flanges.
+    y0 = 0.251
+    left = V([-0.50, 0.293])
+    right = V([0.211, 0.293])
+    guide = 0.042
+
+    def tangent(pack, roller, side):
+        axis = roller - pack
+        span = np.linalg.norm(axis)
+        axis /= span
+        d = (0.170 * 0.72 - guide) / span
+        normal = axis * d + side * V([-axis[1], axis[0]]) * np.sqrt(1 - d * d)
+        return pack + normal * (0.170 * 0.72), normal
+
+    a, la = tangent(V([-0.395, 0.467]), left, -1)
+    b, ra = tangent(V([0.105, 0.467]), right, 1)
+    arc_l = np.linspace(np.arctan2(la[1], la[0]) % (2 * np.pi), 1.5 * np.pi, 23)
+    arc_r = np.linspace(-np.pi / 2, np.arctan2(ra[1], ra[0]), 23)
+    path = np.vstack(
+        [
+            a,
+            left + guide * np.c_[np.cos(arc_l), np.sin(arc_l)],
+            right + guide * np.c_[np.cos(arc_r), np.sin(arc_r)],
+            b,
+        ]
+    )
+    z = 0.067
+    m.surface([[[x, y, z - 0.018], [x, y, z + 0.018]] for x, y in path], "leather")
+    for x, y in [left, right]:
+        m.turn(
+            [x, y, z],
+            Z,
+            [
+                (-0.030, guide + 0.003),
+                (-0.024, guide),
+                (0.024, guide),
+                (0.030, guide + 0.003),
+            ],
+            "tin",
+            36,
+        )
     for x in [-0.32, -0.19, -0.06]:
-        m.case([x, 0.271, 0.083], [0.062, 0.056, 0.068], "iron", 0.008)
-        m.case([x, 0.249, 0.100], [0.049, 0.012, 0.035], "silver", 0.004)
+        m.case([x, y0 - 0.027, z], [0.062, 0.040, 0.054], "iron", 0.008)
+        m.case([x, y0 - 0.005, z], [0.047, 0.010, 0.043], "silver", 0.004)
     m.turn(
         [0.475, 0.22, 0],
         Y,
@@ -346,8 +386,20 @@ def pulsar(asset):
     m.ring([0, 0.129, 0], Y, 0.39, 0.008, "brass")
     c = V([0, 0.55, 0])
     r = 0.355
-    m.tube([[-0.23, 0.135, 0], [-0.36, 0.29, 0], [-0.37, 0.55, 0]], 0.027, "bronze")
-    m.tube([[0.23, 0.135, 0], [0.36, 0.29, 0], [0.37, 0.55, 0]], 0.027, "bronze")
+    for side in [-1, 1]:
+        m.tube(
+            [
+                [side * 0.23, 0.135, -0.055],
+                [side * 0.37, 0.29, -0.055],
+                [side * 0.39, 0.55, -0.035],
+                [side * 0.385, 0.55, 0],
+            ],
+            0.021,
+            "bronze",
+        )
+    # The rear bearing supports the pulley and the optical disc on one shaft.
+    m.tube([[0, 0.135, -0.16], [0, 0.31, -0.153], [0, 0.55, -0.142]], 0.020, "bronze")
+    m.turn(c - Z * 0.14, Z, [(-0.015, 0.041), (0.022, 0.041)], "tin", 26)
     m.ring(c, Z, r + 0.025, 0.019, "bronze", 64)
     p = asset.part("Perforated star chart", c)
     for rr in [0.054, 0.094, 0.126, 0.162, 0.199, 0.238, 0.276, 0.313, 0.35]:
@@ -365,6 +417,7 @@ def pulsar(asset):
         a = i * TAU / 6
         p.rod(O, r * (X * np.cos(a) + Y * np.sin(a)), 0.0048, "iron")
     p.turn(O, Z, [(-0.036, 0.046), (0.025, 0.055), (0.039, 0.037)], "brass", 24)
+    p.rod(-Z * 0.162, Z * 0.029, 0.012, "iron", n=20)
     asset.drive(p, "spin", Z, 1, rate=1.43)
     # A visible splice in the belt travels around the motor and chart pulleys.
     motor = V([-0.20, 0.223, -0.082])

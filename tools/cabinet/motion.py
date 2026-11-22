@@ -62,7 +62,7 @@ def evaluate(track, events, duration, pivot):
                 on = ease((dt + 0.063) / 0.063) * (dt < 0)
                 ring = np.cos(age * 51) * np.exp(-age * 12) * (dt >= 0)
                 wave += (on + ring) * vol
-            elif kind == "ring":
+            elif kind in ("ring", "flex"):
                 wave += np.sin(age * 43) * np.exp(-age * 9) * vol
             elif kind == "bow":
                 end = e["duration"]
@@ -81,6 +81,9 @@ def evaluate(track, events, duration, pivot):
     if kind in ("slide", "press", "bow", "breathe"):
         channel = "translation"
         output = pivot + value[:, None] * axis
+    elif kind == "flex":
+        channel = "weights"
+        output = value[:, None]
     elif kind == "bellows":
         channel = "scale"
         output = 1 + value[:, None] * axis

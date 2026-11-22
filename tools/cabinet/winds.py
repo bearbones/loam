@@ -16,8 +16,8 @@ def pierced(m, c, profile, holes, material, wall=0.011, notch=0.0):
     levels, radii = V(profile).T
     curve = PchipInterpolator(levels, radii)
     aa, hh = np.meshgrid(
-        np.linspace(-np.pi, np.pi, 65),
-        np.unique(np.r_[levels, np.linspace(levels[0], levels[-1], 85)]),
+        np.linspace(-np.pi / 2, 3 * np.pi / 2, 65),
+        np.unique(np.round(np.r_[levels, np.linspace(levels[0], levels[-1], 85)], 9)),
     )
     points = np.c_[aa.ravel(), hh.ravel()]
     rims = []
@@ -31,7 +31,6 @@ def pierced(m, c, profile, holes, material, wall=0.011, notch=0.0):
         rims.append(np.c_[angle + r * np.cos(t) / curve(h), h + r * np.sin(t)])
     points = np.vstack([points] + [v[:-1] for v in rims])
     tri = Delaunay(points).simplices
-    points[tri].mean(axis=1)
     for angle, h, r in holes:
         tri = tri[~inside(points[tri].mean(axis=1), angle, h, r * 0.995)]
 
@@ -58,11 +57,11 @@ def pierced(m, c, profile, holes, material, wall=0.011, notch=0.0):
     for rim in rims:
         m.surface([coords(rim, wall), coords(rim, 0)], material)
     for h in [levels[0], levels[-1]]:
-        ring = np.c_[np.linspace(-np.pi, np.pi, 65), np.full(65, h)]
+        ring = np.c_[np.linspace(-np.pi / 2, 3 * np.pi / 2, 65), np.full(65, h)]
         m.surface([coords(ring, 0), coords(ring, wall)], material)
 
 
-def tube_pipe(m, c, h, r, mat="bamboo"):
+def tube_pipe(m, c, h, r, mat="bamboo", sealed=True):
     m.turn(
         c,
         Y,
@@ -72,13 +71,14 @@ def tube_pipe(m, c, h, r, mat="bamboo"):
             (h - 0.004, r),
             (h, r * 0.93),
             (h, r * 0.68),
-            (max(0.018, h - 2 * r), r * 0.66),
+            (0.008, r * 0.66),
         ],
         mat,
         24,
         False,
     )
-    m.turn(V(c) + (h - 2 * r) * Y, Y, [(0, r * 0.67), (0.001, r * 0.67)], "ebony", 20)
+    if sealed:
+        m.turn(V(c) + 0.006 * Y, Y, [(0, r * 0.89), (0.003, r * 0.68)], mat, 24)
 
 
 def pallet(asset, centre, r, normal, lanes):
@@ -90,7 +90,7 @@ def pallet(asset, centre, r, normal, lanes):
     m.rod(pivot - n * 0.042, pivot, 0.008, "brass")
     m.turn(pivot, v, [(-r * 0.45, 0.012), (r * 0.45, 0.012)], "bronze", 14)
     p = asset.part(f"Pallet {len(asset.nodes) + 1}", pivot)
-    reach = c - pivot + n * 0.009
+    reach = c - pivot + n * 0.006
     p.rod(O, reach, 0.0055, "bronze")
     p.turn(
         reach,
@@ -135,6 +135,7 @@ def shakuhachi(asset):
                 (h + 0.014, r),
             ],
             "bamboo",
+            caps=False,
         )
     for i in range(12):
         a = TAU * i / 12
@@ -156,8 +157,21 @@ def shakuhachi(asset):
         8,
     )
     for i, h in enumerate(heights):
-        pallet(asset, [0, h, 0.050], 0.017, Z, [i, (i + 2) % 6])
-    pallet(asset, [-0.014, 0.72, -0.041], 0.017, -Z, [4, 5])
+        pallet(
+            asset,
+            [0, h, float(PchipInterpolator(*V(profile).T)(h))],
+            0.017,
+            Z,
+            [i, (i + 2) % 6],
+        )
+    back = V([np.sin(np.pi - 0.38), 0, np.cos(np.pi - 0.38)])
+    pallet(
+        asset,
+        Y * 0.72 + back * float(PchipInterpolator(*V(profile).T)(0.72)),
+        0.017,
+        back,
+        [4, 5],
+    )
 
 
 def siku(asset):
@@ -264,7 +278,7 @@ def sheng(asset):
         rr = 0.115
         x, z = rr * np.sin(a), rr * np.cos(a)
         h = 0.46 + 0.58 * (0.5 + 0.5 * np.cos(a + 1.13)) + 0.034 * (i % 3)
-        tube_pipe(m, [x, 0.285, z], h, 0.021, "bamboo")
+        tube_pipe(m, [x, 0.285, z], h, 0.021, "bamboo", sealed=False)
         binding(m, [x, 0.32, z], Y, 0.023, 0.046, "bronze")
         binding(m, [x, 0.285 + h - 0.032, z], Y, 0.0215, 0.010, "leather")
         if i % 2 == 0:
@@ -355,6 +369,8 @@ def uilleann(asset):
         h = 0.51 + i * 0.053
         m.turn([0.21, h, 0.127], Z, [(0, 0.012), (0.003, 0.012)], "black", 16)
         pallet(asset, [0.21, h, 0.131], 0.011, Z, [i, (i + 2) % 8])
+    m.case([0.294, 0.344, 0.012], [0.244, 0.081, 0.10], "ebony", 0.019)
+    m.rod([0.168, 0.354, 0.050], [0.293, 0.344, 0.012], 0.034, "bronze", n=24)
     for i in range(3):
         x = 0.29 + 0.045 * i
         m.rod([x, 0.32, 0.012], [x, 0.78 - i * 0.08, 0.012], 0.019, "rose")
@@ -408,6 +424,8 @@ def serpent(asset):
             p + rr * (u * np.cos(angles)[:, None] + v * np.sin(angles)[:, None])
         )
     m.surface(rows, "leather")
+    # The stitched seam follows the bore, including its reversing bends.
+    m.tube([row[4] for row in rows], 0.0024, "cord", 7)
     m.surface(
         [
             rows[-1],

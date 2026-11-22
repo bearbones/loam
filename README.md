@@ -16,7 +16,8 @@ solo, an animated GLB, a Python voice and an SFZ patch. The models carry
 details you can inspect in motion, from the koto’s thirteen picking levers
 to the reader and rotating star chart on the Pulsar Navigation Loom.
 [Instrument list, controls and composition guide](docs/wayfarers-cabinet.md) ·
-[Recital and downloadable instruments](https://github.com/bearbones/loam/releases/tag/wayfarers-cabinet-2026-11-22)
+[Recital, workshop close-ups and animated models](https://github.com/bearbones/loam/releases/tag/wayfarers-workshop-finish-2026-11-22) ·
+[SFZ instrument bank](https://github.com/bearbones/loam/releases/download/wayfarers-cabinet-2026-11-22/wayfarer-samplers.zip)
 
 ## The library
 

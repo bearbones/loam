@@ -27,6 +27,27 @@ func check() -> void:
 		if anim.get_track_count()<stage.layouts[row.id].moving_tracks:
 			failures.append(row.id+" missing actuator tracks")
 		var parts: Array[Node]=stage.model.find_children("*","MeshInstance3D",true,false)
+		if row.id == "handpan":
+			var fields: Array[MeshInstance3D] = []
+			for part: MeshInstance3D in parts:
+				if part.get_blend_shape_count() == 1:
+					fields.append(part)
+			if fields.size() != 8:
+				failures.append("handpan missing formed tone fields")
+			var heard := {}
+			var flexed := {}
+			for attack in row.events:
+				heard[int(attack.lane)] = true
+				stage.evaluate(float(attack.t) + .035)
+				for field in fields:
+					if absf(field.get_blend_shape_value(0)) > .1:
+						flexed[field.name] = true
+			if flexed.size() != heard.size():
+				failures.append("handpan tone fields did not respond to their lanes")
+			stage.evaluate(0.)
+			for field in fields:
+				if absf(field.get_blend_shape_value(0)) > .001:
+					failures.append("handpan field did not return home")
 		var home: Array[Transform3D]=[]
 		stage.evaluate(0.)
 		for part: Node3D in parts: home.append(part.transform)

@@ -2,8 +2,9 @@
 
 import numpy as np
 
-from .fittings import binding, bow, cable, constellation, peg, plectrum, soundbox, wire
+from .fittings import binding, bow, constellation, peg, plectrum, soundbox, wire
 from .mesh import TAU, O, V, X, Y, Z
+from .panels import circle, panel
 
 
 def oud(asset):
@@ -17,14 +18,10 @@ def oud(asset):
         (0.86, 0.17),
         (0.98, 0.06),
     ]
-    soundbox(m, profile, 0.35)
-    # Long alternate bowl staves end at the same narrow neck block.
-    for i, a in enumerate(np.linspace(0.12, np.pi - 0.12, 13)):
-        line = [
-            [w * np.cos(a), h, -0.33 * np.sin(a) * (w / 0.385) ** 0.72 - 0.012]
-            for h, w in profile
-        ]
-        cable(m, line, "rose" if i == 7 else "maple", 0.0055)
+    ports = [(0, 0.59, 0.118), (-0.17, 0.45, 0.050), (0.17, 0.45, 0.050)]
+    soundbox(
+        m, profile, 0.35, holes=[circle(x, y, 0.95 * r) for x, y, r in ports], lute=True
+    )
     m.case([0, 1.11, -0.014], [0.125, 0.38, 0.055], "ebony", 0.02)
     m.tube(
         [[0, 1.27, -0.02], [0, 1.34, -0.03], [0, 1.44, -0.15], [0, 1.52, -0.23]],
@@ -34,16 +31,30 @@ def oud(asset):
     for i in range(6):
         for side in [-1, 1]:
             peg(m, [side * 0.025, 1.32 + i * 0.032, -0.025 - i * 0.033], side)
-    for x, y, r in [(0, 0.59, 0.118), (-0.17, 0.45, 0.050), (0.17, 0.45, 0.050)]:
-        m.rosette([x, y, 0.004], Z, r, 8)
+    for x, y, r in ports:
+        m.rosette([x, y, 0.002], Z, r, 8, pierced=True)
     m.case([0, 0.23, 0.019], [0.29, 0.046, 0.044], "rose", 0.014)
-    for i, x in enumerate(np.linspace(-0.092, 0.092, 11)):
-        lane = min(7, i * 8 // 11)
-        wire(asset, [x, 0.24, 0.046], [x * 0.50, 1.30, 0.045], [lane], radius=0.0025)
-    for i in range(4):
-        x = -0.095 + i * 0.061
+    courses = np.linspace(-0.092, 0.092, 11)
+    assignments = np.arange(11) * 8 // 11
+    for i, x in enumerate(courses):
+        wire(
+            asset,
+            [x, 0.24, 0.046],
+            [x * 0.50, 1.30, 0.045],
+            [int(assignments[i])],
+            radius=0.0022,
+            draw=-Z,
+            travel=0.004,
+        )
+    for lane in range(8):
+        group = courses[assignments == lane] * (1 - 0.5 * (0.30 - 0.24) / (1.30 - 0.24))
+        x = group.mean()
         plectrum(
-            asset, [x - 0.018, 0.219, 0.052], [x, 0.30, 0.048], range(i * 2, i * 2 + 2)
+            asset,
+            [x, 0.216, 0.053],
+            [x, 0.30, 0.0485],
+            [lane],
+            blade_span=np.ptp(group) * 0.5 + 0.0015,
         )
     # A marquetry moth with one replacement wing in copper.
     centre = V([0.195, 0.31, 0.004])
@@ -77,6 +88,28 @@ def fingerboard(m, y0, y1, width):
 
 def fiddle(asset, keyed):
     m = asset.fixed
+    port_y = np.linspace(0.27, 0.44, 32)
+    curves = []
+    for side in [-1, 1]:
+        centre = side * (
+            0.120
+            + 0.012 * np.sin(np.linspace(0, TAU * 1.15, 32))
+            - 0.033 * np.linspace(0, 1, 32)
+        )
+        widths = (
+            0.003
+            + 0.006 * np.sin(np.linspace(0, np.pi, 32))
+            + 0.006 * np.exp(-(((port_y - 0.279) / 0.008) ** 2))
+            + 0.006 * np.exp(-(((port_y - 0.43) / 0.007) ** 2))
+        )
+        curves.append(
+            np.vstack(
+                [
+                    np.c_[centre - widths, port_y],
+                    np.c_[(centre + widths)[::-1], port_y[::-1]],
+                ]
+            )
+        )
     if keyed:
         profile = [
             (0.02, 0.09),
@@ -87,7 +120,7 @@ def fiddle(asset, keyed):
             (0.65, 0.13),
             (0.76, 0.084),
         ]
-        soundbox(m, profile, 0.155, "rose")
+        soundbox(m, profile, 0.155, "rose", holes=curves)
     else:
         profile = [
             (0.02, 0.04),
@@ -100,7 +133,7 @@ def fiddle(asset, keyed):
             (0.66, 0.17),
             (0.76, 0.055),
         ]
-        soundbox(m, profile, 0.13, "maple")
+        soundbox(m, profile, 0.13, "maple", holes=curves)
     fingerboard(m, 0.44, 1.13, 0.095 if not keyed else 0.13)
     m.case([0, 0.17, 0.048], [0.092, 0.19, 0.053], "ebony", 0.02)
     m.case([0, 0.35, 0.067], [0.165, 0.029, 0.112], "maple", 0.012)
@@ -124,20 +157,6 @@ def fiddle(asset, keyed):
     for i in range(10 if keyed else 4):
         x = (i - (4.5 if keyed else 1.5)) * 0.008
         m.rod([x, 0.16, 0.058], [x, 1.19, 0.060], 0.0016, "brass", n=6)
-    for side in [-1, 1]:
-        cable(
-            m,
-            [
-                [side * 0.142, 0.27, 0.006],
-                [side * 0.12, 0.30, 0.006],
-                [side * 0.145, 0.35, 0.006],
-                [side * 0.126, 0.405, 0.006],
-                [side * 0.145, 0.44, 0.006],
-            ],
-            "ebony",
-            0.009,
-        )
-        m.ball([side * 0.145, 0.44, 0.008], 0.016, "ebony", 16)
     if keyed:
         m.case([-0.035, 0.77, -0.002], [0.245, 0.70, 0.078], "walnut")
         for i in range(14):
@@ -160,12 +179,20 @@ def fiddle(asset, keyed):
             constellation(m, [x, y, 0.005], X, Y, r, "ivory", 9)
     # Carved open spiral and cream eye on the head.
     a = np.linspace(0.1, TAU * 1.46, 64)
-    rad = np.linspace(0.068, 0.009, len(a))
+    rad = np.linspace(0.073, 0.012, len(a))
     m.tube(
-        np.c_[rad * np.cos(a), 1.32 + rad * np.sin(a), np.zeros(len(a))], 0.017, "maple"
+        np.c_[
+            rad * np.cos(a), 1.32 + rad * np.sin(a), np.linspace(-0.012, 0.012, len(a))
+        ],
+        0.011,
+        "maple",
     )
     m.ball([0, 1.324, 0.013], [0.017, 0.020, 0.011], "ice" if not keyed else "ivory")
-    bow(asset, [0, 0.402, 0.13], 0.67)
+    bow(
+        asset,
+        [0, 0.402, 0.13 + (0.102 - 0.13) * (0.402 - 0.35) / (1.14 - 0.35) + 0.0041],
+        0.67,
+    )
 
 
 def nyckelharpa(asset):
@@ -200,13 +227,20 @@ def koto(asset):
                 [x + side * 0.034, yy, zz], [x, yy + 0.088, zz], 0.012, "ivory", 0.008
             )
         m.rod([x - 0.008, yy + 0.086, zz], [x + 0.01, yy + 0.086, zz], 0.010, "ivory")
-        end = np.array([0.93, 0.245, zz])
+        end = np.array([0.93, top(0.93, zz) + 0.036, zz])
         peak = np.array([x, yy + 0.093, zz])
         wire(asset, peak, end, [i], radius=0.0024, draw=Z)
-        m.rod([-0.97, 0.235, zz], peak, 0.0022, "silver", n=7)
+        m.rod([-0.97, top(-0.97, zz) + 0.034, zz], peak, 0.0022, "silver", n=7)
         m.turn(end, Y, [(-0.019, 0.008), (0.015, 0.008)], "bronze", 10)
         tip = peak + (end - peak) * ((0.81 - x) / (0.93 - x))
-        root = V([0.957, 0.265, zz])
+        root = V([0.967, end[1] + 0.019, zz])
+        m.rod(
+            [-0.97, top(-0.97, zz), zz],
+            [-0.97, top(-0.97, zz) + 0.034, zz],
+            0.007,
+            "brass",
+            n=12,
+        )
         m.rod([0.957, 0.203, zz], root, 0.007, "brass")
         plectrum(asset, root, tip, [i], Y)
     for side in [-1, 1]:
@@ -248,7 +282,7 @@ def kora(asset):
         (0.087 - 0.405 * np.cos(a), r * np.sin(a))
         for a in np.linspace(0.025, np.pi / 2, 30)
     ]
-    m.turn(c, Z, shell, "clay", 64, False)
+    m.turn(c, Z, shell, "gourd", 64, False)
     m.turn(c, Z, [(0.055, r * 0.91), (0.09, r), (0.102, r * 0.985)], "skin", 64)
     m.ring(c + Z * 0.098, Z, r * 0.97, 0.009, "leather")
     for i in range(44):
@@ -281,6 +315,7 @@ def kora(asset):
         yy = 0.69 + i * 0.038
         end = [side * 0.023, yy, -0.053 - (yy - 0.7) * 0.06]
         peak = [side * 0.020, 0.34 + j * 0.009, 0.20 + j * 0.0138]
+        m.rod([0, peak[1], peak[2]], peak, 0.0038, "ivory", n=9)
         binding(m, [0, yy, -0.052 - (yy - 0.7) * 0.06], Y, 0.031, 0.016, "leather")
         if i in played:
             lane = played[i]
@@ -304,6 +339,14 @@ def kora(asset):
 
 def dulcimer(asset):
     m = asset.fixed
+    a = np.linspace(0, TAU, 60, endpoint=False)
+    heart = np.c_[
+        0.042 * np.sin(a) ** 3,
+        0.33
+        + 0.003
+        * (13 * np.cos(a) - 5 * np.cos(2 * a) - 2 * np.cos(3 * a) - np.cos(4 * a)),
+    ]
+    ports = [heart + [x, 0] for x in [-0.134, 0.134]]
     soundbox(
         m,
         [
@@ -320,22 +363,17 @@ def dulcimer(asset):
         ],
         0.115,
         "rose",
+        holes=ports,
     )
     fingerboard(m, 0.12, 1.18, 0.088)
     for i in range(14):
         y = 0.33 + (1 - 0.92**i) * 1.12
         m.rod([-0.045, y, 0.080], [0.045, y, 0.080], 0.003, "silver", n=8)
-    for x in [-0.134, 0.134]:
-        a = np.linspace(0, TAU, 51)
-        pts = np.c_[
-            x + 0.042 * np.sin(a) ** 3,
-            0.33
-            + 0.003
-            * (13 * np.cos(a) - 5 * np.cos(2 * a) - 2 * np.cos(3 * a) - np.cos(4 * a)),
-            0 * a + 0.003,
-        ]
-        m.cap(np.vstack([pts, pts[0]]), Z, "ebony")
-        m.tube(pts, 0.003, "brass", 7)
+    for contour in ports:
+        # Stop the two inlay strips short of the acute cleft and point.
+        for section in [contour[3:28], contour[33:58]]:
+            edge = np.c_[section, np.full(len(section), 0.0013)]
+            m.tube(edge, 0.00125, "brass", 7)
     m.case([0, 1.21, 0.025], [0.13, 0.15, 0.09], "walnut")
     for i, x in enumerate([-0.033, -0.011, 0.016, 0.028]):
         wire(
@@ -343,6 +381,7 @@ def dulcimer(asset):
             [x, 0.14, 0.102],
             [x, 1.18, 0.099],
             range(8) if i < 2 else range(i - 2, 8, 2),
+            travel=0.0032,
         )
         peg(m, [0.036 * (-1) ** i, 1.16 + i * 0.036, 0.022], (-1) ** i)
     # Forked tail and swept wing of the valley maker's swallow.
@@ -360,7 +399,10 @@ def dulcimer(asset):
         (-0.038, -0.012),
         (-0.049, 0.025),
     ]
-    m.tube([motif + x * X + y * Y for x, y in outline], 0.0025, "copper", 8)
+    xy, tri, _ = panel(np.asarray(outline[:-1]), [])
+    pts = motif + np.c_[xy, np.zeros(len(xy))]
+    m.parts["copper"].append((pts, np.broadcast_to(Z, pts.shape), xy / 0.28, tri))
+    m.ball(motif + [0.024, 0.004, 0.0006], 0.002, "ebony", 10)
     plectrum(asset, [-0.081, 0.187, 0.034], [-0.015, 0.21, 0.102], range(8))
 
 
@@ -406,7 +448,10 @@ def gurdy(asset):
     wheel.rod([0.083, -0.31, 0], [0.083, -0.37, 0], 0.019, "ebony")
     asset.drive(wheel, "spin", Y, 1.0, rate=4.8)
     for x in [-0.058, -0.024, 0.03, 0.068]:
-        m.rod([x, 0.12, 0.151], [x, 0.38, 0.151], 0.0024, "silver", n=7)
+        height = 0.042 + np.sqrt(0.122**2 - x * x) + 0.0024
+        m.rod([x, 0.12, height], [x, 0.38, height], 0.0024, "silver", n=7)
+        for y in [0.12, 0.38]:
+            m.rod([x, y, 0.001], [x, y, height - 0.0024], 0.0048, "ivory", n=12)
     for j in [-1, 1]:
         m.rosette([j * 0.172, 0.246, 0.006], Z, 0.046, 7)
     angles = np.linspace(-0.76, 0.76, 33)
